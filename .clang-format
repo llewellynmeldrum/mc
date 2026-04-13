@@ -1,0 +1,19 @@
+BasedOnStyle: LLVM
+
+ColumnLimit: 100                  # LLVM uses 80
+IndentWidth: 4                    # LLVM uses 2
+TabWidth: 4                       # LLVM uses 8
+PointerAlignment: Left            # LLVM uses Right
+SpacesBeforeTrailingComments: 2   # LLVM uses 1
+
+Cpp11BracedListStyle: Block
+
+KeepEmptyLines:
+    AtEndOfFile:     false
+    AtStartOfBlock:  true
+    AtStartOfFile:   true
+
+AllowShortBlocksOnASingleLine: Never
+AlignConsecutiveDeclarations: true
+AllowShortFunctionsOnASingleLine: InlineOnly
+

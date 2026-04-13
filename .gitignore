@@ -1,0 +1,7 @@
+*.o
+*.d
+.*
+compile_commands.json
+todo.md
+bin/*
+!.gitignore
