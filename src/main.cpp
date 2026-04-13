@@ -11,31 +11,29 @@
 #include "linmath.h"
 u64 program_epoch_ns;
 
-typedef struct Vertex
-{
+struct Vertex {
     vec2 pos;
     vec3 col;
-} Vertex;
+};
+
  
-static const Vertex vertices[3] =
-{
+static const Vertex vertices[3] = {
     { { -0.6f, -0.4f }, { 1.f, 0.f, 0.f } },
     { {  0.6f, -0.4f }, { 0.f, 1.f, 0.f } },
     { {   0.f,  0.6f }, { 0.f, 0.f, 1.f } }
 };
  
 static const char* vertex_shader_text =
-"#version 330\n"
-"uniform mat4 MVP;\n"
-"in vec3 vCol;\n"
-"in vec2 vPos;\n"
-"out vec3 color;\n"
-"void main()\n"
-"{\n"
-"    gl_Position = MVP * vec4(vPos, 0.0, 1.0);\n"
-"    color = vCol;\n"
-"}\n";
- 
+"#version 330                                               \n"
+"uniform mat4 MVP;                                          \n"
+"in vec3 vCol;                                              \n"
+"in vec2 vPos;                                              \n"
+"out vec3 color;                                            \n"
+"void main()                                                \n"
+"{                                                          \n"
+"    gl_Position = MVP * vec4(vPos, 0.0, 1.0);              \n"
+"    color = vCol;                                          \n"
+"}                                                          \n";
 static const char* fragment_shader_text =
 "#version 330\n"
 "in vec3 color;\n"
@@ -65,14 +63,19 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     GLFWwindow* window = glfwCreateWindow(640, 480, "Window Title", NULL, NULL);
-    if (!window)
-    {
+    if (!window) {
         glfwTerminate();
         LOG_ERROR("Failed to initialize GLFW.");
         LOG_EXIT(EXIT_FAILURE);
     }
     glfwSetKeyCallback(window, key_callback);
     glfwMakeContextCurrent(window);
+    const GLFWvidmode* display_mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    LOG_DEBUG("{}x{}",display_mode->width,display_mode->height);
+    glfwSetWindowPos(window,0,0);
+    i32 width = display_mode->width / 2;
+    i32 height = display_mode->height;
+    glfwSetWindowSize(window, width,height);
     gladLoadGL(glfwGetProcAddress);
     glfwSwapInterval(1);
 
@@ -119,7 +122,7 @@ int main(int argc, char** argv) {
  
         mat4x4 m, p, mvp;
         mat4x4_identity(m);
-        mat4x4_rotate_Z(m, m, (float) glfwGetTime());
+//        mat4x4_rotate_Z(m, m, (float) glfwGetTime());
         mat4x4_ortho(p, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
         mat4x4_mul(mvp, p, m);
  

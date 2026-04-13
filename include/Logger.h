@@ -173,14 +173,14 @@ static inline void log_internal(LogLevel level, const char* filename, int line, 
 }
 
 #define SETLOG_SHOWFUNCTIONS(val) log_settings.showFunctions = val;
-#define LOG_LVL(lvl,file, ln, fmt, ...)         std::println("{:03.3f} {}{:<8}{} {}{}:{:<3}{} {}|{} " fmt,\
+#define LOG_LVL(lvl,file, ln, fmt, ...)         std::println("{:03.3f} {}{:<8}{} {}{}:{:<3}{} {}{}| " fmt,\
                                                  ms_since_start()/1000.0,\
                                                  FMT_LOGLEVEL_COLORS[lvl],\
                                                  loglevel_tostr[lvl],FMT_CLEAR,\
                                                  BOLD, file,ln,FMT_CLEAR,FMT_LOGLEVEL_COLORS[lvl],FMT_CLEAR,\
                                                  ##__VA_ARGS__)
 
-#define LOG_DEBUG(fmt, ...) LOG_LVL(LogLevel_DEBUG, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_LVL(LogLevel_DEBUG, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
 #define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
 #define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
