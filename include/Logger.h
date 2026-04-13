@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <print>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -114,12 +115,12 @@ static const char* FMT_LOGLEVEL_COLORS[] = {
 static const char* loglevel_tostr[] = { 
     "[DEBUG]", 
     "[DEBUG-RET]", 
-    " [INFO]",
-    "[NOTIF]",
-    " [WARN]",
+    "[INFO_]",
+    "[NOTE_]",
+    "[WARN_]",
     "[ERROR]",
     "[FATAL]",
-    "  [N/A]",
+    "[N/A]  ",
     "[EXIT]",
     "[EXIT]", 
 };
@@ -172,13 +173,20 @@ static inline void log_internal(LogLevel level, const char* filename, int line, 
 }
 
 #define SETLOG_SHOWFUNCTIONS(val) log_settings.showFunctions = val;
-// clang-format off
-#define LOG_DEBUG(fmt, ...)         log_internal(LogLevel_DEBUG,   __FILE_NAME__, __LINE__, fmt,  ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...)          log_internal(LogLevel_INFO,    __FILE_NAME__, __LINE__, fmt,   ##__VA_ARGS__)
-#define LOG_NOTICE(fmt, ...)        log_internal(LogLevel_NOTICE,  __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...)          log_internal(LogLevel_WARN,    __FILE_NAME__, __LINE__, fmt,   ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...)         log_internal(LogLevel_ERROR,   __FILE_NAME__, __LINE__, fmt,  ##__VA_ARGS__)
-#define LOG_FATAL(fmt, ...)         log_internal(LogLevel_FATAL,    __FILE_NAME__, __LINE__, fmt,  ##__VA_ARGS__)
+#define LOG_LVL(lvl,file, ln, fmt, ...)         std::println("{:03.3f} {}{:<8}{} {}{}:{:<3}{} {}|{} " fmt,\
+                                                 ms_since_start()/1000.0,\
+                                                 FMT_LOGLEVEL_COLORS[lvl],\
+                                                 loglevel_tostr[lvl],FMT_CLEAR,\
+                                                 BOLD, file,ln,FMT_CLEAR,FMT_LOGLEVEL_COLORS[lvl],FMT_CLEAR,\
+                                                 ##__VA_ARGS__)
+
+#define LOG_DEBUG(fmt, ...) LOG_LVL(LogLevel_DEBUG, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+
 #define LOG_EXIT(code)              log_internal(code+LogLevel__COUNT,             __FILE_NAME__, __LINE__, "Exiting. (Code:%d)",code)
 
 
