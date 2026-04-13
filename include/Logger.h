@@ -187,6 +187,8 @@ static inline void log_internal(LogLevel level, const char* filename, int line, 
 #define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
 #define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
 
-#define LOG_EXIT(code)              log_internal(code+LogLevel__COUNT,             __FILE_NAME__, __LINE__, "Exiting. (Code:%d)",code)
-
+#define LOG_EXIT(code) do{\
+LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,"Exiting with code {}.",code);\
+exit(code);\
+}while(0)
 
