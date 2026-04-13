@@ -10,13 +10,15 @@
 mkdir ./resources
 wget https://registry.khronos.org/OpenGL/xml/gl.xml -O resources/gl.xml
 ```
-4. run the script. It will generate a `annotated_gl.h` file, which you just need to include after `glad/gl.h`.
+4. run the script: `python3 ./scripts/annotate_glad_header.py`
+
+It will generate a `annotated_gl.h` file, which you just need to include after `glad/gl.h`.
 Example output
 ```cpp
 //  @param n
 //  @param programs, len: n
 //  @param residences, len: n
-	GLboolean glAreProgramsResidentNV(GLsizei n, const GLuint *programs, GLboolean *residences){
+	inline GLboolean glAreProgramsResidentNV(GLsizei n, const GLuint *programs, GLboolean *residences){
 		return     glad_debug_glAreProgramsResidentNV(n, programs, residences);
 	}
 ```
