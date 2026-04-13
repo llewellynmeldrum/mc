@@ -162,7 +162,7 @@ def print_remapped_signature(cmd: Command):
     res = ""
     res += f"{FN_PROLOGUE}\n"
     res += f"{cmd.comments}"
-    res += f"\t{cmd}"
+    res += f"\tinline {cmd}"
     res += "{\n\t"
     if cmd.return_t != "void":
         res += "\treturn "
@@ -184,8 +184,8 @@ def parseKinds(file):
     return kinds
 
 
-kinds: Dict[str, str] = parseKinds("../resources/gl.xml")
-wrapperCommands: List[Command] = parseCommands("../resources/gl.xml")
+kinds: Dict[str, str] = parseKinds("./resources/gl.xml")
+wrapperCommands: List[Command] = parseCommands("./resources/gl.xml")
 # for key, value in kinds.items():
 #    print(f"{key}: {value}")
 for cmd in wrapperCommands:
