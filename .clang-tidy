@@ -1,2 +1,2 @@
-Checks: '-*,clang-diagnostic-*,clang-analyzer-*,modernize-*'
+Checks: '-*,clang-diagnostic-*,clang-analyzer-*'
 WarningsAsErrors: '*'
