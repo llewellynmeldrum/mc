@@ -12,7 +12,7 @@ wget https://registry.khronos.org/OpenGL/xml/gl.xml -O resources/gl.xml
 ```
 4. run the script: `python3 ./scripts/annotate_glad_header.py`
 
-It will generate a `annotated_gl.h` file, which you just need to include after `glad/gl.h`.
+It will generate a `annotated_gl.h` file (inside `./include`), which you just need to include after `glad/gl.h`.
 Example output
 ```cpp
 //  @param n
