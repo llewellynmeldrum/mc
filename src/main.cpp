@@ -3,6 +3,7 @@
 #include "Types.h"
 #define GLAD_GL_IMPLEMENTATION
 #include <glad/gl.h>
+
 #include "annotated_gl.h"
 
 #define GLFW_INCLUDE_NONE
@@ -52,7 +53,6 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
-
 
 int main(int argc, char** argv) {
     program_epoch_ns = get_current_ns();
