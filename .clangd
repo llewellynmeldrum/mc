@@ -1,2 +1,4 @@
+Hover:
+  ShowAKA: Yes
 Documentation:
-  CommentFormat: Markdown
+  CommentFormat: Doxygen
