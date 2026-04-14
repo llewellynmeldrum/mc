@@ -72,11 +72,10 @@ int main(int argc, char** argv) {
     glfwSetKeyCallback(window, key_callback);
     glfwMakeContextCurrent(window);
     const GLFWvidmode* display_mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    LOG_DEBUG("{}x{}",display_mode->width,display_mode->height);
-    glfwSetWindowPos(window,0,0);
     i32 width = display_mode->width / 2;
     i32 height = display_mode->height;
     glfwSetWindowSize(window, width,height);
+    glfwSetWindowPos(window,0,0);
     gladLoadGL(glfwGetProcAddress);
     glfwSwapInterval(1);
 
