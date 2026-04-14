@@ -181,11 +181,11 @@ static inline void log_internal(LogLevel level, const char* filename, int line, 
                                                  ##__VA_ARGS__)
 
 #define LOG_DEBUG(fmt, ...) LOG_LVL(LogLevel_DEBUG, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
 
 #define LOG_EXIT(code) do{\
 LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,"Exiting with code {}.",code);\
