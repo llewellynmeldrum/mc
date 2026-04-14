@@ -1,16 +1,10 @@
 #pragma once
 
-#include <ctype.h>
-#include <errno.h>
 #include <print>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cxxabi.h>
+#include <memory>
 
 #include "Types.h"
-#include <time.h>
 
 extern u64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
                               // main begins.
@@ -181,14 +175,73 @@ static inline void log_internal(LogLevel level, const char* filename, int line, 
                                                  ##__VA_ARGS__)
 
 #define LOG_DEBUG(fmt, ...) LOG_LVL(LogLevel_DEBUG, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
-#define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, #__VA_ARGS__)
+#define LOG_INFO(fmt, ...) LOG_LVL(LogLevel_INFO, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_NOTICE(fmt, ...) LOG_LVL(LogLevel_NOTICE, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...) LOG_LVL(LogLevel_WARN, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_LVL(LogLevel_ERROR, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
+#define LOG_FATAL(fmt, ...) LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,fmt, ##__VA_ARGS__)
 
 #define LOG_EXIT(code) do{\
 LOG_LVL(LogLevel_FATAL, __FILE_NAME__,__LINE__ ,"Exiting with code {}.",code);\
 exit(code);\
 }while(0)
+
+#include <concepts>
+#include <format>
+#include <print>
+#include <string>
+#include <string_view>
+#include <type_traits>
+
+template <typename T>
+constexpr std::string_view pretty_type_name() {
+#if defined(__clang__)
+    std::string_view p = __PRETTY_FUNCTION__;
+    auto start = p.find("T = ");
+    start += 4;
+    auto end = p.rfind(']');
+    return p.substr(start, end - start);
+
+#elif defined(__GNUC__)
+    std::string_view p = __PRETTY_FUNCTION__;
+    auto start = p.find("with T = ");
+    start += 9;
+    auto end = p.find(';', start);
+    return p.substr(start, end - start);
+
+#else
+    return "unsupported compiler";
+#endif
+}
+
+template <typename T>
+concept Formattable = std::formattable<std::remove_cvref_t<T>, char>;
+
+// returns a string containing the type and value category, i.e the type that is passed with perfect forwarding
+template <typename T>
+std::string fmt_expr(const char* identifier, T&& expr) {
+    using Arg = std::remove_reference_t<T>;
+
+    if constexpr (Formattable<T>) {
+        return std::format("{} {} = {}", pretty_type_name<Arg>(), identifier, expr);
+    } else {
+        return std::format("{} {} = <unformattable tomato>", pretty_type_name<Arg>(), identifier);
+    }
+}
+
+// returns a string containing the underlying type of the object expr represents. No value categories.
+template <typename T>
+std::string fmt_obj(const char* identifier, T&& expr) {
+    using Arg = std::remove_reference_t<T>;
+
+    if constexpr (Formattable<T>) {
+        return std::format("{} {} = {}", pretty_type_name<Arg>(), identifier, expr);
+    } else {
+        return std::format("{} {} = <unformattable tomato>", pretty_type_name<Arg>(), identifier);
+    }
+}
+
+#define LOG_EXPR(expr) std::println("{}", fmt_expr(#expr, (expr)))
+
+
 
