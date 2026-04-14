@@ -1,2 +1,12 @@
-Checks: '-*,clang-diagnostic-*,clang-analyzer-*'
+Checks: > 
+  -*,
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard
+
+
 WarningsAsErrors: '*'
+HeaderFileExtensions: [hpp]
+

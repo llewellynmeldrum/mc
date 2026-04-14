@@ -7,19 +7,6 @@
 
 UNAME := $(shell uname)
 
-ifeq ($(UNAME),Darwin)
-	CXX      := clang++
-	CC       := clang
-	DEBUGGER := lldb
-	GL_LIBS  := -framework OpenGL
-else ifeq ($(UNAME),Linux)
-	CXX      := clang++-22
-	CC       := clang-22
-	DEBUGGER := gdb
-	GL_LIBS  := -lGL
-else
-	$(error Unsupported platform.)
-endif
 
 # --------------------------------------------------
 # Project layout
@@ -50,9 +37,9 @@ CXXFLAGS += -Wno-unused
 CXXFLAGS += -MMD -MP
 CXXFLAGS += $(shell pkg-config --cflags glfw3)
 
+
 CFLAGS := -Wall -Werror
 CFLAGS += -Wimplicit-fallthrough
-CFLAGS += -Wno-unused
 CFLAGS += -MMD -MP
 
 # Formatting of compiler errors (and sanitizers)
@@ -71,8 +58,30 @@ CFLAGS += -fdiagnostics-fixit-info
 # Add GLFW here if you are linking it manually.
 
 LDFLAGS :=
-LDLIBS := -lstdc++ $(GL_LIBS) $(shell pkg-config --libs glfw3)
+LDLIBS := $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
+ifeq ($(UNAME),Darwin)
+	CC       := clang
+	DEBUGGER := lldb
+	GL_LIBS  := -framework OpenGL
+	LLVM_PREFIX := /opt/homebrew/opt/llvm
+	SDKROOT     := $(shell xcrun --show-sdk-path)
+
+	CXX         := $(LLVM_PREFIX)/bin/clang++
+	CPPFLAGS    += -D_LIBCPP_DISABLE_AVAILABILITY
+	CXXFLAGS    += -std=c++23 -isysroot $(SDKROOT) -Wno-unused 
+	LDFLAGS     += -isysroot $(SDKROOT)
+	LDFLAGS     += -L$(LLVM_PREFIX)/lib/c++ -L$(LLVM_PREFIX)/lib/unwind
+	LDFLAGS     += -Wl,-rpath,$(LLVM_PREFIX)/lib/c++ -Wl,-rpath,$(LLVM_PREFIX)/lib/unwind
+	LDLIBS      += -lunwind
+else ifeq ($(UNAME),Linux)
+	CXX      := clang++-22
+	CC       := clang-22
+	DEBUGGER := gdb
+	GL_LIBS  := -lGL
+else
+	$(error Unsupported platform.)
+endif
 # --------------------------------------------------
 
 all: run
