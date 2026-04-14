@@ -156,13 +156,12 @@ def true_function_call(cmd: Command):
 
 def print_remapped_signature(cmd: Command):
     cmd.function_name = get_true_function_name(cmd)
-    FN_PROLOGUE = f"#ifdef {cmd.macro_name}\n"
-    FN_PROLOGUE += f"#undef {cmd.macro_name}\n"
-
     res = ""
-    res += f"{FN_PROLOGUE}\n"
+    res = f"#ifdef {cmd.macro_name}\n"
+    res += f"#undef {cmd.macro_name}\n"
+    res += "\n"
     res += f"{cmd.comments}"
-    res += f"\tinline {cmd}"
+    res += f"\tinline __attribute__((always_inline)) {cmd}"
     res += "{\n\t"
     if cmd.return_t != "void":
         res += "\treturn "
