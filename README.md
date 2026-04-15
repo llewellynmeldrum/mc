@@ -24,3 +24,8 @@ Example output
 ```
 
 I havent actually tested if there is a runtime overhead cost of this. I should probably force them all to be inline via attributes to minimize that, but we will cross that bridge when we get to it.
+
+# Tools used
+gnu make
+nvim
+compiledb (bear broke for some reason)

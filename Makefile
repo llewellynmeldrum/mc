@@ -5,42 +5,63 @@
 #MAKEFLAGS += -j8
 #MAKEFLAGS += --ignore-errors
 
-UNAME := $(shell uname)
+LLVM_PREFIX := /opt/homebrew/opt/llvm@22
+clang++:= $(LLVM_PREFIX)/bin:$(PATH)
+export clang++
 
+UNAME := $(shell uname)
+ifeq ($(UNAME),Darwin)
+	CC       	:= clang
+	DEBUGGER 	:= lldb
+	GL_LIBS  	:= -framework OpenGL
+	LLVM_PREFIX := /opt/homebrew/opt/llvm@22
+	SDKROOT     := $(shell xcrun --show-sdk-path)
+	# to use llvm-22 clang++
+
+else ifeq ($(UNAME),Linux)
+	CXX      := clang++-22
+	CC       := clang-22
+	DEBUGGER := gdb
+	$(errror setup lvvm prefix)
+else
+	$(error Unsupported platform.)
+endif
+# --------------------------------------------------
+#
 
 # --------------------------------------------------
-# Project layout
 
-APP_EXE := ./bin/server
+APP_EXE := ./bin/mc
+CXX         :=clang++
+CXXFLAGS    :=-std=c++23 
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
 APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
 APP_DEPS := $(APP_OBJ:.o=.d)
 
 # --------------------------------------------------
-# GLAD
-
-GLAD_DIR := ./glad
+GLAD_DIR := ./glad_4-1-core
 GLAD_SRC := $(GLAD_DIR)/src/gl.c
 GLAD_OBJ := ./build/glad/glad.o
 GLAD_DEP := $(GLAD_OBJ:.o=.d)
 
 # --------------------------------------------------
-# Includes / flags
+CPPFLAGS 	:= -Iinclude -I$(GLAD_DIR)/include
 
-CPPFLAGS := -Iinclude -I$(GLAD_DIR)/include
+CPPFLAGS    +=-D_LIBCPP_DISABLE_AVAILABILITY
+LDFLAGS     +=-isysroot $(SDKROOT)
+LDFLAGS     +=-L$(LLVM_PREFIX)/lib/c++ 
+LDFLAGS     +=-L$(LLVM_PREFIX)/lib/unwind
+LDFLAGS     +=-Wl,-rpath,$(LLVM_PREFIX)/lib/c++ 
+LDFLAGS		+=-Wl,-rpath,$(LLVM_PREFIX)/lib/unwind
+LDLIBS      +=-lunwind
 
-CXXFLAGS := -std=c++23
-CXXFLAGS += -Wall -Werror
-CXXFLAGS += -Wimplicit-fallthrough
-CXXFLAGS += -Wno-unused
-CXXFLAGS += -MMD -MP
-CXXFLAGS += $(shell pkg-config --cflags glfw3)
+CXXFLAGS 	+=-Wall -Werror
+CXXFLAGS 	+=-Wimplicit-fallthrough
+CXXFLAGS 	+=-Wno-unused
+CXXFLAGS 	+=-MMD -MP
+CXXFLAGS 	+=$(shell pkg-config --cflags glfw3)
 
-
-CFLAGS := -Wall -Werror
-CFLAGS += -Wimplicit-fallthrough
-CFLAGS += -MMD -MP
 
 # Formatting of compiler errors (and sanitizers)
 CXXFLAGS += -fdebug-prefix-map=$(PWD)=.
@@ -48,6 +69,9 @@ CXXFLAGS += -fno-show-column
 CXXFLAGS += -fno-diagnostics-show-option
 CXXFLAGS += -fdiagnostics-fixit-info
 
+CFLAGS := -Wall -Werror
+CFLAGS += -Wimplicit-fallthrough
+CFLAGS += -MMD -MP
 CFLAGS += -fdebug-prefix-map=$(PWD)=.
 CFLAGS += -fno-show-column
 CFLAGS += -fno-diagnostics-show-option
@@ -55,41 +79,18 @@ CFLAGS += -fdiagnostics-fixit-info
 
 # --------------------------------------------------
 # Link flags
-# Add GLFW here if you are linking it manually.
 
-LDFLAGS :=
-LDLIBS := $(GL_LIBS) $(shell pkg-config --libs glfw3)
+LDFLAGS +=
+LDLIBS  += $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
-ifeq ($(UNAME),Darwin)
-	CC       := clang
-	DEBUGGER := lldb
-	GL_LIBS  := -framework OpenGL
-	LLVM_PREFIX := /opt/homebrew/opt/llvm
-	SDKROOT     := $(shell xcrun --show-sdk-path)
-
-	CXX         := $(LLVM_PREFIX)/bin/clang++
-	CPPFLAGS    += -D_LIBCPP_DISABLE_AVAILABILITY
-	CXXFLAGS    += -std=c++23 -isysroot $(SDKROOT) -Wno-unused 
-	LDFLAGS     += -isysroot $(SDKROOT)
-	LDFLAGS     += -L$(LLVM_PREFIX)/lib/c++ -L$(LLVM_PREFIX)/lib/unwind
-	LDFLAGS     += -Wl,-rpath,$(LLVM_PREFIX)/lib/c++ -Wl,-rpath,$(LLVM_PREFIX)/lib/unwind
-	LDLIBS      += -lunwind
-else ifeq ($(UNAME),Linux)
-	CXX      := clang++-22
-	CC       := clang-22
-	DEBUGGER := gdb
-	GL_LIBS  := -lGL
-else
-	$(error Unsupported platform.)
-endif
-# --------------------------------------------------
 
 all: run
 
 build: $(APP_EXE)
 
 run: $(APP_EXE)
-	@./scripts/exec_wrapper.sh $(APP_EXE) $(ARGS)
+	$(APP_EXE)
+
 
 # --------------------------------------------------
 # Compile C++ app sources

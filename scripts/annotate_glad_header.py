@@ -1,9 +1,16 @@
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+import sys
 from typing import List
 from typing import Dict
 
-DEBUG = True
+if len(sys.argv) < 2:
+    DEBUG = False
+elif sys.argv[1] == "-d":
+    DEBUG = True
+else:
+    DEBUG = False
+
 END = ""
 
 
