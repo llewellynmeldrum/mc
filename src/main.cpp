@@ -1,35 +1,36 @@
-
-#include <cassert>
-#include <concepts>
-#include <print>
-#include <string>
-#include <unordered_map>
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
-
-#include "annotated_gl.h"
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
 
 #define GL_SILENCE_DEPRECATION
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <format>
-#include <limits>
 
 #include "Logger.hpp"
 #include "Types.h"
 
 #include "UnixHelpers.hpp"
 
+#include <cassert>
+#include <format>
+#include <limits>
+#include <concepts>
+#include <print>
+#include <string>
+#include <unordered_map>
+#include <fstream>
+
+using namespace gl;
 u64 program_epoch_ns;
 struct Context {
         struct Timer{
         u64 framecount = 0;
         f64 dt_ms= 0.0f;
         f64 elapsed_ms = 0.0;
-        void init() noexcept{ 
+        void init() { 
             glfwSetTime(0.0);
         }
-        void update() noexcept{
+        void update() {
             f64 prev_elapsed_ms = elapsed_ms;
             elapsed_ms = glfwGetTime()/1000.0;
             dt_ms = elapsed_ms-prev_elapsed_ms;
@@ -55,7 +56,7 @@ struct Modulator{
     f32 b;
     f32 c;
     f32 d;
-    f32 run(f32 x) const noexcept{
+    GLfloat run(f32 x) const noexcept{
         const f32 y = a*sin(b*x-c)+d;
     //    LOG_DEBUG("[{},{}]",x,y);
         return y;
@@ -64,7 +65,8 @@ struct Modulator{
 static void renderCommands(GLFWwindow* win){
     static constexpr Modulator mod = {.a=0.5,.b=1.2,.c=1.6,.d=0.5};
     const f64 x = 1;//ctx.time.elapsed_ms*1000.0;
-    glClearColor(0.2f, mod.run(x), 0.2f, 1.0f);
+    GLfloat r{0.2f}, b{1.0f}, a{1.0f};
+    glClearColor(r, mod.run(x), b, a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -119,31 +121,8 @@ static const char* fragment_shader_src_blue =\
 template <typename C>
 concept ContiguousContainer = std::ranges::contiguous_range<C>;
 
-const std::unordered_map<GLenum,std::string> glErrorString = {
-{GL_INVALID_ENUM , " An unacceptable value was specified for an enumerated argument."},
-{GL_INVALID_VALUE , " A numeric argument is out of range."},
-{GL_INVALID_OPERATION , " The specified operation is not allowed in the current state of the OpenGL state machine."},
-{GL_INVALID_FRAMEBUFFER_OPERATION , " The command is applied to a framebuffer that is not complete."},
-{GL_OUT_OF_MEMORY , " There is not enough memory left to execute the command."},
-//{GL_STACK_OVERFLOW , " A command would cause a stack overflow (used in legacy fixed-function stacks)."},
-//{GL_STACK_UNDERFLOW , " A command would cause a stack underflow."},
-};
 
-#define glLogError() _GL_printError(false,__FILE_NAME__, __LINE__);
-#define glBreakpoint() _GL_printError(true,__FILE_NAME__, __LINE__);
 
-void _GL_printError(bool quit, const char* name, int line){
-    // glad is eating all my errors. Need to disable that. Perhaps its because its a debug build.
-    GLenum err= glGetError();
-    if (err){
-        auto ms = ms_since_start()/1000.0;
-        std ::println("{:03.3f} {}{:<8}{} {}{}:{:<3}{} {}{}| {} ({})",
-                ms, RED, "[GL ERR]", "\e[0m", "\e[1m", name, line, "\e[0m",
-                      RED, "\e[0m", glErrorString.at(err),err);
-        if (quit){LOG_EXIT(EXIT_FAILURE);}
-    }
-}
-#include <fstream>
 struct Shader{
     u32 id;
     GLenum ShaderType;
@@ -288,7 +267,6 @@ struct ElementBuffer{
         static_assert(std::same_as<T,u32>);
 
         glBufferData(buffer_type, sizeof(c), c.data(), usage_type);
-        glBreakpoint();
     }
 };
 struct VertexBuffer{
@@ -299,7 +277,7 @@ struct VertexBuffer{
     u64 value_type_size={};
     u32 location={};
 
-    VertexBuffer(u32 buffer_type, u32 size_i = 1){
+    VertexBuffer(GLenum buffer_type, u32 size_i = 1){
         this->buffer_type = buffer_type;
         glGenBuffers(size_i, &this->id);
     }
@@ -325,7 +303,6 @@ struct VertexBuffer{
         value_type_enum = get_type_enum<T>();
 
         glBufferData(buffer_type, sizeof(c), c.data()+offset, usage_type);
-        glBreakpoint();
     }
 };
 
@@ -382,7 +359,7 @@ int main(int argc, char** argv) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
     #ifdef __APPLE__
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // required for opengl 3.2+
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true); // required for opengl 3.2+
     #endif
 
     // init glfw window
@@ -398,11 +375,7 @@ int main(int argc, char** argv) {
     glfwMakeContextCurrent(win);
 
     // init glad, 
-    if (!gladLoadGL(glfwGetProcAddress)){
-        LOG_ERROR("Failed to initialize GLAD");
-        glfwTerminate();
-        LOG_EXIT(EXIT_FAILURE);
-    }
+    glbinding::initialize(glfwGetProcAddress);
 
 
     // ensure we pass the true pixel size to openGL
@@ -468,7 +441,6 @@ int main(int argc, char** argv) {
                 .stride = 3* sizeof(float), // 3 floats per vec, packed
                 .offset=nullptr,
         });
-        glBreakpoint();
     vao_tr.unbind();
 
     vao_bl.bind();
@@ -489,7 +461,6 @@ int main(int argc, char** argv) {
 
 
 
-    glBreakpoint();
     ctx.time.init();
     while (!glfwWindowShouldClose(win)){
         handleInputs(win);
@@ -516,7 +487,6 @@ int main(int argc, char** argv) {
         glfwSwapBuffers(win);
         glfwPollEvents();
         ctx.time.update();
-        glBreakpoint();
     }
     glfwTerminate();
     exit(EXIT_SUCCESS);

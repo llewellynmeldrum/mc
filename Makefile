@@ -13,7 +13,7 @@ UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
 	CC       	:= clang
 	DEBUGGER 	:= lldb
-	GL_LIBS  	:= -framework OpenGL
+	GLBINDING  := $(shell brew --prefix glbinding)
 	LLVM_PREFIX := /opt/homebrew/opt/llvm@22
 	SDKROOT     := $(shell xcrun --show-sdk-path)
 	# to use llvm-22 clang++
@@ -32,7 +32,7 @@ endif
 # --------------------------------------------------
 
 APP_EXE := ./bin/mc
-CXX         :=clang++
+CXX         :=clang++ 
 CXXFLAGS    :=-std=c++23 
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
@@ -40,13 +40,9 @@ APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
 APP_DEPS := $(APP_OBJ:.o=.d)
 
 # --------------------------------------------------
-GLAD_DIR := ./glad_4-1-core
-GLAD_SRC := $(GLAD_DIR)/src/gl.c
-GLAD_OBJ := ./build/glad/glad.o
-GLAD_DEP := $(GLAD_OBJ:.o=.d)
 
 # --------------------------------------------------
-CPPFLAGS 	:= -Iinclude -I$(GLAD_DIR)/include
+CPPFLAGS 	:= -Iinclude 
 
 CPPFLAGS    +=-D_LIBCPP_DISABLE_AVAILABILITY
 LDFLAGS     +=-isysroot $(SDKROOT)
@@ -80,9 +76,12 @@ CFLAGS += -fdiagnostics-fixit-info
 # --------------------------------------------------
 # Link flags
 
-LDFLAGS +=
-LDLIBS  += $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
+LDLIBS  	+= $(GL_LIBS) $(shell pkg-config --libs glfw3)
+
+CPPFLAGS 	+= -I$(GLBINDING)/include
+CPPFLAGS 	+= -Iexternal/
+LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
 
 all: run
 
@@ -99,22 +98,15 @@ run: $(APP_EXE)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-# Compile GLAD C source
 
-$(GLAD_OBJ): $(GLAD_SRC)
-	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-
-# Link final executable
-
-$(APP_EXE): $(APP_OBJ) $(GLAD_OBJ)
+$(APP_EXE): $(APP_OBJ) 
 	@mkdir -p $(dir $@)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # --------------------------------------------------
 # Dependencies
 
--include $(APP_DEPS) $(GLAD_DEP)
+-include $(APP_DEPS) 
 
 # --------------------------------------------------
 # Sanitizers
