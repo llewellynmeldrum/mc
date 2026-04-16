@@ -1,16 +1,25 @@
-#include <glbinding/gl/gl.h>
-#include <glbinding/glbinding.h>
 
+#include <iostream>
 #define GL_SILENCE_DEPRECATION
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+#include <glbinding-aux/debug.h>
+#include <glbinding/FunctionCall.h>
+#include <glbinding/AbstractFunction.h>
+#include <glbinding/CallbackMask.h>
+
+
 #include "Logger.hpp"
 #include "Types.h"
+#include "glHelpers.hpp"
 
 #include "UnixHelpers.hpp"
 
+#include <cfloat>
 #include <cassert>
 #include <format>
 #include <limits>
@@ -20,7 +29,35 @@
 #include <unordered_map>
 #include <fstream>
 
+#include "stb_image.hpp"
+
 using namespace gl;
+
+
+struct vec4{
+    vec4(f32 a,f32 b,f32 c, f32 d){
+        arr[0]=a;
+        arr[1]=b;
+        arr[2]=c;
+        arr[3]=d;
+    }
+
+    union{
+        f32 arr[4];              // NOLINT(modernize-avoid-c-arrays)
+        struct{ f32 r,g,b,a; };
+        struct{ f32 x,y,z,w; };
+    };
+
+    inline f32* data(){
+        return &arr[0];
+    }
+};
+
+namespace Color{
+    static const vec4 red = {1,0,0,1};
+    static const vec4 purple = {1,0,1,1};
+}
+
 u64 program_epoch_ns;
 struct Context {
         struct Timer{
@@ -41,7 +78,8 @@ struct Context {
     static constexpr i32 win_w = 900; // half my screen width
     static constexpr i32 win_h = 1169;
     bool wireframe = false;
-}ctx;
+};
+Context ctx;
 
 static void glfw_ErrorCallback(int error, const char* description){
     LOG_ERROR("GLFW({}): {}",error, description);
@@ -51,89 +89,46 @@ static void handleInputs(GLFWwindow* win){
         glfwSetWindowShouldClose(win, true);
     }
 }
-struct Modulator{
-    f32 a;
-    f32 b;
-    f32 c;
-    f32 d;
-    GLfloat run(f32 x) const noexcept{
-        const f32 y = a*sin(b*x-c)+d;
-    //    LOG_DEBUG("[{},{}]",x,y);
-        return y;
-    }
-};
-static void renderCommands(GLFWwindow* win){
-    static constexpr Modulator mod = {.a=0.5,.b=1.2,.c=1.6,.d=0.5};
-    const f64 x = 1;//ctx.time.elapsed_ms*1000.0;
-    GLfloat r{0.2f}, b{1.0f}, a{1.0f};
-    glClearColor(r, mod.run(x), b, a);
-    glClear(GL_COLOR_BUFFER_BIT);
-}
 
-static void resize_callback(GLFWwindow* win, i32 w, i32 h){
-    (void)w; 
-    (void)h;
-//  no resizing >:(
-//  glViewport(ctx.win_x,ctx.win_y,ctx.win_w,ctx.win_h)
-}
 
-static const std::array<float, 6 * 3> triangle_vertices ={
-     0.5,  0.5, 0.0,
-     0.5, -0.5, 0.0,
-    -0.5,  0.5, 0.0,
-    -0.5, -0.5, 0.0,
+static const std::array<f32, 3 * 8> triangle_verts ={
+    //Vertex coords     //tex coords    //base colors 
+     0.0,  0.7, 0.0,    0.5,  0.0,      1.0,  0.0, 0.0,                  // top middle
+     0.7,  0.0, 0.0,    1.0,  1.0,      0.0,  1.0, 0.0,                  // bot right
+    -0.7,  0.0, 0.0,    0.0,  1.0,      0.0,  0.0, 1.0,                  // bot left
 };
-static const std::array<u32, 3> topRight_offsets{ 
+static const std::array<u32, 3> triangle_offsets{ 
 	 0 , 	// idx::0 slot occupied by vtx::0
 	 1 , 	// idx::1 slot occupied by vtx::1
 	 2 , 	// idx::2 slot occupied by vtx::2 
 };
 
-static const std::array<u32,3> botLeft_offsets{
-	 1 , 	// idx::3 slot occupied by vtx::1 (vtx::1==vtx::3)
-	 3 ,		// idx::4 slot occupied by vtx::3 
-	 2 ,		// idx::5 slot occupied by vtx::2  (vtx::2==vtx::5)
-};
 
-static const char *vertex_shader_src =\
-"#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"void main(){\n"
-"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-"}\0";
 
-static const char* fragment_shader_src_red =\
-"#version 330 core\n"
-"out vec4 frag_color;\n"
-"\n"
-"void main(){\n"
-"    frag_color = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
-"} \n";
-
-static const char* fragment_shader_src_blue =\
-"#version 330 core\n"
-"out vec4 frag_color;\n"
-"\n"
-"void main(){\n"
-"    frag_color = vec4(0.0f, 0.0f, 1.0f, 1.0f);\n"
-"} \n";
 
 template <typename C>
 concept ContiguousContainer = std::ranges::contiguous_range<C>;
 
-
-
 struct Shader{
     u32 id;
     GLenum ShaderType;
-    Shader(GLenum shader_type){
+    std::string src_path;
+    Shader(GLenum shader_type, const char* src_path): src_path(src_path){
         this->ShaderType = shader_type;
         this->id = glCreateShader(shader_type);
+        if (!readSource(src_path)){
+            LOG_ERROR("Error reading shader '{}'.",src_path);
+            LOG_EXIT(EXIT_FAILURE);
+        }
+        if (!compile()){
+            LOG_ERROR("Error compiling shader '{}'.",src_path);
+        }
     }
     bool readSource(const char* filename){
+        std::string src_buf;
         std::ifstream file(filename);
         if (!file.is_open()){
-            LOG_ERROR("Failed to open {} shader source.", tostr(ShaderType));
+            LOG_ERROR("Could not open file '{}'.", filename);
             return false;
         }
         u64 sz = unix::get_file_size(filename);
@@ -145,24 +140,18 @@ struct Shader{
         return true;
     }
 
-    void readInlineSource(const char* src_data){
-        this->src_buf = std::string(src_data);
-        const char* data = src_buf.c_str();
-        glShaderSource(id, 1, &data, nullptr);
-    }
 
-    bool compileSource(){
+    bool compile(){
         glCompileShader(id);
         if (has_error(GL_COMPILE_STATUS)){
-            LOG_ERROR("{} shader failed to compile.\n{}",tostr(ShaderType), get_info_log());
+            LOG_ERROR("{} shader failed to compile:\nin {}:\n{}",tostr(ShaderType), src_path, get_info_log());
             return false;
         }
         return true;
     }
-    std::string src_buf;
     static std::string tostr(GLenum shader_type){
         if (shader_type== GL_VERTEX_SHADER)         return "Vertex";
-        else if (shader_type== GL_FRAGMENT_SHADER)  return "Vertex";
+        else if (shader_type== GL_FRAGMENT_SHADER)  return "Fragment";
         else                                        return "Unknown shader type.";
     }
 
@@ -183,40 +172,48 @@ struct Shader{
 };
 
 struct VertexShader: Shader{
-    VertexShader(): Shader(GL_VERTEX_SHADER){}
+    VertexShader(const char* src): Shader(GL_VERTEX_SHADER, src){}
 };
 struct FragmentShader: Shader{
-    FragmentShader(): Shader(GL_FRAGMENT_SHADER){}
+    FragmentShader(const char* src): Shader(GL_FRAGMENT_SHADER, src){}
 };
 
 struct ShaderProgram{
     u32 id;
-    bool ready_for_use = false;
-    ShaderProgram() {
+    ShaderProgram(const char* vtx_src, const char* frag_src) {
         this->id = glCreateProgram();
-    }
-
-    void attach(Shader& shader){
-        glAttachShader(id, shader.id);
-    }
-
-    bool link(){
+        VertexShader vtx(vtx_src);
+        FragmentShader frag(frag_src);
+        glAttachShader(id, vtx.id);
+        glAttachShader(id, frag.id);
         glLinkProgram(id);
         if (has_error(GL_LINK_STATUS)){
             LOG_ERROR("ShaderProgram failed to link. Log:{}", get_info_log());
-            return false;
+            LOG_EXIT(EXIT_FAILURE);
         }
-        return (ready_for_use = true);
     }
+
+    void use(){
+        glUseProgram(id);
+    }
+    void stop(){
+        glUseProgram(0);
+    }
+    void setUniform1f(const char* name, f32 val){
+        glUniform1f(glGetUniformLocation(id,name),val);
+    }
+    void setUniform1i(const char* name, i32 val){
+        glUniform1i(glGetUniformLocation(id,name),val);
+    }
+
+private:
     bool has_error(GLenum param_name){
         i32 success = 0;
         glGetProgramiv(id, param_name, &success);
         return !success;
     }
-    void use(){
-        assert(ready_for_use);
-        glUseProgram(id);
-    }
+
+
     std::string get_info_log(){
         constexpr u64 buf_sz = 512;
         std::string info_log(buf_sz,'\0');
@@ -225,25 +222,7 @@ struct ShaderProgram{
     }
 };
 
-struct VertexObject{
-    u32 id;
-    VertexObject()=delete;
-};
-template<typename T>
-constexpr GLenum get_type_enum(){
-    GLenum res{};
-    if constexpr (std::same_as<T, f32>){
-        res = GL_FLOAT;
-    } else if constexpr(std::same_as<T,f64>){
-        res = GL_DOUBLE;
-    } else if constexpr(std::same_as<T,i32>){
-        res = GL_INT;
-    }else if constexpr (std::same_as<T,u32>){
-        res = GL_UNSIGNED_INT;
-    }
-    return res;
-}
-u32 currentlyBoundBuffer = 0;
+static u32 currentlyBoundBuffer = 0;
 struct ElementBuffer{
     u32 id;
     u32 size; // size in bytes
@@ -260,9 +239,7 @@ struct ElementBuffer{
 
     template <ContiguousContainer C>
     void load(C c, GLenum usage_type){
-        if (currentlyBoundBuffer != id){
-            LOG_ERROR("Tried to load data into a buffer that was not the one bound to.");
-        }
+        bind();
         using T = C::value_type;
         static_assert(std::same_as<T,u32>);
 
@@ -272,36 +249,21 @@ struct ElementBuffer{
 struct VertexBuffer{
     u32 id;
     u32 size; // size in bytes
-    GLenum buffer_type={};
-    GLenum value_type_enum={};
-    u64 value_type_size={};
     u32 location={};
+   static constexpr GLenum buffer_type = GL_ARRAY_BUFFER;
 
-    VertexBuffer(GLenum buffer_type, u32 size_i = 1){
-        this->buffer_type = buffer_type;
-        glGenBuffers(size_i, &this->id);
+    VertexBuffer(){
+        glGenBuffers(1, &this->id);
     }
 
-    // binds OPENGL to the currently set *buffer_type*
     void bind(){
 		currentlyBoundBuffer=id;
         glBindBuffer(buffer_type, id);
     }
 
-//    glDebugMessageCallback();
-//    void funcname(GLenum source, GLenum type, GLuint id,
-//   GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
-
-    // populates the VBO's buffer of the currently bound type, specifying the usage_type.
-    //  GL_STREAM_DRAW:       for data set once and used a few times by GPU.
-    //  GL_STATIC_DRAW:       for data set once and used ALOT by the GPU.   (faster reads)
-    // GL_DYNAMIC_DRAW:       for data set ALOT and used ALOT by the GPU    (faster reads/writes) 
     template <ContiguousContainer C>
-    void load_data(C c, GLenum usage_type, u32 offset=0){
-        using T = C::value_type;
-        value_type_size = sizeof(T);
-        value_type_enum = get_type_enum<T>();
-
+    void load(C c, GLenum usage_type, u32 offset=0){
+        bind();
         glBufferData(buffer_type, sizeof(c), c.data()+offset, usage_type);
     }
 };
@@ -309,40 +271,106 @@ struct VertexBuffer{
 struct AttributeType{
     GLenum v;
 };
+
+template <class VT>
 struct VertexAttribute {
     u32 location;
     u32 count;
     AttributeType type;
     bool normalized;
     u32 stride;
-    void* offset=nullptr;
+    u32 offset=0;
 };
 struct VertexArray{
     u32 id;
-    i32 count;
-    VertexArray(i32 _count=1){
-        this->count  =_count;
-        glGenVertexArrays(count, &id);  
+    i32 buffer_cols;
+    VertexArray(){
+        glGenVertexArrays(1, &id);  
     }
+
     void bind(){
 		currentlyBoundBuffer=id;
         glBindVertexArray(id);
     }
+
     void unbind(){
         glBindVertexArray(0);
-    }
-    //GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer
-    void set_and_enable_vattrs(VertexAttribute attr){
-        glVertexAttribPointer(attr.location, attr.count, attr.type.v,attr.normalized,attr.stride, attr.offset);
-        glEnableVertexAttribArray(attr.location);
+    } 
+
+    template <class VT>
+    void set_vtx_attributes(u32 location, i32 count, u64 offset){
+        // assumed packed non normalized vertex data
+        void* offset_ptr = (void*)(offset*sizeof(VT));
+        i32 stride  = buffer_cols * sizeof(VT);
+        GLenum type = gl_type<VT>();
+        LOG_EXPR(type);
+        LOG_EXPR(sizeof(VT));
+        LOG_EXPR(offset_ptr);
+        LOG_EXPR(stride);
+        glVertexAttribPointer(location, count, type, false,stride, offset_ptr);
+        glEnableVertexAttribArray(location);
     }
     // draws *num* vertices, chosen via whichever EBO is bound to this VAO
     void drawElements(u32 num, GLenum elem_t){
-        glDrawElements(elem_t, num, GL_UNSIGNED_INT, (void*)nullptr);
+        glDrawElements(elem_t, num, GL_UNSIGNED_INT, nullptr);
+    }
+    void drawArrays(u32 count, GLenum elem_t, u32 offset=0){
+        glDrawArrays(elem_t, offset, count);
     }
 
 };
 
+static u64 texture_count = 0;
+struct Texture2D{
+    u32 id;
+    u32 idx;
+    GLint pxwidth, pxheight, nchannels;
+    Texture2D(const char* tex_dir, GLenum image_fmt=GL_RGB,vec4 border_color = {1,0,1,1}){
+        // stbi_load returns row major 2d pixels array. 
+        u8* tex_pixels = stbi_load(tex_dir, &pxwidth, &pxheight, &nchannels, 0);
+        if (!tex_pixels){
+            LOG_ERROR("Failed to load texture file '{}'.",tex_dir);
+            return;
+        }
+        Texture2D::init();
+        Texture2D::bind(); 
+            Texture2D::setMinifyMode(GL_LINEAR_MIPMAP_NEAREST);
+            Texture2D::setMagnifyMode(GL_NEAREST);
+            Texture2D::setWrapMode(GL_CLAMP_TO_BORDER);
+            Texture2D::setBorderColor(border_color);
+
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight,
+                         0, image_fmt, GL_UNSIGNED_BYTE, (const void*)tex_pixels);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        Texture2D::unbind();
+
+        stbi_image_free(tex_pixels);
+        idx = texture_count++;
+    }
+    inline void bind(){ 
+        glActiveTexture(GL_TEXTURE0+idx);
+        glBindTexture(GL_TEXTURE_2D, id); 
+    }
+private:
+    inline void init(){ glGenTextures(1, &id); }
+    inline void unbind(){ glBindTexture(GL_TEXTURE_2D, 0); }
+
+    static inline void setBorderColor(vec4 color){
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color.data());
+    }
+    static inline void setMinifyMode(GLenum mode){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
+    }
+    static inline void setMagnifyMode(GLenum mode){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode);
+    }
+    static inline void setWrapMode(GLenum mode){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
+    }
+
+
+};
 int main(int argc, char** argv) {
     const double x = 20.5;
     const double & xref = x;
@@ -376,6 +404,34 @@ int main(int argc, char** argv) {
 
     // init glad, 
     glbinding::initialize(glfwGetProcAddress);
+    glbinding::setCallbackMaskExcept(glbinding::CallbackMask::After | glbinding::CallbackMask::ParametersAndReturnValue, {"glGetError"});
+    glbinding::setAfterCallback([](const glbinding::FunctionCall & call) {
+        const auto err = glGetError();
+        if (err != GL_NO_ERROR){
+            std:: cout << fmt::bold_red;
+            std::cout << "OPEN GL ERR! LAST CALL:";
+            if (!call.function->isResolved()){
+                std::cout << " (UNRESOLVED FUNCTION CALL!!):";
+            }
+            std:: cout << fmt::clear << std::endl << "\t";
+
+            std:: cout << fmt::cyan;
+            std::cout << call.function->name();
+            std:: cout << fmt::clear << "(";
+            for (const auto& param: call.parameters){
+                std::cout << param.get();
+                if (param != call.parameters.back()){
+                  std::print(", ");
+                }
+            }
+            std::cout << ")";
+
+            if (call.returnValue){
+              std::cout << " -> " << call.returnValue.get();
+            }
+            std::println();
+        }
+    });
 
 
     // ensure we pass the true pixel size to openGL
@@ -385,82 +441,35 @@ int main(int argc, char** argv) {
     //glViewport(ctx.win_x, ctx.win_y, viewport_w, viewport_h);
     glViewport(ctx.win_x, ctx.win_y, viewport_w, viewport_h);
 
-    // register resize callback
-    glfwSetFramebufferSizeCallback(win, resize_callback);
+
+    ShaderProgram prog("shaders/vs.glsl","shaders/fs.glsl");
+    VertexBuffer vbo;
+    ElementBuffer ebo;
+    VertexArray vao;
+
+    Texture2D texture1("resources/textures/missing_content_valve.png");
+    Texture2D texture2("resources/textures/illuminati.png",GL_RGBA);
 
 
-    VertexShader vtx;
-    vtx.readInlineSource(vertex_shader_src);
-    if (!vtx.compileSource()){
-        glfwTerminate();
-        LOG_EXIT(EXIT_FAILURE);
-    }
+    vao.bind();
 
-    FragmentShader frag_red;
-    frag_red.readInlineSource(fragment_shader_src_red);
-    if (!frag_red.compileSource()){
-        glfwTerminate();
-        LOG_EXIT(EXIT_FAILURE);
-    }
+    vbo.load(triangle_verts, GL_STATIC_DRAW);
+    ebo.load(triangle_offsets, GL_STATIC_DRAW);
 
-    FragmentShader frag_blue;
-    frag_blue.readInlineSource(fragment_shader_src_blue);
-    if (!frag_blue.compileSource()){
-        glfwTerminate();
-        LOG_EXIT(EXIT_FAILURE);
-    }
+    vao.buffer_cols = 8;  // x,y,z,s,t,r,g,b
+    vao.set_vtx_attributes<f32>(0, 3, +0); // x,y,z
+    vao.set_vtx_attributes<f32>(1, 2, +3); // s,t
+    vao.set_vtx_attributes<f32>(2, 3, +5); // r,g,b 
 
-    ShaderProgram prog_red;
-    prog_red.attach(vtx);
-    prog_red.attach(frag_red);
-    prog_red.link();
-
-    ShaderProgram prog_blue;
-    prog_blue.attach(vtx);
-    prog_blue.attach(frag_blue);
-    prog_blue.link();
+    vao.unbind();
 
 
+    prog.use();
+    prog.setUniform1i("texture1", 0);
+    prog.setUniform1i("texture2", 1);
+    prog.stop();
 
-
-    VertexBuffer shared_vbo(GL_ARRAY_BUFFER);
-    ElementBuffer ebo_tr, ebo_bl;
-    VertexArray vao_tr, vao_bl; 
-
-    vao_tr.bind();
-        shared_vbo.bind();
-        shared_vbo.load_data(triangle_vertices, GL_STATIC_DRAW);
-
-        ebo_tr.bind();
-        ebo_tr.load(topRight_offsets, GL_STATIC_DRAW);
-        vao_tr.set_and_enable_vattrs({
-                .location=0,
-                .count = 3,                 // 3 floats per vec
-                .type={GL_FLOAT},
-                .normalized = false,
-                .stride = 3* sizeof(float), // 3 floats per vec, packed
-                .offset=nullptr,
-        });
-    vao_tr.unbind();
-
-    vao_bl.bind();
-    shared_vbo.bind();
-    shared_vbo.load_data(triangle_vertices, GL_STATIC_DRAW);
-
-    ebo_bl.bind();
-    ebo_bl.load(botLeft_offsets, GL_STATIC_DRAW);
-    vao_bl.set_and_enable_vattrs({
-            .location=0,
-            .count = 3,                 // 3 floats per vec
-            .type={GL_FLOAT},
-            .normalized = false,
-            .stride = 3* sizeof(float), // 3 floats per vec, packed
-            .offset=nullptr,
-    });
-    vao_bl.unbind();
-
-
-
+    u64 frameCount = 0;
     ctx.time.init();
     while (!glfwWindowShouldClose(win)){
         handleInputs(win);
@@ -468,25 +477,25 @@ int main(int argc, char** argv) {
         if (ctx.wireframe){
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
         }
-        // i want a consteval/constexpr function which swaps u32->GL_UNSIGNED_INT
-        // to_Glenum<T>()-> ?
         
-        renderCommands(win);
-
-        prog_red.use();
-        vao_tr.bind();
-        vao_tr.drawElements(3, GL_TRIANGLES);
-        vao_tr.unbind();
-
-        prog_blue.use();
-        vao_bl.bind();
-        vao_bl.drawElements(3, GL_TRIANGLES);
-        vao_bl.unbind();
+        f32 x = frameCount/10.0;
+        
+        glClearColor(0.2, 0.5, 1.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        prog.use();
+            prog.setUniform1f("blendFactor", 0.5*sin(x)+0.5);
+            texture1.bind();
+            texture2.bind();
+            vao.bind();
+                vao.drawElements(3, GL_TRIANGLES);
+            vao.unbind();
+        prog.stop();
 
 
         glfwSwapBuffers(win);
         glfwPollEvents();
         ctx.time.update();
+        frameCount++;
     }
     glfwTerminate();
     exit(EXIT_SUCCESS);
