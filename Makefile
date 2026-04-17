@@ -27,7 +27,7 @@ else
 	$(error Unsupported platform.)
 endif
 # --------------------------------------------------
-#
+
 
 # --------------------------------------------------
 
@@ -85,6 +85,8 @@ LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
 
 all: run
 
+test: CXXFLAGS+= -DTESTING
+test: clean all
 build: $(APP_EXE)
 
 run: $(APP_EXE)
