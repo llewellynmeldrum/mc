@@ -159,21 +159,21 @@ constexpr std::string fmt_expr(const char* identifier, T&& expr) {
         oss << expr;
         std::string expr_str = oss.str();
     }else if constexpr (is_glm_type<T>){
-        if constexpr (is_glm_vec2<T>){
-            expr_str = std::format("[{}{}{}, {}{}{}]",
-                                    fmt::red, expr.x, fmt::clear,
-                                    fmt::green, expr.y, fmt::clear);
-        }else if constexpr(is_glm_vec3<T>){
-            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}]",
-                                    fmt::red, expr.x, fmt::clear,
-                                    fmt::green, expr.y, fmt::clear,
-                                    fmt::blue, expr.z, fmt::clear);
-        } else if constexpr(std::convertible_to<T,glm::vec<4,float>>){
+        if constexpr(std::convertible_to<T,glm::vec<4,float>>){
             expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
                                     fmt::red, expr.x, fmt::clear,
                                     fmt::green, expr.y, fmt::clear,
                                     fmt::blue, expr.z, fmt::clear,
                                     fmt::grey , expr.w, fmt::clear);
+        }else if constexpr(std::convertible_to<T,glm::vec<3,float>>){
+            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}]",
+                                    fmt::red, expr.x, fmt::clear,
+                                    fmt::green, expr.y, fmt::clear,
+                                    fmt::blue, expr.z, fmt::clear);
+        }else if constexpr(std::convertible_to<T,glm::vec<2,float>>){
+            expr_str = std::format("[{}{}{}, {}{}{}]", 
+                                    fmt::red, expr.x, fmt::clear,
+                                    fmt::green, expr.y, fmt::clear);
         } else {
             expr_str.append("\n");
             constexpr u64 ext = 4;

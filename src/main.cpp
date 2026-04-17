@@ -30,8 +30,10 @@
 #include <string>
 #include <unordered_map>
 #include <fstream>
+#include <stb_image.hpp>
 
-#include "stb_image.hpp"
+#include "Camera.hpp"
+#include "Context.hpp"
 
 #include "glmWrapper.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -43,49 +45,107 @@ using namespace gl;
 
 
 u64 program_epoch_ns;
-struct Context {
-    GLFWwindow* win{};
-        struct Timer{
-        u64 framecount = 0;
-        f64 dt_ms= 0.0f;
-        f64 elapsed_ms = 0.0;
-        void init() { 
-            glfwSetTime(0.0);
-        }
-        void update() {
-            f64 prev_elapsed_ms = elapsed_ms;
-            elapsed_ms = glfwGetTime()/1000.0;
-            dt_ms = elapsed_ms-prev_elapsed_ms;
-        }
-    }time;
-    static constexpr i32 win_x = 0;
-    static constexpr i32 win_y = 0;
-    static constexpr i32 win_w = 900; // half my screen width
-    static constexpr i32 win_h = 1169;
-    bool wireframe = false;
-};
-Context ctx;
 
 static void glfw_ErrorCallback(int error, const char* description){
     LOG_ERROR("GLFW({}): {}",error, description);
 }
-static void handleInputs(GLFWwindow* win){
-    if (glfwGetKey(win,GLFW_KEY_ESCAPE) == GLFW_PRESS){
-        glfwSetWindowShouldClose(win, true);
+static void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height){
+    auto* ctx = (Context*)glfwGetWindowUserPointer(win_ptr);
+    glViewport(0,0,width,height);
+    ctx->win.w=width;
+    ctx->win.h=height;
+    ctx->cam.aspectRatio = ctx->win.aspect();
+}
+static void glfw_MoveCallback(GLFWwindow* win_ptr, int xpos, int ypos){
+    auto* ctx = (Context*)glfwGetWindowUserPointer(win_ptr);
+    glViewport(xpos,ypos,ctx->win.w,ctx->win.h);
+    ctx->win.x=xpos;
+    ctx->win.y=ypos;
+}
+static void handleInputs(Context& ctx){
+    if (glfwGetKey(ctx.win.ptr,GLFW_KEY_ESCAPE) == GLFW_PRESS){
+        glfwSetWindowShouldClose(ctx.win.ptr, true);
+    }
+    f32 dt = 1.0f;
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_W) == GLFW_PRESS){
+        ctx.cam.moveForward(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_S) == GLFW_PRESS){
+        ctx.cam.moveBackward(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_A) == GLFW_PRESS){
+        ctx.cam.moveLeft(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_D) == GLFW_PRESS){
+        ctx.cam.moveRight(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_LEFT) == GLFW_PRESS){
+        ctx.cam.yawLeft(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_RIGHT) == GLFW_PRESS){
+        ctx.cam.yawRight(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_UP) == GLFW_PRESS){
+        ctx.cam.pitchUp(dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_DOWN) == GLFW_PRESS){
+        ctx.cam.pitchDown(dt);
     }
 }
 
 
-static const std::array<f32, 3 * 8> triangle_verts ={
-    //Vertex coords     //tex coords    //base colors 
-     0.0,  0.7, 0.0,    0.5,  1.0,      1.0,  0.0, 0.0,                  // top middle
-     0.7,  0.0, 0.0,    1.0,  0.0,      0.0,  1.0, 0.0,                  // bot right
-    -0.7,  0.0, 0.0,    0.0,  0.0,      0.0,  0.0, 1.0,                  // bot left
-};
-static const std::array<u32, 3> triangle_offsets{ 
-	 0 , 	// idx::0 slot occupied by vtx::0
-	 1 , 	// idx::1 slot occupied by vtx::1
-	 2 , 	// idx::2 slot occupied by vtx::2 
+f32 randf(f32 min, f32 max){
+    return min+(random()/(f32)RAND_MAX)*(max-min);
+}
+vec3 randvec3(f32 min, f32 max){
+    return vec3{
+        randf(min,max),
+        randf(min,max),
+        randf(min,max),
+    };
+}
+static const std::array<f32, 5 * 36> triangle_verts ={
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 };
 
 
@@ -205,11 +265,12 @@ struct ShaderProgram{
             #ifdef _DEBUG
             check_uniform(name);
             #endif 
-            auto pair =uniformLocationsCache.insert({name,glGetUniformLocation(id,name.c_str())});
+            auto pair = uniformLocationsCache.insert({name,glGetUniformLocation(id,name.c_str())});
+//            LOG_DEBUG("Cached unform type of '{} {}'.",pretty_type_name<T>(), name);
             location = pair.first->second;
         }
         if constexpr(std::same_as<T,mat4>){
-            glUniformMatrix4fv(location,1,false, value_ptr(val));
+            glUniformMatrix4fv(location, 1, false, glm::value_ptr(val));
         }else if constexpr(std::same_as<T,f32>){
             glUniform1f(location,val);
         }else if constexpr(std::same_as<T,f64>){
@@ -313,6 +374,7 @@ struct VertexArray{
         glBindVertexArray(0);
     } 
 
+    u32 sum{};
     template <class VT>
     void set_vtx_attributes(u32 location, i32 count, u64 offset){
         // assumed packed non normalized vertex data
@@ -321,6 +383,8 @@ struct VertexArray{
         GLenum type = gl_type<VT>();
         glVertexAttribPointer(location, count, type, false,stride, offset_ptr);
         glEnableVertexAttribArray(location);
+        sum+=count;
+        LOG_DEBUG("Adding {} -> {}",count,sum);
     }
     // draws *num* vertices, chosen via whichever EBO is bound to this VAO
     void drawElements(u32 num, GLenum elem_t){
@@ -335,7 +399,7 @@ struct VertexArray{
 static u64 texture_count = 0;
 struct Texture2D{
     u32 id;
-    u32 idx;
+    u32 idx=0;
     GLint pxwidth, pxheight, nchannels;
     Texture2D(const char* tex_dir, GLenum image_fmt=GL_RGB,vec4 border_color = {1,0,1,1}){
         mat4::length();
@@ -361,6 +425,7 @@ struct Texture2D{
         idx = texture_count++;
     }
     inline void bind(){ 
+        LOG_EXPR(idx);
         glActiveTexture(GL_TEXTURE0+idx);
         glBindTexture(GL_TEXTURE_2D, id); 
     }
@@ -389,24 +454,13 @@ private:
 #include "UnitTests.hpp"
 #endif
 
-vec3 mouse_pos_to_NDC(){
-    double x,y;
-    glfwGetCursorPos(ctx.win, &x,&y);
-
-    x/=ctx.win_w; // map to [0,1]
-    y/=ctx.win_h;
-    // flip the y
-    y= 1-y;
-    x= (x * 2) -1; // map to [-1,1]
-    y= (y*2) -1; // map to [-1,1]
-
-    return {x,y,1.0};
-}
 int main(int argc, char** argv) {
 #ifdef TESTING
     RUN_TESTS();
 }
 #else
+    Camera cam((vec3){0,0,6});
+    auto ctx = Context(cam);
     stbi_set_flip_vertically_on_load(true);  
     program_epoch_ns = get_current_ns();
     glfwSetErrorCallback(glfw_ErrorCallback);
@@ -425,14 +479,13 @@ int main(int argc, char** argv) {
     #endif
 
     // init glfw window
-    GLFWwindow* win = glfwCreateWindow(ctx.win_w, ctx.win_h, "Window Title", nullptr, nullptr);
+    GLFWwindow* win = glfwCreateWindow(ctx.win.w, ctx.win.h, "Window Title", nullptr, nullptr);
     if (!win) {
         LOG_ERROR("Failed to initialize GLFW.");
         glfwTerminate();
         LOG_EXIT(EXIT_FAILURE);
     }
-    ctx.win = win;
-    glfwSetWindowPos(win, ctx.win_x,ctx.win_y);
+    ctx.win.ptr = win;
 
     // Bind the openGL ctx of the window to the current thread
     glfwMakeContextCurrent(win);
@@ -468,74 +521,88 @@ int main(int argc, char** argv) {
     });
 
 
+    glfwSetWindowUserPointer(win,&ctx);
+//    glfwSetWindowPosCallback(win,glfw_MoveCallback);
+    glfwSetFramebufferSizeCallback(win,glfw_ResizeCallback);
+    glfw_ResizeCallback(win,ctx.win.w,ctx.win.h);
+    glfwSetWindowPos(win, ctx.win.x,ctx.win.y);
     // ensure we pass the true pixel size to openGL
     i32 viewport_w, viewport_h;
     glfwGetFramebufferSize(win,&viewport_w,&viewport_h);
     // init viewport
-    //glViewport(ctx.win_x, ctx.win_y, viewport_w, viewport_h);
-    glViewport(ctx.win_x, ctx.win_y, viewport_w, viewport_h);
+    //glViewport(ctx.win.x, ctx.win.y, viewport_w, viewport_h);
+    glViewport(ctx.win.x, ctx.win.y, viewport_w, viewport_h);
+    glEnable(GL_DEPTH_TEST); // perform depth testing 
+    LOG_EXPR(glm::vec2(viewport_w,viewport_h));
 
 
     // GL CODE
     ShaderProgram prog("shaders/vs.glsl","shaders/fs.glsl");
     VertexBuffer vbo;
-    ElementBuffer ebo;
     VertexArray vao;
 
     Texture2D texture1("resources/textures/missing_content_valve.png");
-    Texture2D texture2("resources/textures/illuminati.png",GL_RGBA);
 
-    mat4 scale1 = scale(mat4(1.0f), vec3(0.5f,0.5f, 0.5f));
-    mat4 _trans = translate(mat4(1.0f), vec3(-0.5f,0.0f, 0.0f));
+    mat4 model_matrix = mat4(1.0f);
+
+
+
+    // apply model transformations
+    model_matrix = rotate(model_matrix, radians(-55.0f), vec3(1.0f, 0.0f, 0.0f));
+    //model_matrix = scale(model_matrix, vec3(2.0f, 2.0f, 2.0f));
+
+
+    // apply perspective translation
+
+    LOG_EXPR(model_matrix);
+//    LOG_EXPR(radians(vertical_fov));
+//    LOG_EXPR(projection_matrix);
 
     vao.bind();
-
     vbo.load(triangle_verts, GL_STATIC_DRAW);
-    ebo.load(triangle_offsets, GL_STATIC_DRAW);
-
-    vao.buffer_cols = 8;  // x,y,z,s,t,r,g,b
+    vao.buffer_cols = 5;  // x,y,z,s,t,r,g,b
     vao.set_vtx_attributes<f32>(0, 3, +0); // x,y,z
     vao.set_vtx_attributes<f32>(1, 2, +3); // s,t
-    vao.set_vtx_attributes<f32>(2, 3, +5); // r,g,b 
 
     vao.unbind();
 
 
     prog.use();
     prog.setUniform("texture1", (int)0);
-    prog.setUniform("texture2", (int)1);
-    prog.setUniform("scale1", scale1);
     prog.stop();
+
+    const std::vector<vec3> cube_positions = {
+        randvec3(-2,2),
+        randvec3(-2,2),
+        randvec3(-2,2),
+        randvec3(-2,2),
+        randvec3(-2,2),
+    };
 
     u64 frameCount = 0;
     ctx.time.init();
     while (!glfwWindowShouldClose(win)){
-        handleInputs(win);
+        handleInputs(ctx);
 
         if (ctx.wireframe){
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); 
         }
         
-        f32 x = frameCount/10.0;
-        
-        f32 rad = radians(x);
-        glClearColor(0.2, 0.5, 1.0, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT);
+        f32 x = frameCount/10.0f;
+        glClearColor(1.0, 0.5, 1.0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         prog.use();
             texture1.bind();
-            texture2.bind();
-            prog.setUniform("blendFactor", 0.5f*sin(x)+0.5f);
-            prog.setUniform("rotation", rotate(mat4(1.0f), rad, vec3(0.0f,0.0f,1.0f)));
-            prog.setUniform("scale0", scale(_trans, vec3(0.5*sin(x)+0.5)));
-            prog.setUniform("mouse_transform", translate(mat4(1.0f), mouse_pos_to_NDC()));
             vao.bind();
-                prog.setUniform("triangle_idx", (int)0);
-                vao.drawElements(3, GL_TRIANGLES);
-                prog.setUniform("triangle_idx", (int)1);
-                vao.drawElements(3, GL_TRIANGLES);
-                prog.setUniform("triangle_idx", (int)2);
-                prog.setUniform("blendFactor", 0.0f);
-                vao.drawElements(3, GL_TRIANGLES);
+            mat4 view;
+
+        LOG_EXPR(ctx.cam.pos+ctx.cam.front);
+            prog.setUniform("view", ctx.cam.getViewMatrix());
+            prog.setUniform("proj", ctx.cam.getProjectionMatrix());
+            for (const auto& cube_pos : cube_positions){
+                    prog.setUniform("model", model_matrix);
+                    vao.drawArrays(36, GL_TRIANGLES);
+            }
             vao.unbind();
         prog.stop();
 
