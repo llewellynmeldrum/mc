@@ -44,6 +44,7 @@ using namespace gl;
 
 u64 program_epoch_ns;
 struct Context {
+    GLFWwindow* win{};
         struct Timer{
         u64 framecount = 0;
         f64 dt_ms= 0.0f;
@@ -77,8 +78,8 @@ static void handleInputs(GLFWwindow* win){
 
 static const std::array<f32, 3 * 8> triangle_verts ={
     //Vertex coords     //tex coords    //base colors 
-     0.0,  0.7, 0.0,    0.05,  0.1,      1.0,  0.0, 0.0,                  // top middle
-     0.7,  0.0, 0.0,    0.1,  0.0,      0.0,  1.0, 0.0,                  // bot right
+     0.0,  0.7, 0.0,    0.5,  1.0,      1.0,  0.0, 0.0,                  // top middle
+     0.7,  0.0, 0.0,    1.0,  0.0,      0.0,  1.0, 0.0,                  // bot right
     -0.7,  0.0, 0.0,    0.0,  0.0,      0.0,  0.0, 1.0,                  // bot left
 };
 static const std::array<u32, 3> triangle_offsets{ 
@@ -183,8 +184,9 @@ struct ShaderProgram{
     void stop(){
         glUseProgram(0);
     }
-    void check_uniform(const char* name){
-        std::string count_str = unix::exec(std::format("rg '{}' ./shaders -c | wc -l",name));
+    std::unordered_map<std::string, i32> uniformLocationsCache;
+    void check_uniform(std::string name){
+        std::string count_str = unix::exec(std::format("rg -w '{}' ./shaders -c | wc -l",name));
         auto count = std::stoi(count_str);
         if (count<=0){
             std::println("->{}Error! uniform {}'{}'{}. Was not found. Did you mean any of these?",
@@ -195,18 +197,25 @@ struct ShaderProgram{
         }
     }
     template<typename T>
-    void setUniform(const char* name, T val){
-        #ifdef _DEBUG
-        check_uniform(name);
-        #endif 
+    void setUniform(std::string name, T val){
+        i32 location = 0;
+        if (uniformLocationsCache.contains(name)){
+            location = uniformLocationsCache.at(name); 
+        } else{
+            #ifdef _DEBUG
+            check_uniform(name);
+            #endif 
+            auto pair =uniformLocationsCache.insert({name,glGetUniformLocation(id,name.c_str())});
+            location = pair.first->second;
+        }
         if constexpr(std::same_as<T,mat4>){
-            glUniformMatrix4fv(glGetUniformLocation(id,name),1,false, value_ptr(val));
+            glUniformMatrix4fv(location,1,false, value_ptr(val));
         }else if constexpr(std::same_as<T,f32>){
-            glUniform1f(glGetUniformLocation(id,name),val);
+            glUniform1f(location,val);
         }else if constexpr(std::same_as<T,f64>){
-            glUniform1d(glGetUniformLocation(id,name),val);
+            glUniform1d(location,val);
         }else if constexpr(std::same_as<T,i32>){
-            glUniform1i(glGetUniformLocation(id,name),val);
+            glUniform1i(location,val);
         }else {
             LOG_FATAL("Failed to deduce unform type of '{} {}'.",pretty_type_name<T>(), name);
             LOG_EXIT(EXIT_FAILURE);
@@ -380,6 +389,19 @@ private:
 #include "UnitTests.hpp"
 #endif
 
+vec3 mouse_pos_to_NDC(){
+    double x,y;
+    glfwGetCursorPos(ctx.win, &x,&y);
+
+    x/=ctx.win_w; // map to [0,1]
+    y/=ctx.win_h;
+    // flip the y
+    y= 1-y;
+    x= (x * 2) -1; // map to [-1,1]
+    y= (y*2) -1; // map to [-1,1]
+
+    return {x,y,1.0};
+}
 int main(int argc, char** argv) {
 #ifdef TESTING
     RUN_TESTS();
@@ -409,6 +431,7 @@ int main(int argc, char** argv) {
         glfwTerminate();
         LOG_EXIT(EXIT_FAILURE);
     }
+    ctx.win = win;
     glfwSetWindowPos(win, ctx.win_x,ctx.win_y);
 
     // Bind the openGL ctx of the window to the current thread
@@ -462,7 +485,8 @@ int main(int argc, char** argv) {
     Texture2D texture1("resources/textures/missing_content_valve.png");
     Texture2D texture2("resources/textures/illuminati.png",GL_RGBA);
 
-    mat4 tri_scale = scale(mat4(1.0f), vec3(0.5f,0.5f, 0.5f));
+    mat4 scale1 = scale(mat4(1.0f), vec3(0.5f,0.5f, 0.5f));
+    mat4 _trans = translate(mat4(1.0f), vec3(-0.5f,0.0f, 0.0f));
 
     vao.bind();
 
@@ -478,9 +502,9 @@ int main(int argc, char** argv) {
 
 
     prog.use();
-    prog.setUniform("texture1", 0);
-    prog.setUniform("texture2", 1);
-    prog.setUniform("scale", tri_scale);
+    prog.setUniform("texture1", (int)0);
+    prog.setUniform("texture2", (int)1);
+    prog.setUniform("scale1", scale1);
     prog.stop();
 
     u64 frameCount = 0;
@@ -498,11 +522,19 @@ int main(int argc, char** argv) {
         glClearColor(0.2, 0.5, 1.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         prog.use();
-            prog.setUniform("blendFactor", 0.5f*sin(x)+0.5f);
-            prog.setUniform("rotation", rotate(mat4(1.0f), rad, vec3(0.0f,0.0f,1.0f)));
             texture1.bind();
             texture2.bind();
+            prog.setUniform("blendFactor", 0.5f*sin(x)+0.5f);
+            prog.setUniform("rotation", rotate(mat4(1.0f), rad, vec3(0.0f,0.0f,1.0f)));
+            prog.setUniform("scale0", scale(_trans, vec3(0.5*sin(x)+0.5)));
+            prog.setUniform("mouse_transform", translate(mat4(1.0f), mouse_pos_to_NDC()));
             vao.bind();
+                prog.setUniform("triangle_idx", (int)0);
+                vao.drawElements(3, GL_TRIANGLES);
+                prog.setUniform("triangle_idx", (int)1);
+                vao.drawElements(3, GL_TRIANGLES);
+                prog.setUniform("triangle_idx", (int)2);
+                prog.setUniform("blendFactor", 0.0f);
                 vao.drawElements(3, GL_TRIANGLES);
             vao.unbind();
         prog.stop();
