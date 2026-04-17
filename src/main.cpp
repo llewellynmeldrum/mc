@@ -8,6 +8,7 @@
 #include <glbinding/gl/gl.h>
 #include <glbinding/glbinding.h>
 #include <glbinding-aux/debug.h>
+#include <glbinding-aux/Meta.h>
 #include <glbinding/FunctionCall.h>
 #include <glbinding/AbstractFunction.h>
 #include <glbinding/CallbackMask.h>
@@ -15,6 +16,7 @@
 
 #include "Logger.hpp"
 #include "Types.h"
+#include "UnixHelpers.hpp"
 #include "glHelpers.hpp"
 
 #include "UnixHelpers.hpp"
@@ -31,32 +33,14 @@
 
 #include "stb_image.hpp"
 
+#include "glmWrapper.hpp"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+using namespace glm;
 using namespace gl;
+#define _DEBUG
 
-
-struct vec4{
-    vec4(f32 a,f32 b,f32 c, f32 d){
-        arr[0]=a;
-        arr[1]=b;
-        arr[2]=c;
-        arr[3]=d;
-    }
-
-    union{
-        f32 arr[4];              // NOLINT(modernize-avoid-c-arrays)
-        struct{ f32 r,g,b,a; };
-        struct{ f32 x,y,z,w; };
-    };
-
-    inline f32* data(){
-        return &arr[0];
-    }
-};
-
-namespace Color{
-    static const vec4 red = {1,0,0,1};
-    static const vec4 purple = {1,0,1,1};
-}
 
 u64 program_epoch_ns;
 struct Context {
@@ -93,9 +77,9 @@ static void handleInputs(GLFWwindow* win){
 
 static const std::array<f32, 3 * 8> triangle_verts ={
     //Vertex coords     //tex coords    //base colors 
-     0.0,  0.7, 0.0,    0.5,  0.0,      1.0,  0.0, 0.0,                  // top middle
-     0.7,  0.0, 0.0,    1.0,  1.0,      0.0,  1.0, 0.0,                  // bot right
-    -0.7,  0.0, 0.0,    0.0,  1.0,      0.0,  0.0, 1.0,                  // bot left
+     0.0,  0.7, 0.0,    0.05,  0.1,      1.0,  0.0, 0.0,                  // top middle
+     0.7,  0.0, 0.0,    0.1,  0.0,      0.0,  1.0, 0.0,                  // bot right
+    -0.7,  0.0, 0.0,    0.0,  0.0,      0.0,  0.0, 1.0,                  // bot left
 };
 static const std::array<u32, 3> triangle_offsets{ 
 	 0 , 	// idx::0 slot occupied by vtx::0
@@ -199,11 +183,34 @@ struct ShaderProgram{
     void stop(){
         glUseProgram(0);
     }
-    void setUniform1f(const char* name, f32 val){
-        glUniform1f(glGetUniformLocation(id,name),val);
+    void check_uniform(const char* name){
+        std::string count_str = unix::exec(std::format("rg '{}' ./shaders -c | wc -l",name));
+        auto count = std::stoi(count_str);
+        if (count<=0){
+            std::println("->{}Error! uniform {}'{}'{}. Was not found. Did you mean any of these?",
+                       fmt::red, fmt::bold, name, fmt::clear);
+            std::println("{}",unix::exec(std::format("rg '' ./shaders | agrep -2 '{}' | tail -3",name)));
+
+            LOG_EXIT(EXIT_FAILURE);
+        }
     }
-    void setUniform1i(const char* name, i32 val){
-        glUniform1i(glGetUniformLocation(id,name),val);
+    template<typename T>
+    void setUniform(const char* name, T val){
+        #ifdef _DEBUG
+        check_uniform(name);
+        #endif 
+        if constexpr(std::same_as<T,mat4>){
+            glUniformMatrix4fv(glGetUniformLocation(id,name),1,false, value_ptr(val));
+        }else if constexpr(std::same_as<T,f32>){
+            glUniform1f(glGetUniformLocation(id,name),val);
+        }else if constexpr(std::same_as<T,f64>){
+            glUniform1d(glGetUniformLocation(id,name),val);
+        }else if constexpr(std::same_as<T,i32>){
+            glUniform1i(glGetUniformLocation(id,name),val);
+        }else {
+            LOG_FATAL("Failed to deduce unform type of '{} {}'.",pretty_type_name<T>(), name);
+            LOG_EXIT(EXIT_FAILURE);
+        }
     }
 
 private:
@@ -303,10 +310,6 @@ struct VertexArray{
         void* offset_ptr = (void*)(offset*sizeof(VT));
         i32 stride  = buffer_cols * sizeof(VT);
         GLenum type = gl_type<VT>();
-        LOG_EXPR(type);
-        LOG_EXPR(sizeof(VT));
-        LOG_EXPR(offset_ptr);
-        LOG_EXPR(stride);
         glVertexAttribPointer(location, count, type, false,stride, offset_ptr);
         glEnableVertexAttribArray(location);
     }
@@ -326,6 +329,7 @@ struct Texture2D{
     u32 idx;
     GLint pxwidth, pxheight, nchannels;
     Texture2D(const char* tex_dir, GLenum image_fmt=GL_RGB,vec4 border_color = {1,0,1,1}){
+        mat4::length();
         // stbi_load returns row major 2d pixels array. 
         u8* tex_pixels = stbi_load(tex_dir, &pxwidth, &pxheight, &nchannels, 0);
         if (!tex_pixels){
@@ -356,7 +360,8 @@ private:
     inline void unbind(){ glBindTexture(GL_TEXTURE_2D, 0); }
 
     static inline void setBorderColor(vec4 color){
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color.data());
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, data(color));
+
     }
     static inline void setMinifyMode(GLenum mode){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
@@ -371,9 +376,16 @@ private:
 
 
 };
+#ifdef TESTING
+#include "UnitTests.hpp"
+#endif
+
 int main(int argc, char** argv) {
-    const double x = 20.5;
-    const double & xref = x;
+#ifdef TESTING
+    RUN_TESTS();
+}
+#else
+    stbi_set_flip_vertically_on_load(true);  
     program_epoch_ns = get_current_ns();
     glfwSetErrorCallback(glfw_ErrorCallback);
 
@@ -402,14 +414,13 @@ int main(int argc, char** argv) {
     // Bind the openGL ctx of the window to the current thread
     glfwMakeContextCurrent(win);
 
-    // init glad, 
     glbinding::initialize(glfwGetProcAddress);
     glbinding::setCallbackMaskExcept(glbinding::CallbackMask::After | glbinding::CallbackMask::ParametersAndReturnValue, {"glGetError"});
     glbinding::setAfterCallback([](const glbinding::FunctionCall & call) {
         const auto err = glGetError();
         if (err != GL_NO_ERROR){
             std:: cout << fmt::bold_red;
-            std::cout << "OPEN GL ERR! LAST CALL:";
+            std::print("OPEN GL ERR [{}].  LAST CALL:",glbinding::aux::Meta::getString(err));
             if (!call.function->isResolved()){
                 std::cout << " (UNRESOLVED FUNCTION CALL!!):";
             }
@@ -442,6 +453,7 @@ int main(int argc, char** argv) {
     glViewport(ctx.win_x, ctx.win_y, viewport_w, viewport_h);
 
 
+    // GL CODE
     ShaderProgram prog("shaders/vs.glsl","shaders/fs.glsl");
     VertexBuffer vbo;
     ElementBuffer ebo;
@@ -450,6 +462,7 @@ int main(int argc, char** argv) {
     Texture2D texture1("resources/textures/missing_content_valve.png");
     Texture2D texture2("resources/textures/illuminati.png",GL_RGBA);
 
+    mat4 tri_scale = scale(mat4(1.0f), vec3(0.5f,0.5f, 0.5f));
 
     vao.bind();
 
@@ -465,8 +478,9 @@ int main(int argc, char** argv) {
 
 
     prog.use();
-    prog.setUniform1i("texture1", 0);
-    prog.setUniform1i("texture2", 1);
+    prog.setUniform("texture1", 0);
+    prog.setUniform("texture2", 1);
+    prog.setUniform("scale", tri_scale);
     prog.stop();
 
     u64 frameCount = 0;
@@ -480,10 +494,12 @@ int main(int argc, char** argv) {
         
         f32 x = frameCount/10.0;
         
+        f32 rad = radians(x);
         glClearColor(0.2, 0.5, 1.0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT);
         prog.use();
-            prog.setUniform1f("blendFactor", 0.5*sin(x)+0.5);
+            prog.setUniform("blendFactor", 0.5f*sin(x)+0.5f);
+            prog.setUniform("rotation", rotate(mat4(1.0f), rad, vec3(0.0f,0.0f,1.0f)));
             texture1.bind();
             texture2.bind();
             vao.bind();
@@ -500,3 +516,5 @@ int main(int argc, char** argv) {
     glfwTerminate();
     exit(EXIT_SUCCESS);
 }
+
+#endif

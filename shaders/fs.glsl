@@ -6,6 +6,11 @@ uniform float blendFactor;
 uniform sampler2D texture1;
 uniform sampler2D texture2;
 
+vec2 t1coord;
+vec2 t2coord;
 void main(){
-    FragColor = mix(texture(texture1, texCoord), texture(texture2, texCoord), blendFactor);
+    t1coord = texCoord;
+    t2coord = texCoord;
+
+    FragColor = mix(texture(texture1, t1coord), texture(texture2, t2coord), blendFactor);
 }

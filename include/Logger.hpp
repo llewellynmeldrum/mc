@@ -16,6 +16,7 @@
 #include "glHelpers.hpp"
 #include "glbinding-aux/types_to_string.h"
 #include "glbinding/gl/enum.h"
+#include "glmWrapper.hpp"
 
 extern u64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
                               // main begins.
@@ -42,11 +43,12 @@ const static char* bold_yellow                          = "\e[1;34m";
 const static char* bg_white_fg_black                            = "\e[47;30m";
 
 const static char* ligrey                           = "\e[90m";
-const static char* purple                           = "\e[36m";
 const static char* cyan                             = "\e[34m";
 const static char* green                            = "\e[32m";
+const static char* blue                             = "\e[36m";
+const static char* grey                             = "\e[90";
 const static char* yellow                           = "\e[33m";
-const static char* puple2                           = "\e[35m";
+const static char* purple                           = "\e[35m";
 const static char* iyellow                          = "\e[7;33m";
 const static char* pink                             = "\e[35m";
 const static char* lired                            = "\e[91m";
@@ -146,29 +148,57 @@ concept OStreamable = requires(T x, std::ostream& os){
 
 // returns a string containing the type and value category, i.e the type that is passed with perfect forwarding
 template <typename T>
-std::string fmt_expr(const char* identifier, T&& expr) {
+constexpr std::string fmt_expr(const char* identifier, T&& expr) {
     using Arg = std::remove_reference_t<T>;
+    std::string expr_str{};
 
     if constexpr (Formattable<T>) {
-        return std::format("{}{:>12}{} "
-                           "{}{:<12}{} "
-                           " = {:<12};",
-                           fmt::cyan, pretty_type_name<Arg>(),fmt::clear,
-                           fmt::red, identifier, fmt::clear,
-                           expr);
+        expr_str = std::format("{}",expr);
     } if constexpr (OStreamable<T>){
         std::ostringstream oss;
         oss << expr;
         std::string expr_str = oss.str();
-        return std::format("{}{:>12}{} "
-                           "{}{:<12}{} "
-                           " = {:<12};",
-                           fmt::cyan, pretty_type_name<Arg>(),fmt::clear,
-                           fmt::red, identifier, fmt::clear,
-                           expr_str);
-    }else{
-        return std::format("{} {} = <unformattable tomato>", pretty_type_name<Arg>(), identifier);
+    }else if constexpr (is_glm_type<T>){
+        if constexpr (is_glm_vec2<T>){
+            expr_str = std::format("[{}{}{}, {}{}{}]",
+                                    fmt::red, expr.x, fmt::clear,
+                                    fmt::green, expr.y, fmt::clear);
+        }else if constexpr(is_glm_vec3<T>){
+            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}]",
+                                    fmt::red, expr.x, fmt::clear,
+                                    fmt::green, expr.y, fmt::clear,
+                                    fmt::blue, expr.z, fmt::clear);
+        } else if constexpr(std::convertible_to<T,glm::vec<4,float>>){
+            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
+                                    fmt::red, expr.x, fmt::clear,
+                                    fmt::green, expr.y, fmt::clear,
+                                    fmt::blue, expr.z, fmt::clear,
+                                    fmt::grey , expr.w, fmt::clear);
+        } else {
+            expr_str.append("\n");
+            constexpr u64 ext = 4;
+            for (u64 row = 0; row< ext; row++){
+                expr_str.append("| ");
+                for (u64 col = 0; col< ext; col++){
+                    expr_str.append(std::format("{: 3.1f}",expr[col][row]));
+                    if (col!=ext-1){
+                        expr_str.append(" ");
+                    }
+                }
+                expr_str.append(" |");
+                if (row!=ext-1)
+                expr_str.append("\n");
+            }
+        }
+    }else {
+        expr_str =  "<unformattable tomato>";
     }
+    return std::format("{}{:>12}{} "
+                       "{}{:<12}{} "
+                       " = {:<12};",
+                       fmt::cyan, pretty_type_name<Arg>(),fmt::clear,
+                       fmt::red, identifier, fmt::clear,
+                       expr_str);
 }
 
 // returns a string containing the underlying type of the object expr represents. No value categories.
