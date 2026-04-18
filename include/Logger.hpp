@@ -213,7 +213,7 @@ std::string fmt_obj(const char* identifier, T&& expr) {
     }
 }
 
-#define LOG_EXPR(expr) std::println("{}", fmt_expr(#expr, (expr)))
+#define LOG_EXPR(expr) std::println("{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr(#expr, (expr)))
 
 
 

@@ -43,6 +43,9 @@ using namespace glm;
 using namespace gl;
 #define _DEBUG
 
+#define _LIBCPP_DEBUG
+#define _LIBCPP_DEBUG_USE_EXCEPTIONS
+
 
 u64 program_epoch_ns;
 
@@ -66,30 +69,40 @@ static void handleInputs(Context& ctx){
     if (glfwGetKey(ctx.win.ptr,GLFW_KEY_ESCAPE) == GLFW_PRESS){
         glfwSetWindowShouldClose(ctx.win.ptr, true);
     }
-    f32 dt = 1.0f;
+    f32 dt = ctx.time.dt; // TODO: implement 
+    dt*=60;
+    // dt = 1/60
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_W) == GLFW_PRESS){
-        ctx.cam.moveForward(dt);
+        ctx.cam.move(Direction::FORWARD,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_S) == GLFW_PRESS){
-        ctx.cam.moveBackward(dt);
+        ctx.cam.move(Direction::BACKWARD,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_A) == GLFW_PRESS){
-        ctx.cam.moveLeft(dt);
+        ctx.cam.move(Direction::LEFT,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_D) == GLFW_PRESS){
-        ctx.cam.moveRight(dt);
+        ctx.cam.move(Direction::RIGHT,dt);
     }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_E) == GLFW_PRESS){
+        ctx.cam.move(Direction::UP,dt);
+    }
+    if (glfwGetKey(ctx.win.ptr, GLFW_KEY_Q) == GLFW_PRESS){
+        ctx.cam.move(Direction::DOWN,dt);
+    }
+
+
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_LEFT) == GLFW_PRESS){
-        ctx.cam.yawLeft(dt);
+        ctx.cam.rotate(Direction::LEFT,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_RIGHT) == GLFW_PRESS){
-        ctx.cam.yawRight(dt);
+        ctx.cam.rotate(Direction::RIGHT,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_UP) == GLFW_PRESS){
-        ctx.cam.pitchUp(dt);
+        ctx.cam.rotate(Direction::UP,dt);
     }
     if (glfwGetKey(ctx.win.ptr, GLFW_KEY_DOWN) == GLFW_PRESS){
-        ctx.cam.pitchDown(dt);
+        ctx.cam.rotate(Direction::DOWN,dt);
     }
 }
 
@@ -225,6 +238,7 @@ struct FragmentShader: Shader{
 
 struct ShaderProgram{
     u32 id;
+    // compiles and links a vertex and fragment shader from the path of their source files.
     ShaderProgram(const char* vtx_src, const char* frag_src) {
         this->id = glCreateProgram();
         VertexShader vtx(vtx_src);
@@ -256,6 +270,8 @@ struct ShaderProgram{
             LOG_EXIT(EXIT_FAILURE);
         }
     }
+    // `#ifdef _DEBUG`, this function will search with the ./shaders dir with `rg` to see if the `name` requested exists in a shader. 
+    // If it doesnt, we crash immediately, providing an error message containing the top 1 `N=3` closest fuzzy results from `agrep`.
     template<typename T>
     void setUniform(std::string name, T val){
         i32 location = 0;
@@ -425,7 +441,6 @@ struct Texture2D{
         idx = texture_count++;
     }
     inline void bind(){ 
-        LOG_EXPR(idx);
         glActiveTexture(GL_TEXTURE0+idx);
         glBindTexture(GL_TEXTURE_2D, id); 
     }
@@ -450,53 +465,15 @@ private:
 
 
 };
-#ifdef TESTING
-#include "UnitTests.hpp"
-#endif
-
-int main(int argc, char** argv) {
-#ifdef TESTING
-    RUN_TESTS();
-}
-#else
-    Camera cam((vec3){0,0,6});
-    auto ctx = Context(cam);
-    stbi_set_flip_vertically_on_load(true);  
-    program_epoch_ns = get_current_ns();
-    glfwSetErrorCallback(glfw_ErrorCallback);
-
-    // init glfw
-    if (!glfwInit()) {
-        LOG_ERROR("Failed to initialize GLFW.");
-        LOG_EXIT(EXIT_FAILURE);
-    } 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-    #ifdef __APPLE__
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true); // required for opengl 3.2+
-    #endif
-
-    // init glfw window
-    GLFWwindow* win = glfwCreateWindow(ctx.win.w, ctx.win.h, "Window Title", nullptr, nullptr);
-    if (!win) {
-        LOG_ERROR("Failed to initialize GLFW.");
-        glfwTerminate();
-        LOG_EXIT(EXIT_FAILURE);
-    }
-    ctx.win.ptr = win;
-
-    // Bind the openGL ctx of the window to the current thread
-    glfwMakeContextCurrent(win);
-
+void init_glFunctionLoader(){
+    // at the moment, using glbinding, but i think this is a reasonable thing to swap out
     glbinding::initialize(glfwGetProcAddress);
     glbinding::setCallbackMaskExcept(glbinding::CallbackMask::After | glbinding::CallbackMask::ParametersAndReturnValue, {"glGetError"});
     glbinding::setAfterCallback([](const glbinding::FunctionCall & call) {
         const auto err = glGetError();
         if (err != GL_NO_ERROR){
             std:: cout << fmt::bold_red;
-            std::print("OPEN GL ERR [{}].  LAST CALL:",glbinding::aux::Meta::getString(err));
+            std::print(">>>>>OPEN GL ERR [{}].  LAST CALL:",glbinding::aux::Meta::getString(err));
             if (!call.function->isResolved()){
                 std::cout << " (UNRESOLVED FUNCTION CALL!!):";
             }
@@ -519,24 +496,70 @@ int main(int argc, char** argv) {
             std::println();
         }
     });
+}
+
+void init_glfw(Context& ctx){
+    program_epoch_ns = get_current_ns();
+    stbi_set_flip_vertically_on_load(true);  
+    glfwSetErrorCallback(glfw_ErrorCallback);
+
+    // init glfw
+    if (!glfwInit()) {
+        LOG_ERROR("Failed to initialize GLFW.");
+        LOG_EXIT(EXIT_FAILURE);
+    } 
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+    #ifdef __APPLE__
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true); // required for opengl 3.2+
+    #endif
+
+    ctx.win.ptr = glfwCreateWindow(ctx.win.w, ctx.win.h, "Window Title", nullptr, nullptr);
+    if (!ctx.win.ptr) {
+        LOG_ERROR("Failed to initialize GLFW.");
+        glfwTerminate();
+        LOG_EXIT(EXIT_FAILURE);
+    }
+
+    // WARNING: Doing any OpenGL calls before makeContextCurrent will fk shit up
+    glfwMakeContextCurrent(ctx.win.ptr);
+    // WARNING:  ^^^^^^^
 
 
-    glfwSetWindowUserPointer(win,&ctx);
+
+
+    glfwSetWindowUserPointer(ctx.win.ptr,&ctx);
 //    glfwSetWindowPosCallback(win,glfw_MoveCallback);
-    glfwSetFramebufferSizeCallback(win,glfw_ResizeCallback);
-    glfw_ResizeCallback(win,ctx.win.w,ctx.win.h);
-    glfwSetWindowPos(win, ctx.win.x,ctx.win.y);
+    glfwSetWindowPos(ctx.win.ptr, ctx.win.x,ctx.win.y);
+
+    float xscale, yscale;
+    glfwGetWindowContentScale(ctx.win.ptr, &xscale, &yscale);
+    if (xscale !=1.0 || yscale != 1.0){
+        LOG_WARN("Retina mode detected, check scaling if any dimensions are weird");
+    }
     // ensure we pass the true pixel size to openGL
-    i32 viewport_w, viewport_h;
-    glfwGetFramebufferSize(win,&viewport_w,&viewport_h);
-    // init viewport
-    //glViewport(ctx.win.x, ctx.win.y, viewport_w, viewport_h);
-    glViewport(ctx.win.x, ctx.win.y, viewport_w, viewport_h);
-    glEnable(GL_DEPTH_TEST); // perform depth testing 
-    LOG_EXPR(glm::vec2(viewport_w,viewport_h));
+    glfwGetFramebufferSize(ctx.win.ptr,&ctx.win.w,&ctx.win.h);
+}
+void init_opengl(Context& ctx){
+    init_glFunctionLoader();
+    
+    // WARNING: Only set/call these once glbinding has been setup, as they make gl calls.
+    assert(ctx.win.ptr);
+    glfwSetFramebufferSizeCallback(ctx.win.ptr,glfw_ResizeCallback);
+    glfw_ResizeCallback(ctx.win.ptr,ctx.win.w,ctx.win.h);
+    glViewport(ctx.win.x, ctx.win.y, ctx.win.w, ctx.win.h);
+    // perform depth testing, i.e refuse draw calls which would cause a vertex further away to overwrite a closer one
+    glEnable(GL_DEPTH_TEST); 
+}
 
+int main(int argc, char** argv) {
+    Camera cam((vec3){0,0,6});
+    auto ctx = Context(cam);
+    init_glfw(ctx);
+    init_opengl(ctx);
 
-    // GL CODE
     ShaderProgram prog("shaders/vs.glsl","shaders/fs.glsl");
     VertexBuffer vbo;
     VertexArray vao;
@@ -548,7 +571,7 @@ int main(int argc, char** argv) {
 
 
     // apply model transformations
-    model_matrix = rotate(model_matrix, radians(-55.0f), vec3(1.0f, 0.0f, 0.0f));
+//    model_matrix = rotate(model_matrix, radians(-55.0f), vec3(1.0f, 0.0f, 0.0f));
     //model_matrix = scale(model_matrix, vec3(2.0f, 2.0f, 2.0f));
 
 
@@ -581,7 +604,7 @@ int main(int argc, char** argv) {
 
     u64 frameCount = 0;
     ctx.time.init();
-    while (!glfwWindowShouldClose(win)){
+    while (!glfwWindowShouldClose(ctx.win.ptr)){
         handleInputs(ctx);
 
         if (ctx.wireframe){
@@ -596,7 +619,6 @@ int main(int argc, char** argv) {
             vao.bind();
             mat4 view;
 
-        LOG_EXPR(ctx.cam.pos+ctx.cam.front);
             prog.setUniform("view", ctx.cam.getViewMatrix());
             prog.setUniform("proj", ctx.cam.getProjectionMatrix());
             for (const auto& cube_pos : cube_positions){
@@ -607,7 +629,7 @@ int main(int argc, char** argv) {
         prog.stop();
 
 
-        glfwSwapBuffers(win);
+        glfwSwapBuffers(ctx.win.ptr);
         glfwPollEvents();
         ctx.time.update();
         frameCount++;
@@ -615,5 +637,3 @@ int main(int argc, char** argv) {
     glfwTerminate();
     exit(EXIT_SUCCESS);
 }
-
-#endif
