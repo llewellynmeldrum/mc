@@ -1,15 +1,28 @@
 #pragma once 
 
 #include "Types.h"
+#include "Mesh.hpp"
+#include "Context.hpp"
 #include <array>
 #include <cmath>
 #include <mdspan>
-struct BlockType{
-
+enum class BlockType{
+    GRASS_BLOCK,
+    DIRT_BLOCK,
 };
 struct Block{
-    BlockDef id; // used to index into the texture atlas, also used to identify its blockType
+    BlockType id; 
+    constexpr u64 texture_id(){
+        return static_cast<u64>(id);
+    }
 };
+
+
+
+
+
+
+
 
 constexpr u16 CHUNK_EXTENT = 8; // x/y/z
 constexpr u16 CHUNK_SIZE = 8*8*8; // x/y/z
@@ -18,8 +31,10 @@ struct Chunk{
     Block& operator[](u8 x, u8 y, u8 z){
         return std::mdspan(data.data(), CHUNK_EXTENT, CHUNK_EXTENT, CHUNK_EXTENT)[x,y,z];
     }
+    constexpr inline void placeBlock(this auto& self, BlockType t, u8 x, u8 y, u8 z){
+        self[x,y,z]=Block{t};
+    }
+    std::vector<Mesh> build_meshes(){
+        return {};
+    }
 };
-int main(){
-    Chunk c{};
-    Block& b = c[0,0,0];
-}

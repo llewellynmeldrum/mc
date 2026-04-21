@@ -17,6 +17,8 @@ constexpr gl::GLenum gl_type(){
         res = gl::GL_INT;
     }else if constexpr (std::same_as<T,u32>){
         res = gl::GL_UNSIGNED_INT;
+    }else if constexpr (std::same_as<T,u8>){
+        res = gl::GL_UNSIGNED_BYTE;
     }
     return res;
 }

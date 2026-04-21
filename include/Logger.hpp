@@ -13,11 +13,12 @@
 #include <type_traits>
 
 #include "Types.h"
+#include "Vertex.hpp"
 #include "glHelpers.hpp"
 #include "glbinding-aux/types_to_string.h"
 #include "glbinding/gl/enum.h"
 #include "glmWrapper.hpp"
-
+#include "CommonUtils.hpp"
 extern u64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
                               // main begins.
 
@@ -148,50 +149,72 @@ concept OStreamable = requires(T x, std::ostream& os){
 
 // returns a string containing the type and value category, i.e the type that is passed with perfect forwarding
 template <typename T>
-constexpr std::string fmt_expr(const char* identifier, T&& expr) {
-    using Arg = std::remove_reference_t<T>;
-    std::string expr_str{};
+constexpr std::string fmt_expr(T&& expr) {
 
-    if constexpr (Formattable<T>) {
-        expr_str = std::format("{}",expr);
-    } if constexpr (OStreamable<T>){
+    using Arg = std::remove_cvref_t<T>;
+    std::string expr_str{};
+    if constexpr(std::same_as<Arg,Vertex>){
+        expr_str = std::format("[{}, {}]", fmt_expr(expr.pos), fmt_expr(expr.txCoords));
+    } else if constexpr(std::is_pointer_v<T>){
+        expr_str = std::format("{}", (void*)expr);
+    }else if constexpr (Formattable<T>) {
+        expr_str = std::format("{}", expr);
+    }else if constexpr (OStreamable<T>){
         std::ostringstream oss;
         oss << expr;
         std::string expr_str = oss.str();
-    }else if constexpr (is_glm_type<T>){
-        if constexpr(std::convertible_to<T,glm::vec<4,float>>){
-            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
-                                    fmt::red, expr.x, fmt::clear,
-                                    fmt::green, expr.y, fmt::clear,
-                                    fmt::blue, expr.z, fmt::clear,
-                                    fmt::grey , expr.w, fmt::clear);
-        }else if constexpr(std::convertible_to<T,glm::vec<3,float>>){
-            expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}]",
-                                    fmt::red, expr.x, fmt::clear,
-                                    fmt::green, expr.y, fmt::clear,
-                                    fmt::blue, expr.z, fmt::clear);
-        }else if constexpr(std::convertible_to<T,glm::vec<2,float>>){
-            expr_str = std::format("[{}{}{}, {}{}{}]", 
-                                    fmt::red, expr.x, fmt::clear,
-                                    fmt::green, expr.y, fmt::clear);
-        } else {
-            expr_str.append("\n");
-            constexpr u64 ext = 4;
-            for (u64 row = 0; row< ext; row++){
-                expr_str.append("| ");
-                for (u64 col = 0; col< ext; col++){
-                    expr_str.append(std::format("{: 3.1f}",expr[col][row]));
-                    if (col!=ext-1){
-                        expr_str.append(" ");
-                    }
+    }else if constexpr(std::convertible_to<T,glm::vec<4,float>>){
+        expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
+                                fmt::red, expr.x, fmt::clear,
+                                fmt::green, expr.y, fmt::clear,
+                                fmt::blue, expr.z, fmt::clear,
+                                fmt::grey , expr.w, fmt::clear);
+    }else if constexpr(std::convertible_to<T,glm::vec<3,float>>){
+        expr_str = std::format("[{}{}{}, {}{}{}, {}{}{}]",
+                                fmt::red, expr.x, fmt::clear,
+                                fmt::green, expr.y, fmt::clear,
+                                fmt::blue, expr.z, fmt::clear);
+    }else if constexpr(std::convertible_to<T,glm::vec<2,float>>){
+        expr_str = std::format("[{}{}{}, {}{}{}]", 
+                                fmt::red, expr.x, fmt::clear,
+                                fmt::green, expr.y, fmt::clear);
+    }else if constexpr(std::convertible_to<T,glm::mat4>){
+        expr_str.append("\n");
+        constexpr u64 ext = 4;
+        for (u64 row = 0; row< ext; row++){
+            expr_str.append("| ");
+            for (u64 col = 0; col< ext; col++){
+                expr_str.append(std::format("{: 3.1f}",expr[col][row]));
+                if (col!=ext-1){
+                    expr_str.append(" ");
                 }
-                expr_str.append(" |");
-                if (row!=ext-1)
-                expr_str.append("\n");
             }
+            expr_str.append(" |");
+            if (row!=ext-1)
+            expr_str.append("\n");
         }
     }else {
         expr_str =  "<unformattable tomato>";
+    }
+    return expr_str;
+}
+template <typename T>
+constexpr std::string fmt_expr_id(const char* identifier, T&& expr) {
+    using Arg = std::remove_reference_t<T>;
+    std::string expr_str{};
+
+    if constexpr(isSequenceContainer<T>){
+        expr_str.append("\n{\n");
+        for (const auto& e: expr){
+            expr_str.append("\t");
+            expr_str.append(fmt_expr(e));
+            if(&e != &expr.back()){
+                expr_str.append(",\n");
+            }
+        }
+        expr_str.append("\n}");
+    }else{
+        expr_str = fmt_expr(expr);
     }
     return std::format("{}{:>12}{} "
                        "{}{:<12}{} "
@@ -213,7 +236,7 @@ std::string fmt_obj(const char* identifier, T&& expr) {
     }
 }
 
-#define LOG_EXPR(expr) std::println("{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr(#expr, (expr)))
+#define LOG_EXPR(expr) std::println("{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr_id(#expr, (expr)))
 
 
 

@@ -1,11 +1,7 @@
 #pragma once 
-#define GLM_FORCE_INTRINSICS
-#define GLM_DEFAULT_ALIGNED_GENTYPES
-#ifdef __ARM_NEON
-    #define GLM_FORCE_NEON
-#endif
 
 #include "glm/gtc/type_ptr.hpp"
+using namespace glm;
 template <class T>
 concept is_glm_type = requires(T obj){
 true;
@@ -46,3 +42,4 @@ requires is_glm_type<T>
 const auto data(T obj){
     return glm::value_ptr(obj);
 }
+
