@@ -1,9 +1,16 @@
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+import sys
 from typing import List
 from typing import Dict
 
-DEBUG = True
+if len(sys.argv) < 2:
+    DEBUG = False
+elif sys.argv[1] == "-d":
+    DEBUG = True
+else:
+    DEBUG = False
+
 END = ""
 
 
@@ -156,13 +163,12 @@ def true_function_call(cmd: Command):
 
 def print_remapped_signature(cmd: Command):
     cmd.function_name = get_true_function_name(cmd)
-    FN_PROLOGUE = f"#ifdef {cmd.macro_name}\n"
-    FN_PROLOGUE += f"#undef {cmd.macro_name}\n"
-
     res = ""
-    res += f"{FN_PROLOGUE}\n"
+    res = f"#ifdef {cmd.macro_name}\n"
+    res += f"#undef {cmd.macro_name}\n"
+    res += "\n"
     res += f"{cmd.comments}"
-    res += f"\tinline {cmd}"
+    res += f"\tinline __attribute__((always_inline)) {cmd}"
     res += "{\n\t"
     if cmd.return_t != "void":
         res += "\treturn "

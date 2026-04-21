@@ -5,55 +5,59 @@
 #MAKEFLAGS += -j8
 #MAKEFLAGS += --ignore-errors
 
-UNAME := $(shell uname)
+LLVM_PREFIX := /opt/homebrew/opt/llvm@22
+clang++:= $(LLVM_PREFIX)/bin:$(PATH)
+export clang++
 
+UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
-	CXX      := clang++
-	CC       := clang
-	DEBUGGER := lldb
-	GL_LIBS  := -framework OpenGL
+	CC       	:= clang
+	DEBUGGER 	:= lldb
+	GLBINDING  := $(shell brew --prefix glbinding)
+	LLVM_PREFIX := /opt/homebrew/opt/llvm@22
+	SDKROOT     := $(shell xcrun --show-sdk-path)
+	# to use llvm-22 clang++
+
 else ifeq ($(UNAME),Linux)
 	CXX      := clang++-22
 	CC       := clang-22
 	DEBUGGER := gdb
-	GL_LIBS  := -lGL
+	$(errror setup lvvm prefix)
 else
 	$(error Unsupported platform.)
 endif
+# --------------------------------------------------
+
 
 # --------------------------------------------------
-# Project layout
 
-APP_EXE := ./bin/server
+APP_EXE := ./bin/mc
+CXX         :=clang++ 
+CXXFLAGS    :=-std=c++23 
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
 APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
 APP_DEPS := $(APP_OBJ:.o=.d)
 
 # --------------------------------------------------
-# GLAD
-
-GLAD_DIR := ./glad
-GLAD_SRC := $(GLAD_DIR)/src/gl.c
-GLAD_OBJ := ./build/glad/glad.o
-GLAD_DEP := $(GLAD_OBJ:.o=.d)
 
 # --------------------------------------------------
-# Includes / flags
+CPPFLAGS 	:= -Iinclude 
 
-CPPFLAGS := -Iinclude -I$(GLAD_DIR)/include
+CPPFLAGS    +=-D_LIBCPP_DISABLE_AVAILABILITY
+LDFLAGS     +=-isysroot $(SDKROOT)
+LDFLAGS     +=-L$(LLVM_PREFIX)/lib/c++ 
+LDFLAGS     +=-L$(LLVM_PREFIX)/lib/unwind
+LDFLAGS     +=-Wl,-rpath,$(LLVM_PREFIX)/lib/c++ 
+LDFLAGS		+=-Wl,-rpath,$(LLVM_PREFIX)/lib/unwind
+LDLIBS      +=-lunwind
 
-CXXFLAGS := -std=c++23
-CXXFLAGS += -Wall -Werror
-CXXFLAGS += -Wimplicit-fallthrough
-CXXFLAGS += -Wno-unused
-CXXFLAGS += -MMD -MP
-CXXFLAGS += $(shell pkg-config --cflags glfw3)
+CXXFLAGS 	+=-Wall -Werror
+CXXFLAGS 	+=-Wimplicit-fallthrough
+CXXFLAGS 	+=-Wno-unused
+CXXFLAGS 	+=-MMD -MP
+CXXFLAGS 	+=$(shell pkg-config --cflags glfw3)
 
-CFLAGS := -Wall -Werror
-CFLAGS += -Wimplicit-fallthrough
-CFLAGS += -Wno-unused
-CFLAGS += -MMD -MP
 
 # Formatting of compiler errors (and sanitizers)
 CXXFLAGS += -fdebug-prefix-map=$(PWD)=.
@@ -61,6 +65,9 @@ CXXFLAGS += -fno-show-column
 CXXFLAGS += -fno-diagnostics-show-option
 CXXFLAGS += -fdiagnostics-fixit-info
 
+CFLAGS := -Wall -Werror
+CFLAGS += -Wimplicit-fallthrough
+CFLAGS += -MMD -MP
 CFLAGS += -fdebug-prefix-map=$(PWD)=.
 CFLAGS += -fno-show-column
 CFLAGS += -fno-diagnostics-show-option
@@ -68,19 +75,23 @@ CFLAGS += -fdiagnostics-fixit-info
 
 # --------------------------------------------------
 # Link flags
-# Add GLFW here if you are linking it manually.
 
-LDFLAGS :=
-LDLIBS := -lstdc++ $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
-# --------------------------------------------------
+LDLIBS  	+= $(GL_LIBS) $(shell pkg-config --libs glfw3)
+
+CPPFLAGS 	+= -I$(GLBINDING)/include
+CPPFLAGS 	+= -Iexternal/
+LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
 
 all: run
 
+test: CXXFLAGS+= -DTESTING
+test: clean all
 build: $(APP_EXE)
 
 run: $(APP_EXE)
-	@./scripts/exec_wrapper.sh $(APP_EXE) $(ARGS)
+	$(APP_EXE)
+
 
 # --------------------------------------------------
 # Compile C++ app sources
@@ -89,22 +100,15 @@ run: $(APP_EXE)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-# Compile GLAD C source
 
-$(GLAD_OBJ): $(GLAD_SRC)
-	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
-
-# Link final executable
-
-$(APP_EXE): $(APP_OBJ) $(GLAD_OBJ)
+$(APP_EXE): $(APP_OBJ) 
 	@mkdir -p $(dir $@)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # --------------------------------------------------
 # Dependencies
 
--include $(APP_DEPS) $(GLAD_DEP)
+-include $(APP_DEPS) 
 
 # --------------------------------------------------
 # Sanitizers
