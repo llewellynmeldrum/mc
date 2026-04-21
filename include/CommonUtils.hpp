@@ -5,10 +5,10 @@
 #include "glmWrapper.hpp"
 
 enum struct Direction{
-    RIGHT,
-    LEFT,
-    UP,
+    UP, 
     DOWN,
+    LEFT,
+    RIGHT,
     BACKWARD,
     FORWARD,
 };

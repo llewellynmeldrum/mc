@@ -8,6 +8,11 @@
 
 using namespace glm;
 struct Camera{
+public:
+    void setup();
+    void move(Direction dir, f32 dt);
+    void rotate(Direction dir, f32 dt);
+
     f32 yaw = -90;
     f32 pitch = 0;
     vec3 pos; // world
@@ -38,15 +43,14 @@ struct Camera{
         return glm::perspective(radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
     }
 
-    void move(Direction dir, f32 dt);
-    void rotate(Direction dir, f32 dt);
+
 private:
-  void        moveUpward(f32 dt);
-  void        moveDownward(f32 dt);
-  void        moveForward(f32 dt);
-  void        yawLeft(f32 dt);
-  void        yawRight(f32 dt);
-  void        pitchDown(f32 dt);
+  void moveUpward(f32 dt);
+  void moveDownward(f32 dt);
+  void moveForward(f32 dt);
+  void yawLeft(f32 dt);
+  void yawRight(f32 dt);
+  void pitchDown(f32 dt);
   void pitchUp(f32 dt);
   void moveBackward(f32 dt);
   void moveLeft(f32 dt);
