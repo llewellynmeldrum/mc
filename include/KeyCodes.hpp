@@ -1,10 +1,10 @@
 #pragma once 
 #include "Types.h"
 enum class KeyState{
+    Released,
     JustPressed,
     JustReleased,
     Held,
-    Released,
     INVALID=-1,
 };
 using KeyCode = u32;

@@ -27,7 +27,7 @@ struct Input{
     }
     std::array<bool, KEY_MAX+1> pressed;
     // refers to key state, relative to the last 2 poll calls. If KEY_RELEASED,
-    std::array<KeyState, KEY_MAX+1> keyState; 
+    std::array<KeyState, KEY_MAX+1> keyState{}; 
     std::unordered_map<Key, f32> keyRepeatCooldown;
 };
 

@@ -1,7 +1,5 @@
 
 #include <memory>
-
-
 #include "Context.hpp"
 #include "Vertex.hpp"
 #include "Shaders.hpp"
@@ -81,10 +79,11 @@ enum CubeFace{
 };
 
 
-void Mesh::setup(std::vector<Vertex> vertices) {
+void Mesh::setup(std::vector<Vertex>& vertices) {
     vao.setupVertexArray();
     vbo.setupVertexBuffer();
    
+    vertex_count = vertices.size();
     vao.bind();
     vbo.load(vertices, to_u32(GL_STATIC_DRAW));
     vao.buffer_cols = 5;                    // x,y,z, s,t
@@ -94,7 +93,6 @@ void Mesh::setup(std::vector<Vertex> vertices) {
 }
 
 void Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const {
-    // TODO: Bug on the set uniforms somewhere, might be these ones im not sure
     prog.use();
     vao.bind();
     prog.setUniform("model", model);

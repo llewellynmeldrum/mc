@@ -1,3 +1,4 @@
+#pragma once 
 namespace fmt{
 const static char* bold                             = "\e[1m";
 const static char* underline                            = "\e[4m";

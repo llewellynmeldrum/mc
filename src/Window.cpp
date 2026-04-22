@@ -12,6 +12,7 @@
 #include "glbinding-aux/logging.h"
 
 #include "Logger.hpp"
+#include "DEBUG.hpp"
 
 using namespace gl;
 
@@ -76,8 +77,6 @@ void Window::setupWindow(void* ctx_ptr){
 }
 
 bool Window::shouldClose(){
-    LOG_DEBUG("Window::shouldClose() called");
-    LOG_EXPR(this);
     return glfwWindowShouldClose(ptr);
 }
 
@@ -116,6 +115,7 @@ static void init_glFunctionLoader(){
               std::cout << " -> " << call.returnValue.get();
             }
             std::println();
+            DEBUG_BREAKPOINT();
         }
     });
 }

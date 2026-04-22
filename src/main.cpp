@@ -1,5 +1,6 @@
 #include "App.hpp"
 #include "Context.hpp"
+#include "DEBUG.hpp"
 #define _DEBUG
 
 void Context::draw(){

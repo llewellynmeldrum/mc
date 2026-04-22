@@ -1,5 +1,6 @@
 #pragma once
 
+#define INCLUDE_LOGGER_LAST
 #include <cxxabi.h>
 #include <memory>
 #include <string>
@@ -70,26 +71,6 @@ inline LogLevel COUNT{"[COUNT]",       fmt::red,   5};
 }while(0)
 
 
-template <typename T>
-constexpr std::string_view pretty_type_name() {
-#if defined(__clang__)
-    std::string_view p = __PRETTY_FUNCTION__;
-    auto start = p.find("T = ");
-    start += 4;
-    auto end = p.rfind(']');
-    return p.substr(start, end - start);
-
-#elif defined(__GNUC__)
-    std::string_view p = __PRETTY_FUNCTION__;
-    auto start = p.find("with T = ");
-    start += 9;
-    auto end = p.find(';', start);
-    return p.substr(start, end - start);
-
-#else
-    return "unsupported compiler";
-#endif
-}
 
 template <typename T>
 constexpr std::string fmt_expr(const char* identifier, T&& expr) {

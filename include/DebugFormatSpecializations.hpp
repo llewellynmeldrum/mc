@@ -1,35 +1,41 @@
 #pragma once 
+#ifdef INCLUDE_LOGGER_LAST
+#error "Logger.hpp must be included AFTER DebugFormat* headers!"
+#endif
+#include "DebugFormat.hpp"
 #include <format>
-#include "glbindingWrapper.hpp"
-#include "glbinding-aux/types_to_string.h"
-
 #include "AnsiCodes.hpp"
 #include "Types.h"
 #include "glmWrapper.hpp"
 
 // specializations of dbg_fmt for glm types 
-inline constexpr std::string dbg_fmt(const glm::vec<4,float>& val){
+//
+template<glm::length_t L, typename T, glm::qualifier Q>
+inline constexpr std::string dbg_fmt(const glm::vec<L, T, Q>& v){
+    return "CHOSE THE GLM ONE";
+}
+inline std::string dbg_fmt(const glm::vec4& val){
     return std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
                             fmt::red, val.x, fmt::clear,
                             fmt::green, val.y, fmt::clear,
                             fmt::blue, val.z, fmt::clear,
                             fmt::grey , val.w, fmt::clear);
 }
-inline constexpr std::string dbg_fmt(const glm::vec<3,float>& val){
+inline std::string dbg_fmt(const glm::vec3& val){
     return std::format("[{}{}{}, {}{}{}, {}{}{}]",
                             fmt::red, val.x, fmt::clear,
                             fmt::green, val.y, fmt::clear,
                             fmt::blue, val.z, fmt::clear);
 }
-inline constexpr std::string dbg_fmt(const glm::vec<2,float>& val){
+inline std::string dbg_fmt(const glm::vec2& val){
     return std::format("[{}{}{}, {}{}{}]", 
                             fmt::red, val.x, fmt::clear,
                             fmt::green, val.y, fmt::clear);
 }
-inline constexpr std::string dbg_fmt(const glm::mat4& val){
+inline std::string dbg_fmt(const glm::mat4& val){
     std::string expr_str{};
     expr_str.append("\n");
-    constexpr u64 ext = 4;
+    u64 ext = 4;
     for (u64 row = 0; row< ext; row++){
         expr_str.append("| ");
         for (u64 col = 0; col< ext; col++){
@@ -46,7 +52,21 @@ inline constexpr std::string dbg_fmt(const glm::mat4& val){
 }
 
 #include "Vertex.hpp"
-// specializations of dbg_fmt for my types
-constexpr std::string dbg_fmt(const Vertex& val){
+#include "KeyCodes.hpp"
+inline std::string dbg_fmt(const Vertex& val){
     return std::format("[{}, {}]", dbg_fmt(val.pos), dbg_fmt(val.txCoords));
+}
+inline std::string dbg_fmt(const KeyState& val){
+    switch(val){
+        case KeyState::JustPressed: return "JustPressed"; break;
+        case KeyState::JustReleased:return "JustReleased"; break;
+        case KeyState::Held:        return "Held"; break;
+        case KeyState::Released:    return "Released"; break;
+
+        case KeyState::INVALID: 
+            [[fallthrough]];
+        default:    
+            break;
+    }
+    return "INVALID";
 }

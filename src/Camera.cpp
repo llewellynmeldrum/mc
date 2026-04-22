@@ -2,7 +2,7 @@
 #include "glmWrapper.hpp"
 
 void Camera::setupCamera(){
-    pos = {0, -3, 0};
+    pos = {0, 0, 6};
     dir_upwards =    {0.0f, 1.0f, 0.0f};
     front = {0.0f, 0.0f, -1.0f};
 

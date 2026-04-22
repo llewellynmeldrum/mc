@@ -2,7 +2,7 @@
 
 # --------------------------------------------------
 # Make flags
-#MAKEFLAGS += -j8
+MAKEFLAGS += -j8
 #MAKEFLAGS += --ignore-errors
 
 LLVM_PREFIX := /opt/homebrew/opt/llvm@22
@@ -142,4 +142,4 @@ clean:
 
 debug: CXXFLAGS += -g
 debug: $(APP_EXE)
-	$(DEBUGGER) -o run -- $(APP_EXE) $(ARGS)
+	$(DEBUGGER) -o -- $(APP_EXE) $(ARGS)

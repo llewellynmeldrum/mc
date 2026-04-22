@@ -1,6 +1,9 @@
+#include "DebugFormatSpecializations.hpp"
+
 #include "Input.hpp"
 #include "Context.hpp"
 #include "GLFWWrapper.hpp"
+
 
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
 
@@ -17,20 +20,10 @@ static void glfw_key_callback(GLFWwindow* window, int key, int code, int action,
     auto* ctx = (Context*)glfwGetWindowUserPointer(window);
     auto& input = ctx->input;
     if (key == GLFW_KEY_UNKNOWN) return; // Ignore unknown keys
-    KeyState& key_state = input.keyState[code];
-    
+    KeyState& key_state = input.keyState[key];
     if (action == GLFW_PRESS){
-        if (key_state==KeyState::JustPressed || key_state==KeyState::Held){
-            input.keyState[code] = KeyState::Held;
-        } else {
-            input.keyState[code] = KeyState::JustPressed;
-        }
+        input.keyState[key] = KeyState::Held;
     } else if (action == GLFW_RELEASE){
-        if (key_state==KeyState::JustReleased || key_state==KeyState::Released){
-            input.keyState[code] = KeyState::Released;
-        }else {
-            input.keyState[code] = KeyState::JustReleased;
-        }
-        input.keyState[code] = KeyState::JustPressed;
+        input.keyState[key] = KeyState::Released;
     }
 }

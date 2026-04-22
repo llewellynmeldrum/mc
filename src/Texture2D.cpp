@@ -19,11 +19,15 @@ void Texture2D::setup() {
         LOG_ERROR("Failed to load texture file '{}'.", texturePath);
         return;
     }
+    LOG_EXPR(pxwidth);
+    LOG_EXPR(pxheight);
+    LOG_EXPR(nchannels);
+    LOG_EXPR(tex_pixels);
     Texture2D::init();
     Texture2D::bind();
-    Texture2D::setMinifyMode(to_u32(GL_LINEAR_MIPMAP_NEAREST));
-    Texture2D::setMagnifyMode(to_u32(GL_NEAREST));
-    Texture2D::setWrapMode(to_u32(GL_CLAMP_TO_BORDER));
+    Texture2D::setMinifyMode(to_i32(GL_LINEAR_MIPMAP_NEAREST));
+    Texture2D::setMagnifyMode(to_i32(GL_NEAREST));
+    Texture2D::setWrapMode(to_i32(GL_CLAMP_TO_BORDER));
     Texture2D::setBorderColor(borderColor);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(imageFormat), GL_UNSIGNED_BYTE,
@@ -48,13 +52,13 @@ void Texture2D::unbind() {
 void Texture2D::setBorderColor(vec4 color) {
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, data(color));
 }
-void Texture2D::setMinifyMode(u32 mode) {
+void Texture2D::setMinifyMode(i32 mode) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
 }
-void Texture2D::setMagnifyMode(u32 mode) {
+void Texture2D::setMagnifyMode(i32 mode) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode);
 }
-void Texture2D::setWrapMode(u32 mode) {
+void Texture2D::setWrapMode(i32 mode) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
 }

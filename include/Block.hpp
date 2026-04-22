@@ -26,6 +26,9 @@ struct Block{
     constexpr inline bool isOpaque()const noexcept{
         return blockOpacity[idx()]>=1.0;
     }
+    constexpr inline bool isAir()const noexcept{
+        return id==BlockType::AIR;
+    }
 };
 
 

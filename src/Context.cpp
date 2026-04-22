@@ -7,6 +7,7 @@ void Context::setupContext(){
     input.setupInput(win.ptr);
     time.setupTimer();
     cam.setupCamera();
+    rend.setupRenderer();
 }
 
 void Context::handleInputs(){

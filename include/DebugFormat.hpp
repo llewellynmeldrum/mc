@@ -1,12 +1,16 @@
+#pragma once 
 #include <format>
 #include <string>
 #include <sstream>
 
 #include "CommonConcepts.hpp"
 
+// NOTE: 
+// 'include/DebugFormatSpecializations.hpp' contains specializations/overloads for custom/project specific types.
+
 // @brief returns a string containing the type and value category, i.e the type that is passed with perfect forwarding
 template <typename T>
-constexpr std::string dbg_fmt(const T& val) {
+inline std::string dbg_fmt(const T& val) {
     std::string expr_str{};
     using Arg = std::remove_cvref_t<T>;
 
@@ -18,9 +22,10 @@ constexpr std::string dbg_fmt(const T& val) {
     } else if constexpr (OStreamable<T>){
         std::ostringstream oss;
         oss << val;
-        std::string expr_str = oss.str();
+        expr_str = oss.str();
     }else {
         expr_str =  "<unformattable tomato>";
+        expr_str.append(pretty_type_name<T>());
     }
     return expr_str;
 }

@@ -1,7 +1,9 @@
 #include "Shaders.hpp"
 #include "UnixHelpers.hpp"
 #include "glbindingWrapper.hpp"
+#include "DEBUG.hpp"
 #include "Logger.hpp"
+#define _DEBUG
 using namespace gl;
 
 Shader::Shader(u32 shader_type, const char* src_path) : src_path(src_path) {
@@ -58,11 +60,9 @@ std::string Shader::get_info_log() {
 Shader::~Shader() {
     glDeleteShader(id);
 }
-VertexShader::VertexShader(const char* src) : Shader(static_cast<u32>(GL_VERTEX_SHADER), src) {
-}
+VertexShader::VertexShader(const char* src) : Shader(static_cast<u32>(GL_VERTEX_SHADER), src) {}
 
-FragmentShader::FragmentShader(const char* src) : Shader(static_cast<u32>(GL_FRAGMENT_SHADER), src) {
-}
+FragmentShader::FragmentShader(const char* src) : Shader(static_cast<u32>(GL_FRAGMENT_SHADER), src) {}
 
 void ShaderProgram::setupShaderProgram(const char* vtx_src, const char* frag_src) {
     this->id = glCreateProgram();
@@ -74,6 +74,9 @@ void ShaderProgram::setupShaderProgram(const char* vtx_src, const char* frag_src
     if (has_error(to_u32(GL_LINK_STATUS))) {
         LOG_ERROR("ShaderProgram failed to link. Log:{}", get_info_log());
         LOG_EXIT(EXIT_FAILURE);
+    }else{
+        LOG_DEBUG("ShaderProgram succesfully linked!");
+
     }
 }
 void ShaderProgram::use() {
@@ -106,26 +109,26 @@ void ShaderProgram::check_uniform(std::string name) {
         LOG_EXIT(EXIT_FAILURE);
     }
 }
-void ShaderProgram::setUniform(std::string name, const mat4& val){
+void ShaderProgram::setUniform(const std::string& name, const mat4& val){
         glUniformMatrix4fv(getUniformLoc(name), 1, false, glm::value_ptr(val));
 }
-void ShaderProgram::setUniform(std::string name, const vec2& val){
+void ShaderProgram::setUniform(const std::string& name, const vec2& val){
         glUniform2fv(getUniformLoc(name),1,glm::value_ptr(val));
 }
-void ShaderProgram::setUniform(std::string name, const f32& val){
+void ShaderProgram::setUniform(const std::string& name, const f32& val){
         LOG_DEBUG("Deduced unform type as f32 (1f){} = {}", name,val);
         glUniform1f(getUniformLoc(name),val);
 }
-void ShaderProgram::setUniform(std::string name, const f64& val){
+void ShaderProgram::setUniform(const std::string& name, const f64& val){
         glUniform1d(getUniformLoc(name),val);
 }
 
-void ShaderProgram::setUniform(std::string name, const i32& val){
+void ShaderProgram::setUniform(const std::string& name, const i32& val){
         glUniform1i(getUniformLoc(name),val);
 }
 
-u32 ShaderProgram::getUniformLoc(std::string name){
-    u32 location = 0;
+i32 ShaderProgram::getUniformLoc(const std::string& name){
+    i32 location = 0;
     if (uniformLocationsCache.contains(name)){
         location = uniformLocationsCache.at(name); 
     } else{
@@ -135,6 +138,10 @@ u32 ShaderProgram::getUniformLoc(std::string name){
         auto pair = uniformLocationsCache.insert({name,glGetUniformLocation(id,name.c_str())});
 //            LOG_DEBUG("Cached unform type of '{} {}'.",pretty_type_name<T>(), name);
         location = pair.first->second;
+    }
+    if (location==-1){
+        LOG_FATAL("Unable to get location for uniform '{}'.",name);
+        LOG_FATAL("{}",get_info_log());
     }
     return location;
 }

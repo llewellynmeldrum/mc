@@ -20,6 +20,9 @@ constexpr static inline gl::GLenum to_glenum(u32 a){
 constexpr static inline u32 to_u32(gl::GLenum a){
     return static_cast<u32>(a);
 }
+constexpr static inline i32 to_i32(gl::GLenum a){
+    return static_cast<i32>(a);
+}
 template<typename T>
 constexpr gl::GLenum gl_type(){
     gl::GLenum res{};

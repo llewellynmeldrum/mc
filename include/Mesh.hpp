@@ -58,7 +58,7 @@ struct Mesh{
     ~Mesh()=default; // TODO: add gl destroy stuff?
 
 
-    void setup(std::vector<Vertex> vertices);
+    void setup(std::vector<Vertex>& vertices);
     void draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const;
 
     
