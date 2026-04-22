@@ -4,6 +4,7 @@
 #include "TextureAtlas.hpp"
 #include "ChunkMesher.hpp"
 
+// src/Renderer.cpp
 struct Renderer{
     Renderer() = default;
     ~Renderer() = default;

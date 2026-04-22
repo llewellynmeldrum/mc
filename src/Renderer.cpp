@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 
+
 #include "glmWrapper.hpp"
 #include "glbindingWrapper.hpp"
 
@@ -22,6 +23,13 @@ void Renderer::draw(const mat4& view, const mat4& proj){
     glClearColor(0.25, 0.5, 0.85, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // TODO:
+    // is this how you construct the default model transform?
+    // validate all the matrices are going in properly, also check what the 
+    // gl error could mean.
+    // GL_INVALID_OPERATION
+    // wiki page
+    //	glUniformMatrix4fv(0x600000b35050, 0x600000b342a0, 0x600000b34fb0, 0x600000b34f00)
     mat4 model = mat4(1.0f);
     vec3 chunk_origin_world = vec3(0.0f);
     model = translate(model, chunk_origin_world);

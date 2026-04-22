@@ -52,6 +52,7 @@ struct ElementBuffer{
     template <ContiguousContainer C>
     void load(C c, u32 usage_type);
 };
+// src/Mesh.cpp
 struct Mesh{
     Mesh()=default;
     ~Mesh()=default; // TODO: add gl destroy stuff?
