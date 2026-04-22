@@ -10,7 +10,7 @@
 // src/Context.cpp
 struct Context {
 public:
-    Context(Camera _cam);
+    Context() = default;
     ~Context() = default;
 
     Window win;
@@ -19,13 +19,10 @@ public:
     Camera cam;
     Renderer rend;
 
-    void setup();
+    void setupContext();
     void handleInputs();
     void draw();
-
-    bool wireframe = false;
 };
-extern Context ctx;
 
 // Input::Key definitions (based on glfw3)
 

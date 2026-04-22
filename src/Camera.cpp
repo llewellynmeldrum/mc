@@ -1,8 +1,11 @@
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
-Camera::Camera(vec3 _pos): pos(_pos){
+
+void Camera::setupCamera(){
+    pos = {0, -3, 0};
     dir_upwards =    {0.0f, 1.0f, 0.0f};
     front = {0.0f, 0.0f, -1.0f};
+
     std::function<mat4(vec3&, vec3, f32, f32)> callback = 
     [](vec3& front, vec3 pos, f32 yaw, f32 pitch) -> mat4{
         vec3 facing{};

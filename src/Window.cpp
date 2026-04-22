@@ -1,7 +1,29 @@
 #include "Window.hpp"
-#include "GLFW/glfw3.h"
+#include "Context.hpp"
 #include "stb_image.hpp"
-void Window::setup(){
+#include "GLFWCallbacks.hpp"
+#include <cassert>
+#include <iostream>
+
+// WARNING: Always do glfw->glbinding
+#include "GLFWWrapper.hpp"
+#include "glbindingWrapper.hpp"
+#include "glbinding-aux/Meta.h"
+#include "glbinding-aux/logging.h"
+
+#include "Logger.hpp"
+
+using namespace gl;
+
+static void init_glFunctionLoader();
+void Window::swap(){
+    glfwSwapBuffers(ptr);
+}
+
+
+void Window::setupWindow(void* ctx_ptr){
+    LOG_DEBUG("setting up window",__PRETTY_FUNCTION__);
+    LOG_EXPR(this);
     stbi_set_flip_vertically_on_load(true);  
 
     glfwSetErrorCallback(glfw_ErrorCallback);
@@ -19,32 +41,43 @@ void Window::setup(){
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true); // required for opengl 3.2+
     #endif
 
-    ctx.win.ptr = glfwCreateWindow(ctx.win.w, ctx.win.h, "Window Title", nullptr, nullptr);
-    if (!ctx.win.ptr) {
+    this->ptr = glfwCreateWindow(w, h, "Window Title", nullptr, nullptr);
+    if (!ptr) {
         LOG_ERROR("Failed to initialize GLFW.");
         glfwTerminate();
         LOG_EXIT(EXIT_FAILURE);
     }
 
+    glfwSetWindowUserPointer(ptr,ctx_ptr);
     // WARNING: Doing any OpenGL calls before makeContextCurrent will fk shit up
-    glfwMakeContextCurrent(ctx.win.ptr);
+    glfwMakeContextCurrent(ptr);
     // WARNING:  ^^^^^^^
 
-    glfwSetWindowUserPointer(ctx.win.ptr,&ctx);
 //    glfwSetWindowPosCallback(win,glfw_MoveCallback);
-    glfwSetWindowPos(ctx.win.ptr, ctx.win.x,ctx.win.y);
+    glfwSetWindowPos(ptr, x,y);
 
     float xscale, yscale;
-    glfwGetWindowContentScale(ctx.win.ptr, &xscale, &yscale);
+    glfwGetWindowContentScale(ptr, &xscale, &yscale);
     if (xscale !=1.0 || yscale != 1.0){
         LOG_WARN("Retina mode detected, check scaling if any dimensions are weird");
     }
     // ensure we pass the true pixel size to openGL
-    glfwGetFramebufferSize(ctx.win.ptr,&ctx.win.w,&ctx.win.h);
+    glfwGetFramebufferSize(ptr,&w,&h);
 
+    init_glFunctionLoader();
+    
+    // WARNING: Only set/call these once glbinding has been setup, as they make gl calls.
+    assert(ptr);
+    glfwSetFramebufferSizeCallback(ptr,glfw_ResizeCallback);
+    glfw_ResizeCallback(ptr,w,h);
+    glViewport(x, y, w, h);
+    
+    glEnable(GL_DEPTH_TEST); // perform depth testing, i.e refuse draw calls which would cause a vertex further away to overwrite a closer one
 }
 
 bool Window::shouldClose(){
+    LOG_DEBUG("Window::shouldClose() called");
+    LOG_EXPR(this);
     return glfwWindowShouldClose(ptr);
 }
 
@@ -52,19 +85,37 @@ void Window::scheduleClose(){
     glfwSetWindowShouldClose(ptr, true);
 }
 
-static void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height){
-    auto* ctx = (Context*)glfwGetWindowUserPointer(win_ptr);
-    glViewport(0,0,width,height);
-    ctx->win.w=width;
-    ctx->win.h=height;
-    ctx->cam.aspectRatio = ctx->win.aspect();
-}
-static void glfw_MoveCallback(GLFWwindow* win_ptr, int xpos, int ypos){
-    auto* ctx = (Context*)glfwGetWindowUserPointer(win_ptr);
-    glViewport(xpos,ypos,ctx->win.w,ctx->win.h);
-    ctx->win.x=xpos;
-    ctx->win.y=ypos;
-}
-static void glfw_ErrorCallback(int error, const char* description){
-    LOG_ERROR("GLFW({}): {}",error, description);
+
+static void init_glFunctionLoader(){
+    LOG_DEBUG("setup gl function loader");
+    // at the moment, using glbinding, but i think this is a reasonable thing to swap out
+    glbinding::initialize(glfwGetProcAddress);
+    glbinding::setCallbackMaskExcept(glbinding::CallbackMask::After | glbinding::CallbackMask::ParametersAndReturnValue, {"glGetError"});
+    glbinding::setAfterCallback([](const glbinding::FunctionCall & call) {
+        const auto err = glGetError();
+        if (err != GL_NO_ERROR){
+            std:: cout << fmt::bold_red;
+            std::print(">>>>>OPEN GL ERR [{}].  LAST CALL:",glbinding::aux::Meta::getString(err));
+            if (!call.function->isResolved()){
+                std::cout << " (UNRESOLVED FUNCTION CALL!!):";
+            }
+            std:: cout << fmt::clear << std::endl << "\t";
+
+            std:: cout << fmt::cyan;
+            std::cout << call.function->name();
+            std:: cout << fmt::clear << "(";
+            for (const auto& param: call.parameters){
+                std::cout << param.get();
+                if (param != call.parameters.back()){
+                  std::print(", ");
+                }
+            }
+            std::cout << ")";
+
+            if (call.returnValue){
+              std::cout << " -> " << call.returnValue.get();
+            }
+            std::println();
+        }
+    });
 }

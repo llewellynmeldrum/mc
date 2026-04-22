@@ -4,16 +4,13 @@
 #include <unordered_map>
 #include <array>
 struct GLFWwindow;
+// src/Input.cpp
 struct Input{
-    void setup(GLFWwindow* ptr);
+    Input()=default;
+    ~Input()=default;
+    void setupInput(GLFWwindow* ptr);
     void poll();
 
-    struct Key{
-        u32 code{KEY_UNKNOWN};
-        bool pressed{false};
-        Key(unsigned char c): code(static_cast<u32>(c)){} // implicit cast from uchar
-        u32 operator=(Key&& k){ return k.code; } // implicit cast to u32
-    };
 
     inline bool isPressed(KeyCode code){
         if (code<KEY_MIN || code > KEY_MAX){

@@ -140,5 +140,6 @@ ausan: clean all
 clean:
 	rm -rf build bin
 
+debug: CXXFLAGS += -g
 debug: $(APP_EXE)
 	$(DEBUGGER) -o run -- $(APP_EXE) $(ARGS)

@@ -52,13 +52,12 @@ struct CachedValue{
     }
 
 };
-f32 randf(f32 min, f32 max){
+static inline f32 randf(f32 min, f32 max){
     return min+(random()/(f32)RAND_MAX)*(max-min);
 }
-vec3 randvec3(f32 min, f32 max){
-    return vec3{
-        randf(min,max),
-        randf(min,max),
-        randf(min,max),
-    };
+static inline double nstoms(const u64 ns) {
+    return ns / 1000000.0;
+}
+static inline double stons(const u64 ns) {
+    return ns * 1000000000ULL;
 }

@@ -3,10 +3,14 @@
 struct GLFWwindow;
 // src/Window.cpp
 struct Window{
-    void setup();
+    Window() = default;
+    ~Window() = default;
+    void setupWindow(void* ctx_ptr); 
+    // context is passes itself to setupWindow so that it can be assigned to the glfwUserPointer,
+    // and thus accessed by glfw callback functions.
 
-    void draw();
-    bool shouldClose();
+    void swap();
+    bool shouldClose(); 
     void scheduleClose();
     
     GLFWwindow* ptr = nullptr;

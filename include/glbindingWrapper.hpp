@@ -1,4 +1,5 @@
 #pragma once 
+#define GL_SILENCE_DEPRECATION
 #include <glbinding/gl/gl.h>       // All OpenGL symbols (functions, enums, etc.)
 // gl/gl.h includes:
 /*
@@ -11,3 +12,29 @@
 */
 #include <glbinding/glbinding.h>   // glbinding initialization and management
 
+
+#include "Types.h"
+constexpr static inline gl::GLenum to_glenum(u32 a){
+    return static_cast<gl::GLenum>(a);
+}
+constexpr static inline u32 to_u32(gl::GLenum a){
+    return static_cast<u32>(a);
+}
+template<typename T>
+constexpr gl::GLenum gl_type(){
+    gl::GLenum res{};
+    if constexpr (std::same_as<T, f32>){
+        res = gl::GL_FLOAT;
+    } else if constexpr(std::same_as<T,f64>){
+        res = gl::GL_DOUBLE;
+    } else if constexpr(std::same_as<T,i32>){
+        res = gl::GL_INT;
+    }else if constexpr (std::same_as<T,u32>){
+        res = gl::GL_UNSIGNED_INT;
+    }else if constexpr (std::same_as<T,u8>){
+        res = gl::GL_UNSIGNED_BYTE;
+    }
+    return res;
+}
+
+#define _GLFW_INCLUDE_WARNING 

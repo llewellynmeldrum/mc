@@ -1,18 +1,16 @@
 
-#define GL_SILENCE_DEPRECATION
-#include "glbinding/gl/enum.h"
-#include "glbinding/glbinding.h"
-#include "glbinding/gl/gl.h"
-using namespace gl;
+#include <memory>
+
 
 #include "Context.hpp"
-
 #include "Vertex.hpp"
 #include "Shaders.hpp"
 #include "Mesh.hpp"
-#include <memory>
 
-ElementBuffer::ElementBuffer() {
+#include "glbindingWrapper.hpp"
+using namespace gl;
+
+void ElementBuffer::setupElementBuffer() {
     glGenBuffers(1, &this->id);
 }
 void ElementBuffer::bind() {
@@ -30,7 +28,7 @@ void ElementBuffer::load(C c, u32 usage_type){
 const u32 ElementBuffer::buffer_type=static_cast<u32>(GL_ELEMENT_ARRAY_BUFFER);
 const u32 VertexBuffer::buffer_type=static_cast<u32>(GL_ARRAY_BUFFER);
 
-VertexBuffer::VertexBuffer() {
+void VertexBuffer::setupVertexBuffer() {
     glGenBuffers(1, &this->id);
 }
 void VertexBuffer::bind() {
@@ -42,7 +40,7 @@ void VertexBuffer::load(const std::vector<Vertex>& c, u32 usage_type, u32 offset
     glBufferData(static_cast<GLenum>(buffer_type), sizeof(c)* c.size(), c.data()+offset, static_cast<GLenum>(usage_type));
 }
 
-VertexArray::VertexArray(){
+void VertexArray::setupVertexArray(){
     glGenVertexArrays(1, &id);
 }
 void VertexArray::bind() const {
@@ -82,95 +80,26 @@ enum CubeFace{
     CubeFaceTOP,
 };
 
-const std::vector<std::vector<Vertex>> defaultCubeFaces = {
-    // FRONT (+X)
-    std::vector<Vertex>{
-        Vertex{.pos={-0.5f, -0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={0.5f, -0.5f, -0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={0.5f,  0.5f, -0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={0.5f,  0.5f, -0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={-0.5f,  0.5f, -0.5f,  }, .txCoords = {0.0f, 0.0f}},
-        Vertex{.pos={-0.5f, -0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-    },
 
-    std::vector<Vertex>{
-        Vertex{.pos={    -0.5f, -0.5f,  0.5f,  }, .txCoords = {0.0f, 1.0f}},//{0.0f, 1.0f}
-        Vertex{.pos={     0.5f, -0.5f,  0.5f,  }, .txCoords = {1.0f, 1.0f}},//{1.0f, 1.0f}
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},//{1.0f, 0.0f}
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},//{1.0f, 0.0f}
-        Vertex{.pos={    -0.5f,  0.5f,  0.5f,  }, .txCoords = {0.0f, 0.0f}},//{0.0f, 0.0f}
-        Vertex{.pos={    -0.5f, -0.5f,  0.5f,  }, .txCoords = {0.0f, 1.0f}},//{0.0f, 1.0f}
-
-    },
-    
-    std::vector<Vertex>{
-        Vertex{.pos={    -0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={    -0.5f,  0.5f, -0.5f,  }, .txCoords = {0.0f, 0.0f}},
-        Vertex{.pos={    -0.5f, -0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={    -0.5f, -0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={    -0.5f, -0.5f,  0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={    -0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},
-    },
-    
-    std::vector<Vertex>{
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {0.0f, 0.0f}},
-        Vertex{.pos={     0.5f,  0.5f, -0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={     0.5f, -0.5f, -0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={     0.5f, -0.5f, -0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={     0.5f, -0.5f,  0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {0.0f, 0.0f}},
-    },
-    
-    std::vector<Vertex>{
-        Vertex{.pos={    -0.5f, -0.5f, -0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={     0.5f, -0.5f, -0.5f,  }, .txCoords = {0.0f, 0.0f}},
-        Vertex{.pos={     0.5f, -0.5f,  0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={     0.5f, -0.5f,  0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={    -0.5f, -0.5f,  0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={    -0.5f, -0.5f, -0.5f,  }, .txCoords = {1.0f, 0.0f}},
-    }, 
-    std::vector<Vertex>{
-        Vertex{.pos={    -0.5f,  0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-        Vertex{.pos={     0.5f,  0.5f, -0.5f,  }, .txCoords = {1.0f, 1.0f}},
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={     0.5f,  0.5f,  0.5f,  }, .txCoords = {1.0f, 0.0f}},
-        Vertex{.pos={    -0.5f,  0.5f,  0.5f,  }, .txCoords = {0.0f, 0.0f}},
-        Vertex{.pos={    -0.5f,  0.5f, -0.5f,  }, .txCoords = {0.0f, 1.0f}},
-    },
-};
-Mesh::Mesh(){
-    setup();
-}
-void Mesh::setup() {
+void Mesh::setup(std::vector<Vertex> vertices) {
+    vao.setupVertexArray();
+    vbo.setupVertexBuffer();
+   
     vao.bind();
-    std::vector<Vertex> _vertices;
-    for (u64 faceID = 0; faceID < CUBE_FACE_COUNT; faceID++) {
-        if (isFaceVisible[faceID]) {
-            const auto& uv_tex_coords = ctx.atlas.remapUVs(0, faceID, defaultCubeFaces[faceID]);
-            for (u64 vtx = 0; Vertex v1 : defaultCubeFaces[faceID]) {
-                v1.txCoords = uv_tex_coords[vtx++];
-                LOG_DEBUG("face:{},vtx:{}", faceID, vtx);
-                LOG_EXPR(v1.txCoords);
-                _vertices.push_back(v1);
-            }
-            visibleFaceCount += 6;
-        }
-    }
-    vbo.load(_vertices, static_cast<u32>(GL_STATIC_DRAW));
+    vbo.load(vertices, to_u32(GL_STATIC_DRAW));
     vao.buffer_cols = 5;                    // x,y,z, s,t
     vao.set_vtx_attributes<f32>(0, 3, +0);  // x,y,z
     vao.set_vtx_attributes<f32>(1, 2, +3);  // s,t
     vao.unbind();
 }
 
-inline void Mesh::draw(ShaderProgram& prog, mat4& model_matrix) const {
+void Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const {
     prog.use();
     vao.bind();
-    prog.setUniform("view", ctx.cam.getViewMatrix());
-    prog.setUniform("proj", ctx.cam.getProjectionMatrix());
-    prog.setUniform("model", model_matrix);
-
-    vao.drawArrays(visibleFaceCount, static_cast<u32>(GL_TRIANGLES), 0);  // front
+    prog.setUniform("model", model);
+    prog.setUniform("view", view);
+    prog.setUniform("proj", proj);
+    vao.drawArrays(vertex_count, static_cast<u32>(GL_TRIANGLES), 0);  // front
     vao.unbind();
     prog.stop();
 }

@@ -1,7 +1,9 @@
 #include "Timer.hpp"
 #include "GLFW/glfw3.h"
+#include "Logger.hpp"
 
-void Timer::setup() {
+u64 program_epoch_ns = 0;
+void Timer::setupTimer() {
     glfwSetTime(0.0);
 }
 

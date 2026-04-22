@@ -132,3 +132,21 @@ static constexpr KeyCode KEY_RIGHT_CONTROL(345);
 static constexpr KeyCode KEY_RIGHT_ALT(346);
 static constexpr KeyCode KEY_RIGHT_SUPER(347);
 static constexpr KeyCode KEY_MENU(348);
+struct Key{
+    u32 code{KEY_UNKNOWN};
+    bool pressed{false};
+    Key(unsigned char c): code(static_cast<u32>(c)){} // implicit cast from uchar
+    operator u32 () const noexcept{ return code; } // implicit cast to u32
+};
+inline bool operator==(const Key& a, const Key& b) noexcept {
+    return a.code == b.code;
+}
+#include <unordered_map>
+namespace std {
+template <>
+struct hash<Key> {
+    size_t operator()(const Key& k) const noexcept {
+        return std::hash<u32>{}(k.code);
+    }
+};
+}

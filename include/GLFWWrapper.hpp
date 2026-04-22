@@ -1,4 +1,7 @@
 #pragma once 
+#ifdef _GLFW_INCLUDE_WARNING
+#error "You have included glbinding before glfw! Order must be glfw->glbinding"
+#endif
 
 #ifdef __APPLE__
     #define GL_SILENCE_DEPRECATION

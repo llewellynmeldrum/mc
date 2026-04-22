@@ -1,9 +1,10 @@
 #include "Input.hpp"
 #include "Context.hpp"
-#include "GLFW/glfw3.h"
+#include "GLFWWrapper.hpp"
 
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
-void Input::setup(GLFWwindow* ptr){
+
+void Input::setupInput(GLFWwindow* ptr){
     keyRepeatCooldown.insert({KEY_T, 0});
     glfwSetKeyCallback(ptr, glfw_key_callback);
 }
