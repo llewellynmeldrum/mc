@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "CommonConcepts.hpp"
+#include "CommonUtils.hpp"
 
 // NOTE: 
 // 'include/DebugFormatSpecializations.hpp' contains specializations/overloads for custom/project specific types.
@@ -24,7 +25,7 @@ inline std::string dbg_fmt(const T& val) {
         oss << val;
         expr_str = oss.str();
     }else {
-        expr_str =  "<unformattable tomato>";
+        expr_str = std::format("{} (unformattable, defaulting to int)",(int)val);
         expr_str.append(pretty_type_name<T>());
     }
     return expr_str;
