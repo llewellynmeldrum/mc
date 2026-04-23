@@ -32,6 +32,24 @@ inline std::string dbg_fmt(const glm::vec2& val){
                             fmt::red, val.x, fmt::clear,
                             fmt::green, val.y, fmt::clear);
 }
+inline std::string dbg_fmt(const glm::ivec4& val){
+    return std::format("[{}{}{}, {}{}{}, {}{}{}, {}{}{}]",
+                            fmt::red, val.x, fmt::clear,
+                            fmt::green, val.y, fmt::clear,
+                            fmt::blue, val.z, fmt::clear,
+                            fmt::grey , val.w, fmt::clear);
+}
+inline std::string dbg_fmt(const glm::ivec3& val){
+    return std::format("[{}{}{}, {}{}{}, {}{}{}]",
+                            fmt::red, val.x, fmt::clear,
+                            fmt::green, val.y, fmt::clear,
+                            fmt::blue, val.z, fmt::clear);
+}
+inline std::string dbg_fmt(const glm::ivec2& val){
+    return std::format("[{}{}{}, {}{}{}]", 
+                            fmt::red, val.x, fmt::clear,
+                            fmt::green, val.y, fmt::clear);
+}
 inline std::string dbg_fmt(const glm::mat4& val){
     std::string expr_str{};
     expr_str.append("\n");

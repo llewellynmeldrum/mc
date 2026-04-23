@@ -16,6 +16,11 @@ public:
     void move(Direction dir, f32 dt);
     void rotate(Direction dir, f32 dt);
 
+    bool requestsMeshRegen = true;
+    inline void requestMeshRegeneration(){
+        requestsMeshRegen = true;
+    }
+
     vec3 pos;               // world
     vec3 front{};           // world
     vec3 target{};          // world position of the target
@@ -46,6 +51,8 @@ public:
     }
 
 
+    static constexpr f32 BASE_MOVESPEED = 0.1f;
+    static constexpr f32 SPRINT_MOVESPEED = 0.2f;
 private:
   void moveUpward(f32 dt);
   void moveDownward(f32 dt);

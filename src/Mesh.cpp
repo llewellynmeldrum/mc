@@ -92,7 +92,7 @@ void Mesh::setup(std::vector<Vertex>& vertices) {
     vao.unbind();
 }
 
-void Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const {
+u64 Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const {
     prog.use();
     vao.bind();
     prog.setUniform("model", model);
@@ -101,5 +101,6 @@ void Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const 
     vao.drawArrays(vertex_count, static_cast<u32>(GL_TRIANGLES), 0);  // front
     vao.unbind();
     prog.stop();
+    return 1;
 }
 

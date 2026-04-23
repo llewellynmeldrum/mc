@@ -35,6 +35,7 @@ void Camera::move(Direction dir, f32 dt){
         case Direction::FORWARD: moveForward(dt); break;
     }
     cached_viewMatrix.invalidate();
+    requestMeshRegeneration();
 }
 void Camera::rotate(Direction dir, f32 dt){
 

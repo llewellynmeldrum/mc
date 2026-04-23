@@ -59,7 +59,8 @@ struct Mesh{
 
 
     void setup(std::vector<Vertex>& vertices);
-    void draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const;
+    // returns number of draw calls emitted
+    u64 draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const;
 
     
     VertexBuffer vbo;

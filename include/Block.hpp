@@ -14,9 +14,8 @@ inline std::array<f32,static_cast<size_t>(BlockType::COUNT)> blockOpacity ={
     1.0,
     1.0,
 };
-
 struct Block{
-    BlockType id; 
+    BlockType id{BlockType::AIR}; 
     constexpr inline u64 idx() const noexcept{
         return static_cast<u64>(id);
     }
@@ -31,6 +30,7 @@ struct Block{
     }
 };
 
+const inline auto NULL_BLOCK = Block();
 
 
 

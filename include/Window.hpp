@@ -9,7 +9,7 @@ struct Window{
     // context is passes itself to setupWindow so that it can be assigned to the glfwUserPointer,
     // and thus accessed by glfw callback functions.
 
-    void swap();
+    void swapBuffers();
     bool shouldClose(); 
     void scheduleClose();
     

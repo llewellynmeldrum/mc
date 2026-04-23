@@ -7,7 +7,7 @@ struct ChunkMesher{
     ChunkMesher()=default;
     ~ChunkMesher()=default;
 
-    std::vector<Mesh> mesh(const Chunk& chunk,const TextureAtlas& atlas);
+    Mesh mesh(const Chunk& chunk,const TextureAtlas& atlas);
 };
 
 

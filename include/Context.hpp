@@ -4,8 +4,10 @@
 #include "Window.hpp"
 #include "Timer.hpp"
 #include "Input.hpp"
+#include "DebugUI.hpp"
 #include "Renderer.hpp"
 
+#include "World.hpp"
 
 // src/Context.cpp
 struct Context {
@@ -18,10 +20,12 @@ public:
     Input input;
     Camera cam;
     Renderer rend;
+    DebugUI ui;
+    World world;
 
     void setupContext();
     void handleInputs();
-    void draw();
+    void drawScene();
 };
 
 // Input::Key definitions (based on glfw3)

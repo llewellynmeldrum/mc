@@ -17,16 +17,18 @@ void TextureAtlas::setupTextureAtlas(){
 }
 TextureAtlas::TextureAtlas(const char* tex_img_path) : textureImagePath(tex_img_path){
 }
-glm::vec2 TextureAtlas::getTexOffset(u64 idx) const {
+constexpr u64 CUBE_FACE_COUNT = 6;
+glm::vec2 TextureAtlas::getTexOffset(u64 tex_idx, Direction dir) const {
+    u64 idx = tex_idx * CUBE_FACE_COUNT + static_cast<u8>(dir);
     u64  x = idx % spriteCols;
     u64  y = (idx / spriteCols);
     vec2 v = vec2{ x, y };
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
-std::vector<glm::vec2> TextureAtlas::remapUVs(u64 texture_idx, u64 face_idx,
+std::vector<glm::vec2> TextureAtlas::remapUVs(u64 texture_idx, Direction dir,
                                               const std::vector<Vertex>& vertices) const{
     std::vector<glm::vec2> res(6, vec2{});
-    vec2 uvmin = getTexOffset(texture_idx * 6 + face_idx);
+    vec2 uvmin = getTexOffset(texture_idx, dir);
     for (u64 vtx = 0; vtx < 6; vtx++) {
         f32 u = vertices[vtx].txCoords.x;
         f32 v = vertices[vtx].txCoords.y;

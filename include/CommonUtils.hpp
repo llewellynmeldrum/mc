@@ -5,13 +5,13 @@
 #include <string_view>
 #include "glmWrapper.hpp"
 
-enum struct Direction{
-    UP, 
-    DOWN,
+enum struct Direction: u8{
+    FORWARD,
+    BACKWARD,
     LEFT,
     RIGHT,
-    BACKWARD,
-    FORWARD,
+    DOWN,
+    UP, 
 };
 template <typename C>
 concept ContiguousContainer = std::ranges::contiguous_range<C>;

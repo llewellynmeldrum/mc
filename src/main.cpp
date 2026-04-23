@@ -1,39 +1,60 @@
 #include "App.hpp"
+#include "Block.hpp"
 #include "Context.hpp"
 #include "DEBUG.hpp"
 #define _DEBUG
 
-void Context::draw(){
+constexpr const u32 RENDER_DIST = 4;
+
+// TODO: move to src/Context.cpp
+void Context::drawScene(){
+    if (cam.requestsMeshRegen){
+//        LOG_DEBUG("REGENERATING CHUNK MESHES");
+        auto camera_chunk_pos = Chunk::worldToChunkPos(cam.pos);
+        std::vector<ChunkView> visibleChunks = world.getChunksInRadius(camera_chunk_pos,RENDER_DIST);
+        int i =0;
+        LOG_DEBUG("visible chunks: {}",visibleChunks.size());
+        for (const auto& [chunk_pos, chunk]: visibleChunks){
+            rend.visibleChunkMeshes.insert({
+                chunk_pos,
+                rend.mesher.mesh(*chunk,rend.atlas)
+            });
+        }
+    }
     rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
-    win.swap();
 }
+
 
 
 void App::setup(){
-    Chunk chunk;
-    for (u64 x =0; x<CHUNK_XWIDTH; x++){
-        for (u64 y =0; y<CHUNK_HEIGHT-1; y++){
-            for (u64 z =0; z<CHUNK_ZWIDTH; z++){
-                    chunk.placeBlock(BlockType::DIRT_BLOCK, x,y,z);
-            }
-        }
+    {
+    ctx.world.genChunk({0,-1});
+    Chunk& chunk = ctx.world.getChunk({0,-1});
+    chunk.setBlocks(BlockType::GRASS_BLOCK, {0,0,0}, {2,2,2});
+    chunk.setBlocks(BlockType::GRASS_BLOCK, {5,0,0}, {6,1,1});
+    chunk.setBlock(BlockType::GRASS_BLOCK,  {8,0,0});
     }
-    for (u64 z =0; z<CHUNK_ZWIDTH; z++){
-        for (u64 x =0; x<CHUNK_XWIDTH; x++){
-            chunk.placeBlock(BlockType::GRASS_BLOCK, x,CHUNK_HEIGHT-1,z);
-        }
+
+    {
+    ctx.world.genChunk({0,+1});
+    Chunk& chunk = ctx.world.getChunk({0,+1});
+    chunk.setBlocks(BlockType::DIRT_BLOCK, {0,0,0}, {2,2,2});
+    chunk.setBlocks(BlockType::DIRT_BLOCK, {5,0,0}, {6,1,1});
+    chunk.setBlock(BlockType::DIRT_BLOCK,  {8,0,0});
     }
-    //chunk.placeBlock(BlockType::DIRT_BLOCK, 0,-2,0);
-    //chunk.placeBlock(BlockType::DIRT_BLOCK, 0,-3,0);
-    // for testing, this will later be in some sort of World abstraction
-    ctx.rend.chunkMeshes = ctx.rend.mesher.mesh(chunk,ctx.rend.atlas);
 }
 
 void App::loop(){
+    ctx.time.update();
     ctx.input.poll();
     ctx.handleInputs();
-    ctx.draw();
-    ctx.time.update();
+
+    ctx.rend.clear({0.25, 0.5, 0.85, 1.0});
+    ctx.drawScene();
+
+    ctx.ui.drawDebugUI();
+    ctx.ui.render();
+    ctx.win.swapBuffers();
 }
 
 bool App::shouldClose(){
@@ -55,6 +76,7 @@ int main(int argc, char** argv) {
 #include "GLFWWrapper.hpp"
 
 void App::exit(i32 exit_code){
+    ctx.ui.destroyDebugUI();
     glfwTerminate();
     std::exit(exit_code);
 }

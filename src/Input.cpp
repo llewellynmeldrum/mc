@@ -9,6 +9,7 @@ static void glfw_key_callback(GLFWwindow* window, int key, int code, int action,
 
 void Input::setupInput(GLFWwindow* ptr){
     keyRepeatCooldown.insert({KEY_T, 0});
+    keyRepeatCooldown.insert({KEY_R, 0});
     glfwSetKeyCallback(ptr, glfw_key_callback);
 }
 

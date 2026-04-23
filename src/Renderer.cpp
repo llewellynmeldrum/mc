@@ -1,8 +1,10 @@
+
+#include "DebugFormatSpecializations.hpp"
 #include "Renderer.hpp"
 
 
-#include "glmWrapper.hpp"
 #include "glbindingWrapper.hpp"
+#include "glmWrapper.hpp"
 
 using namespace gl;
 using namespace glm;
@@ -17,20 +19,24 @@ void Renderer::setupRenderer(){
     prog.stop();
 }
 
-void Renderer::draw(const mat4& view, const mat4& proj){
+void Renderer::clear(const vec4 clear_color){
+    debug.reset_per_frame();
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL); 
-
-    glClearColor(0.25, 0.5, 0.85, 1.0);
+    glClearColor(clear_color.r,clear_color.g,clear_color.b,clear_color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
-    mat4 model = mat4(1.0f);
-    vec3 chunk_origin_world = vec3(0.0f);
-    model = translate(model, chunk_origin_world);
+void Renderer::draw(const mat4& view, const mat4& proj){
     prog.use();
         atlas.texture.bind();
-        // will be changed with World abstraction
-        for (const auto& mesh: chunkMeshes){
-            mesh.draw(prog,model,view,proj);
+        for (const auto& [chunk_pos, mesh]: visibleChunkMeshes){
+            mat4 model = mat4(1.0f);
+            vec3 chunk_origin_world = Chunk::chunkToWorldPos(chunk_pos);
+            auto v = vec3(chunk_pos,0.0);
+            model = translate(model, chunk_origin_world);
+            debug.draw_calls += mesh.draw(prog,model,view,proj);
+            debug.vertex_count+= mesh.vertex_count;
+            debug.mesh_count++;
         }
     prog.stop();
 

@@ -17,7 +17,7 @@
 using namespace gl;
 
 static void init_glFunctionLoader();
-void Window::swap(){
+void Window::swapBuffers(){
     glfwSwapBuffers(ptr);
 }
 
