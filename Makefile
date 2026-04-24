@@ -97,6 +97,10 @@ test: CXXFLAGS+= -DTESTING
 test: clean all
 build: $(EXE)
 
+fast: CXXFLAGS+= -O3 -ffast-math
+fast: run
+sleep1:
+	sleep 1
 run: $(EXE) 
 	$(EXE)
 

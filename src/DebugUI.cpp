@@ -102,6 +102,7 @@ void DebugUI::ShowOverlay(bool* p_open) {
     auto ch_pos = World::worldToChunkPos(ctx->cam.pos);
     if (IG::Begin("Debug Overlay", p_open, window_flags)) {
         IG::Text("DEBUG OVERLAY");
+
         IG::Separator();
         IG::Text("Positions:");
         IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->cam.pos.x, ctx->cam.pos.y, ctx->cam.pos.z);
@@ -109,18 +110,21 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("cam.front: %03.1f,%03.1f,%03.1f", ctx->cam.front.x, ctx->cam.front.y,
                  ctx->cam.front.z);
         IG::Text("Facing: %s", facing_str.c_str());
+
         IG::Separator();
+        IG::Text("Performance:");
         const auto& fps_rb = ctx->time.framerate_ringbuf;
         std::string one_pcnt_low = std::format("1% low: {:2.1f}", fps_rb.n_percent_low(1.0));
         IG::Text("Frametime: %2.2lfms", 1000.0 / fps_rb.avg());
         IG::Text("FPS: %2.1lf", fps_rb.avg());
         IG::SameLine();
         IG::PlotLines("##frameratePlot", fps_rb.data(), fps_rb.size(), 0, one_pcnt_low.c_str());
+
         IG::Separator();
+        IG::Text("Per frame draw info:");
         IG::Text("Vertex Count: %llu", ctx->rend.debug.vertex_count);
         IG::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
         IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
-        IG::Separator();
     }
     IG::End();
 }
