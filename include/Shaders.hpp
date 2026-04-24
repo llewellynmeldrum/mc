@@ -11,18 +11,18 @@
 
 
 struct Shader{
-    Shader(u32 shader_type, const char* src_path);
+    Shader(i32 shader_type, const char* src_path);
     ~Shader(); // custom
 
     Shader()=delete;
     u32 id;
-    u32 ShaderType;
+    i32 ShaderType;
     std::string src_path;
-    static std::string tostr(u32 shader_type);
+    static std::string tostr(i32 shader_type);
     bool readSource(const char* filename);
     bool compile();
 
-    bool        has_error(u32 param_name);
+    bool        has_error(i32 param_name);
     std::string get_info_log();
 };
 
@@ -68,6 +68,6 @@ struct ShaderProgram{
     void setUniform(const std::string& name, const f64& val);
 
 private:
-  bool has_error(u32 param_name);
+  bool has_error(i32 param_name);
   std::string get_info_log();
 };

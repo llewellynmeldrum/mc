@@ -3,9 +3,9 @@ using namespace gl;
 
 #include "Texture2D.hpp"
 #include "Logger.hpp"
-u64 texture_count = 0;
+i64 texture_count = 0;
 
-Texture2D::Texture2D(const char* tex_dir, u32 image_fmt=to_u32(GL_RGB), vec4 border_color = { 1, 0, 1, 1 })
+Texture2D::Texture2D(const char* tex_dir, i32 image_fmt=to_i32(GL_RGB), vec4 border_color = { 1, 0, 1, 1 })
     :texturePath(tex_dir),
     imageFormat(image_fmt),
     borderColor(border_color)

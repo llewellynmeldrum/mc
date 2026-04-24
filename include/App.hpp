@@ -10,7 +10,7 @@ struct App{
     App()=default;
     ~App()=default;
 public:
-    u64 frameCount = 0;
+    i64 frameCount = 0;
     void setup();
     void loop();
     void exit(i32 exit_code);

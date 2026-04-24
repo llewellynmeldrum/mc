@@ -5,7 +5,7 @@
 #include <string_view>
 #include "glmWrapper.hpp"
 
-enum struct Direction: u8{
+enum struct Direction: i8{
     FORWARD,
     BACKWARD,
     LEFT,
@@ -56,10 +56,10 @@ struct CachedValue{
 static inline f32 randf(f32 min, f32 max){
     return min+(random()/(f32)RAND_MAX)*(max-min);
 }
-static inline double nstoms(const u64 ns) {
+static inline double nstoms(const i64 ns) {
     return ns / 1000000.0;
 }
-static inline double stons(const u64 ns) {
+static inline double stons(const i64 ns) {
     return ns * 1000000000ULL;
 }
 

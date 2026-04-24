@@ -17,6 +17,8 @@ public:
     void rotate(Direction dir, f32 dt);
 
     bool requestsMeshRegen = true;
+    // at the moment, any movement causes mesh regen for all chunks. 
+    // Should probably only be those that are visible.
     inline void requestMeshRegeneration(){
         requestsMeshRegen = true;
     }

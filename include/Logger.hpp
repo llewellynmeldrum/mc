@@ -17,19 +17,19 @@
 #include "CommonConcepts.hpp"
 #include "AnsiCodes.hpp"
 #include "DebugFormat.hpp"
-extern u64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
+extern i64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
                               // main begins.
 
 
 static inline double get_current_ns() {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
-    return (u64)stons(ts.tv_sec) + ts.tv_nsec;
+    return (i64)stons(ts.tv_sec) + ts.tv_nsec;
 }
 
-static inline u64 ms_since_start() {
-    u64    current_ns = get_current_ns();
-    u64    ns_elapsed = current_ns - program_epoch_ns;
+static inline i64 ms_since_start() {
+    i64    current_ns = get_current_ns();
+    i64    ns_elapsed = current_ns - program_epoch_ns;
     double ms = nstoms(ns_elapsed);
     return ms;
 }

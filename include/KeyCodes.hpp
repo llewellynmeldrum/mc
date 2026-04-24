@@ -7,7 +7,7 @@ enum class KeyState{
     Held,
     INVALID=-1,
 };
-using KeyCode = u32;
+using KeyCode = i32;
 constexpr KeyCode KEY_MAX(348);
 constexpr KeyCode KEY_MIN(33);
 static constexpr KeyCode KEY_UNKNOWN(-1);
@@ -133,10 +133,10 @@ static constexpr KeyCode KEY_RIGHT_ALT(346);
 static constexpr KeyCode KEY_RIGHT_SUPER(347);
 static constexpr KeyCode KEY_MENU(348);
 struct Key{
-    u32 code{KEY_UNKNOWN};
+    i32 code{KEY_UNKNOWN};
     bool pressed{false};
-    Key(unsigned char c): code(static_cast<u32>(c)){} // implicit cast from uchar
-    operator u32 () const noexcept{ return code; } // implicit cast to u32
+    Key(unsigned char c): code(static_cast<i32>(c)){} // implicit cast from uchar
+    operator i32 () const noexcept{ return code; } // implicit cast to i32
 };
 inline bool operator==(const Key& a, const Key& b) noexcept {
     return a.code == b.code;
@@ -146,7 +146,7 @@ namespace std {
 template <>
 struct hash<Key> {
     size_t operator()(const Key& k) const noexcept {
-        return std::hash<u32>{}(k.code);
+        return std::hash<i32>{}(k.code);
     }
 };
 }

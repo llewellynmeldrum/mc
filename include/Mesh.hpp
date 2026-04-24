@@ -18,12 +18,12 @@ struct VertexArray{
     void bind() const;
     void unbind() const;
 
-    u32 sum{};
+    i32 sum{};
     template <class VT>
-    void set_vtx_attributes(u32 location, i32 count, u64 offset);
+    void set_vtx_attributes(i32 location, i32 count, i64 offset);
     // draws *num* vertices, chosen via whichever EBO is bound to this VAO
-    void drawElements(u32 num, u32 elem_t);
-    void drawArrays(u32 count, u32 elem_t, u32 offset = 0) const;
+    void drawElements(i32 num, i32 elem_t);
+    void drawArrays(i32 count, i32 elem_t, i32 offset = 0) const;
 };
 struct VertexBuffer{
     VertexBuffer()=default;
@@ -31,26 +31,26 @@ struct VertexBuffer{
     void setupVertexBuffer();
 
     u32 id;
-    u32 size; // size in bytes
-    u32 location={};
-    static const u32 buffer_type;
+    i32 size; // size in bytes
+    i32 location={};
+    static const i32 buffer_type;
     void bind();
-    void load(const std::vector<Vertex>& c, u32 usage_type, u32 offset);
+    void load(const std::vector<Vertex>& c, i32 usage_type, i32 offset);
 };
 struct ElementBuffer{
     ElementBuffer()=default;
     ~ElementBuffer()=default;
     void setupElementBuffer();
     u32 id;
-    u32 size; // size in bytes
+    i32 size; // size in bytes
     // perhaps implement some sort of cast_buffer<T target>()
-    static const u32 buffer_type;
-    u32 location = {};
+    static const i32 buffer_type;
+    i32 location = {};
 
     void bind();
 
     template <ContiguousContainer C>
-    void load(C c, u32 usage_type);
+    void load(C c, i32 usage_type);
 };
 // src/Mesh.cpp
 struct Mesh{
@@ -60,10 +60,10 @@ struct Mesh{
 
     void setup(std::vector<Vertex>& vertices);
     // returns number of draw calls emitted
-    u64 draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const;
+    i64 draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const;
 
     
     VertexBuffer vbo;
     VertexArray vao;
-    u64 vertex_count{0};
+    i64 vertex_count{0};
 };

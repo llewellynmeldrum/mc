@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 #include "Shaders.hpp"
 #include "Mesh.hpp"
 #include "TextureAtlas.hpp"
@@ -7,7 +7,7 @@
 
 #include "Chunk.hpp"
 // src/Renderer.cpp
-struct Renderer{
+struct Renderer {
     Renderer() = default;
     ~Renderer() = default;
     void setupRenderer();
@@ -17,23 +17,24 @@ struct Renderer{
     void present();
 
     void updateViewport(int x, int y, int w, int h);
-    std::unordered_map<ChunkCoordinate, Mesh, ChunkCoordHasher> visibleChunkMeshes;
-    
-    struct {
-        bool wireframe{false};
-        bool showChunkBoundaries{true};
-        u64 vertex_count{0};
-        u64 draw_calls{0};
-        u64 mesh_count{0};
-        void reset_per_frame(){
-            vertex_count=0;
-            draw_calls=0;
-            mesh_count=0;
-        }
-    }debug;
-    TextureAtlas atlas{"resources/textures/test.png"};
-    ChunkMesher mesher;
-private:
-    ShaderProgram prog{};
 
+    std::unordered_map<ivec3, Mesh, hashChunkCoord> visibleChunkMeshes;
+
+    struct {
+        bool wireframe{ false };
+        bool showChunkBoundaries{ true };
+        i64  vertex_count{ 0 };
+        i64  draw_calls{ 0 };
+        i64  mesh_count{ 0 };
+        void reset_per_frame() {
+            vertex_count = 0;
+            draw_calls = 0;
+            mesh_count = 0;
+        }
+    } debug;
+    TextureAtlas atlas{ "resources/textures/test.png" };
+    ChunkMesher  mesher;
+
+  private:
+    ShaderProgram prog{};
 };

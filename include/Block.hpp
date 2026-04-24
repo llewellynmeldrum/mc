@@ -2,7 +2,7 @@
 
 #include "Types.h"
 #include <array>
-enum class BlockType: u64{
+enum class BlockType: i64{
     AIR=0,
     GRASS_BLOCK,
     DIRT_BLOCK,
@@ -17,9 +17,9 @@ inline std::array<f32,static_cast<size_t>(BlockType::COUNT)> blockOpacity ={
 struct Block{
     BlockType id{BlockType::AIR}; 
     constexpr inline u64 idx() const noexcept{
-        return static_cast<u64>(id);
+        return static_cast<i64>(id);
     }
-    constexpr inline u64 texture_id() const noexcept{
+    constexpr inline i64 texture_id() const noexcept{
         return idx()-1; // this is hacky
     }
     constexpr inline bool isOpaque()const noexcept{
@@ -30,7 +30,7 @@ struct Block{
     }
 };
 
-const inline auto NULL_BLOCK = Block();
+const inline auto NULL_BLOCK = Block{.id=BlockType::AIR};
 
 
 
