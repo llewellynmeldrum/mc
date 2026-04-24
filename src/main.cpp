@@ -1,113 +1,75 @@
-#include <cfloat>
-#include <cassert>
-#include <format>
-#include <limits>
-#include <concepts>
-#include <print>
-#include <string>
-#include <unordered_map>
-
-#define GL_SILENCE_DEPRECATION
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
-
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <utility>
-
-#include "../external/stb_image.hpp"
-
-#include "glmWrapper.hpp"
-#include "Logger.hpp"
-#include "Types.h"
-#include "UnixHelpers.hpp"
-#include "glHelpers.hpp"
-#include "UnixHelpers.hpp"
-
-#include "Texture2D.hpp"
-#include "Vertex.hpp"
-#include "TextureAtlas.hpp"
-#include "Camera.hpp"
+#include "App.hpp"
+#include "Block.hpp"
 #include "Context.hpp"
-#include "Shaders.hpp"
-#include "CommonUtils.hpp"
-#include "Mesh.hpp"
-
-
-TextureAtlas atlas{"resources/textures/test.png"};
-using namespace glm;
-using namespace gl;
-
+#include "DEBUG.hpp"
 #define _DEBUG
-#define _LIBCPP_DEBUG
-#define _LIBCPP_DEBUG_USE_EXCEPTIONS
 
-u64 texture_count = 0;
-u64 program_epoch_ns;
-Context ctx = Context(Camera((vec3){0,0,6}));
+constexpr const i32 RENDER_DIST = 4;
 
+// TODO: move to src/Context.cpp
 
+void Context::drawScene() {
+    if (cam.requestsMeshRegen) {
+        auto camera_chunk_pos = World::worldToChunkPos(cam.pos);
+        auto dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
+        for (const auto& [chunk_pos, chunk] : dirtyChunks) {
+            rend.visibleChunkMeshes.insert({
+                chunk_pos,                            //
+                rend.mesher.mesh(*chunk, rend.atlas)  //
+            });
+            world.chunks.makeClean(chunk_pos);
+        }
+    }
+    rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
+    static bool first_draw = true;
+    if (first_draw) {
+        LOG_DEBUG("Finished first draw");
+        first_draw = false;
+    }
+}
 
+void App::setup() {
+    constexpr i64 chunk_radius = 16;
+    for (i64 x = -chunk_radius; x <= chunk_radius; x++) {
+        for (i64 z = -chunk_radius; z <= chunk_radius; z++) {
+            ctx.world.generateChunk({ x, 0, z });
+        }
+    }
+    LOG_DEBUG("Finished chunk generation");
+}
 
+void App::loop() {
+    ctx.time.update();
+    ctx.input.poll();
+    ctx.handleInputs();
 
-// cube mesh struct
+    ctx.rend.clear({ 0.25, 0.5, 0.85, 1.0 });
+    ctx.drawScene();
+
+    ctx.ui.drawDebugUI();
+    ctx.ui.render();
+    ctx.win.swapBuffers();
+}
+
+bool App::shouldClose() {
+    return ctx.win.shouldClose();
+}
 
 int main(int argc, char** argv) {
-    init_window();
-    init_opengl();
-
-    Chunk chunk;
-    chunk.placeBlock(BlockType::GRASS_BLOCK, 0,0,0);
-    chunk.placeBlock(BlockType::DIRT_BLOCK, 0,-1,0);
-
-
-
-    std::vector<Mesh> chunk_meshes;
-
-
-
-    ShaderProgram prog("shaders/vs.glsl","shaders/fs.glsl");
-    prog.use();
-    prog.setUniform("texture1", (int)0);
-    prog.stop();
-    mat4 model_matrix = mat4(1.0f);
-
-    u64 frameCount = 0;
-    ctx.time.init();
-    while (!glfwWindowShouldClose(ctx.win.ptr)){
-        //update();
-        handleInputs(ctx);
-        //draw();
-        glPolygonMode(GL_FRONT_AND_BACK, ctx.wireframe ? GL_LINE : GL_FILL); 
-        glClearColor(0.25, 0.5, 0.96, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        prog.use();
-            atlas.texture.bind();
-            for (const auto& mesh: chunk_meshes){
-                mesh.draw(prog,model_matrix);
-            }
-        prog.stop();
-
-
-        glfwSwapBuffers(ctx.win.ptr);
-        glfwPollEvents();
-        ctx.time.update();
-        frameCount++;
+    App app;
+    app.ctx.setupContext();
+    app.setup();
+    while (!app.shouldClose()) {
+        app.loop();
+        app.frameCount++;
     }
-    glfwTerminate();
-    exit(EXIT_SUCCESS);
-}
-void Timer::init() {
-    glfwSetTime(0.0);
-}
-void Timer::update() {
-    f64 prev_elapsed_s = elapsed_s;
-    elapsed_s = glfwGetTime();
-    dt = elapsed_s - prev_elapsed_s;
-}
-Context::Context(Camera _cam) : cam(std::move(_cam)) {
-    init_keybinds();
+    app.exit(EXIT_SUCCESS);
 }
 
+#include "GLFWWrapper.hpp"
+
+void App::exit(i32 exit_code) {
+    ctx.ui.destroyDebugUI();
+    glfwTerminate();
+    std::exit(exit_code);
+}

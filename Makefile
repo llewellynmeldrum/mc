@@ -1,10 +1,12 @@
-.PHONY: all build run clean asan lsan tsan ausan debug
+.PHONY: all build run clean asan lsan tsan ausan debug db
 
+all: run
 # --------------------------------------------------
 # Make flags
-#MAKEFLAGS += -j8
+MAKEFLAGS += -j8
 #MAKEFLAGS += --ignore-errors
 
+SHELL:= /bin/zsh
 LLVM_PREFIX := /opt/homebrew/opt/llvm@22
 clang++:= $(LLVM_PREFIX)/bin:$(PATH)
 export clang++
@@ -29,16 +31,23 @@ endif
 # --------------------------------------------------
 
 
+db:
+	@mv compile_commands.json compile_commands.json.bak
+	compiledb -n make clean all
 # --------------------------------------------------
 
-APP_EXE := ./bin/mc
+EXE := ./bin/mc
 CXX         :=clang++ 
 CXXFLAGS    :=-std=c++23 
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
 APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
-APP_DEPS := $(APP_OBJ:.o=.d)
 
+IMGUI_SRC:= $(shell find ./external/imgui -maxdepth 1 -type f -name '*.cpp')
+IMGUI_OBJ:= $(patsubst ./external/imgui/%.cpp,./build/%.o,$(IMGUI_SRC))
+
+OBJ := $(APP_OBJ) $(IMGUI_OBJ)
+DEPS := $(OBJ:.o=.d)
 # --------------------------------------------------
 
 # --------------------------------------------------
@@ -83,14 +92,17 @@ CPPFLAGS 	+= -I$(GLBINDING)/include
 CPPFLAGS 	+= -Iexternal/
 LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
 
-all: run
 
 test: CXXFLAGS+= -DTESTING
 test: clean all
-build: $(APP_EXE)
+build: $(EXE)
 
-run: $(APP_EXE)
-	$(APP_EXE)
+fast: CXXFLAGS+= -O3 -ffast-math
+fast: run
+sleep1:
+	sleep 1
+run: $(EXE) 
+	$(EXE)
 
 
 # --------------------------------------------------
@@ -100,15 +112,18 @@ run: $(APP_EXE)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
+./build/%.o: ./external/imgui/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
-$(APP_EXE): $(APP_OBJ) 
+$(EXE): $(OBJ) 
 	@mkdir -p $(dir $@)
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 # --------------------------------------------------
 # Dependencies
 
--include $(APP_DEPS) 
+-include $(DEPS) 
 
 # --------------------------------------------------
 # Sanitizers
@@ -140,5 +155,6 @@ ausan: clean all
 clean:
 	rm -rf build bin
 
-debug: $(APP_EXE)
-	$(DEBUGGER) -o run -- $(APP_EXE) $(ARGS)
+debug: CXXFLAGS += -g
+debug: $(EXE)
+	$(DEBUGGER) -o -- $(EXE) $(ARGS)

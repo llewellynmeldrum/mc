@@ -6,16 +6,16 @@
 
 // unix utilities
 namespace unix {
-    u64 get_file_size(const char* filename){
+    u64 inline get_file_size(const char* filename){
         struct stat st;
         lstat(filename, &st);
         return static_cast<u64>(st.st_size);
     }
 
-    bool file_exists(const char* filename){
+    bool inline file_exists(const char* filename){
         return !access(filename, R_OK);
     }
-    std::string exec(std::string sv) {
+    std::string inline exec(std::string sv) {
         char buffer[128]; // NOLINT
         std::string result = "";
         // Open pipe to read command output

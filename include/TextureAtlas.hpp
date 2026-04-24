@@ -1,19 +1,23 @@
 #pragma once 
 
+#include "CommonUtils.hpp"
 #include "Texture2D.hpp"
 #include "Vertex.hpp"
-// owns a texture
-// TODO: Continue making all existing classes out of line to fix include bugs
+#include <string>
+
 struct TextureAtlas{
+    TextureAtlas(const char* tex_img_path);
+    ~TextureAtlas()=default;
+    std::string textureImagePath{};
+
+    void setupTextureAtlas();
     Texture2D texture;
     u64 spriteCols;
     u64 spriteRows;
     f32 abs_sprite_w;
     f32 abs_sprite_h;
-    constexpr static u64 spriteSize = 16;
-    TextureAtlas(const char* tex_img_path);
-    vec2 getTexOffset(u64 idx);
-    std::vector<glm::vec2> remapUVs(u64 texture_idx, u64 face_idx,
-                                    const std::vector<Vertex>& vertices);
+    constexpr static i64 spriteSize = 16;
+    glm::vec2 getTexOffset(i64 tex_idx, Direction dir) const ;
+    std::vector<glm::vec2> remapUVs(i64 texture_idx, Direction dir,
+                                              const std::vector<Vertex>& vertices) const;
 };
-extern TextureAtlas atlas;

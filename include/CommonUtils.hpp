@@ -2,15 +2,16 @@
 #include "Types.h"
 #include <cstdlib>
 #include <functional>
+#include <string_view>
 #include "glmWrapper.hpp"
 
-enum struct Direction{
-    RIGHT,
-    LEFT,
-    UP,
-    DOWN,
-    BACKWARD,
+enum struct Direction: i8{
     FORWARD,
+    BACKWARD,
+    LEFT,
+    RIGHT,
+    DOWN,
+    UP, 
 };
 template <typename C>
 concept ContiguousContainer = std::ranges::contiguous_range<C>;
@@ -52,13 +53,33 @@ struct CachedValue{
     }
 
 };
-f32 randf(f32 min, f32 max){
+static inline f32 randf(f32 min, f32 max){
     return min+(random()/(f32)RAND_MAX)*(max-min);
 }
-vec3 randvec3(f32 min, f32 max){
-    return vec3{
-        randf(min,max),
-        randf(min,max),
-        randf(min,max),
-    };
+static inline double nstoms(const i64 ns) {
+    return ns / 1000000.0;
+}
+static inline double stons(const i64 ns) {
+    return ns * 1000000000ULL;
+}
+
+template <typename T>
+static inline constexpr std::string_view pretty_type_name() {
+#if defined(__clang__)
+    std::string_view p = __PRETTY_FUNCTION__;
+    auto start = p.find("T = ");
+    start += 4;
+    auto end = p.rfind(']');
+    return p.substr(start, end - start);
+
+#elif defined(__GNUC__)
+    std::string_view p = __PRETTY_FUNCTION__;
+    auto start = p.find("with T = ");
+    start += 9;
+    auto end = p.find(';', start);
+    return p.substr(start, end - start);
+
+#else
+    return "unsupported compiler";
+#endif
 }

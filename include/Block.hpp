@@ -1,40 +1,27 @@
-#pragma once 
+#pragma once
 
 #include "Types.h"
-#include "Mesh.hpp"
-#include "Context.hpp"
 #include <array>
-#include <cmath>
-#include <mdspan>
-enum class BlockType{
+enum class BlockType : i64 {
+    AIR = 0,
     GRASS_BLOCK,
     DIRT_BLOCK,
-};
-struct Block{
-    BlockType id; 
-    constexpr u64 texture_id(){
-        return static_cast<u64>(id);
-    }
+    COUNT,
 };
 
-
-
-
-
-
-
-
-constexpr u16 CHUNK_EXTENT = 8; // x/y/z
-constexpr u16 CHUNK_SIZE = 8*8*8; // x/y/z
-struct Chunk{
-    std::array<Block, CHUNK_SIZE> data{};
-    Block& operator[](u8 x, u8 y, u8 z){
-        return std::mdspan(data.data(), CHUNK_EXTENT, CHUNK_EXTENT, CHUNK_EXTENT)[x,y,z];
-    }
-    constexpr inline void placeBlock(this auto& self, BlockType t, u8 x, u8 y, u8 z){
-        self[x,y,z]=Block{t};
-    }
-    std::vector<Mesh> build_meshes(){
-        return {};
-    }
+inline std::array<f32, static_cast<size_t>(BlockType::COUNT)> blockOpacity = {
+    0.0,
+    1.0,
+    1.0,
 };
+struct Block {
+    BlockType            id{ BlockType::AIR };
+    constexpr inline u64 idx() const noexcept { return static_cast<i64>(id); }
+    constexpr inline i64 texture_id() const noexcept {
+        return idx() - 1;  // this is hacky
+    }
+    constexpr inline bool isOpaque() const noexcept { return blockOpacity[idx()] >= 1.0; }
+    constexpr inline bool isAir() const noexcept { return id == BlockType::AIR; }
+};
+
+const inline auto NULL_BLOCK = Block{ .id = BlockType::AIR };
