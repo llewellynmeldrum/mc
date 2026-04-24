@@ -7,6 +7,7 @@
 constexpr const i32 RENDER_DIST = 4;
 
 // TODO: move to src/Context.cpp
+
 void Context::drawScene() {
     if (cam.requestsMeshRegen) {
         auto camera_chunk_pos = World::worldToChunkPos(cam.pos);
@@ -20,14 +21,21 @@ void Context::drawScene() {
         }
     }
     rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
+    static bool first_draw = true;
+    if (first_draw) {
+        LOG_DEBUG("Finished first draw");
+        first_draw = false;
+    }
 }
 
 void App::setup() {
-    for (int x = 0; x < 4; x++) {
-        for (int z = 0; z < 4; z++) {
+    constexpr i64 chunk_radius = 16;
+    for (i64 x = -chunk_radius; x <= chunk_radius; x++) {
+        for (i64 z = -chunk_radius; z <= chunk_radius; z++) {
             ctx.world.generateChunk({ x, 0, z });
         }
     }
+    LOG_DEBUG("Finished chunk generation");
 }
 
 void App::loop() {

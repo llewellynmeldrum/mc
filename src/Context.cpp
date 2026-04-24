@@ -25,6 +25,12 @@ void Context::handleInputs() {
         }
     }
     f32 scaled_dt = dt * 60;
+
+    if (input.mousepos != input.prevmousepos) {
+        const vec2 diff = input.prevmousepos - input.mousepos;
+        cam.rotateByMouse(diff, scaled_dt);
+    }
+
     if (input.getKey(KEY_T) == KeyState::Held) {
         // toggle wireframe renderer
         if (input.keyRepeatCooldown.at(KEY_T) <= 0.0f) {
@@ -75,4 +81,5 @@ void Context::handleInputs() {
     if (input.getKey(KEY_DOWN) == KeyState::Held) {
         cam.rotate(Direction::DOWN, scaled_dt);
     }
+    input.prevmousepos = input.mousepos;
 }

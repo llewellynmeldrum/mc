@@ -5,11 +5,10 @@ using namespace gl;
 #include "Logger.hpp"
 i64 texture_count = 0;
 
-Texture2D::Texture2D(const char* tex_dir, i32 image_fmt=to_i32(GL_RGB), vec4 border_color = { 1, 0, 1, 1 })
-    :texturePath(tex_dir),
-    imageFormat(image_fmt),
-    borderColor(border_color)
-    {}
+Texture2D::Texture2D(const char* tex_dir, i32 image_fmt = to_i32(GL_RGB),
+                     vec4 border_color = { 1, 0, 1, 1 })
+    : texturePath(tex_dir), imageFormat(image_fmt), borderColor(border_color) {
+}
 
 void Texture2D::setup() {
     mat4::length();
@@ -25,13 +24,13 @@ void Texture2D::setup() {
     LOG_EXPR(tex_pixels);
     Texture2D::init();
     Texture2D::bind();
-    Texture2D::setMinifyMode(to_i32(GL_LINEAR_MIPMAP_NEAREST));
+    Texture2D::setMinifyMode(to_i32(GL_NEAREST));
     Texture2D::setMagnifyMode(to_i32(GL_NEAREST));
     Texture2D::setWrapMode(to_i32(GL_CLAMP_TO_BORDER));
     Texture2D::setBorderColor(borderColor);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(imageFormat), GL_UNSIGNED_BYTE,
-                 (const void*)tex_pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(imageFormat),
+                 GL_UNSIGNED_BYTE, (const void*)tex_pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
     Texture2D::unbind();
 

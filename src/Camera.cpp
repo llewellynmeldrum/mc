@@ -1,76 +1,114 @@
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
 
-void Camera::setupCamera(){
-    pos = {0, 0, 6};
-    dir_upwards =    {0.0f, 1.0f, 0.0f};
-    front = {0.0f, 0.0f, -1.0f};
+void Camera::setupCamera() {
+    pos = { 0, 0, 6 };
+    dir_upwards = { 0.0f, 1.0f, 0.0f };
+    front = { 0.0f, 0.0f, -1.0f };
 
-    std::function<mat4(vec3&, vec3, f32, f32)> callback = 
-    [](vec3& front, vec3 pos, f32 yaw, f32 pitch) -> mat4{
+    std::function<mat4(vec3&, vec3, f32, f32)> callback = [](vec3& front, vec3 pos, f32 yaw,
+                                                             f32 pitch) -> mat4 {
         vec3 facing{};
         facing.x = cos(radians(yaw)) * cos(radians(pitch));
         facing.y = sin(radians(pitch));
         facing.z = sin(radians(yaw)) * cos(radians(pitch));
         front = normalize(facing);
-        return lookAt(vec3(pos.x, pos.y,pos.z), 
-                   pos+front, 
-                   vec3(0.0f, 1.0f, 0.0f));
+        return lookAt(vec3(pos.x, pos.y, pos.z), pos + front, vec3(0.0f, 1.0f, 0.0f));
     };
     cached_viewMatrix = CachedValue<mat4, vec3&, vec3, f32, f32>(callback);
 }
 
-void Camera::move(Direction dir, f32 dt){
-    switch (dir){
-        case Direction::RIGHT: moveRight(dt); break;
+void Camera::move(Direction dir, f32 dt) {
+    switch (dir) {
+    case Direction::RIGHT:
+        moveRight(dt);
+        break;
 
-        case Direction::LEFT: moveLeft(dt); break;
+    case Direction::LEFT:
+        moveLeft(dt);
+        break;
 
-        case Direction::UP: moveUpward(dt); break;
+    case Direction::UP:
+        moveUpward(dt);
+        break;
 
-        case Direction::DOWN: moveDownward(dt); break;
+    case Direction::DOWN:
+        moveDownward(dt);
+        break;
 
-        case Direction::BACKWARD: moveBackward(dt); break;
+    case Direction::BACKWARD:
+        moveBackward(dt);
+        break;
 
-        case Direction::FORWARD: moveForward(dt); break;
+    case Direction::FORWARD:
+        moveForward(dt);
+        break;
     }
     cached_viewMatrix.invalidate();
     requestMeshRegeneration();
 }
-void Camera::rotate(Direction dir, f32 dt){
+void Camera::rotateByMouse(vec2 offset, f32 dt) {
+    pitch += dt * mouse_sensitivity * offset.y;
+    yaw -= dt * mouse_sensitivity * offset.x;  // up down is inverted
+    pitch = glm::max(pitch, -89.0f);
+    pitch = glm::min(pitch, 89.0f);
+    cached_viewMatrix.invalidate();
+    // requestMeshRegeneration();
+}
+void Camera::rotate(Direction dir, f32 dt) {
 
-    switch (dir){
+    switch (dir) {
     case Direction::UP:
         pitchUp(dt);
-    break;
+        break;
 
     case Direction::DOWN:
         pitchDown(dt);
-    break;
+        break;
 
     case Direction::LEFT:
         yawLeft(dt);
-    break;
+        break;
 
     case Direction::RIGHT:
         yawRight(dt);
-    break;
+        break;
 
     default:
         LOG_ERROR("invalid rotation value '{}' passed to {}", (int)dir, __FUNCTION__);
-    break;
+        break;
     }
-    pitch = glm::max(pitch,-89.0f);
-    pitch = glm::min(pitch,89.0f);
+    pitch = glm::max(pitch, -89.0f);
+    pitch = glm::min(pitch, 89.0f);
     cached_viewMatrix.invalidate();
 }
-inline void Camera::moveUpward(f32 dt) { pos += dt * (moveSpeed * dir_upwards); }
-inline void Camera::moveDownward(f32 dt) { pos -= dt * (moveSpeed * dir_upwards); }
-inline void Camera::moveForward(f32 dt) { pos += dt * (moveSpeed * front); }
-inline void Camera::yawLeft(f32 dt) { yaw -= dt * sensitivity; }
-inline void Camera::yawRight(f32 dt) { yaw += dt * sensitivity; }
-inline void Camera::pitchDown(f32 dt) { pitch -= dt * sensitivity; }
-inline void Camera::pitchUp(f32 dt) { pitch += dt * sensitivity; }
-inline void Camera::moveBackward(f32 dt) { pos -= dt * (moveSpeed * front); }
-inline void Camera::moveLeft(f32 dt) { pos -= dt * (normalize(cross(front, dir_upwards)) * moveSpeed); }
-inline void Camera::moveRight(f32 dt) { pos += dt * (normalize(cross(front, dir_upwards)) * moveSpeed); }
+inline void Camera::moveUpward(f32 dt) {
+    pos += dt * (moveSpeed * dir_upwards);
+}
+inline void Camera::moveDownward(f32 dt) {
+    pos -= dt * (moveSpeed * dir_upwards);
+}
+inline void Camera::moveForward(f32 dt) {
+    pos += dt * (moveSpeed * front);
+}
+inline void Camera::yawLeft(f32 dt) {
+    yaw -= dt * keyboard_sensitivity;
+}
+inline void Camera::yawRight(f32 dt) {
+    yaw += dt * keyboard_sensitivity;
+}
+inline void Camera::pitchDown(f32 dt) {
+    pitch -= dt * keyboard_sensitivity;
+}
+inline void Camera::pitchUp(f32 dt) {
+    pitch += dt * keyboard_sensitivity;
+}
+inline void Camera::moveBackward(f32 dt) {
+    pos -= dt * (moveSpeed * front);
+}
+inline void Camera::moveLeft(f32 dt) {
+    pos -= dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
+}
+inline void Camera::moveRight(f32 dt) {
+    pos += dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
+}
