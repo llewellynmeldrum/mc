@@ -15,8 +15,8 @@ Context::drawScene() {
         auto dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
             rend.visibleChunkMeshes.insert({
-                chunk_pos,                                    //
-                rend.mesher.mesh(&world, *chunk, rend.atlas)  //
+                chunk_pos,                                               //
+                rend.mesher.mesh(&world, *chunk, chunk_pos, rend.atlas)  //
             });
             world.chunks.makeClean(chunk_pos);
         }

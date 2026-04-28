@@ -8,5 +8,6 @@ struct ChunkMesher {
     ChunkMesher() = default;
     ~ChunkMesher() = default;
 
-    Mesh mesh(const World* world_ptr, const Chunk& chunk, const TextureAtlas& atlas);
+    Mesh mesh(const World* world_ptr, const Chunk& chunk, const ivec3 chunk_offset,
+              const TextureAtlas& atlas);
 };
