@@ -68,7 +68,7 @@ CXXFLAGS 	+=-MMD -MP
 CXXFLAGS 	+=$(shell pkg-config --cflags glfw3)
 
 
-# Formatting of compiler errors (and sanitizers)
+# format of compiler errors (and sanitizers)
 CXXFLAGS += -fdebug-prefix-map=$(PWD)=.
 CXXFLAGS += -fno-show-column
 CXXFLAGS += -fno-diagnostics-show-option
@@ -86,13 +86,26 @@ CFLAGS += -fdiagnostics-fixit-info
 # Link flags
 
 
+# DEP: glfw3 (install via brew or apt or pacman or something similar)
 LDLIBS  	+= $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
+# DEP: GLBINDING (header only, no install)
 CPPFLAGS 	+= -I$(GLBINDING)/include
 CPPFLAGS 	+= -Iexternal/
 LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
 
+# DEP: FastNoise2
+# NOTE: (run ./install_fastnoise.sh once before building)
+FASTNOISE_DIR     := external/FastNoise2
+FASTNOISE_LIB_DIR := $(FASTNOISE_DIR)/build/Release/lib
 
+CXXFLAGS += \
+  -I$(FASTNOISE_DIR)/include \
+  -I$(FASTNOISE_DIR)/build/_deps/fastsimd-src/include \
+  -DFASTNOISE_STATIC_LIB
+
+LDFLAGS += -L$(FASTNOISE_LIB_DIR)
+LDLIBS  += -lFastNoise
 test: CXXFLAGS+= -DTESTING
 test: clean all
 build: $(EXE)
