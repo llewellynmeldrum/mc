@@ -105,6 +105,8 @@ fast: run
 
 fast-math: CXXFLAGS+= -ffast-math
 fast-math: run
+
+run: CXXFLAGS+= -O1 
 run: $(EXE) 
 	$(EXE)
 

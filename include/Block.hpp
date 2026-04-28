@@ -8,6 +8,7 @@ enum class BlockType : i64 {
     AIR = 0,
     DIRT_BLOCK,
     GRASS_BLOCK,
+    STONE_BLOCK,
     COUNT,
 };
 template <typename Attr_t>
