@@ -13,12 +13,6 @@ enum struct Direction : i8 {
     DOWN,      // -y
     UP,        // +y
 };
-auto Direction_FORWARD_IDX = 0;
-auto Direction_BACKWARD_IDX = 1;
-auto Direction_LEFT_IDX = 2;
-auto Direction_RIGHT_IDX = 3;
-auto Direction_DOWN_IDX = 4;
-auto Direction_UP_IDX = 5;
 template <typename C>
 concept ContiguousContainer = std::ranges::contiguous_range<C>;
 
