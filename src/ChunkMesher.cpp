@@ -8,19 +8,6 @@
 #include "Context.hpp"
 extern const std::vector<std::vector<Vertex>> defaultCubeFaces;
 
-std::vector<std::pair<Block, Direction>>
-World::getNeighbourBlocks(const vec3 world_pos) const {
-    const vec3& p = world_pos;  // for readability
-    return {
-        { getBlock({ p.x, p.y + 1, p.z }), Direction::UP },
-        { getBlock({ p.x, p.y - 1, p.z }), Direction::DOWN },
-        { getBlock({ p.x - 1, p.y, p.z }), Direction::LEFT },
-        { getBlock({ p.x + 1, p.y, p.z }), Direction::RIGHT },
-        { getBlock({ p.x, p.y, p.z + 1 }), Direction::BACKWARD },
-        { getBlock({ p.x, p.y, p.z - 1 }), Direction::FORWARD },
-    };
-}
-
 static constexpr const std::vector<Vertex>&
 getDefaultFaceOffsets(Direction dir) {
     return defaultCubeFaces[static_cast<i8>(dir)];
@@ -56,15 +43,14 @@ ChunkMesher::mesh(const World* world_ptr, const Chunk& chunk, const ivec3 chunk_
                 // RIGHT,     // +x
                 // DOWN,      // -y
                 // UP,        // +y
-                auto get_neighbour_block = [chunk, x, y, z](bool neighbourOutsideChunk, 
-                                                            i32 ox, i32 oy, i32 oz,
+                auto get_neighbour_block = [chunk, x, y, z](bool neighbourOutsideChunk, vec3 pos, vec3 neigh_pos,
                                                             const Chunk* neighbour_chunk) -> Block {
                     if (!neighbourOutsideChunk) [[likely]] {  // blk is inside chunk
-                        return chunk[x, y, z];                // captured
+                        return chunk[pos.x, pos.y, pos.z];                // captured
                     } else if (!neighbour_chunk) [[unlikely]] {
                         return Block::Empty();
                     } else {
-                        return (*neighbour_chunk)[ox, oy, oz];
+                        return (*neighbour_chunk)[neigh_pos.x, neigh_pos.y, neigh_pos.z];
                     }
                 };
                 // clang-format on
@@ -73,24 +59,31 @@ ChunkMesher::mesh(const World* world_ptr, const Chunk& chunk, const ivec3 chunk_
                 // clang-format off
                 NeighbourList block_neighbours = {
                     std::make_pair(get_neighbour_block(z == 0,
-                                            x, y, CHUNK_ZWIDTH-1,
-                                            back_neighbour_chunk), Direction::BACKWARD),
-                    std::make_pair(get_neighbour_block(z == CHUNK_ZWIDTH-1,
-                                            x, y, 0,
+                                            {x, y, z-1},
+                                            {x, y, CHUNK_ZWIDTH-1},
                                             front_neighbour_chunk), Direction::FORWARD),
 
+                    std::make_pair(get_neighbour_block(z == CHUNK_ZWIDTH-1,
+                                            {x, y, z+1},
+                                            {x, y, 0},
+                                            back_neighbour_chunk), Direction::BACKWARD),
+
                     std::make_pair(get_neighbour_block(x == 0,
-                                            CHUNK_XWIDTH-1, y, z,
+                                            {x-1,y,z},
+                                            {CHUNK_XWIDTH-1, y, z},
                                             left_neighbour_chunk), Direction::LEFT),
                     std::make_pair(get_neighbour_block(x == CHUNK_XWIDTH-1,
-                                            0, y, z,
+                                            {x+1,y,z},
+                                            {0, y, z},
                                             right_neighbour_chunk), Direction::RIGHT),
 
                     std::make_pair(get_neighbour_block(y == 0,
-                                            x, CHUNK_HEIGHT-1, z,
+                                            {x,y-1,z},
+                                            {x, CHUNK_HEIGHT-1, z},
                                             down_neighbour_chunk), Direction::DOWN),
                     std::make_pair(get_neighbour_block(y == CHUNK_HEIGHT-1,
-                                            x, 0, z,
+                                            {x,y+1,z},
+                                            {x, 0, z},
                                             up_neighbour_chunk), Direction::UP),
                 };
                 // clang-format on
