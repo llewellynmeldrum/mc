@@ -14,6 +14,7 @@ struct ChunkMap {
     ~ChunkMap() = default;
     ChunkGenerator generator;
     void           generate(ivec3 pos);
+    void           assignNeighbours(ivec3 pos);
 
     const Chunk* getData(ivec3 pos);
 

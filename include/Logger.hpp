@@ -20,18 +20,21 @@
 extern i64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
                               // main begins.
 
-static inline double get_current_ns() {
+static inline double
+get_current_ns() {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
     return (i64)stons(ts.tv_sec) + ts.tv_nsec;
 }
-static inline double get_current_us() {
+static inline double
+get_current_us() {
     struct timespec ts;
     timespec_get(&ts, TIME_UTC);
     return (f64)(stons(ts.tv_sec) + ts.tv_nsec) / 1000.0;
 }
 
-static inline i64 ms_since_start() {
+static inline i64
+ms_since_start() {
     i64    current_ns = get_current_ns();
     i64    ns_elapsed = current_ns - program_epoch_ns;
     double ms = nstoms(ns_elapsed);
@@ -69,12 +72,16 @@ inline LogLevel COUNT{ "[COUNT]", fmt::red, 5 };
 
 #define LOG_EXIT(code)                                                                             \
     do {                                                                                           \
-        LOG_LVL(FATAL, __FILE_NAME__, __LINE__, "Exiting with code {}.", code);                    \
+        if (code == EXIT_SUCCESS)                                                                  \
+            LOG_LVL(NOTICE, __FILE_NAME__, __LINE__, "Exiting with code {}.", code);               \
+        else                                                                                       \
+            LOG_LVL(FATAL, __FILE_NAME__, __LINE__, "Exiting with code {}.", code);                \
         exit(code);                                                                                \
     } while (0)
 
 template <typename T>
-constexpr std::string fmt_expr(const char* identifier, T&& expr) {
+constexpr std::string
+fmt_expr(const char* identifier, T&& expr) {
     using Arg = std::remove_reference_t<T>;
     std::string expr_str{};
 
@@ -101,7 +108,8 @@ constexpr std::string fmt_expr(const char* identifier, T&& expr) {
 // @brief returns a string containing the underlying type of the object expr represents. No value
 // categories.
 template <typename T>
-std::string fmt_obj(const char* identifier, T&& expr) {
+std::string
+fmt_obj(const char* identifier, T&& expr) {
     using Arg = std::remove_reference_t<T>;
 
     if constexpr (Formattable<T>) {

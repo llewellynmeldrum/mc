@@ -3,6 +3,7 @@
 #include "Context.hpp"
 #include "DEBUG.hpp"
 #define _DEBUG
+#include "Profiler.hpp"
 
 constexpr const i32 RENDER_DIST = 4;
 
@@ -10,18 +11,27 @@ constexpr const i32 RENDER_DIST = 4;
 
 void
 Context::drawScene() {
+    bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
+        auto mesh_chunks = ScopeTimer("Chunk meshing", "chunk");
         auto camera_chunk_pos = World::worldToChunkCoord(cam.pos);
         auto dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
+            remesh_this_frame = true;
             rend.visibleChunkMeshes.insert({
                 chunk_pos,                                               //
                 rend.mesher.mesh(&world, *chunk, chunk_pos, rend.atlas)  //
             });
             world.chunks.makeClean(chunk_pos);
         }
+        cam.requestsMeshRegen = false;
     }
     rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
+    if (remesh_this_frame) {
+        LOG_EXPR(rend.debug.mesh_count);
+        timer_log_avg_us("Chunk meshing", rend.debug.mesh_count);
+        timer_log_ms("Chunk meshing");
+    }
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");
@@ -31,7 +41,7 @@ Context::drawScene() {
 
 void
 App::setup() {
-    constexpr i64 chunk_radius = 4;
+    constexpr i64 chunk_radius = 64;
     for (i64 x = -chunk_radius; x <= chunk_radius; x++) {
         for (i64 z = -chunk_radius; z <= chunk_radius; z++) {
             ctx.world.generateChunk({ x, 0, z });
@@ -61,6 +71,7 @@ App::shouldClose() {
 
 int
 main(int argc, char** argv) {
+
     App app;
     app.ctx.setupContext();
     app.setup();

@@ -6,6 +6,7 @@
 #include "Logger.hpp"
 #include "glmWrapper.hpp"
 #include "Context.hpp"
+#include "Profiler.hpp"
 extern const std::vector<std::vector<Vertex>> defaultCubeFaces;
 
 static constexpr const std::vector<Vertex>&
@@ -43,14 +44,16 @@ ChunkMesher::mesh(const World* world_ptr, const Chunk& chunk, const ivec3 chunk_
                 // RIGHT,     // +x
                 // DOWN,      // -y
                 // UP,        // +y
-                auto get_neighbour_block = [chunk, x, y, z](bool neighbourOutsideChunk, vec3 pos, vec3 neigh_pos,
+                auto get_neighbour_block = [&chunk, x, y, z](bool neighbourOutsideChunk, vec3 pos, vec3 neigh_pos,
                                                             const Chunk* neighbour_chunk) -> Block {
                     if (!neighbourOutsideChunk) [[likely]] {  // blk is inside chunk
                         return chunk[pos.x, pos.y, pos.z];                // captured
-                    } else if (!neighbour_chunk) [[unlikely]] {
-                        return Block::Empty();
-                    } else {
-                        return (*neighbour_chunk)[neigh_pos.x, neigh_pos.y, neigh_pos.z];
+                    } else [[unlikely]]{
+                        if (!neighbour_chunk) [[unlikely]] {
+                            return Block::Empty();
+                        } else [[likely]]{
+                            return (*neighbour_chunk)[neigh_pos.x, neigh_pos.y, neigh_pos.z];
+                        }
                     }
                 };
                 // clang-format on
@@ -88,7 +91,7 @@ ChunkMesher::mesh(const World* world_ptr, const Chunk& chunk, const ivec3 chunk_
                 };
                 // clang-format on
 
-                for (const auto& [neighbour, face_dir] : block_neighbours) {
+                for (const auto [neighbour, face_dir] : block_neighbours) {
                     bool faceFacesAir = neighbour == Block::Empty() || neighbour.isAir();
                     // || !neighbour.isOpaque()) {
                     if (faceFacesAir) {

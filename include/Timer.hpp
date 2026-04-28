@@ -1,4 +1,5 @@
 #pragma once
+#include "Logger.hpp"
 #include "Types.h"
 #include "MirroredRingBuf.hpp"
 // src/Timer.cpp

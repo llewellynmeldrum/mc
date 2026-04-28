@@ -37,7 +37,7 @@ db:
 # --------------------------------------------------
 
 EXE := ./bin/mc
-CXX         :=clang++ 
+CXX         :=clang++
 CXXFLAGS    :=-std=c++23 
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
@@ -97,10 +97,14 @@ test: CXXFLAGS+= -DTESTING
 test: clean all
 build: $(EXE)
 
-fast: CXXFLAGS+= -O3 -ffast-math
+fastest: CXXFLAGS+= -O3 -ffast-math
+fastest: run
+
+fast: CXXFLAGS+= -O1 
 fast: run
-sleep1:
-	sleep 1
+
+fast-math: CXXFLAGS+= -ffast-math
+fast-math: run
 run: $(EXE) 
 	$(EXE)
 
@@ -132,23 +136,23 @@ asan: export ASAN_OPTIONS=detect_leaks=0
 asan: CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -g
 asan: CFLAGS   += -fsanitize=address -fno-omit-frame-pointer -g
 asan: LDFLAGS  += -fsanitize=address -fno-omit-frame-pointer -g
-asan: clean all
+asan: all
 
 lsan: export ASAN_OPTIONS=detect_leaks=1
 lsan: CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -g
 lsan: CFLAGS   += -fsanitize=address -fno-omit-frame-pointer -g
 lsan: LDFLAGS  += -fsanitize=address -fno-omit-frame-pointer -g
-lsan: clean all
+lsan: all
 
 tsan: CXXFLAGS += -fsanitize=thread -fno-omit-frame-pointer -g
 tsan: CFLAGS   += -fsanitize=thread -fno-omit-frame-pointer -g
 tsan: LDFLAGS  += -fsanitize=thread -fno-omit-frame-pointer -g
-tsan: clean all
+tsan: all
 
 ausan: CXXFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g
 ausan: CFLAGS   += -fsanitize=address,undefined -fno-omit-frame-pointer -g
 ausan: LDFLAGS  += -fsanitize=address,undefined -fno-omit-frame-pointer -g
-ausan: clean all
+ausan: all
 
 # --------------------------------------------------
 
