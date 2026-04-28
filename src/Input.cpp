@@ -20,8 +20,10 @@ void Input::poll() {
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods) {
     auto* ctx = (Context*)glfwGetWindowUserPointer(window);
     auto& input = ctx->input;
-    if (key == GLFW_KEY_UNKNOWN)
-        return;  // Ignore unknown keys
+    //    LOG_DEBUG("Key {} pressed, code:{}, action:{},mods={},", key, code, action, mods);
+    if (key == GLFW_KEY_UNKNOWN) {
+        return;
+    }
     KeyState& key_state = input.keyState[key];
     if (action == GLFW_PRESS) {
         input.keyState[key] = KeyState::Held;

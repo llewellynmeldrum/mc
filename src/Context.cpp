@@ -17,7 +17,7 @@ void Context::handleInputs() {
         win.scheduleClose();
         return;
     }
-    f32 dt = time.dt_s;  // TODO: implement
+    f32 dt = time.dt_s;
     // dt = 1/60
     for (auto& [key, cd] : input.keyRepeatCooldown) {
         if (cd > 0.0f) {
@@ -61,6 +61,9 @@ void Context::handleInputs() {
     }
     if (input.getKey(KEY_D) == KeyState::Held) {
         cam.move(Direction::RIGHT, scaled_dt);
+    }
+    if (input.getKey(KEY_SPACE) == KeyState::Held) {
+        cam.move(Direction::UP, scaled_dt);
     }
     if (input.getKey(KEY_E) == KeyState::Held) {
         cam.move(Direction::UP, scaled_dt);

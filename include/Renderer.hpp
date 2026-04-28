@@ -32,7 +32,7 @@ struct Renderer {
             mesh_count = 0;
         }
     } debug;
-    TextureAtlas atlas{ "resources/textures/test.png" };
+    TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  mesher;
 
   private:

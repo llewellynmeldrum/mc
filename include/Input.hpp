@@ -1,6 +1,7 @@
 #pragma once
 #include "Types.h"
 #include "KeyCodes.hpp"
+#include <print>
 #include <unordered_map>
 #include <array>
 #include "glmWrapper.hpp"

@@ -11,11 +11,10 @@ Texture2D::Texture2D(const char* tex_dir, i32 image_fmt = to_i32(GL_RGB),
 }
 
 void Texture2D::setup() {
-    mat4::length();
-    // stbi_load returns row major 2d pixels array.
     u8* tex_pixels = stbi_load(texturePath.c_str(), &pxwidth, &pxheight, &nchannels, 0);
     if (!tex_pixels) {
         LOG_ERROR("Failed to load texture file '{}'.", texturePath);
+        LOG_EXIT(EXIT_FAILURE);
         return;
     }
     LOG_EXPR(pxwidth);

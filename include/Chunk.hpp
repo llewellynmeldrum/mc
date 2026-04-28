@@ -14,17 +14,21 @@ struct Chunk {
 
     bool isDirty = true;
 
-    inline Block& operator[](i16 x, i16 y, i16 z) {
+    inline Block&
+    operator[](i16 x, i16 y, i16 z) {
         return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
     }
-    inline const Block& operator[](i16 x, i16 y, i16 z) const {
+    inline const Block&
+    operator[](i16 x, i16 y, i16 z) const {
         return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
     }
-    inline void setBlock(this auto& self, BlockType t, i16 x, i16 y, i16 z) {
+    inline void
+    setBlock(this auto& self, BlockType t, i16 x, i16 y, i16 z) {
         self[x, y, z] = Block{ .id = t };
     }
 
-    inline void setBlocks(this auto& self, BlockType t, vec3 pos1, vec3 pos2) {
+    inline void
+    setBlocks(this auto& self, BlockType t, vec3 pos1, vec3 pos2) {
         vec3 min =
             vec3(std::min(pos1.x, pos2.x), std::min(pos1.y, pos2.y), std::min(pos1.z, pos2.z));
         vec3 max =
@@ -37,19 +41,27 @@ struct Chunk {
             }
         }
     }
-    inline void setBlock(BlockType t, vec3 pos) { return setBlock(t, pos.x, pos.y, pos.z); }
+    inline void
+    setBlock(BlockType t, vec3 pos) {
+        return setBlock(t, pos.x, pos.y, pos.z);
+    }
 
-    inline Block getBlock(this auto& self, i16 x, i16 y, i16 z) {
+    inline Block
+    getBlock(this auto& self, i16 x, i16 y, i16 z) {
         if (x < 0 || x >= CHUNK_XWIDTH)
-            return NULL_BLOCK;
+            return AIR_BLOCK;
         if (y < 0 || y >= CHUNK_HEIGHT)
-            return NULL_BLOCK;
+            return AIR_BLOCK;
         if (z < 0 || z >= CHUNK_ZWIDTH)
-            return NULL_BLOCK;
+            return AIR_BLOCK;
         return self[x, y, z];
     }
-    inline Block getBlock(this auto& self, vec3 pos) { return self.getBlock(pos.x, pos.y, pos.z); }
-    inline void  fillChunk(BlockType t) {
+    inline Block
+    getBlock(this auto& self, vec3 pos) {
+        return self.getBlock(pos.x, pos.y, pos.z);
+    }
+    inline void
+    fillChunk(BlockType t) {
         for (auto& block : data) {
             block = Block{ .id = t };
         }

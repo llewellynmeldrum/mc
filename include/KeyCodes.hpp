@@ -1,17 +1,17 @@
-#pragma once 
+#pragma once
 #include "Types.h"
-enum class KeyState{
+enum class KeyState {
     Released,
     JustPressed,
     JustReleased,
     Held,
-    INVALID=-1,
+    INVALID = -1,
 };
 using KeyCode = i32;
-constexpr KeyCode KEY_MAX(348);
-constexpr KeyCode KEY_MIN(33);
+constexpr KeyCode        KEY_MAX(348);
+constexpr KeyCode        KEY_MIN(32);
 static constexpr KeyCode KEY_UNKNOWN(-1);
-static constexpr KeyCode KEY_SPACE(33);
+static constexpr KeyCode KEY_SPACE(32);
 static constexpr KeyCode KEY_APOSTROPHE(39);
 static constexpr KeyCode KEY_COMMA(44);
 static constexpr KeyCode KEY_MINUS(45);
@@ -132,11 +132,11 @@ static constexpr KeyCode KEY_RIGHT_CONTROL(345);
 static constexpr KeyCode KEY_RIGHT_ALT(346);
 static constexpr KeyCode KEY_RIGHT_SUPER(347);
 static constexpr KeyCode KEY_MENU(348);
-struct Key{
-    i32 code{KEY_UNKNOWN};
-    bool pressed{false};
-    Key(unsigned char c): code(static_cast<i32>(c)){} // implicit cast from uchar
-    operator i32 () const noexcept{ return code; } // implicit cast to i32
+struct Key {
+    i32  code{ KEY_UNKNOWN };
+    bool pressed{ false };
+    Key(unsigned char c) : code(static_cast<i32>(c)) {}  // implicit cast from uchar
+    operator i32() const noexcept { return code; }       // implicit cast to i32
 };
 inline bool operator==(const Key& a, const Key& b) noexcept {
     return a.code == b.code;
@@ -145,8 +145,6 @@ inline bool operator==(const Key& a, const Key& b) noexcept {
 namespace std {
 template <>
 struct hash<Key> {
-    size_t operator()(const Key& k) const noexcept {
-        return std::hash<i32>{}(k.code);
-    }
+    size_t operator()(const Key& k) const noexcept { return std::hash<i32>{}(k.code); }
 };
-}
+}  // namespace std

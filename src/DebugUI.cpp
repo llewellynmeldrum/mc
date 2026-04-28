@@ -9,10 +9,12 @@
 
 #include "GLFWWrapper.hpp"
 namespace IG = ImGui;  // namespace alias for convinience
-void DebugUI::drawUI() {
+void
+DebugUI::drawUI() {
     ShowOverlay(nullptr);
 }
-void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
+void
+DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
     this->win_ptr = _win_ptr;
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -35,24 +37,28 @@ void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
     ImGui_ImplOpenGL3_Init();
 }
 
-void DebugUI::drawDebugUI() {
+void
+DebugUI::drawDebugUI() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     IG::NewFrame();
     drawUI();
 }
-void DebugUI::render() {
+void
+DebugUI::render() {
     IG::Render();
     ImGui_ImplOpenGL3_RenderDrawData(IG::GetDrawData());
 }
 
-void DebugUI::destroyDebugUI() {
+void
+DebugUI::destroyDebugUI() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     IG::DestroyContext();
 }
 
-void DebugUI::ShowOverlay(bool* p_open) {
+void
+DebugUI::ShowOverlay(bool* p_open) {
     auto*            ctx = static_cast<Context*>(glfwGetWindowUserPointer(win_ptr));
     ImGuiIO&         io = IG::GetIO();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
@@ -99,7 +105,7 @@ void DebugUI::ShowOverlay(bool* p_open) {
     else
         facing_str += ",   ";
 
-    auto ch_pos = World::worldToChunkPos(ctx->cam.pos);
+    auto ch_pos = World::worldToChunkCoord(ctx->cam.pos);
     if (IG::Begin("Debug Overlay", p_open, window_flags)) {
         IG::Text("DEBUG OVERLAY");
 
