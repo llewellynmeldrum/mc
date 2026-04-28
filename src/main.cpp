@@ -41,10 +41,12 @@ Context::drawScene() {
 
 void
 App::setup() {
-    constexpr i64 chunk_radius = 8;
+    constexpr i64 chunk_radius = 6;
     for (i64 x = -chunk_radius; x <= chunk_radius; x++) {
         for (i64 z = -chunk_radius; z <= chunk_radius; z++) {
-            ctx.world.generateChunk({ x, 0, z });
+            for (i64 y = -chunk_radius; y <= chunk_radius; y++) {
+                ctx.world.generateChunk({ x, y, z });
+            }
         }
     }
     LOG_DEBUG("Finished chunk generation");

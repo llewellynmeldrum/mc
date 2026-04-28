@@ -64,12 +64,12 @@ ChunkMap::assignNeighbours(ivec3 pos) {
     }
 }
 void
-ChunkMap::generate(ivec3 pos) {
-    if (data.contains(pos)) {
+ChunkMap::generate(ivec3 chunk_coord) {
+    if (data.contains(chunk_coord)) {
         LOG_WARN("Chunk generation requested on chunk that already exists.");
     } else {
-        data.insert({ pos, generator.gen(pos) });
-        assignNeighbours(pos);
+        data.insert({ chunk_coord, generator.gen(chunk_coord) });
+        assignNeighbours(chunk_coord);
     }
 }
 
