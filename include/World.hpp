@@ -3,8 +3,9 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 struct World {
-    static ivec3 worldToChunkCoord(vec3 worldPos);
-    static vec3  chunkToWorldPos(ivec3 chunkPos);
+    static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
+    static ivec3         worldToChunkCoord(vec3 worldPos);
+    static vec3          chunkToWorldPos(ivec3 chunkPos);
     World() = default;
     ~World() = default;
     // make chunkMap itself use unique ptrs

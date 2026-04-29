@@ -4,24 +4,23 @@
 #include "DEBUG.hpp"
 #define _DEBUG
 #include "Profiler.hpp"
+#include <ranges>
 
 constexpr const i32 RENDER_DIST = 4;
-
-// TODO: move to src/Context.cpp
 
 void
 Context::drawScene() {
     bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
-        auto mesh_chunks = ScopeTimer("Chunk meshing", "chunk");
-        auto camera_chunk_pos = World::worldToChunkCoord(cam.pos);
-        auto dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
+        ScopeTimer mesh_chunks{ "Chunk meshing", "chunk" };
+        ivec3      camera_chunk_pos = World::worldToChunkCoord(cam.pos);
+        auto       dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
-            remesh_this_frame = true;
-            rend.visibleChunkMeshes.insert({
+            rend.visibleChunkMeshes.emplace(
                 chunk_pos,                                               //
                 rend.mesher.mesh(&world, *chunk, chunk_pos, rend.atlas)  //
-            });
+            );
+            remesh_this_frame = true;
             world.chunks.makeClean(chunk_pos);
         }
         cam.requestsMeshRegen = false;
@@ -41,15 +40,18 @@ Context::drawScene() {
 
 void
 App::setup() {
-    constexpr i64 chunk_radius = 6;
-    for (i64 x = -chunk_radius; x <= chunk_radius; x++) {
-        for (i64 z = -chunk_radius; z <= chunk_radius; z++) {
-            for (i64 y = -chunk_radius; y <= chunk_radius; y++) {
-                ctx.world.generateChunk({ x, y, z });
+    constexpr i64 chunk_hoz_radius = 6;
+    {
+        ScopeTimer world_gen("World Gen", "chunk");
+        for (i64 x = -chunk_hoz_radius; x <= chunk_hoz_radius; x++) {
+            for (i64 z = -chunk_hoz_radius; z <= chunk_hoz_radius; z++) {
+                for (i64 y = 0; y <= World::NUM_VERTICAL_CHUNKS; y++) {
+                    ctx.world.generateChunk({ x, y, z });
+                }
             }
         }
     }
-    LOG_DEBUG("Finished chunk generation");
+    timer_log_ms_avg_us("World Gen", pow(6 * 2, 3));
 }
 
 void

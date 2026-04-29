@@ -17,6 +17,13 @@ timer_report(std::string_view name, double duration) {
 }
 
 void
+timer_log_ms_avg_us(std::string_view name, size_t count) {
+    auto [duration_us, unit_name] = clock_map[name];
+    auto duration_ms = duration_us / 1000.0;
+    auto avg_us = duration_us / count;
+    println("[TIMER] {} took {:0.1f}ms, {:0.2f}us per {}", name, duration_ms, avg_us, unit_name);
+}
+void
 timer_log_avg_us(std::string_view name, size_t count) {
     auto [duration_us, unit_name] = clock_map[name];
     auto avg_us = duration_us / count;
