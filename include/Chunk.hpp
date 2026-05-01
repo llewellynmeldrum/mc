@@ -10,6 +10,8 @@ constexpr const i64 CHUNK_HEIGHT = 16;                                        //
 constexpr const i64 CHUNK_SIZE = CHUNK_XWIDTH * CHUNK_ZWIDTH * CHUNK_HEIGHT;  // x/y/z
 
 struct Chunk {
+    Chunk() = default;
+    ~Chunk() = default;
     std::array<Block, CHUNK_SIZE> data{};  // all blocks are implicitly 0, i.e air
 
     bool isDirty = true;

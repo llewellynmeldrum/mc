@@ -41,7 +41,7 @@ void Window::setupWindow(void* ctx_ptr) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);  // required for opengl 3.2+
 #endif
 
-    this->ptr = glfwCreateWindow(w, h, "Window Title", nullptr, nullptr);
+    this->ptr = glfwCreateWindow(px_w, px_h, "Window Title", nullptr, nullptr);
     if (!ptr) {
         LOG_ERROR("Failed to initialize GLFW.");
         glfwTerminate();
@@ -60,10 +60,13 @@ void Window::setupWindow(void* ctx_ptr) {
     float xscale, yscale;
     glfwGetWindowContentScale(ptr, &xscale, &yscale);
     if (xscale != 1.0 || yscale != 1.0) {
-        LOG_WARN("Retina mode detected, check scaling if any dimensions are weird");
+        LOG_WARN("Retina mode detected, check scaling ({},{}) if any dimensions are weird", xscale,
+                 yscale);
     }
     // ensure we pass the true pixel size to openGL
-    glfwGetFramebufferSize(ptr, &w, &h);
+    glfwGetFramebufferSize(ptr, &px_w, &px_h);
+    tw = px_w / xscale;
+    th = px_h / yscale;
     glfwSetInputMode(ptr, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     if (glfwRawMouseMotionSupported())
         glfwSetInputMode(ptr, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
@@ -73,8 +76,8 @@ void Window::setupWindow(void* ctx_ptr) {
     // WARNING: Only set/call these once glbinding has been setup, as they make gl calls.
     assert(ptr);
     glfwSetFramebufferSizeCallback(ptr, glfw_ResizeCallback);
-    glfw_ResizeCallback(ptr, w, h);
-    glViewport(x, y, w, h);
+    glfw_ResizeCallback(ptr, px_w, px_h);
+    glViewport(x, y, px_w, px_h);
 
     glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
                               // vertex further away to overwrite a closer one

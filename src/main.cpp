@@ -8,8 +8,10 @@
 
 constexpr const i32 RENDER_DIST = 4;
 
-void
-Context::drawScene() {
+// TODO: make blocks take in extra color info, which you can mix in the shader.
+// Make it easy to set to different colors, so you can use for debugging (say temperature/humidity
+// maps), and for the shadow hack from yt:jdh
+void Context::drawScene() {
     bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
         ScopeTimer mesh_chunks{ "Chunk meshing", "chunk" };
@@ -38,8 +40,7 @@ Context::drawScene() {
     }
 }
 
-void
-App::setup() {
+void App::setup() {
     constexpr i64 chunk_hoz_radius = 6;
     {
         ScopeTimer world_gen("World Gen", "chunk");
@@ -51,11 +52,15 @@ App::setup() {
             }
         }
     }
-    timer_log_ms_avg_us("World Gen", pow(6 * 2, 3));
+    timer_log_ms_avg_us("World Gen", pow(chunk_hoz_radius * 2, 3));
+
+    ivec3 spawn_pos = { -61, +130, -83 };
+    ctx.cam.pos = spawn_pos;
+    ctx.cam.pitch = -23.4;
+    ctx.cam.yaw = 56.3;
 }
 
-void
-App::loop() {
+void App::loop() {
     ctx.time.update();
     ctx.input.poll();
     ctx.handleInputs();
@@ -68,13 +73,11 @@ App::loop() {
     ctx.win.swapBuffers();
 }
 
-bool
-App::shouldClose() {
+bool App::shouldClose() {
     return ctx.win.shouldClose();
 }
 
-int
-main(int argc, char** argv) {
+int main(int argc, char** argv) {
 
     App app;
     app.ctx.setupContext();
@@ -88,8 +91,7 @@ main(int argc, char** argv) {
 
 #include "GLFWWrapper.hpp"
 
-void
-App::exit(i32 exit_code) {
+void App::exit(i32 exit_code) {
     ctx.ui.destroyDebugUI();
     glfwTerminate();
     std::exit(exit_code);

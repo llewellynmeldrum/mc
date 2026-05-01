@@ -3,8 +3,7 @@
 
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
-void
-Camera::setupCamera() {
+void Camera::setupCamera() {
     pos = { 0, 0, 6 };
     block_pos = pos;
     dir_upwards = { 0.0f, 1.0f, 0.0f };
@@ -22,8 +21,7 @@ Camera::setupCamera() {
     cached_viewMatrix = CachedValue<mat4, vec3&, vec3, f32, f32>(callback);
 }
 
-void
-Camera::move(Direction dir, f32 dt) {
+void Camera::move(Direction dir, f32 dt) {
     switch (dir) {
     case Direction::RIGHT:
         moveRight(dt);
@@ -57,8 +55,8 @@ Camera::move(Direction dir, f32 dt) {
     }
     block_pos = new_block_pos;
 }
-void
-Camera::rotateByMouse(vec2 offset, f32 dt) {
+void Camera::rotateByMouse(vec2 offset, f32 dt) {
+    LOG_EXPR(offset);
     pitch += dt * mouse_sensitivity * offset.y;
     yaw -= dt * mouse_sensitivity * offset.x;  // up down is inverted
     pitch = glm::max(pitch, -89.0f);
@@ -66,8 +64,7 @@ Camera::rotateByMouse(vec2 offset, f32 dt) {
     cached_viewMatrix.invalidate();
     // requestMeshRegeneration();
 }
-void
-Camera::rotate(Direction dir, f32 dt) {
+void Camera::rotate(Direction dir, f32 dt) {
 
     switch (dir) {
     case Direction::UP:
@@ -94,43 +91,33 @@ Camera::rotate(Direction dir, f32 dt) {
     pitch = glm::min(pitch, 89.0f);
     cached_viewMatrix.invalidate();
 }
-inline void
-Camera::moveUpward(f32 dt) {
+inline void Camera::moveUpward(f32 dt) {
     pos += dt * (moveSpeed * dir_upwards);
 }
-inline void
-Camera::moveDownward(f32 dt) {
+inline void Camera::moveDownward(f32 dt) {
     pos -= dt * (moveSpeed * dir_upwards);
 }
-inline void
-Camera::moveForward(f32 dt) {
+inline void Camera::moveForward(f32 dt) {
     pos += dt * (moveSpeed * front);
 }
-inline void
-Camera::yawLeft(f32 dt) {
+inline void Camera::yawLeft(f32 dt) {
     yaw -= dt * keyboard_sensitivity;
 }
-inline void
-Camera::yawRight(f32 dt) {
+inline void Camera::yawRight(f32 dt) {
     yaw += dt * keyboard_sensitivity;
 }
-inline void
-Camera::pitchDown(f32 dt) {
+inline void Camera::pitchDown(f32 dt) {
     pitch -= dt * keyboard_sensitivity;
 }
-inline void
-Camera::pitchUp(f32 dt) {
+inline void Camera::pitchUp(f32 dt) {
     pitch += dt * keyboard_sensitivity;
 }
-inline void
-Camera::moveBackward(f32 dt) {
+inline void Camera::moveBackward(f32 dt) {
     pos -= dt * (moveSpeed * front);
 }
-inline void
-Camera::moveLeft(f32 dt) {
+inline void Camera::moveLeft(f32 dt) {
     pos -= dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
 }
-inline void
-Camera::moveRight(f32 dt) {
+inline void Camera::moveRight(f32 dt) {
     pos += dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
 }

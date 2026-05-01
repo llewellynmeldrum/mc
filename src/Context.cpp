@@ -1,5 +1,10 @@
+
+#include "DebugFormat.hpp"
+#include "DebugFormatSpecializations.hpp"
+
 #include "Context.hpp"
 
+#include "Logger.hpp"
 void Context::setupContext() {
     program_epoch_ns = get_current_ns();
     LOG_EXPR(this);

@@ -4,5 +4,5 @@ struct ChunkGenerator {
     ~ChunkGenerator() = default;
     // has noise maps, etc
 
-    Chunk gen(ivec3 pos);
+    std::unique_ptr<Chunk> gen(ivec3 pos);
 };

@@ -67,8 +67,8 @@ using BiomeMap = std::vector<const Biome*>;
 
 BiomeMap PLAINS_ONLY(CHUNK_ZWIDTH*CHUNK_XWIDTH, &plains);
 static HeightMap genChunkHeightmap(const BiomeMap& biomes, ivec3 chunk_coord, ivec3 chunk_offset);
-Chunk ChunkGenerator::gen(ivec3 chunk_coord) {
-    Chunk       res;
+std::unique_ptr<Chunk> ChunkGenerator::gen(ivec3 chunk_coord) {
+    auto res = std::make_unique<Chunk>();
 
     const ivec3 chunk_offset = World::chunkToWorldPos(chunk_coord);
     // |||||||||||||||||
@@ -94,7 +94,7 @@ Chunk ChunkGenerator::gen(ivec3 chunk_coord) {
                 continue;
             const i32 local_height = std::min(CHUNK_HEIGHT, world_height - chunk_offset.y);
 //            std::print("{}, ",local_height);
-            res.setColumn(biome->palette.crust, { cx, 0, cz }, local_height);
+            res->setColumn(biome->palette.crust, { cx, 0, cz }, local_height);
         }
 //        std::println();
     }
@@ -115,8 +115,6 @@ static HeightMap genChunkHeightmap(const BiomeMap& biomes, ivec3 chunk_coord,
         1.0, 1.0,                        // step size -> this acts weird for me
         WORLD_SEED);
 
-    LOG_EXPR(minMax.max);
-    LOG_EXPR(minMax.min);
     HeightMap res;
 
     for (i32 cx = 0; cx < CHUNK_XWIDTH; cx++) {
@@ -131,11 +129,8 @@ static HeightMap genChunkHeightmap(const BiomeMap& biomes, ivec3 chunk_coord,
             f32 t = lmath::unlerp(-1.0f,1.0f, raw_noiseA);
             i32 height = std::lerp(min_y,max_y, t);
 
-            std::print("{}-",height);
-            std::print("({}), ",raw_noiseA);
             res[cx + cz*CHUNK_XWIDTH] = height;
         }
-        std::println();
     }
     return res;
 }

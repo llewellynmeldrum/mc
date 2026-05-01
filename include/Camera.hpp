@@ -23,20 +23,16 @@ struct Camera {
     bool requestsMeshRegen = true;
     // at the moment, any movement causes mesh regen for all chunks.
     // Should probably only be those that are visible.
-    inline void
-    requestMeshRegeneration() {
-        requestsMeshRegen = true;
-    }
+    inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
-    vec3  pos;  // world
-    ivec3 block_pos;
-    vec3  front{};   // world
-    vec3  target{};  // world position of the target
-    vec3  facing{};  // the (inverse) direction the camera is facing
-    vec3  dir_upwards{};
-    vec3  dir_rightwards{};
-    f32   aspectRatio{};
-    mat4  projection_matrix = mat4(1.0f);
+    vec3 pos;       // world
+    vec3 front{};   // world
+    vec3 target{};  // world position of the target
+    vec3 facing{};  // the (inverse) direction the camera is facing
+    vec3 dir_upwards{};
+    vec3 dir_rightwards{};
+    f32  aspectRatio{};
+    mat4 projection_matrix = mat4(1.0f);
 
     CachedValue<mat4, vec3&, vec3, f32, f32> cached_viewMatrix{};
 
@@ -50,24 +46,21 @@ struct Camera {
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
 
-    inline mat4
-    getViewMatrix() {
-        return cached_viewMatrix.get(front, pos, yaw, pitch);
-    }
-    inline mat4
-    getProjectionMatrix() {
+    inline mat4 getViewMatrix() { return cached_viewMatrix.get(front, pos, yaw, pitch); }
+    inline mat4 getProjectionMatrix() {
         return glm::perspective(radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
     }
 
   private:
-    void moveUpward(f32 dt);
-    void moveDownward(f32 dt);
-    void moveForward(f32 dt);
-    void yawLeft(f32 dt);
-    void yawRight(f32 dt);
-    void pitchDown(f32 dt);
-    void pitchUp(f32 dt);
-    void moveBackward(f32 dt);
-    void moveLeft(f32 dt);
-    void moveRight(f32 dt);
+    ivec3 block_pos;  // read only var?
+    void  moveUpward(f32 dt);
+    void  moveDownward(f32 dt);
+    void  moveForward(f32 dt);
+    void  yawLeft(f32 dt);
+    void  yawRight(f32 dt);
+    void  pitchDown(f32 dt);
+    void  pitchUp(f32 dt);
+    void  moveBackward(f32 dt);
+    void  moveLeft(f32 dt);
+    void  moveRight(f32 dt);
 };

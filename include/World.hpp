@@ -2,6 +2,7 @@
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
+#include <memory>
 struct World {
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
     static ivec3         worldToChunkCoord(vec3 worldPos);
@@ -11,12 +12,11 @@ struct World {
     // make chunkMap itself use unique ptrs
     ChunkMap chunks;
 
-    inline std::vector<ChunkView>
-    getDirtyChunksInRadius(ivec3 origin, u32 radius) {
+    inline std::vector<ChunkView> getDirtyChunksInRadius(ivec3 origin, u32 radius) {
         std::vector<ChunkView> res;
         for (const auto& [chunk_pos, chunk] : chunks.data) {
             if (chunks.isDirty(chunk_pos)) {
-                res.emplace_back(chunk_pos, &chunk);
+                res.emplace_back(chunk_pos, chunk.get());
             }
         }
         return res;
@@ -27,13 +27,12 @@ struct World {
     Chunk&       getMutableChunk(vec3 world_pos);
     const Chunk* getChunk(vec3 world_pos) const;
 
-    Chunk&       getMutableChunk(ivec3 chunk_pos);
-    const Chunk* getChunk(ivec3 chunk_pos) const;
+    Chunk&       ch_getMutableChunk(ivec3 chunk_pos);
+    const Chunk* ch_getChunk(ivec3 chunk_pos) const;
 
     Block getBlock(vec3 world_pos) const;
 
-    inline void
-    generateChunk(const ivec3& chunk_pos) {
+    inline void generateChunk(const ivec3& chunk_pos) {
         chunks.generate(chunk_pos);
         chunks.makeDirty(chunk_pos);
     }

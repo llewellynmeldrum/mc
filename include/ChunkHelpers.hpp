@@ -3,10 +3,6 @@
 #include "glmWrapper.hpp"
 struct Chunk;  // forward decl for using defs
 
-// A fat chunk stores a chunks position and a ptr to it.
-// Mainly used for DS's which map coord->chunk
-using FatChunk = std::pair<ivec3, Chunk>;
-
 // A ChunkView is a non owning view of a sequence of chunks, paired with their coordinates
 using ChunkView = std::pair<ivec3, const Chunk*>;
 
