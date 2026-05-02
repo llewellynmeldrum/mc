@@ -21,16 +21,17 @@ struct Renderer {
     std::unordered_map<ivec3, Mesh, hashChunkCoord> visibleChunkMeshes;
 
     struct {
-        bool wireframe{ false };
-        bool showChunkBoundaries{ true };
-        i64  vertex_count{ 0 };
-        i64  draw_calls{ 0 };
-        i64  mesh_count{ 0 };
-        void reset_per_frame() {
+        bool        wireframe{ false };
+        bool        showChunkBoundaries{ true };
+        i64         vertex_count{ 0 };
+        i64         draw_calls{ 0 };
+        i64         mesh_count{ 0 };
+        inline void reset_per_frame() {
             vertex_count = 0;
             draw_calls = 0;
             mesh_count = 0;
         }
+        f32 blockOverlayOpacity{ 0.1 };
     } debug;
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  mesher;

@@ -18,9 +18,10 @@ void Context::drawScene() {
         ivec3      camera_chunk_pos = World::worldToChunkCoord(cam.pos);
         auto       dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
+            auto chunk_meta = world.chunks.metadata.at(chunk_pos).get();
             rend.visibleChunkMeshes.emplace(
-                chunk_pos,                                               //
-                rend.mesher.mesh(&world, *chunk, chunk_pos, rend.atlas)  //
+                chunk_pos,                                                          //
+                rend.mesher.mesh(&world, chunk, chunk_meta, chunk_pos, rend.atlas)  //
             );
             remesh_this_frame = true;
             world.chunks.makeClean(chunk_pos);

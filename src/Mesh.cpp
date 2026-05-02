@@ -83,19 +83,24 @@ void Mesh::setup(std::vector<Vertex>& vertices) {
     vertex_count = vertices.size();
     vao.bind();
     vbo.load(vertices, to_i32(GL_STATIC_DRAW));
-    vao.buffer_cols = 5;                    // x,y,z, s,t
+    // Vertex
+    vao.buffer_cols = 9;                    // x,y,z, s,t, r,g,b faceIndex
     vao.set_vtx_attributes<f32>(0, 3, +0);  // x,y,z
     vao.set_vtx_attributes<f32>(1, 2, +3);  // s,t
+    vao.set_vtx_attributes<f32>(2, 3, +5);  // r,g,b
+    vao.set_vtx_attributes<i32>(3, 1, +8);  // faceIndex
     vao.unbind();
 }
 
-i64 Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj) const {
+i64 Mesh::draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj,
+               const f32& blockOverlayOpacity) const {
     prog.use();
     vao.bind();
     prog.setUniform("model", model);
     prog.setUniform("view", view);
     prog.setUniform("proj", proj);
-    vao.drawArrays(vertex_count, static_cast<i32>(GL_TRIANGLES), 0);  // front
+    prog.setUniform("overlayOpacity", blockOverlayOpacity);
+    vao.drawArrays(vertex_count, static_cast<i32>(GL_TRIANGLES), 0);
     vao.unbind();
     prog.stop();
     return 1;

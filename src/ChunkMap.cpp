@@ -1,5 +1,6 @@
 #include "ChunkMap.hpp"
 #include "Logger.hpp"
+#include <memory>
 
 std::span<const Chunk* const, NUM_NEIGHBOURS> ChunkMap::getNeighbours(ivec3 pos) const {
     std::span<const Chunk* const, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
@@ -59,7 +60,10 @@ void ChunkMap::generate(ivec3 chunk_coord) {
     if (data.contains(chunk_coord)) {
         LOG_WARN("Chunk generation requested on chunk that already exists.");
     } else {
-        data.emplace(chunk_coord, generator.gen(chunk_coord));
+        auto [chunk_data, chunk_metadata] = generator.gen(chunk_coord);
+        data.emplace(chunk_coord, std::make_unique<Chunk>(chunk_data));
+        metadata.emplace(chunk_coord, std::make_unique<ChunkMetadata>(chunk_metadata));
+
         updateNeighbourMap(chunk_coord);
     }
 }

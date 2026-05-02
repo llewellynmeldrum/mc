@@ -10,6 +10,7 @@ struct ChunkMap {
     ~ChunkMap() = default;
 
     HashMap<ivec3, std::unique_ptr<Chunk>, HASH>                   data;
+    HashMap<ivec3, std::unique_ptr<ChunkMetadata>, HASH>           metadata;
     HashMap<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>, HASH> neighbours;
     HashMap<ivec3, bool, HASH>                                     is_dirty;
 

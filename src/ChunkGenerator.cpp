@@ -60,15 +60,15 @@ static const Biome plains{
 };
 
 
-using std::array;
 // 2d Z major array (indexed via [x + z*CHUNK_ZWIDTH])
-using HeightMap = array<i64, CHUNK_ZWIDTH * CHUNK_XWIDTH>;
+using HeightMap = std::array<i64, CHUNK_ZWIDTH * CHUNK_XWIDTH>;
 using BiomeMap = std::vector<const Biome*>;
 
 BiomeMap PLAINS_ONLY(CHUNK_ZWIDTH*CHUNK_XWIDTH, &plains);
 static HeightMap genChunkHeightmap(const BiomeMap& biomes, ivec3 chunk_coord, ivec3 chunk_offset);
-std::unique_ptr<Chunk> ChunkGenerator::gen(ivec3 chunk_coord) {
-    auto res = std::make_unique<Chunk>();
+
+ChunkDataPair ChunkGenerator::gen(ivec3 chunk_coord) {
+    Chunk res;
 
     const ivec3 chunk_offset = World::chunkToWorldPos(chunk_coord);
     // |||||||||||||||||
@@ -94,11 +94,20 @@ std::unique_ptr<Chunk> ChunkGenerator::gen(ivec3 chunk_coord) {
                 continue;
             const i32 local_height = std::min(CHUNK_HEIGHT, world_height - chunk_offset.y);
 //            std::print("{}, ",local_height);
-            res->setColumn(biome->palette.crust, { cx, 0, cz }, local_height);
+            res.setColumn(biome->palette.crust, { cx, 0, cz }, local_height);
         }
 //        std::println();
     }
-    return res;
+    // TODO: when biomes have the noisemaps and shit for temp/humidity apply them here as well
+    ChunkMetadata meta;
+    for (i32 x = 0; x<CHUNK_XWIDTH; x++){
+        for (i32 y = 0; y<CHUNK_HEIGHT; y++){
+            for (i32 z = 0; z<CHUNK_ZWIDTH; z++){
+                meta.blockTemperature[x,y,z]=1.0;
+            }
+        }
+    }
+    return {res,meta};
 }
 
 static HeightMap genChunkHeightmap(const BiomeMap& biomes, ivec3 chunk_coord,

@@ -38,6 +38,7 @@ glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
     i64 y = (idx / spriteCols);
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
+// modifies a vector of 6 vertices,
 std::vector<glm::vec2> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
                                               const std::vector<Vertex>& vertices) const {
     std::vector<glm::vec2> res(6, vec2{});

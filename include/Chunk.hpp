@@ -8,7 +8,28 @@ constexpr const i64 CHUNK_XWIDTH = 16;                                        //
 constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_HEIGHT = 16;                                        // x/y/z
 constexpr const i64 CHUNK_SIZE = CHUNK_XWIDTH * CHUNK_ZWIDTH * CHUNK_HEIGHT;  // x/y/z
+#define MD_ACCESS_MACRO(T)                                                                         \
+    inline T& operator[](i16 x, i16 y, i16 z) {                                                    \
+        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];        \
+    }                                                                                              \
+    inline const T& operator[](i16 x, i16 y, i16 z) const {                                        \
+        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];        \
+    }
 
+// each attribute of a chunks metadata can be 3d indexed by block (operator[x,y,z])
+struct ChunkMetadata {
+    ChunkMetadata() = default;
+    ~ChunkMetadata() = default;
+    struct {
+        std::array<f32, CHUNK_SIZE> data{};
+        MD_ACCESS_MACRO(f32)
+    } blockTemperature;
+
+    struct {
+        std::array<f32, CHUNK_SIZE> data{};
+        MD_ACCESS_MACRO(f32)
+    } blockHumidity;
+};
 struct Chunk {
     Chunk() = default;
     ~Chunk() = default;
@@ -16,12 +37,8 @@ struct Chunk {
 
     bool isDirty = true;
 
-    inline Block& operator[](i16 x, i16 y, i16 z) {
-        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
-    }
-    inline const Block& operator[](i16 x, i16 y, i16 z) const {
-        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
-    }
+    MD_ACCESS_MACRO(Block)
+
     inline void setBlock(this auto& self, BlockType t, i16 x, i16 y, i16 z) {
         self[x, y, z] = Block{ .id = t };
     }
