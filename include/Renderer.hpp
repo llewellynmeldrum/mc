@@ -31,7 +31,7 @@ struct Renderer {
             draw_calls = 0;
             mesh_count = 0;
         }
-        f32 blockOverlayOpacity{ 0.1 };
+        f32 blockOverlayOpacity{ 0.0 };
     } debug;
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  mesher;

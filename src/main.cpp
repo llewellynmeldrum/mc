@@ -42,7 +42,7 @@ void Context::drawScene() {
 }
 
 void App::setup() {
-    constexpr i64 chunk_hoz_radius = 6;
+    constexpr i64 chunk_hoz_radius = 10;
     {
         ScopeTimer world_gen("World Gen", "chunk");
         for (i64 x = -chunk_hoz_radius; x <= chunk_hoz_radius; x++) {
