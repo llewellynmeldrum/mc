@@ -56,7 +56,6 @@ void Camera::move(Direction dir, f32 dt) {
     block_pos = new_block_pos;
 }
 void Camera::rotateByMouse(vec2 offset, f32 dt) {
-    LOG_EXPR(offset);
     pitch += dt * mouse_sensitivity * offset.y;
     yaw -= dt * mouse_sensitivity * offset.x;  // up down is inverted
     pitch = glm::max(pitch, -89.0f);

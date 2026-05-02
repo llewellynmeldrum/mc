@@ -26,11 +26,6 @@ vec3 getBlockOverlayColor(vec3 local, const ChunkMetadata* meta) {
 Mesh ChunkMesher::mesh(const World* world_ptr, const Chunk* chunk, const ChunkMetadata* chunk_meta,
 
                        const ivec3 chunk_offset, const TextureAtlas& atlas) {
-    // TODO:
-    // so far, i have made some of the foundations for an extensible blockOverlay thing.
-    // Shaders need to be fixed,
-    // CSome sort of bug
-    // Also mid way thru changing the params to pointers to elide a copy
     std::vector<Vertex> vertices;
     const auto&         world = *world_ptr;
     auto                neighbour_chunks = world.chunks.getNeighbours(chunk_offset);

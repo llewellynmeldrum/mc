@@ -12,18 +12,20 @@ struct VertexArray {
     ~VertexArray() = default;
     void setupVertexArray();
 
-    u32 id;
-    i32 buffer_cols;
+    template <std::size_t SZ>
+    void apply_layout(const VertexLayout<SZ>& layout) {
+        apply_layout_impl(layout.stride, std::span<const VertexAttribute, SZ>(layout.attrs));
+    }
 
+    u32  id;
     void bind() const;
     void unbind() const;
 
-    i32 sum{};
-    template <class VT>
-    void set_vtx_attributes(i32 location, i32 count, i64 offset);
-    // draws *num* vertices, chosen via whichever EBO is bound to this VAO
     void drawElements(i32 num, i32 elem_t);
     void drawArrays(i32 count, i32 elem_t, i32 offset = 0) const;
+
+  private:
+    void apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs);
 };
 struct VertexBuffer {
     VertexBuffer() = default;
