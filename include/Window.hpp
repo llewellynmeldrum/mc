@@ -17,6 +17,8 @@ struct Window {
     i32         x = 0;
     i32         y = 0;
 
+    bool enable_vsync = false;
+
     // use these for any screen space drawing or anything used for graphics (AR calculations)
     i32 px_w = 1600;  // rendered framebuffer width, px_w = 2*tw on retina displays
     i32 px_h = 900;   // rendered framebuffer height, px_h = 2*th on retina displays

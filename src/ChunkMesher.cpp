@@ -15,7 +15,6 @@ static constexpr const std::vector<Vertex>& getDefaultFaceVertexData(Direction d
 }
 
 vec3 getBlockOverlayColor(vec3 local, const ChunkMetadata* meta) {
-
     auto temp = meta->blockTemperature[local.x, local.y, local.z];
     auto humidity = meta->blockHumidity[local.x, local.y, local.z];
     return { temp, 0, humidity };
@@ -23,9 +22,10 @@ vec3 getBlockOverlayColor(vec3 local, const ChunkMetadata* meta) {
     // I feel like red = temp and blue = humidity is kinda stupid
 };
 
-Mesh ChunkMesher::mesh(const World* world_ptr, const Chunk* chunk, const ChunkMetadata* chunk_meta,
+std::vector<Vertex> ChunkMesher::mesh(const World* world_ptr, const Chunk* chunk,
+                                      const ChunkMetadata* chunk_meta,
 
-                       const ivec3 chunk_offset, const TextureAtlas& atlas) {
+                                      const ivec3 chunk_offset, const TextureAtlas& atlas) {
     std::vector<Vertex> vertices;
     const auto&         world = *world_ptr;
     auto                neighbour_chunks = world.chunks.getNeighbours(chunk_offset);
@@ -105,8 +105,7 @@ Mesh ChunkMesher::mesh(const World* world_ptr, const Chunk* chunk, const ChunkMe
                         const auto& uv_tex_coords =
                             atlas.remapUVs(block.texture_id(), face_dir, vtx_data);
                         const auto& overlayColor = getBlockOverlayColor(chunk_local, chunk_meta);
-                        for (i64 i = 0; Vertex vtx : vtx_data) {
-                            // someting is wrong here. bunch of needless copies too
+                        for (i64 i = 0; const Vertex& vtx : vtx_data) {
                             vertices.emplace_back((vtx.pos + chunk_local),
                                                   uv_tex_coords[i++],
                                                   overlayColor,
@@ -117,9 +116,7 @@ Mesh ChunkMesher::mesh(const World* world_ptr, const Chunk* chunk, const ChunkMe
             }
         }
     }
-    Mesh chunk_mesh;
-    chunk_mesh.setup(vertices);
-    return chunk_mesh;
+    return vertices;
 }
 // clang-format off
 // 

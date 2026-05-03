@@ -78,6 +78,7 @@ void Window::setupWindow(void* ctx_ptr) {
     glfwSetFramebufferSizeCallback(ptr, glfw_ResizeCallback);
     glfw_ResizeCallback(ptr, px_w, px_h);
     glViewport(x, y, px_w, px_h);
+    glfwSwapInterval(enable_vsync);
 
     glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
                               // vertex further away to overwrite a closer one

@@ -8,9 +8,13 @@
 #include "Vertex.hpp"
 
 struct VertexArray {
-    VertexArray() = default;
-    ~VertexArray() = default;
-    void setupVertexArray();
+    VertexArray();
+
+    VertexArray(const VertexArray&) = delete;
+    VertexArray(VertexArray&&) = default;
+    VertexArray& operator=(const VertexArray&) = delete;
+    VertexArray& operator=(VertexArray&&) = default;
+    ~VertexArray();
 
     template <std::size_t SZ>
     void apply_layout(const VertexLayout<SZ>& layout) {
@@ -27,25 +31,36 @@ struct VertexArray {
   private:
     void apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs);
 };
-struct VertexBuffer {
-    VertexBuffer() = default;
-    ~VertexBuffer() = default;
-    void setupVertexBuffer();
 
-    u32              id;
-    i32              size;  // size in bytes
+struct VertexBuffer {
+    VertexBuffer();
+    ~VertexBuffer();
+
+    // move only type
+    VertexBuffer(const VertexBuffer&) = delete;
+    VertexBuffer& operator=(const VertexBuffer&) = delete;
+    VertexBuffer& operator=(VertexBuffer&&) = default;
+    VertexBuffer(VertexBuffer&&) = default;
+
+    u32 id;
+    i32 size;
+
     i32              location = {};
     static const i32 buffer_type;
     void             bind();
     void             load(const std::vector<Vertex>& c, i32 usage_type, i32 offset);
 };
+
 struct ElementBuffer {
-    ElementBuffer() = default;
-    ~ElementBuffer() = default;
-    void setupElementBuffer();
-    u32  id;
-    i32  size;  // size in bytes
-    // perhaps implement some sort of cast_buffer<T target>()
+    ElementBuffer();
+    ~ElementBuffer();
+
+    // move only type
+    ElementBuffer(const ElementBuffer&) = delete;
+    ElementBuffer& operator=(const ElementBuffer&) = delete;
+    ElementBuffer(ElementBuffer&&) = default;
+    ElementBuffer& operator=(ElementBuffer&&) = default;
+
     static const i32 buffer_type;
     i32              location = {};
 
@@ -53,16 +68,24 @@ struct ElementBuffer {
 
     template <ContiguousContainer C>
     void load(C c, i32 usage_type);
+
+    u32 id;
+    i32 size;  // size in bytes
 };
+
 // src/Mesh.cpp
 struct Mesh {
-    Mesh() = default;
-    ~Mesh() = default;  // TODO: add gl destroy stuff?
+    Mesh(std::vector<Vertex> vertices);
+    ~Mesh() = default;
 
-    void setup(std::vector<Vertex>& vertices);
+    // move only
+    Mesh(const Mesh&) = delete;
+    Mesh& operator=(const Mesh&) = delete;
+    Mesh(Mesh&&) = default;
+    Mesh& operator=(Mesh&&) = default;
+
     // returns number of draw calls emitted
-    i64 draw(ShaderProgram& prog, const mat4& model, const mat4& view, const mat4& proj,
-             const f32& blockOverlayOpacity) const;
+    i64 draw() const;
 
     VertexBuffer vbo;
     VertexArray  vao;

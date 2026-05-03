@@ -118,6 +118,7 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("FPS: %2.1lf", fps_rb.avg());
         IG::SameLine();
         IG::PlotLines("##frameratePlot", fps_rb.data(), fps_rb.size(), 0, one_pcnt_low.c_str());
+        IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
         IG::Separator();
         IG::Text("Per frame draw info:");

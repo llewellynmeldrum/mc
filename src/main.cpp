@@ -19,7 +19,7 @@ void Context::drawScene() {
         auto       dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
             auto chunk_meta = world.chunks.metadata.at(chunk_pos).get();
-            rend.visibleChunkMeshes.emplace(
+            rend.visibleChunkMeshes.try_emplace(
                 chunk_pos,                                                          //
                 rend.mesher.mesh(&world, chunk, chunk_meta, chunk_pos, rend.atlas)  //
             );
@@ -95,5 +95,6 @@ int main(int argc, char** argv) {
 void App::exit(i32 exit_code) {
     ctx.ui.destroyDebugUI();
     glfwTerminate();
+    std::println("{}", ScopeTimer::summary());
     std::exit(exit_code);
 }
