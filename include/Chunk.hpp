@@ -34,6 +34,7 @@ struct Chunk {
     Chunk() = default;
     ~Chunk() = default;
     std::array<Block, CHUNK_SIZE> data{};  // all blocks are implicitly 0, i.e air
+    static constexpr ivec3        Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 
     bool isDirty = true;
 
@@ -80,3 +81,35 @@ struct Chunk {
         }
     }
 };
+
+namespace ForEach {
+enum ControlFlow {
+    BREAK,
+    CONTINUE,
+};
+template <typename Func>
+void BlockInChunk(Func&& func) {
+    for (i32 x = 0; x < CHUNK_XWIDTH; x++) {
+        for (i32 y = 0; y < CHUNK_HEIGHT; y++) {
+            for (i32 z = 0; z < CHUNK_ZWIDTH; z++) {
+                switch (func(x, y, z)) {
+                case BREAK:
+                    goto BREAK_LOOP;
+                case CONTINUE:
+                    [[fallthrough]];
+                default:
+                    break;
+                }
+            }
+        }
+    }
+BREAK_LOOP:
+    return;
+}
+
+//
+//
+//
+//
+//
+}  // namespace ForEach

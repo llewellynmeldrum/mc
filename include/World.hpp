@@ -3,6 +3,7 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 #include <memory>
+
 struct World {
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
     static ivec3         worldToChunkCoord(vec3 worldPos);
@@ -30,7 +31,7 @@ struct World {
     Chunk&       ch_getMutableChunk(ivec3 chunk_pos);
     const Chunk* ch_getChunk(ivec3 chunk_pos) const;
 
-    Block getBlock(vec3 world_pos) const;
+    Block getBlock(ivec3 world_pos) const;
 
     inline void generateChunk(const ivec3& chunk_pos) {
         chunks.generate(chunk_pos);

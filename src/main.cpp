@@ -18,11 +18,16 @@ void Context::drawScene() {
         ivec3      camera_chunk_pos = World::worldToChunkCoord(cam.pos);
         auto       dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
         for (const auto& [chunk_pos, chunk] : dirtyChunks) {
-            auto chunk_meta = world.chunks.metadata.at(chunk_pos).get();
-            rend.visibleChunkMeshes.try_emplace(
-                chunk_pos,                                                          //
-                rend.mesher.mesh(&world, chunk, chunk_meta, chunk_pos, rend.atlas)  //
-            );
+            auto                chunk_meta = world.chunks.metadata.at(chunk_pos).get();
+            std::vector<Vertex> vertices;
+            rend.mesher.emit_chunk_vertices(vertices, &world, chunk, chunk_meta, chunk_pos,
+                                            rend.atlas);
+            auto [it, emplace_success] = rend.visibleChunkMeshes.try_emplace(chunk_pos, vertices);
+            if (!emplace_success) {
+                LOG_ERROR("Failed to emplace generated vertices in visible chunk meshes");
+                DEBUG_BREAKPOINT();
+            }
+
             remesh_this_frame = true;
             world.chunks.makeClean(chunk_pos);
         }
@@ -42,7 +47,7 @@ void Context::drawScene() {
 }
 
 void App::setup() {
-    constexpr i64 chunk_hoz_radius = 10;
+    constexpr i64 chunk_hoz_radius = 1;
     {
         ScopeTimer world_gen("World Gen", "chunk");
         for (i64 x = -chunk_hoz_radius; x <= chunk_hoz_radius; x++) {

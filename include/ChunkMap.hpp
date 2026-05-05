@@ -9,16 +9,22 @@ struct ChunkMap {
     ChunkMap() = default;
     ~ChunkMap() = default;
 
-    HashMap<ivec3, std::unique_ptr<Chunk>, HASH>                   data;
-    HashMap<ivec3, std::unique_ptr<ChunkMetadata>, HASH>           metadata;
+    // chunk map
+    HashMap<ivec3, std::unique_ptr<Chunk>, HASH> data;
+
+    // chunk metadata map
+    HashMap<ivec3, std::unique_ptr<ChunkMetadata>, HASH> metadata;
+
+    // chunk neighbour map
     HashMap<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>, HASH> neighbours;
     HashMap<ivec3, bool, HASH>                                     is_dirty;
 
+    const Chunk*   getNeighbourByOffset(ivec3 chunk_offset, ivec3 local_offset) const;
     ChunkGenerator generator;
     void           generate(ivec3 pos);
     void           updateNeighbourMap(ivec3 pos);
 
-    std::span<const Chunk* const, NUM_NEIGHBOURS> getNeighbours(ivec3 pos) const;
+    std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(ivec3 pos) const;
 
     bool isDirty(ivec3 pos) const;
     void makeDirty(ivec3 pos);

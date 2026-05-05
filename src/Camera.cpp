@@ -1,5 +1,6 @@
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
+#include "DEBUG.hpp"
 
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
@@ -45,6 +46,9 @@ void Camera::move(Direction dir, f32 dt) {
 
     case Direction::FORWARD:
         moveForward(dt);
+        break;
+    default:
+        DEBUG_BREAKPOINT();
         break;
     }
     cached_viewMatrix.invalidate();

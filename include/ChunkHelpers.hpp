@@ -1,3 +1,4 @@
+#pragma once
 #include "Types.h"
 #include <utility>
 #include "glmWrapper.hpp"

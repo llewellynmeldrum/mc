@@ -23,13 +23,11 @@ vec3 World::chunkToWorldPos(ivec3 chunkPos) {
     return res;
 }
 
-Block World::getBlock(vec3 world_pos) const {
+Block World::getBlock(ivec3 world_pos) const {
     ivec3 chunk_origin = World::worldToChunkCoord(world_pos);
     auto  chunk_ptr = chunks.data.contains(chunk_origin) ? &chunks.data.at(chunk_origin) : nullptr;
     if (chunk_ptr) {
-        // draw this out, i think its like trying to find the local position in the chunk and then
-        // idk, need a book for thijs one
-        vec3 chunk_local = world_pos - (static_cast<vec3>(chunk_origin) * (float)CHUNK_ZWIDTH);
+        ivec3 chunk_local = world_pos - chunk_origin * (int)CHUNK_ZWIDTH;
         return chunk_ptr->get()->getBlock(chunk_local);
     } else {
         return Block::Empty();

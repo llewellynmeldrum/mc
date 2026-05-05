@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "Camera.hpp"
 #include "Window.hpp"
@@ -11,17 +11,17 @@
 
 // src/Context.cpp
 struct Context {
-public:
+  public:
     Context() = default;
     ~Context() = default;
 
-    Window win;
-    Timer time;
-    Input input;
-    Camera cam;
+    Window   win;
+    Timer    time;
+    Input    input;
+    Camera   cam;
     Renderer rend;
-    DebugUI ui;
-    World world;
+    DebugUI  ui;
+    World    world;
 
     void setupContext();
     void handleInputs();
@@ -29,4 +29,3 @@ public:
 };
 
 // Input::Key definitions (based on glfw3)
-

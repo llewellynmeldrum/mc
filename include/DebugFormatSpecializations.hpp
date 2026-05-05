@@ -96,6 +96,8 @@ inline std::string dbg_fmt(const BlockType& val) {
         return "BlockType::GRASS_BLOCK";
     case BlockType::DIRT_BLOCK:
         return "BlockType::DIRT_BLOCK ";
+    case BlockType::STONE_BLOCK:
+        return "BlockType::STONE_BLOCK ";
     case BlockType::COUNT:
         return "BlockType::COUNT";
     default:

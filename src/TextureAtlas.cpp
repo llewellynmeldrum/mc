@@ -39,9 +39,10 @@ glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
 // modifies a vector of 6 vertices,
-std::vector<glm::vec2> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
-                                              const std::vector<Vertex>& vertices) const {
-    std::vector<glm::vec2> res(6, vec2{});
+std::vector<vec2> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
+                                         const std::vector<Vertex>& vertices) const {
+    //    assert(texture_idx > 0 && texture_idx < 4);
+    std::vector<vec2> res(6, vec2{});
 
     vec2 uvmin = getTexOffset(texture_idx, dir);
     for (i64 vtx = 0; vtx < CUBE_VTX_PER_FACE; vtx++) {

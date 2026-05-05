@@ -3,8 +3,8 @@
 #include "Types.h"
 #include <array>
 enum class BlockType : i64 {
-    null = -1,
-    empty = -1,
+    null = 0,
+    empty = 0,
     AIR = 0,
     DIRT_BLOCK,
     GRASS_BLOCK,
@@ -18,7 +18,9 @@ inline BlockAttribArray<f32> blockOpacity = {
     0.0,
     1.0,
     1.0,
+    1.0,
 };
+static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
 struct Block {
     BlockType            id{ BlockType::AIR };
     constexpr inline u64 idx() const noexcept { return static_cast<i64>(id); }
