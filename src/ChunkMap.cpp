@@ -30,6 +30,13 @@ void ChunkMap::updateNeighbourMap(ivec3 pos) {
     }
     neighbours.emplace(pos, std::move(my_neighbours));
 }
+
+void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
+    const ivec3 min = chunk_coord * Chunk::Extents;
+    const ivec3 max = min + Chunk::Extents;
+    boundingBoxes.emplace(chunk_coord, std::make_unique<AABB>(min, max));
+}
+
 void ChunkMap::generate(ivec3 chunk_coord) {
     if (data.contains(chunk_coord)) {
         LOG_WARN("Chunk generation requested on chunk that already exists.");
@@ -39,6 +46,7 @@ void ChunkMap::generate(ivec3 chunk_coord) {
         metadata.emplace(chunk_coord, std::make_unique<ChunkMetadata>(chunk_metadata));
 
         updateNeighbourMap(chunk_coord);
+        updateBoundingBoxesMap(chunk_coord);
     }
 }
 

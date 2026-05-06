@@ -6,8 +6,13 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 #include "imgui/imgui_stdlib.h"
+#include "glmWrapper.hpp"
 
 #include "GLFWWrapper.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <optional>
+using namespace glm;
 namespace IG = ImGui;  // namespace alias for convinience
 void DebugUI::drawUI() {
     ShowOverlay(nullptr);
@@ -127,4 +132,86 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
     }
     IG::End();
+    struct Segment {
+        vec3 s, e;
+    };
+    struct Line3D {
+        mat4    vp;
+        Camera& cam;
+        Window& win;
+        vec3    start;
+        vec3    end;
+        Line3D(mat4 vp, Camera& cam, Window& win, vec3 start, vec3 end)
+            : vp(vp), cam(cam), win(win), start(start), end(end) {
+            constexpr f32 segment_length = 0.01;
+            size_t        seg_count = distance(start, end) / segment_length;
+            vec3          s = start;
+            vec3          e = start;
+
+            for (size_t i = 0; i < seg_count; i++) {
+                e += end * (i / (f32)seg_count);
+                segments.emplace_back(s, e);
+                s = e;
+            }
+        }
+        std::vector<Segment> segments;
+
+        f32 w2s(vec3 wpos, f32 wrad) {
+            auto ss = w2s(wpos);
+            auto es = w2s(wpos + cam.getRight() * wrad);
+            if (!ss || !es)
+                return 0;
+            return distance(*ss, *es);
+        }
+
+        std::optional<vec2> w2s(vec3 w) {
+            vec4 w4 = vp * vec4(w, 1.0);
+            if (w4.w <= 0.0f)
+                return std::nullopt;
+            vec3 ndc = vec3{ w4.x, w4.y, w4.z } / w4.w;
+            // -1 : 1
+            // 0->W
+            f32 x = ((ndc.x + 1.0) * win.px_w * 0.5);
+            f32 y = ((1.0 - ndc.y) * win.px_h * 0.5);
+            return std::make_optional<vec2>(x, y);
+        }
+        inline void draw_seg(ImDrawList* d, dvec3 s, vec3 e, i32 color = 0xFF00FFFF,
+                             f32 thick = 3.0) {
+            auto ss = w2s(s);
+            auto es = w2s(e);
+            if (!ss || !es)
+                return;
+            d->AddLine({ ss->x, ss->y }, { es->x, es->y }, color, thick);
+        }
+        inline void ig_draw(f32 wthick) {
+            // split the line into a bunch of lines and render those
+            auto* d = IG::GetForegroundDrawList();
+            int   i = 0;
+            for (const auto& s : segments) {
+                f32 scr_thick = std::min(scr_thick, w2s(s.s + s.e, wthick));
+                draw_seg(d, s.s, s.e, ImColor(i, i, i), scr_thick);
+                i++;
+            }
+        }
+        inline void ig_drawcircle(vec3 pos, f32 rad) {
+            const auto& d = IG::GetForegroundDrawList();
+            auto        ss = w2s(pos);
+            f32         scr_rad = w2s(pos, rad);
+            if (!ss)
+                return;
+            d->AddCircleFilled({ ss->x, ss->y }, scr_rad, 0xFF00FFFF);
+        }
+    };
+    mat4 vp = ctx->cam.getProjectionMatrix() * ctx->cam.getViewMatrix();
+    /*
+    Line3D beacon(vp, ctx->cam, ctx->win, { 0, 0, 0 }, { 0, 1000, 0 });
+    vec3   s = beacon.start;
+    vec3   e = beacon.end;
+
+    vec3 mid = s + e;
+    mid *= 0.5;
+
+    beacon.ig_drawcircle(mid, 100);
+    beacon.ig_draw(3.0);
+    */
 }

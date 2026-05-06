@@ -14,23 +14,35 @@ constexpr const i32 RENDER_DIST = 4;
 void Context::drawScene() {
     bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
-        ScopeTimer mesh_chunks{ "Chunk meshing", "chunk" };
-        ivec3      camera_chunk_pos = World::worldToChunkCoord(cam.pos);
-        auto       dirtyChunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
-        for (const auto& [chunk_pos, chunk] : dirtyChunks) {
-            auto                chunk_meta = world.chunks.metadata.at(chunk_pos).get();
+        ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
+
+        ivec3 camera_chunk_pos = World::worldToChunkCoord(cam.pos);
+        auto  chunks = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
+        auto  chunksWithinFrustum =
+            world.filterChunksWithinFrustum(chunks, cam.cached_frustum.get(&cam));
+        auto chunksOutsideFrustum =
+            world.filterChunksOutsideFrustum(chunks, cam.cached_frustum.get(&cam));
+        for (const auto& [chunk_pos, chunk] : chunks) {
+            auto                chunk_meta = world.chunkMap.metadata.at(chunk_pos).get();
             std::vector<Vertex> vertices;
             rend.mesher.emit_chunk_vertices(vertices, &world, chunk, chunk_meta, chunk_pos,
                                             rend.atlas);
             auto [it, emplace_success] = rend.visibleChunkMeshes.try_emplace(chunk_pos, vertices);
             if (!emplace_success) {
                 LOG_ERROR("Failed to emplace generated vertices in visible chunk meshes");
-                DEBUG_BREAKPOINT();
             }
 
             remesh_this_frame = true;
-            world.chunks.makeClean(chunk_pos);
+            world.chunkMap.makeClean(chunk_pos);
         }
+        /*
+        for (const auto& [chunk_pos, chunk] : chunksOutsideFrustum) {
+            rend.visibleChunkMeshes.erase(chunk_pos);
+            remesh_this_frame = true;
+        }
+        */
+        auto skipped = chunks.size() - chunksWithinFrustum.size();
+        LOG_DEBUG("skipped {}/{}", skipped, chunks.size());
         cam.requestsMeshRegen = false;
     }
     rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
@@ -47,7 +59,7 @@ void Context::drawScene() {
 }
 
 void App::setup() {
-    constexpr i64 chunk_hoz_radius = 1;
+    constexpr i64 chunk_hoz_radius = 16;
     {
         ScopeTimer world_gen("World Gen", "chunk");
         for (i64 x = -chunk_hoz_radius; x <= chunk_hoz_radius; x++) {

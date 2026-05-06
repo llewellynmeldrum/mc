@@ -7,8 +7,9 @@
 void Camera::setupCamera() {
     pos = { 0, 0, 6 };
     block_pos = pos;
-    dir_upwards = { 0.0f, 1.0f, 0.0f };
+    up = { 0.0f, 1.0f, 0.0f };
     front = { 0.0f, 0.0f, -1.0f };
+    right = { 1.0f, 0.0f, 0.0f };
 
     std::function<mat4(vec3&, vec3, f32, f32)> callback = [](vec3& front, vec3 pos, f32 yaw,
                                                              f32 pitch) -> mat4 {
@@ -19,7 +20,11 @@ void Camera::setupCamera() {
         front = normalize(facing);
         return lookAt(vec3(pos.x, pos.y, pos.z), pos + front, vec3(0.0f, 1.0f, 0.0f));
     };
+    std::function<Frustum(const Camera*)> callback2 = [](const Camera* cam) -> Frustum {
+        return Frustum(cam);  // NOLINT
+    };
     cached_viewMatrix = CachedValue<mat4, vec3&, vec3, f32, f32>(callback);
+    cached_frustum = CachedValue<Frustum, const Camera*>(callback2);
 }
 
 void Camera::move(Direction dir, f32 dt) {
@@ -52,6 +57,7 @@ void Camera::move(Direction dir, f32 dt) {
         break;
     }
     cached_viewMatrix.invalidate();
+    cached_frustum.invalidate();
     auto new_block_pos = ivec3{ pos };
     if (new_block_pos != block_pos) {
         requestMeshRegeneration();
@@ -65,6 +71,7 @@ void Camera::rotateByMouse(vec2 offset, f32 dt) {
     pitch = glm::max(pitch, -89.0f);
     pitch = glm::min(pitch, 89.0f);
     cached_viewMatrix.invalidate();
+    cached_frustum.invalidate();
     // requestMeshRegeneration();
 }
 void Camera::rotate(Direction dir, f32 dt) {
@@ -93,12 +100,13 @@ void Camera::rotate(Direction dir, f32 dt) {
     pitch = glm::max(pitch, -89.0f);
     pitch = glm::min(pitch, 89.0f);
     cached_viewMatrix.invalidate();
+    cached_frustum.invalidate();
 }
 inline void Camera::moveUpward(f32 dt) {
-    pos += dt * (moveSpeed * dir_upwards);
+    pos += dt * (moveSpeed * up);
 }
 inline void Camera::moveDownward(f32 dt) {
-    pos -= dt * (moveSpeed * dir_upwards);
+    pos -= dt * (moveSpeed * up);
 }
 inline void Camera::moveForward(f32 dt) {
     pos += dt * (moveSpeed * front);
@@ -119,8 +127,8 @@ inline void Camera::moveBackward(f32 dt) {
     pos -= dt * (moveSpeed * front);
 }
 inline void Camera::moveLeft(f32 dt) {
-    pos -= dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
+    pos -= dt * (normalize(cross(front, up)) * moveSpeed);
 }
 inline void Camera::moveRight(f32 dt) {
-    pos += dt * (normalize(cross(front, dir_upwards)) * moveSpeed);
+    pos += dt * (normalize(cross(front, up)) * moveSpeed);
 }

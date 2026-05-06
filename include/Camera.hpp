@@ -6,8 +6,10 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 
+#include "Geometry.hpp"
 // src/Camera.cpp
 using namespace glm;
+struct Frustum;
 struct Camera {
   public:
     Camera() = default;
@@ -29,13 +31,18 @@ struct Camera {
     vec3 front{};   // world
     vec3 target{};  // world position of the target
     vec3 facing{};  // the (inverse) direction the camera is facing
-    vec3 dir_upwards{};
-    vec3 dir_rightwards{};
+    vec3 up{};
+    vec3 right{};
     f32  aspectRatio{};
     mat4 projection_matrix = mat4(1.0f);
 
     CachedValue<mat4, vec3&, vec3, f32, f32> cached_viewMatrix{};
+    CachedValue<Frustum, const Camera*>      cached_frustum{};
 
+    inline vec3 getRight() {
+        const auto& v = getViewMatrix();
+        return { v[0][0], v[1][0], v[2][0] };
+    }
     f32 yaw = -90;
     f32 pitch = 0;
     f32 mouse_sensitivity = 100;

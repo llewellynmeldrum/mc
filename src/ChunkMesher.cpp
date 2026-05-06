@@ -33,14 +33,10 @@ vec3 getBlockOverlayColor(ivec3 local, const ChunkMetadata* meta) {
     // TODO: Make a better mapping function?
     // I feel like red = temp and blue = humidity is kinda stupid
 };
-// BUG: issue is probably in getNeighbourBlocks. Need to ensure blocks that dont exist count
-// as air
-// BUG: ALSO, are you sure neighbour blocks contains an ordered, 6 long list where idx =
-// direction?
-std::vector<Block> getNeighbourBlocks(const Chunk* chunk, const ivec3& chunk_local,
-                                      std::span<const Chunk*, DirectionCount> surrounding_chunks) {
-    std::vector<Block> res;
-    res.reserve(DirectionCount);
+std::array<Block, DirectionCount>
+getNeighbourBlocks(const Chunk* chunk, const ivec3& chunk_local,
+                   std::span<const Chunk*, DirectionCount> surrounding_chunks) {
+    std::array<Block, DirectionCount> res{};
 
     if (!chunk) {
         LOG_ERROR("Own chunk is null, crashing");
@@ -59,14 +55,12 @@ std::vector<Block> getNeighbourBlocks(const Chunk* chunk, const ivec3& chunk_loc
         if (neighbourInBounds) [[likely]] {
             const auto& p = neighbourBlockPos;
             assert(chunk);
-            res.push_back(chunk->getBlock(neighbourBlockPos));
+            res[dir_idx] = (chunk->getBlock(neighbourBlockPos));
         } else [[unlikely]] {
             neighbourBlockPos = euclid_mod(neighbourBlockPos, Chunk::Extents);
             assert(lmath::isVecInBounds(neighbourBlockPos, lo, hi));
             if (neighbourChunk) {
-                res.push_back(neighbourChunk->getBlock(neighbourBlockPos));
-            } else {
-                res.emplace_back();
+                res[dir_idx] = (neighbourChunk->getBlock(neighbourBlockPos));
             }
         }
     }
@@ -79,7 +73,7 @@ std::size_t ChunkMesher::emit_chunk_vertices(std::vector<Vertex>& out_vertices,
                                              const ChunkMetadata* chunk_meta,
                                              const ivec3 chunk_offset, const TextureAtlas& atlas) {
     const auto& world = *world_ptr;
-    auto        surrounding_chunks = world.chunks.getSurroundingChunks(chunk_offset);
+    auto        surrounding_chunks = world.chunkMap.getSurroundingChunks(chunk_offset);
     std::size_t vtx_count = 0;
 
     ForEach::BlockInChunk([&](i32 x, i32 y, i32 z) {
@@ -90,8 +84,7 @@ std::size_t ChunkMesher::emit_chunk_vertices(std::vector<Vertex>& out_vertices,
         if (block.isAir()) {
             return ForEach::CONTINUE;
         }
-        std::vector<Block> neighbour_blocks =
-            getNeighbourBlocks(chunk, chunk_local, surrounding_chunks);
+        auto neighbour_blocks = getNeighbourBlocks(chunk, chunk_local, surrounding_chunks);
         assert(neighbour_blocks.size() == DirectionCount);
 
         // clang-format off
@@ -115,7 +108,7 @@ std::size_t ChunkMesher::emit_chunk_vertices(std::vector<Vertex>& out_vertices,
             // TODO: use std::enumerate here
             std::size_t vtx_idx{0};
             for  (const auto& vtx : vtx_data) {
-                ivec3 chunk_offsetted_vtx_pos = vtx.pos+chunk_local;
+                vec3 chunk_offsetted_vtx_pos = vtx.pos+chunk_local;
                 vec2 texture_coords = uv_tex_coords[vtx_idx];
                 // heap buffer overflow V, perhaps in uv_tex_coords, vtx_idx could be wrong
                 out_vertices.emplace_back(

@@ -11,12 +11,32 @@ struct World {
     World() = default;
     ~World() = default;
     // make chunkMap itself use unique ptrs
-    ChunkMap chunks;
+    ChunkMap chunkMap;
 
+    inline std::vector<ChunkView> filterChunksWithinFrustum(std::span<ChunkView> input_chunks,
+                                                            const Frustum&       frustum) {
+        std::vector<ChunkView> res;
+        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
+            if (frustum.isAABBInside(*chunkMap.boundingBoxes[chunk_pos])) {
+                res.emplace_back(chunk_pos, chunk.get());
+            }
+        }
+        return res;
+    }
+    inline std::vector<ChunkView> filterChunksOutsideFrustum(std::span<ChunkView> input_chunks,
+                                                             const Frustum&       frustum) {
+        std::vector<ChunkView> res;
+        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
+            if (!frustum.isAABBInside(*chunkMap.boundingBoxes[chunk_pos])) {
+                res.emplace_back(chunk_pos, chunk.get());
+            }
+        }
+        return res;
+    }
     inline std::vector<ChunkView> getDirtyChunksInRadius(ivec3 origin, u32 radius) {
         std::vector<ChunkView> res;
-        for (const auto& [chunk_pos, chunk] : chunks.data) {
-            if (chunks.isDirty(chunk_pos)) {
+        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
+            if (chunkMap.isDirty(chunk_pos)) {
                 res.emplace_back(chunk_pos, chunk.get());
             }
         }
@@ -34,7 +54,7 @@ struct World {
     Block getBlock(ivec3 world_pos) const;
 
     inline void generateChunk(const ivec3& chunk_pos) {
-        chunks.generate(chunk_pos);
-        chunks.makeDirty(chunk_pos);
+        chunkMap.generate(chunk_pos);
+        chunkMap.makeDirty(chunk_pos);
     }
 };
