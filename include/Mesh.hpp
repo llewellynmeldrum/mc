@@ -1,93 +1,53 @@
 #pragma once
-#include "CommonUtils.hpp"
-#include "Shaders.hpp"
-#include "Types.h"
-#include "glm/ext/matrix_float4x4.hpp"
 #include <vector>
+
+#include "Types.h"
 #include "CommonUtils.hpp"
+#include "cppslop.hpp"
+
+#include "BufferObjects.hpp"
+#include "Shaders.hpp"
 #include "Vertex.hpp"
 
-struct VertexArray {
-    VertexArray();
+FORWARD_DECL_ENUM_STRUCT(gl, GLenum, unsigned int)
 
-    VertexArray(const VertexArray&) = delete;
-    VertexArray(VertexArray&&) = default;
-    VertexArray& operator=(const VertexArray&) = delete;
-    VertexArray& operator=(VertexArray&&) = default;
-    ~VertexArray();
+// meshes own PrimitiveMode() -> GL_TRIANGLES, GL_LINES, GL_STRIP
+// VBO/EBO's own StorageUsage() -> GL_ELEMENT_ARRAY_BUFFER, GL_ARRAY_BUFFER
+// VBO/EBO's own BufferTarget() ->  GL_STATIC_DRAW, GL_DYNAMIC_DRAW
+struct MeshBase {
+    DECL_MOVE_ONLY(MeshBase);
+    ~MeshBase() = default;
+    MeshBase(std::vector<Vertex> vertices) { MeshBase::setupMesh(vertices); }
 
-    template <std::size_t SZ>
-    void apply_layout(const VertexLayout<SZ>& layout) {
-        apply_layout_impl(layout.stride, std::span<const VertexAttribute, SZ>(layout.attrs));
-    }
+    void setupMesh(std::vector<Vertex> vertices);
+    void draw() const;
 
-    u32  id;
-    void bind() const;
-    void unbind() const;
-
-    void drawElements(i32 num, i32 elem_t);
-    void drawArrays(i32 count, i32 elem_t, i32 offset = 0) const;
-
-  private:
-    void apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs);
-};
-
-struct VertexBuffer {
-    VertexBuffer();
-    ~VertexBuffer();
-
-    // move only type
-    VertexBuffer(const VertexBuffer&) = delete;
-    VertexBuffer& operator=(const VertexBuffer&) = delete;
-    VertexBuffer& operator=(VertexBuffer&&) = default;
-    VertexBuffer(VertexBuffer&&) = default;
-
-    u32 id;
-    i32 size;
-
-    i32              location = {};
-    static const i32 buffer_type;
-    void             bind();
-    void             load(const std::vector<Vertex>& c, i32 usage_type, i32 offset);
-};
-
-struct ElementBuffer {
-    ElementBuffer();
-    ~ElementBuffer();
-
-    // move only type
-    ElementBuffer(const ElementBuffer&) = delete;
-    ElementBuffer& operator=(const ElementBuffer&) = delete;
-    ElementBuffer(ElementBuffer&&) = default;
-    ElementBuffer& operator=(ElementBuffer&&) = default;
-
-    static const i32 buffer_type;
-    i32              location = {};
-
-    void bind();
-
-    template <ContiguousContainer C>
-    void load(C c, i32 usage_type);
-
-    u32 id;
-    i32 size;  // size in bytes
-};
-
-// src/Mesh.cpp
-struct Mesh {
-    Mesh(std::vector<Vertex> vertices);
-    ~Mesh() = default;
-
-    // move only
-    Mesh(const Mesh&) = delete;
-    Mesh& operator=(const Mesh&) = delete;
-    Mesh(Mesh&&) = default;
-    Mesh& operator=(Mesh&&) = default;
-
-    // returns number of draw calls emitted
-    i64 draw() const;
-
+    i64          vertex_count{ 0 };  // if EBO, index count.
     VertexBuffer vbo;
     VertexArray  vao;
-    i64          vertex_count{ 0 };
+
+  private:
+    constexpr static gl::GLenum PrimitiveType();
 };
+
+struct IndexedMesh {
+    DECL_MOVE_ONLY(IndexedMesh);
+    ~IndexedMesh() = default;
+    IndexedMesh(std::vector<Vertex> vertices, std::vector<u32> offsets) {
+        IndexedMesh::setupMesh(vertices, offsets);
+    }
+
+    void setupMesh(std::vector<Vertex> vertices, std::vector<u32> offsets);
+    void draw() const;
+
+    i64           offset_count{ 0 };  // if EBO, index count.
+    VertexBuffer  vbo;
+    VertexArray   vao;
+    ElementBuffer ebo;
+
+  private:
+    constexpr static gl::GLenum PrimitiveType();
+};
+
+// by default, im using indexed meshes
+using Mesh = IndexedMesh;

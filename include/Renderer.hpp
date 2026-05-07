@@ -22,7 +22,7 @@ struct Renderer {
 
     struct {
         bool        wireframe{ false };
-        bool        showChunkBoundaries{ true };
+        bool        showChunkBoundaries{ false };  // TODO: IMPLEMENT
         i64         vertex_count{ 0 };
         i64         draw_calls{ 0 };
         i64         mesh_count{ 0 };

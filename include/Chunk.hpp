@@ -2,12 +2,22 @@
 #include "Types.h"
 #include "Block.hpp"
 #include <mdspan>
+#include <ranges>
 #include "glmWrapper.hpp"
 #include "ChunkHelpers.hpp"
 constexpr const i64 CHUNK_XWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_HEIGHT = 16;                                        // x/y/z
 constexpr const i64 CHUNK_SIZE = CHUNK_XWIDTH * CHUNK_ZWIDTH * CHUNK_HEIGHT;  // x/y/z
+
+constexpr const auto CHUNK_XRANGE = std::views::iota(0, CHUNK_XWIDTH);  // x/y/z
+constexpr const auto CHUNK_YRANGE = std::views::iota(0, CHUNK_HEIGHT);  // x/y/z
+constexpr const auto CHUNK_ZRANGE = std::views::iota(0, CHUNK_ZWIDTH);  // x/y/z
+
+constexpr inline const auto EachBlockInChunk() {
+    return std::views::cartesian_product(CHUNK_XRANGE, CHUNK_YRANGE, CHUNK_ZRANGE);
+}
+
 #define MD_ACCESS_MACRO(T)                                                                         \
     inline T& operator[](i16 x, i16 y, i16 z) {                                                    \
         return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];        \

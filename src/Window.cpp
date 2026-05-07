@@ -82,6 +82,7 @@ void Window::setupWindow(void* ctx_ptr) {
 
     glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
                               // vertex further away to overwrite a closer one
+    glEnable(GL_CULL_FACE);
 }
 
 bool Window::shouldClose() {

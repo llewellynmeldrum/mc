@@ -27,9 +27,6 @@ constexpr static inline i32 to_i32(gl::GLenum a) {
 #include "AttributeTraits.hpp"
 
 template <typename T>
-constexpr gl::GLenum gl_type() {
-}
-template <typename T>
 constexpr gl::GLenum gl_type_from(T val);
 
 #include "glTypeTraits.hpp"
@@ -52,5 +49,6 @@ constexpr gl::GLenum gl_type_from<VertexAttributeType>(VertexAttributeType vat) 
         return gl_type_traits<f64>::value;
         break;
     };
+    return gl::GLenum::GL_NO_ERROR;
 }
 #define _GLFW_INCLUDE_WARNING

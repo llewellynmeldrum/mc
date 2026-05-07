@@ -5,12 +5,11 @@
 #include "World.hpp"
 #include "Logger.hpp"
 #include "Types.h"
+#include "FastNoiseLite.h"
 
-#include <FastNoise/FastNoise.h>
 #include "lmath.hpp"
 using NoiseSamples2D = std::array<f32, CHUNK_XWIDTH * CHUNK_ZWIDTH>;
 
-//         /\
 //          |?         swamp       jungle
 // humidity |spruce    plains      acacia
 //          |snow      mesa?       desert
@@ -61,19 +60,19 @@ static const Biome plains{
 BiomeMap PLAINS_ONLY(CHUNK_ZWIDTH* CHUNK_XWIDTH, &plains);
 
 TerrainNoise::TerrainNoise() {
-    base = FastNoise::New<FastNoise::Simplex>();
-    hills = FastNoise::New<FastNoise::Simplex>();
-    valleys = FastNoise::New<FastNoise::Simplex>();
-    detail = FastNoise::New<FastNoise::Simplex>();
+    base.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    hills.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    valleys.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    detail.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    base->SetScale(200.0f);
-    hills->SetScale(100.0f);
-    valleys->SetScale(100.0f);
-    detail->SetScale(25.0f);
+    base.SetFrequency(1 / 200.0f);
+    hills.SetFrequency(1 / 100.0f);
+    valleys.SetFrequency(1 / 100.0f);
+    detail.SetFrequency(1 / 25.0f);
 
-    hills->SetSeedOffset(100.0f);
-    valleys->SetSeedOffset(400.0f);
-    detail->SetSeedOffset(200.0f);
+    hills.SetSeed(WORLD_SEED + 100);
+    valleys.SetSeed(WORLD_SEED + 200);
+    detail.SetSeed(WORLD_SEED + 300);
 }
 template <typename T>
 auto random_range(T min, T max) {
@@ -164,8 +163,11 @@ BiomeMap ChunkGenerator::genChunkBiomeMap(ivec3 chunk_coord, ivec3 chunk_offset)
 
 NoiseSamples2D sampleNoiseMap(const auto& noise_map, ivec3 chunk_offset) {
     NoiseSamples2D res;
-    noise_map->GenUniformGrid2D(res.data(), chunk_offset.x, chunk_offset.z, CHUNK_XWIDTH,
-                                CHUNK_ZWIDTH, 1.0, 1.0, WORLD_SEED);
+    f32            x = static_cast<f32>(chunk_offset.x);
+    f32            y = static_cast<f32>(chunk_offset.y);
+    for (auto& f : res) {
+        f = noise_map.GetNoise(x, y);
+    }
     return res;
 }
 HeightMap ChunkGenerator::genChunkHeightmap(const BiomeMap& block_biomes, ivec3 chunk_coord,

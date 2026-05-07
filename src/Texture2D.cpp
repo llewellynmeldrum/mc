@@ -3,6 +3,7 @@ using namespace gl;
 
 #include "Texture2D.hpp"
 #include "Logger.hpp"
+#include "glmWrapper.hpp"
 i64 texture_count = 0;
 
 Texture2D::Texture2D(const char* tex_dir, i32 image_fmt = to_i32(GL_RGB),
@@ -47,8 +48,8 @@ void Texture2D::init() {
 void Texture2D::unbind() {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
-void Texture2D::setBorderColor(vec4 color) {
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, data(color));
+void Texture2D::setBorderColor(vec4 color = { 0, 0, 0, 0 }) {
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, &color.x);
 }
 void Texture2D::setMinifyMode(i32 mode) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);

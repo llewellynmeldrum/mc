@@ -29,7 +29,7 @@ static std::unordered_map<Direction, size_t> directionTexOffset = {
     // clang-format on
 };
 constexpr const i64 PER_BLOCK_TEX_COUNT = 3;
-constexpr const i64 CUBE_VTX_PER_FACE = 6;
+constexpr const i64 CUBE_VTX_PER_FACE = 4;
 
 glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
     i64 dir_offset = directionTexOffset[dir];
@@ -39,10 +39,10 @@ glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
 // modifies a vector of 6 vertices,
-std::vector<vec2> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
-                                         const std::vector<Vertex>& vertices) const {
+std::array<vec2, 4> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
+                                           std::span<const Vertex, 4> vertices) const {
     //    assert(texture_idx > 0 && texture_idx < 4);
-    std::vector<vec2> res(6, vec2{});
+    std::array<vec2, 4> res;
 
     vec2 uvmin = getTexOffset(texture_idx, dir);
     for (i64 vtx = 0; vtx < CUBE_VTX_PER_FACE; vtx++) {

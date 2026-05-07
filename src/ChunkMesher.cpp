@@ -1,3 +1,4 @@
+#include "Chunk.hpp"
 #include "DEBUG.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "ChunkMesher.hpp"
@@ -12,10 +13,16 @@
 #include "Profiler.hpp"
 #include "lmath.hpp"
 #include <ranges>
-#include <ranges>
 #include <tuple>
-extern const std::vector<std::vector<Vertex>> defaultCubeFaces;
 
+using std::views::enumerate;
+
+extern const std::array<std::array<Vertex, 4>, 6> defaultCubeFaces;
+extern const std::array<u32, 6>                   defaultCubeIndices;
+
+static const auto& getDefaultFaceIndices(Direction dir) {
+    return defaultCubeIndices[0];
+}
 static const auto& getDefaultFaceVertexData(Direction dir) {
     return defaultCubeFaces[static_cast<i8>(dir)];
 }
@@ -68,68 +75,130 @@ getNeighbourBlocks(const Chunk* chunk, const ivec3& chunk_local,
     return res;
 };
 
-std::size_t ChunkMesher::emit_chunk_vertices(std::vector<Vertex>& out_vertices,
-                                             const World* world_ptr, const Chunk* chunk,
-                                             const ChunkMetadata* chunk_meta,
-                                             const ivec3 chunk_offset, const TextureAtlas& atlas) {
+std::size_t ChunkMesher::emit_chunk_vertex_data(std::vector<Vertex>& out_vertices,
+                                                std::vector<u32>&    out_indices,
+                                                const World* world_ptr, const Chunk* chunk,
+                                                const ChunkMetadata* chunk_meta,
+                                                const ivec3          chunk_offset,
+                                                const TextureAtlas&  atlas) {
     const auto& world = *world_ptr;
     auto        surrounding_chunks = world.chunkMap.getSurroundingChunks(chunk_offset);
-    std::size_t vtx_count = 0;
+    u32         vtx_count = 0;
 
-    ForEach::BlockInChunk([&](i32 x, i32 y, i32 z) {
+    for (const auto& [x, y, z] : EachBlockInChunk()) {
         const vec3 chunk_local = { x, y, z };
         const auto overlayColor = getBlockOverlayColor(chunk_local, chunk_meta);
 
         Block block = (*chunk)[x, y, z];
         if (block.isAir()) {
-            return ForEach::CONTINUE;
+            continue;
         }
         auto neighbour_blocks = getNeighbourBlocks(chunk, chunk_local, surrounding_chunks);
         assert(neighbour_blocks.size() == DirectionCount);
 
-        // clang-format off
-        std::size_t face_idx{0};
-        for (const auto adjacentBlock : neighbour_blocks) {
+        for (const auto& [face_idx, adjacentBlock] : enumerate(neighbour_blocks)) {
             const auto faceDir = static_cast<Direction>(face_idx);
-            if (adjacentBlock.isOpaque()){ 
-                face_idx++;
-//                LOG_DEBUG("not Emitting face for L:{}, as {} neighbour is opaque.",dbg_fmt(chunk_local), dbg_fmt(faceDir));
-                continue; 
+            if (adjacentBlock.isOpaque()) {
+                continue;
             }
 
-//            ivec3 self_pos = chunk_local+ World::chunkToWorldPos(chunk_offset);
-//            LOG_DEBUG("Emitting face for L:{}, as {} neighbour is NOT opaque.",dbg_fmt(chunk_local), dbg_fmt(faceDir));
-            // no point in emitting a face that is directly facing an opaque block
+            ivec3 self_pos = chunk_local + World::chunkToWorldPos(chunk_offset);
+            LOG_DEBUG("Emitting face for L:{}, as {} neighbour is NOT opaque.",
+                      dbg_fmt(chunk_local), dbg_fmt(faceDir));
 
             const auto& vtx_data = getDefaultFaceVertexData(faceDir);
-            const auto& uv_tex_coords =
-            atlas.remapUVs(block.texture_id(), faceDir, vtx_data);
+            const auto& uv_tex_coords = atlas.remapUVs(block.texture_id(), faceDir, vtx_data);
 
-            // TODO: use std::enumerate here
-            std::size_t vtx_idx{0};
-            for  (const auto& vtx : vtx_data) {
-                vec3 chunk_offsetted_vtx_pos = vtx.pos+chunk_local;
-                vec2 texture_coords = uv_tex_coords[vtx_idx];
-                // heap buffer overflow V, perhaps in uv_tex_coords, vtx_idx could be wrong
-                out_vertices.emplace_back(
-                    chunk_offsetted_vtx_pos,
-                    texture_coords,
-                    overlayColor,
-                    static_cast<i32>(faceDir)
-                );
-                vtx_count++;
-                vtx_idx++;
+            for (int i = 0; i < 6; i++) {
+                out_indices.push_back(vtx_count + defaultCubeIndices[i]);
+                LOG_DEBUG("{},{}->{}", vtx_count, defaultCubeIndices[i], out_indices.back());
             }
-            face_idx++;
-        }
+            for (const auto& [vertex_idx, vtx] : enumerate(vtx_data)) {
+                vec3 chunk_offsetted_vtx_pos = vtx.pos + chunk_local;
+                vec2 texture_coords = uv_tex_coords[vertex_idx];
+                out_vertices.emplace_back(chunk_offsetted_vtx_pos, texture_coords, overlayColor,
+                                          static_cast<i32>(faceDir));
+                vtx_count++;
+            }
 
-        return ForEach::CONTINUE;
-    });
+            // 4 vertices emitted per face.
+            // ebo should emit
+        }
+    }
     // TODO:
     return vtx_count;
 }
 // clang-format off
 // 
+static constexpr glm::vec3 NNN{-0.5,-0.5,-0.5};
+static constexpr glm::vec3 NPN{-0.5, 0.5,-0.5};
+static constexpr glm::vec3 NNP{-0.5,-0.5, 0.5};
+static constexpr glm::vec3 PNN{ 0.5,-0.5,-0.5};
+static constexpr glm::vec3 PPN{ 0.5, 0.5,-0.5};
+static constexpr glm::vec3 PNP{ 0.5,-0.5, 0.5};
+static constexpr glm::vec3 NPP{-0.5, 0.5, 0.5};
+static constexpr glm::vec3 PPP{ 0.5, 0.5, 0.5};
+constexpr std::array<std::array<Vertex,4>,6> defaultCubeFaces = {
+    // Direction::forward
+    std::array<Vertex,4>{
+        Vertex{PNN,vec2(0,0),vec3(1.0f),0},
+        Vertex{NNN,vec2(1,0),vec3(1.0f),0},
+        Vertex{NPN,vec2(1,1),vec3(1.0f),0},
+        Vertex{PPN,vec2(0,1),vec3(1.0f),0},
+    },
+    // Direction::backward
+    std::array<Vertex,4>{
+        Vertex{NNP,vec2(0,0),vec3(1.0f),1},
+        Vertex{PNP,vec2(1,0),vec3(1.0f),1},
+        Vertex{PPP,vec2(1,1),vec3(1.0f),1},
+        Vertex{NPP,vec2(0,1),vec3(1.0f),1},
+    },
+    // Direction:: Left
+    std::array<Vertex,4>{
+        Vertex{NNN,vec2(0,0),vec3(1.0f),2},
+        Vertex{NNP,vec2(1,0),vec3(1.0f),2},
+        Vertex{NPP,vec2(1,1),vec3(1.0f),2},
+        Vertex{NPN,vec2(0,1),vec3(1.0f),2},
+    },
+
+    // Direction::Right
+    std::array<Vertex,4>{
+        Vertex{PNP,vec2(0,0),vec3(1.0f),3},
+        Vertex{PNN,vec2(1,0),vec3(1.0f),3},
+        Vertex{PPN,vec2(1,1),vec3(1.0f),3},
+        Vertex{PPP,vec2(0,1),vec3(1.0f),3},
+    },
+    // Direction::Down
+    std::array<Vertex,4>{
+        Vertex{NNN,vec2(0,0),vec3(1.0f),4},
+        Vertex{PNN,vec2(1,0),vec3(1.0f),4},
+        Vertex{PNP,vec2(1,1),vec3(1.0f),4},
+        Vertex{NNP,vec2(0,1),vec3(1.0f),4},
+    },
+    // Direction::Up
+    std::array<Vertex,4>{
+        Vertex{NPP,vec2(0,0),vec3(1.0f),5},
+        Vertex{PPP,vec2(1,0),vec3(1.0f),5},
+        Vertex{PPN,vec2(1,1),vec3(1.0f),5},
+        Vertex{NPN,vec2(0,1),vec3(1.0f),5},
+    },
+};
+constexpr std::array<u32,6> defaultCubeIndices{
+    { 3, 0, 1, 1, 2, 3,},
+};
+    /*
+constexpr std::array<std::array<u32,6>, 6> defaultCubeIndices{
+    std::array<u32,6>{ 3, 0, 1, 1, 2, 3,},
+    std::array<u32,6>{ 7, 4, 5, 5, 6, 7,},
+    std::array<u32,6>{11, 8, 9, 9,10,11,},
+    std::array<u32,6>{15,12,13,13,14,15,},
+    std::array<u32,6>{19,16,17,17,18,19,},
+    std::array<u32,6>{23,20,21,21,22,23,},
+};
+*/
+
+static_assert(defaultCubeFaces.size()==6);
+/*
 const std::vector<std::vector<Vertex>> defaultCubeFaces = {
         // Direction::FORWARD,
         std::vector<Vertex>{
@@ -188,3 +257,4 @@ const std::vector<std::vector<Vertex>> defaultCubeFaces = {
         },
 };
 // clang-format on
+*/

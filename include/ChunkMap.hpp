@@ -3,6 +3,7 @@
 #include "ChunkGenerator.hpp"
 #include "Types.hpp"
 
+#include <memory>
 constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
 
 struct ChunkMap {

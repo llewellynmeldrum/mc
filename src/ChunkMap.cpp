@@ -1,3 +1,5 @@
+
+#include "DebugFormatSpecializations.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "Logger.hpp"
@@ -14,7 +16,7 @@ void ChunkMap::updateNeighbourMap(ivec3 pos) {
     auto* self_ptr = data[pos].get();
 
     std::array<const Chunk*, NUM_NEIGHBOURS> my_neighbours{};
-    for (int dir_idx = 0; dir_idx < my_neighbours.size(); dir_idx++) {
+    for (std::size_t dir_idx = 0; dir_idx < my_neighbours.size(); dir_idx++) {
         const ivec3 neighbour_chunk_pos = pos + Direction_offset[dir_idx];
         if (data.contains(neighbour_chunk_pos)) {
             // assign NEIGHBOUR to ourNeighbours.dir
@@ -38,6 +40,7 @@ void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
 }
 
 void ChunkMap::generate(ivec3 chunk_coord) {
+    LOG_DEBUG("Generating chunk for {}", dbg_fmt(chunk_coord));
     if (data.contains(chunk_coord)) {
         LOG_WARN("Chunk generation requested on chunk that already exists.");
     } else {
