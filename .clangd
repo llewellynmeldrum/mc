@@ -1,4 +1,15 @@
 Hover:
-  ShowAKA: Yes
+  ShowAKA: true
+
 Documentation:
   CommentFormat: Doxygen
+
+CompileFlags:
+  Add:
+    - -D__STRICT_ANSI__
+    - -U__SIZEOF_FLOAT128__T_ANSI__
+
+# clangd will yell about __float128 or some shit on arm64
+Diagnostics:
+  Suppress: ["type_unsupported"]
+

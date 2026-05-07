@@ -7,22 +7,18 @@ MAKEFLAGS += -j8
 #MAKEFLAGS += --ignore-errors
 
 SHELL:= /bin/zsh
-LLVM_PREFIX := /opt/homebrew/opt/llvm@22
-clang++:= $(LLVM_PREFIX)/bin:$(PATH)
-export clang++
 
+GLBINDING  := external/glbinding
+GLM := external/OpenGL-Mathematics
+STB_IMAGE:= external/stb_image
+KHR := external/KHR
+FASTNOISELITE := external/FastNoiseLite
+IMGUI := external/imgui
 UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
-	CC       	:= clang
 	DEBUGGER 	:= lldb
-	GLBINDING  := $(shell brew --prefix glbinding)
-	LLVM_PREFIX := /opt/homebrew/opt/llvm@22
-	SDKROOT     := $(shell xcrun --show-sdk-path)
-	# to use llvm-22 clang++
 
 else ifeq ($(UNAME),Linux)
-	CXX      := clang++-22
-	CC       := clang-22
 	DEBUGGER := gdb
 	$(errror setup lvvm prefix)
 else
@@ -37,8 +33,8 @@ db:
 # --------------------------------------------------
 
 EXE := ./bin/mc
-CXX         :=clang++
-CXXFLAGS    :=-std=c++23 
+CXX         :=/opt/gcc-16/bin/g++
+CXXFLAGS    :=-std=c++23
 
 APP_SRC := $(shell find ./src -type f -name '*.cpp')
 APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
@@ -53,13 +49,6 @@ DEPS := $(OBJ:.o=.d)
 # --------------------------------------------------
 CPPFLAGS 	:= -Iinclude 
 
-CPPFLAGS    +=-D_LIBCPP_DISABLE_AVAILABILITY
-LDFLAGS     +=-isysroot $(SDKROOT)
-LDFLAGS     +=-L$(LLVM_PREFIX)/lib/c++ 
-LDFLAGS     +=-L$(LLVM_PREFIX)/lib/unwind
-LDFLAGS     +=-Wl,-rpath,$(LLVM_PREFIX)/lib/c++ 
-LDFLAGS		+=-Wl,-rpath,$(LLVM_PREFIX)/lib/unwind
-LDLIBS      +=-lunwind
 
 CXXFLAGS 	+=-Wall -Werror
 CXXFLAGS 	+=-Wimplicit-fallthrough
@@ -68,19 +57,10 @@ CXXFLAGS 	+=-MMD -MP
 CXXFLAGS 	+=$(shell pkg-config --cflags glfw3)
 
 
-# format of compiler errors (and sanitizers)
-CXXFLAGS += -fdebug-prefix-map=$(PWD)=.
-CXXFLAGS += -fno-show-column
-CXXFLAGS += -fno-diagnostics-show-option
-CXXFLAGS += -fdiagnostics-fixit-info
 
 CFLAGS := -Wall -Werror
 CFLAGS += -Wimplicit-fallthrough
 CFLAGS += -MMD -MP
-CFLAGS += -fdebug-prefix-map=$(PWD)=.
-CFLAGS += -fno-show-column
-CFLAGS += -fno-diagnostics-show-option
-CFLAGS += -fdiagnostics-fixit-info
 
 # --------------------------------------------------
 # Link flags
@@ -89,23 +69,28 @@ CFLAGS += -fdiagnostics-fixit-info
 # DEP: glfw3 (install via brew or apt or pacman or something similar)
 LDLIBS  	+= $(GL_LIBS) $(shell pkg-config --libs glfw3)
 
+CPPFLAGS += -isystem /opt/gcc-16/include/c++/17.0.0
+CPPFLAGS += -isystem /opt/gcc-16/include/c++/17.0.0/aarch64-apple-darwin23.5.0
+CPPFLAGS += -isystem /opt/gcc-16/lib/gcc/aarch64-apple-darwin23.5.0/17.0.0/include
 # DEP: GLBINDING (header only, no install)
-CPPFLAGS 	+= -I$(GLBINDING)/include
-CPPFLAGS 	+= -Iexternal/
-LDLIBS		+= -L$(GLBINDING)/lib -lglbinding -lglbinding-aux
+CPPFLAGS	+= -I$(KHR)
+CPPFLAGS	+= -I$(GLM)
+CPPFLAGS	+= -I$(STB_IMAGE)
 
-# DEP: FastNoise2
-# NOTE: (run ./install_fastnoise.sh once before building)
-FASTNOISE_DIR     := external/FastNoise2
-FASTNOISE_LIB_DIR := $(FASTNOISE_DIR)/build/Release/lib
+CPPFLAGS	+= -I$(GLBINDING)/source/glbinding/include
+CPPFLAGS	+= -I$(GLBINDING)/source/glbinding-aux/include
+CPPFLAGS 	+= -I$(GLBINDING)/build/source/glbinding/include
+CPPFLAGS 	+= -I$(GLBINDING)/build/source/glbinding-aux/include
 
-CXXFLAGS += \
-  -I$(FASTNOISE_DIR)/include \
-  -I$(FASTNOISE_DIR)/build/_deps/fastsimd-src/include \
-  -DFASTNOISE_STATIC_LIB
+CPPFLAGS 	+= -I$(FASTNOISELITE)
+CPPFLAGS 	+= -I$(IMGUI)
 
-LDFLAGS += -L$(FASTNOISE_LIB_DIR)
-LDLIBS  += -lFastNoise
+LDLIBS		+= -L$(GLBINDING)/build -Wl,-rpath,$(PWD)/external/glbinding/build
+LDLIBS 		+= -lglbinding -lglbinding-aux
+
+# DEP: FastNoiseLite
+
+
 test: CXXFLAGS+= -DTESTING
 test: clean all
 build: $(EXE)
@@ -119,7 +104,7 @@ fast: run
 fast-math: CXXFLAGS+= -ffast-math
 fast-math: run
 
-run: CXXFLAGS+= -O1 
+#run: CXXFLAGS+= -O1 
 run: $(EXE) 
 	$(EXE)
 

@@ -6,7 +6,7 @@ TabWidth: 4                       # LLVM uses 8
 PointerAlignment: Left            # LLVM uses Right
 SpacesBeforeTrailingComments: 2   # LLVM uses 1
 
-Cpp11BracedListStyle: Block
+Cpp11BracedListStyle: false
 
 KeepEmptyLines:
     AtEndOfFile:     false
@@ -16,4 +16,5 @@ KeepEmptyLines:
 AllowShortBlocksOnASingleLine: Never
 AlignConsecutiveDeclarations: true
 AllowShortFunctionsOnASingleLine: InlineOnly
-
+BreakTemplateDeclarations: Yes
+SortIncludes: Never
