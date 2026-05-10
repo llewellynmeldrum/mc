@@ -2,8 +2,9 @@
 #include "glbindingWrapper.hpp"
 
 using namespace gl;
-// NOTE: In gl, known as 'usage' param to glBufferData(target, ...)
-// eg: GL_ELEMENT_ARRAY_BUFFER, GL_ARRAY_BUFFER
+// TODO: Refactor these as type traits. you know they should be.
+//  NOTE: In gl, known as 'usage' param to glBufferData(target, ...)
+//  eg: GL_ELEMENT_ARRAY_BUFFER, GL_ARRAY_BUFFER
 constexpr GLenum ElementBuffer::BufferUsage() {
     return GL_STATIC_DRAW;
 }
@@ -25,6 +26,7 @@ constexpr GLenum VertexBuffer::BufferTarget() {
 }
 void ElementBuffer::load(std::span<const u32> indices, i32 offset) {
     this->bind();
+    assert(indices.size() != 0);
     glBufferData(BufferTarget(), indices.size_bytes(), indices.data() + offset, BufferUsage());
 }
 
@@ -58,24 +60,33 @@ void VertexArray::apply_layout_impl(i32 stride, std::span<const VertexAttribute>
     }
 }
 
-VertexArray::VertexArray() {
+void VertexArray::make() {
     glGenVertexArrays(1, &id);
 }
-ElementBuffer::ElementBuffer() {
+void ElementBuffer::make() {
     glGenBuffers(1, &id);
 }
-VertexBuffer::VertexBuffer() {
+void VertexBuffer::make() {
     glGenBuffers(1, &id);
 }
 
-VertexArray::~VertexArray() {
-    glDeleteVertexArrays(1, &id);
+void VertexArray::destroy() {
+    if (id) {
+        glDeleteVertexArrays(1, &id);
+        id = 0;
+    }
 }
-ElementBuffer::~ElementBuffer() {
-    glDeleteBuffers(1, &id);
+void ElementBuffer::destroy() {
+    if (id) {
+        glDeleteBuffers(1, &id);
+        id = 0;
+    }
 }
-VertexBuffer::~VertexBuffer() {
-    glDeleteBuffers(1, &id);
+void VertexBuffer::destroy() {
+    if (id) {
+        glDeleteBuffers(1, &id);
+        id = 0;
+    }
 }
 
 void VertexArray::bind() const {
@@ -100,6 +111,7 @@ void VertexArray::unbind() const {
 }
 
 void VertexArray::drawElements(i32 num, GLenum usage_hint) const {
+    assert(num != 0);
     glDrawElements(usage_hint, num, GL_UNSIGNED_INT, nullptr);
 }
 void VertexArray::drawArrays(i32 count, GLenum usage_hint, i32 offset) const {

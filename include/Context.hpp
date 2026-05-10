@@ -9,6 +9,7 @@
 
 #include "World.hpp"
 
+#include "Concurrency.hpp"
 // src/Context.cpp
 struct Context {
   public:
@@ -22,6 +23,7 @@ struct Context {
     Renderer rend;
     DebugUI  ui;
     World    world;
+
 
     void setupContext();
     void handleInputs();

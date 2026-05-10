@@ -21,19 +21,18 @@ constexpr GLenum IndexedMesh::PrimitiveType() {
     return GL_TRIANGLES;
 }
 
-void IndexedMesh::setupMesh(std::vector<Vertex> vertices, std::vector<u32> offsets) {
-    offset_count = offsets.size();
+void IndexedMesh::setupMesh(std::vector<Vertex> vertices, std::vector<u32> indices) {
+    offset_count = indices.size();
     vao.bind();
-    assert((offsets.size() / 6) * 4 == vertices.size());
+    assert((indices.size() / 6) * 4 == vertices.size());
     vbo.load(vertices);
-    ebo.load(offsets);
+    ebo.load(indices);
     vao.apply_layout(Vertex::layout());
     vao.unbind();
 }
 void IndexedMesh::draw() const {
-    vao.bind();
     assert(offset_count != 0);
-    LOG_EXPR(offset_count);
+    vao.bind();
     vao.drawElements(offset_count, PrimitiveType());
     vao.unbind();
 }

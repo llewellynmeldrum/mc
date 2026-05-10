@@ -18,6 +18,7 @@ void Renderer::setupRenderer() {
     prog.use();
     prog.setUniform("texture1", (int)0);
     prog.stop();
+    mesher.setupChunkMesher(atlas);
 }
 
 void Renderer::clear(const vec4 clear_color) {

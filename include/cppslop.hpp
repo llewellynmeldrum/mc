@@ -7,22 +7,39 @@
     CLASS_NAME(CLASS_NAME&&) = default;                                                            \
     CLASS_NAME& operator=(CLASS_NAME&&) = default;
 
-#define FORWARD_DECL_ENUM_STRUCT(NAMESPACE, NAME, UNDERLYING)                                      \
-    namespace NAMESPACE {                                                                          \
-    enum struct NAME : UNDERLYING;                                                                 \
-    }
+#define DECL_NO_COPY(CLASS_NAME)                                                                   \
+    CLASS_NAME(const CLASS_NAME&) = delete;                                                        \
+    CLASS_NAME& operator=(const CLASS_NAME&) = delete;
+
+
+#define FORWARD_DECL_ENUM_STRUCT( NAME, UNDERLYING)                                                \
+    enum class NAME : UNDERLYING;
 
 #define FORWARD_DECL_ENUM_CLASS(NAMESPACE, NAME, UNDERLYING)                                       \
+    enum class NAME : UNDERLYING;
+
+#define FORWARD_DECL_STRUCT(NAME)                                                                  \
+    struct NAME;
+
+#define FORWARD_DECL_CLASS(NAME)                                                                   \
+    class NAME;
+
+#define FORWARD_DECL_ENUM_STRUCT_NS(NAMESPACE, NAME, UNDERLYING)                                   \
     namespace NAMESPACE {                                                                          \
-    enum class NAME : UNDERLYING;                                                                  \
+        FORWARD_DECL_ENUM_STRUCT(NAME,UNDERLYING)                                                  \
     }
 
-#define FORWARD_DECL_STRUCT(NAMESPACE, NAME)                                                       \
+#define FORWARD_DECL_ENUM_CLASS_NS(NAMESPACE, NAME, UNDERLYING)                                    \
     namespace NAMESPACE {                                                                          \
-    struct NAME;                                                                                   \
+        FORWARD_DECL_ENUM_CLASS(NAME,UNDERLYING)                                                   \
     }
 
-#define FORWARD_DECL_CLASS(NAMESPACE, NAME)                                                        \
+#define FORWARD_DECL_STRUCT_NS(NAMESPACE, NAME, UNDERLYING)                                        \
     namespace NAMESPACE {                                                                          \
-    class NAME;                                                                                    \
+        FORWARD_DECL_STRUCT(NAME,UNDERLYING)                                                       \
+    }
+
+#define FORWARD_DECL_CLASS_NS(NAMESPACE, NAME, UNDERLYING)                                        \
+    namespace NAMESPACE {                                                                          \
+        FORWARD_DECL_CLASS(NAME,UNDERLYING)                                                       \
     }

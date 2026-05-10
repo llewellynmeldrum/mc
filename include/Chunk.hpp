@@ -5,6 +5,8 @@
 #include <ranges>
 #include "glmWrapper.hpp"
 #include "ChunkHelpers.hpp"
+#include "Vertex.hpp"
+constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
 constexpr const i64 CHUNK_XWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_HEIGHT = 16;                                        // x/y/z
@@ -123,3 +125,14 @@ BREAK_LOOP:
 //
 //
 }  // namespace ForEach
+struct ChunkSnapshot{
+    ivec3 world_pos;
+    const Chunk* chunk;
+    std::array<const Chunk*, NUM_NEIGHBOURS> surrounding_chunks;
+    const ChunkMetadata* meta;
+};
+struct ChunkMeshData{
+    ivec3 world_pos;
+    std::vector<Vertex> vertices;
+    std::vector<u32> indices;
+};

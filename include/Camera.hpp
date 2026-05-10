@@ -5,12 +5,11 @@
 #include "glm/geometric.hpp"
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
-
 #include "Geometry.hpp"
 // src/Camera.cpp
-using namespace glm;
 struct Frustum;
 struct Camera {
+
   public:
     Camera() = default;
     ~Camera() = default;
@@ -27,17 +26,40 @@ struct Camera {
     // Should probably only be those that are visible.
     inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
-    vec3 pos;       // world
-    vec3 front{};   // world
-    vec3 target{};  // world position of the target
-    vec3 facing{};  // the (inverse) direction the camera is facing
-    vec3 up{};
-    vec3 right{};
+    vec3 pos{};       // world
     f32  aspectRatio{};
     mat4 projection_matrix = mat4(1.0f);
 
-    CachedValue<mat4, vec3&, vec3, f32, f32> cached_viewMatrix{};
-    CachedValue<Frustum, const Camera*>      cached_frustum{};
+    CachedValue<mat4>    cached_viewMatrix{};
+    CachedValue<Frustum> cached_frustum{};
+
+    inline const Frustum& getFrustum(){
+        return cached_frustum.get([this](){
+            return Frustum(this);  // NOLINT
+        });
+    }
+    inline vec3 getFacing() const{
+        return vec3{
+            cos(radians(yaw)) * cos(radians(pitch)),
+            sin(radians(pitch)),
+            sin(radians(yaw)) * cos(radians(pitch)),
+        };
+    };
+
+    inline vec3 getFront() const {
+        return normalize(getFacing());
+    }
+    inline vec3 getUp() const{
+        return normalize(cross(getRight(), getFront()));
+    }
+    inline vec3 getRight() const{
+        return normalize(cross(getFront(), WorldUp()));
+    }
+    inline const mat4& getViewMatrix() { 
+        return cached_viewMatrix.get([this](){
+            return lookAt(pos, pos + getFront(), WorldUp());
+        });
+    }
 
     inline vec3 getRight() {
         const auto& v = getViewMatrix();
@@ -53,12 +75,14 @@ struct Camera {
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
 
-    inline mat4 getViewMatrix() { return cached_viewMatrix.get(front, pos, yaw, pitch); }
     inline mat4 getProjectionMatrix() {
         return glm::perspective(radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
     }
 
   private:
+    static inline constexpr vec3 WorldUp(){
+        return WorldVector(Direction::UP);
+    }
     ivec3 block_pos;  // read only var?
     void  moveUpward(f32 dt);
     void  moveDownward(f32 dt);

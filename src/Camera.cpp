@@ -4,27 +4,10 @@
 
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
+
 void Camera::setupCamera() {
     pos = { 0, 0, 6 };
     block_pos = pos;
-    up = { 0.0f, 1.0f, 0.0f };
-    front = { 0.0f, 0.0f, -1.0f };
-    right = { 1.0f, 0.0f, 0.0f };
-
-    std::function<mat4(vec3&, vec3, f32, f32)> callback = [](vec3& front, vec3 pos, f32 yaw,
-                                                             f32 pitch) -> mat4 {
-        vec3 facing{};
-        facing.x = cos(radians(yaw)) * cos(radians(pitch));
-        facing.y = sin(radians(pitch));
-        facing.z = sin(radians(yaw)) * cos(radians(pitch));
-        front = normalize(facing);
-        return lookAt(vec3(pos.x, pos.y, pos.z), pos + front, vec3(0.0f, 1.0f, 0.0f));
-    };
-    std::function<Frustum(const Camera*)> callback2 = [](const Camera* cam) -> Frustum {
-        return Frustum(cam);  // NOLINT
-    };
-    cached_viewMatrix = CachedValue<mat4, vec3&, vec3, f32, f32>(callback);
-    cached_frustum = CachedValue<Frustum, const Camera*>(callback2);
 }
 
 void Camera::move(Direction dir, f32 dt) {
@@ -103,13 +86,13 @@ void Camera::rotate(Direction dir, f32 dt) {
     cached_frustum.invalidate();
 }
 inline void Camera::moveUpward(f32 dt) {
-    pos += dt * (moveSpeed * up);
+    pos += dt * (moveSpeed * WorldUp());
 }
 inline void Camera::moveDownward(f32 dt) {
-    pos -= dt * (moveSpeed * up);
+    pos -= dt * (moveSpeed * WorldUp());
 }
 inline void Camera::moveForward(f32 dt) {
-    pos += dt * (moveSpeed * front);
+    pos += dt * (moveSpeed * getFront());
 }
 inline void Camera::yawLeft(f32 dt) {
     yaw -= dt * keyboard_sensitivity;
@@ -124,11 +107,11 @@ inline void Camera::pitchUp(f32 dt) {
     pitch += dt * keyboard_sensitivity;
 }
 inline void Camera::moveBackward(f32 dt) {
-    pos -= dt * (moveSpeed * front);
+    pos -= dt * (moveSpeed * getFront());
 }
 inline void Camera::moveLeft(f32 dt) {
-    pos -= dt * (normalize(cross(front, up)) * moveSpeed);
+    pos -= dt * (normalize(cross(getFront(), getUp())) * moveSpeed);
 }
 inline void Camera::moveRight(f32 dt) {
-    pos += dt * (normalize(cross(front, up)) * moveSpeed);
+    pos += dt * (normalize(cross(getFront(), getUp())) * moveSpeed);
 }

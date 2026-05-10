@@ -4,7 +4,6 @@
 #include "Types.hpp"
 
 #include <memory>
-constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
 
 struct ChunkMap {
     using HASH = hashChunkCoord;
@@ -26,6 +25,7 @@ struct ChunkMap {
     // world space bounding boxes for chunks (used in frustum culling)
     HashMap<ivec3, std::unique_ptr<AABB>, HASH> boundingBoxes;
 
+    const ChunkMetadata* getMetadata(ivec3 pos);
     const Chunk*   getNeighbourByOffset(ivec3 chunk_offset, ivec3 local_offset) const;
     ChunkGenerator generator;
     void           generate(ivec3 pos);

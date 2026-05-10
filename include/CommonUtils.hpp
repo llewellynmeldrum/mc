@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <functional>
 #include <string_view>
+#include <type_traits>
 #include "glmWrapper.hpp"
 
 // clang-format off
@@ -93,30 +94,36 @@ concept isSequenceContainer = requires(T t) {
 // and the first call to get() will set its default value.
 template <typename T, typename... Args>
 struct CachedValue {
-    // pass in an optional initial value, and a callable Generator
-    bool                      isStale = true;
-    std::function<T(Args...)> update;
-    T                         cached{};
-
-    CachedValue() = default;
-
-    template <typename Callable>
-    CachedValue(Callable&& f) : update(std::forward<Callable>(f)) {
-        isStale = true;
+    void invalidate() noexcept{
+        isStale = true; 
     }
 
-    const T& get(Args... vargs) & {
+    T cached{};
+    bool        isStale{};
+    CachedValue()=default;
+    ~CachedValue()=default;
+
+
+
+    template <typename UpdateFn>
+    const T& get(UpdateFn&& update) {
         if (isStale) {
-            // LOG_DEBUG("isStale, updating.");
-            cached = update(vargs...);
+            const auto& update_cached = std::forward<UpdateFn>(update);
+            cached = update_cached();
             isStale = false;
-        } else {
-            // LOG_DEBUG("cached! no update.");
         }
         return cached;
     }
-    void invalidate() { isStale = true; }
 };
+
+template <class StoreType, class UpdateFn>
+inline CachedValue<StoreType> 
+make_cached_value(UpdateFn&& update) {
+    using UpdateFnBaseType = std::remove_cvref<UpdateFn>;
+    return CachedValue<StoreType, UpdateFnBaseType>
+        (std::forward<UpdateFn>(update));
+}
+
 static inline f32 randf(f32 min, f32 max) {
     return min + (random() / (f32)RAND_MAX) * (max - min);
 }

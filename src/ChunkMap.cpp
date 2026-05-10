@@ -9,6 +9,9 @@ std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 po
     std::array<const Chunk*, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
     return res;
 }
+const ChunkMetadata* ChunkMap::getMetadata(ivec3 pos){
+    return metadata.at(pos).get();
+}
 
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.
@@ -40,7 +43,7 @@ void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
 }
 
 void ChunkMap::generate(ivec3 chunk_coord) {
-    LOG_DEBUG("Generating chunk for {}", dbg_fmt(chunk_coord));
+    //    LOG_DEBUG("Generating chunk for {}", dbg_fmt(chunk_coord));
     if (data.contains(chunk_coord)) {
         LOG_WARN("Chunk generation requested on chunk that already exists.");
     } else {

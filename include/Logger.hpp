@@ -1,6 +1,7 @@
 #pragma once
 
 #define INCLUDE_LOGGER_LAST
+// MAKE A PRECOMPILED HEADER THIS IS SO FUCKING SLOW TO COMPILE
 #include <cxxabi.h>
 #include <memory>
 #include <string>

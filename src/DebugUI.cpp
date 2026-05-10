@@ -78,7 +78,7 @@ void DebugUI::ShowOverlay(bool* p_open) {
     window_flags |= ImGuiWindowFlags_NoMove;
     IG::SetNextWindowBgAlpha(0.35f);  // Transparent background
     std::string facing_str{};
-    const vec3& facing = ctx->cam.front;
+    const vec3& facing = ctx->cam.getFront();
     auto        approx_eq = [](auto x, auto target) {
         const f32 tolerance = 0.1;
         return x >= (target - tolerance) && x <= (target + tolerance);

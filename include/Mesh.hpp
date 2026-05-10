@@ -9,7 +9,7 @@
 #include "Shaders.hpp"
 #include "Vertex.hpp"
 
-FORWARD_DECL_ENUM_STRUCT(gl, GLenum, unsigned int)
+FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 
 // meshes own PrimitiveMode() -> GL_TRIANGLES, GL_LINES, GL_STRIP
 // VBO/EBO's own StorageUsage() -> GL_ELEMENT_ARRAY_BUFFER, GL_ARRAY_BUFFER
@@ -32,6 +32,7 @@ struct MeshBase {
 
 struct IndexedMesh {
     DECL_MOVE_ONLY(IndexedMesh);
+    IndexedMesh() = default;
     ~IndexedMesh() = default;
     IndexedMesh(std::vector<Vertex> vertices, std::vector<u32> offsets) {
         IndexedMesh::setupMesh(vertices, offsets);
@@ -41,8 +42,8 @@ struct IndexedMesh {
     void draw() const;
 
     i64           offset_count{ 0 };  // if EBO, index count.
-    VertexBuffer  vbo;
     VertexArray   vao;
+    VertexBuffer  vbo;
     ElementBuffer ebo;
 
   private:
