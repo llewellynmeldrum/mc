@@ -4,7 +4,13 @@
 #include "glmWrapper.hpp"
 #include <memory>
 
+#include "Camera.hpp"
 struct World {
+    World(World const&) = delete;
+    World& operator=(World const&) = delete;
+
+    World(World&&) = default;
+    World& operator=(World&&) = default;
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
     static ivec3         worldToChunkCoord(vec3 worldPos);
     static vec3          chunkToWorldPos(ivec3 chunkPos);
@@ -13,35 +19,15 @@ struct World {
     // make chunkMap itself use unique ptrs
     ChunkMap chunkMap;
 
-    inline std::vector<ChunkView> filterChunksWithinFrustum(std::span<ChunkView> input_chunks,
-                                                            const Frustum&       frustum) {
-        std::vector<ChunkView> res;
-        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
-            if (frustum.isAABBInside(*chunkMap.boundingBoxes[chunk_pos])) {
-                res.emplace_back(chunk_pos, chunk.get());
-            }
-        }
-        return res;
+    inline std::vector<ChunkView> chunksInRadius(ivec3 origin, u32 radius) {
+    std::vector<ChunkView> out;
+
+    for (auto const& pair : chunkMap.data) {
+        out.emplace_back(pair.first, pair.second.get());
     }
-    inline std::vector<ChunkView> filterChunksOutsideFrustum(std::span<ChunkView> input_chunks,
-                                                             const Frustum&       frustum) {
-        std::vector<ChunkView> res;
-        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
-            if (!frustum.isAABBInside(*chunkMap.boundingBoxes[chunk_pos])) {
-                res.emplace_back(chunk_pos, chunk.get());
-            }
-        }
-        return res;
-    }
-    inline std::vector<ChunkView> getDirtyChunksInRadius(ivec3 origin, u32 radius) {
-        std::vector<ChunkView> res;
-        for (const auto& [chunk_pos, chunk] : chunkMap.data) {
-            if (chunkMap.isDirty(chunk_pos)) {
-                res.emplace_back(chunk_pos, chunk.get());
-            }
-        }
-        return res;
-    }
+
+    return out;
+}
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(vec3 world_pos) const;
 

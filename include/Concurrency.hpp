@@ -43,6 +43,12 @@ struct Queue{
         }
         cv.notify_one();
     }
+    std::size_t wait_size(){
+        {
+            std::lock_guard lock(mtx);
+            return q.size();
+        }
+    }
 
     template<typename ...Args>
     void wait_emplace(Args&&... vargs){

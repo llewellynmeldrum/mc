@@ -2,7 +2,6 @@
 
 #include <type_traits>
 #include <cstdlib>
-#include "Types.hpp"
 template <typename T>
 concept Vec3Like = requires(T v) {
     { v.x } -> std::convertible_to<float>;

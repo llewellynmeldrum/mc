@@ -12,6 +12,9 @@ std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 po
 const ChunkMetadata* ChunkMap::getMetadata(ivec3 pos){
     return metadata.at(pos).get();
 }
+const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
+    return boundingBoxes.at(chunk_offset).get();
+}
 
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.

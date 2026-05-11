@@ -1,3 +1,7 @@
+
+#include "DebugFormat.hpp"
+#include "DebugFormatSpecializations.hpp"
+
 #include "App.hpp"
 #include "Block.hpp"
 #include "Chunk.hpp"
@@ -12,33 +16,30 @@
 
 constexpr const i32 RENDER_DIST = 4;
 
-// ThreadSafe queue
-
-
-ChunkSnapshot make_chunk_snapshot(ivec3 chunk_pos){
-    return {
-
-        // TODO: MAKE
+auto needs_meshing = [](const World& world){
+    return [&world](const ChunkView & pair) {
+        const auto& [chunk_coord, ptr] = pair;
+        return world.chunkMap.isDirty(chunk_coord);
     };
-}
-
-
-// TODO: put meshing off thread this shit is cancer
+};
+auto in_frustum = [](const Frustum& frustum, const World& world) {
+    return [frustum, &world](const ChunkView & pair) {
+        const auto& [chunk_coord, ptr] = pair;
+        return frustum.isAABBInside(*world.chunkMap.getBoundingBox(chunk_coord));
+    };
+};
 void Context::drawScene() {
     bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
         ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-        ivec3 camera_chunk_pos = World::worldToChunkCoord(cam.pos);
-        auto  chunk_positions = world.getDirtyChunksInRadius(camera_chunk_pos, RENDER_DIST);
-        LOG_EXPR(chunk_positions.size());
-        auto chunksWithinFrustum =
-            world.filterChunksWithinFrustum(chunk_positions, cam.getFrustum());
-        // ivec3 world_pos;
-        // Chunk* chunk;
-        // std::array<const Chunk*, NUM_NEIGHBOURS> surrounding_chunks;
-        // ChunkMetadata meta;
-        for (const auto& [chunk_pos, chunk]: chunk_positions){
+        auto candidate_chunkviews = 
+            world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
+            | std::views::filter(needs_meshing(world)) 
+            | std::views::filter(in_frustum(cam.getFrustum(), world))
+            | std::ranges::to<std::vector<ChunkView>>();
+
+        for (const auto& [chunk_pos, chunk]: candidate_chunkviews){
             auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
             auto* meta = world.chunkMap.getMetadata(chunk_pos);
             rend.mesher.toBeMeshed.wait_emplace(chunk_pos, chunk, surrounding, meta);

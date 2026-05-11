@@ -92,21 +92,21 @@ concept isSequenceContainer = requires(T t) {
 // Caller must use .invalidate() when the cached value could be invalid, and any subsequent calls to
 // .get() will call the update() function supplied in the ctor. By default, T cached is unitialized,
 // and the first call to get() will set its default value.
-template <typename T, typename... Args>
+template <typename T>
 struct CachedValue {
     void invalidate() noexcept{
         isStale = true; 
     }
 
-    T cached{};
-    bool        isStale{};
+    mutable T cached{};
+    mutable bool        isStale{};
     CachedValue()=default;
     ~CachedValue()=default;
 
 
 
     template <typename UpdateFn>
-    const T& get(UpdateFn&& update) {
+    const T& get(UpdateFn&& update) const {
         if (isStale) {
             const auto& update_cached = std::forward<UpdateFn>(update);
             cached = update_cached();
@@ -116,13 +116,6 @@ struct CachedValue {
     }
 };
 
-template <class StoreType, class UpdateFn>
-inline CachedValue<StoreType> 
-make_cached_value(UpdateFn&& update) {
-    using UpdateFnBaseType = std::remove_cvref<UpdateFn>;
-    return CachedValue<StoreType, UpdateFnBaseType>
-        (std::forward<UpdateFn>(update));
-}
 
 static inline f32 randf(f32 min, f32 max) {
     return min + (random() / (f32)RAND_MAX) * (max - min);

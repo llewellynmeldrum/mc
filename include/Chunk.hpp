@@ -6,6 +6,8 @@
 #include "glmWrapper.hpp"
 #include "ChunkHelpers.hpp"
 #include "Vertex.hpp"
+#include <unordered_map>
+#include <utility>
 constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
 constexpr const i64 CHUNK_XWIDTH = 16;                                        // x/y/z
 constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
@@ -124,12 +126,34 @@ BREAK_LOOP:
 //
 //
 //
+
 }  // namespace ForEach
+
+
+
+
 struct ChunkSnapshot{
+
     ivec3 world_pos;
     const Chunk* chunk;
     std::array<const Chunk*, NUM_NEIGHBOURS> surrounding_chunks;
     const ChunkMetadata* meta;
+    std::size_t id;
+
+    ChunkSnapshot(
+        ivec3 _world_pos,
+        const Chunk* _chunk,
+        std::array<const Chunk*, NUM_NEIGHBOURS> _surrounding_chunks,
+        const ChunkMetadata* _meta)
+            : world_pos(_world_pos),
+            chunk(_chunk),
+            surrounding_chunks(_surrounding_chunks),
+            meta(_meta),
+            id(std::hash<glm::ivec3>{}(_world_pos))
+    {}
+    auto operator<=>(this const ChunkSnapshot&& lhs, const ChunkSnapshot&& rhs){
+        return lhs.id<=>rhs.id;
+    };
 };
 struct ChunkMeshData{
     ivec3 world_pos;

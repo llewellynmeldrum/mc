@@ -130,6 +130,11 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("Vertex Count: %llu", ctx->rend.debug.vertex_count);
         IG::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
         IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
+
+        IG::Separator();
+        IG::Text("Concurrency");
+        IG::Text("Mesh queue size: %lu", ctx->rend.mesher.chunkMeshData.wait_size());
+        // TODO: mesh queue is getting oversaturated
     }
     IG::End();
     struct Segment {

@@ -6,6 +6,7 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 #include "Geometry.hpp"
+#include <memory>
 // src/Camera.cpp
 struct Frustum;
 struct Camera {
@@ -33,10 +34,12 @@ struct Camera {
     CachedValue<mat4>    cached_viewMatrix{};
     CachedValue<Frustum> cached_frustum{};
 
-    inline const Frustum& getFrustum(){
-        return cached_frustum.get([this](){
-            return Frustum(this);  // NOLINT
-        });
+    inline const Frustum& getFrustum() const {
+        return cached_frustum.get(
+                [this](){
+                    return Frustum(this);  // NOLINT
+                }
+        );
     }
     inline vec3 getFacing() const{
         return vec3{

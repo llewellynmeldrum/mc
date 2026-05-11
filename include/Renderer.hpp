@@ -10,6 +10,8 @@
 struct Renderer {
     Renderer() = default;
     ~Renderer() = default;
+    TextureAtlas atlas{ "resources/textures/new_textures.png" };
+    ChunkMesher  mesher;
     void setupRenderer();
     void draw(const mat4& view, const mat4& proj);
     void clear(const vec4 clear_color);
@@ -22,7 +24,7 @@ struct Renderer {
 
     void updateViewport(int x, int y, int w, int h);
 
-    std::unordered_map<ivec3, Mesh, hashChunkCoord> visibleChunkMeshes;
+    std::unordered_map<ivec3, Mesh> visibleChunkMeshes;
 
     struct {
         bool        wireframe{ false };
@@ -37,8 +39,6 @@ struct Renderer {
         }
         f32 blockOverlayOpacity{ 0.0 };
     } debug;
-    TextureAtlas atlas{ "resources/textures/new_textures.png" };
-    ChunkMesher  mesher;
 
   private:
     ShaderProgram prog{};

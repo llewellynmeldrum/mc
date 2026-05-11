@@ -1,30 +1,34 @@
 #include "Chunk.hpp"
 #include "Geometry.hpp"
 #include "ChunkGenerator.hpp"
-#include "Types.hpp"
 
 #include <memory>
 
 struct ChunkMap {
-    using HASH = hashChunkCoord;
     ChunkMap() = default;
     ~ChunkMap() = default;
+    ChunkMap(ChunkMap const&) = delete;
+    ChunkMap& operator=(ChunkMap const&) = delete;
+
+    ChunkMap(ChunkMap&&) = default;
+    ChunkMap& operator=(ChunkMap&&) = default;
 
     // chunk map
-    HashMap<ivec3, std::unique_ptr<Chunk>, HASH> data;
+    std::unordered_map<ivec3, std::unique_ptr<Chunk>> data;
 
     // chunk metadata map
-    HashMap<ivec3, std::unique_ptr<ChunkMetadata>, HASH> metadata;
+    std::unordered_map<ivec3, std::unique_ptr<ChunkMetadata>> metadata;
 
     // chunk neighbour map
-    HashMap<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>, HASH> neighbours;
+    std::unordered_map<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
 
     // whether or not a chunk needs to be remeshed
-    HashMap<ivec3, bool, HASH> is_dirty;
+    std::unordered_map<ivec3, bool> is_dirty;
 
     // world space bounding boxes for chunks (used in frustum culling)
-    HashMap<ivec3, std::unique_ptr<AABB>, HASH> boundingBoxes;
+    std::unordered_map<ivec3, std::unique_ptr<AABB>> boundingBoxes;
 
+    const AABB*   getBoundingBox(ivec3 chunk_offset) const;
     const ChunkMetadata* getMetadata(ivec3 pos);
     const Chunk*   getNeighbourByOffset(ivec3 chunk_offset, ivec3 local_offset) const;
     ChunkGenerator generator;

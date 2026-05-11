@@ -57,7 +57,7 @@ struct AABB {
 struct Frustum {
     Frustum ()=default;
     ~Frustum ()=default;
-    Frustum (const Camera* cam);
+    Frustum (const Camera * cam);
     void update(this auto& self, const Camera* cam);
 
     inline bool isAABBInside(const AABB& v)const {
