@@ -1,6 +1,5 @@
 #pragma once
-#include <cstddef>
-#include <stdint.h>
+#include <cstdint>
 #include <limits>
 typedef uint64_t u64;
 typedef uint32_t u32;

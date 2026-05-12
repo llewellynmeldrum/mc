@@ -98,15 +98,25 @@ void App::setup() {
 
 void App::loop() {
     ctx.time.update();
-    ctx.input.poll();
-    ctx.handleInputs();
 
-    ctx.rend.clear({ 0.25, 0.5, 0.85, 1.0 });
-    ctx.drawScene();
+    {
+        ctx.input.poll();
+        ctx.handleInputs(); 
+        ctx.time.bench_input();
+    }
 
-    ctx.ui.drawDebugUI();
-    ctx.ui.render();
-    ctx.win.swapBuffers();
+    {
+        ctx.rend.clear({ 0.25, 0.5, 0.85, 1.0 });
+        ctx.drawScene(); 
+        ctx.ui.drawDebugUI(); 
+        ctx.time.bench_draw();
+    }
+
+    {
+        ctx.ui.render();
+        ctx.win.swapBuffers();
+        ctx.time.bench_render();
+    }
 }
 
 bool App::shouldClose() {

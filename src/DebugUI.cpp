@@ -11,6 +11,7 @@
 #include "GLFWWrapper.hpp"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "Profiling.hpp"
 #include <optional>
 using namespace glm;
 namespace IG = ImGui;  // namespace alias for convinience
@@ -119,10 +120,21 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("Performance:");
         const auto& fps_rb = ctx->time.framerate_ringbuf;
         std::string one_pcnt_low = std::format("1% low: {:2.1f}", fps_rb.n_percent_low(1.0));
-        IG::Text("Frametime: %2.2lfms", 1000.0 / fps_rb.avg());
         IG::Text("FPS: %2.1lf", fps_rb.avg());
         IG::SameLine();
-        IG::PlotLines("##frameratePlot", fps_rb.data(), fps_rb.size(), 0, one_pcnt_low.c_str());
+        IG::Text("(%s)",one_pcnt_low.c_str());
+        auto plotFrametime = [](const auto& fps_rb, const std::string name="Frametime"){
+            IG::Text("%s: %2.2lfms", name.c_str(), 1000.0 / fps_rb.avg());
+            IG::SameLine();
+            std::string id = "##"+name;
+            IG::PlotLines(id.c_str(), fps_rb.data(), fps_rb.size(), 0);
+        };
+        plotFrametime(ctx->time.framerate_ringbuf,      "Frametime");
+        plotFrametime(ctx->time.inp_framerate_ringbuf,  "Input    ");
+//        plotFrametime(ctx->time.upd_framerate_ringbuf);
+        plotFrametime(ctx->time.drw_framerate_ringbuf,  "Draw     ");
+        plotFrametime(ctx->time.ren_framerate_ringbuf,  "Render   ");
+
         IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
         IG::Separator();
@@ -132,8 +144,13 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
 
         IG::Separator();
+        IG::Text("Process metrics");
+        IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
+
+        IG::Separator();
         IG::Text("Concurrency");
-        IG::Text("Mesh queue size: %lu", ctx->rend.mesher.chunkMeshData.wait_size());
+        IG::Text("MeshAwaitingUpload queue size: %lu", ctx->rend.mesher.chunkMeshData.wait_size());
+        IG::Text("ivec3AwaitingMeshing queue size: %lu", ctx->rend.mesher.toBeMeshed.wait_size());
         // TODO: mesh queue is getting oversaturated
     }
     IG::End();

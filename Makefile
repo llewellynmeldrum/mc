@@ -99,7 +99,7 @@ run-ausan: ausan
 # --------------------------------------------------
 # Utilities
 
-compile-commands: configure
+db: configure
 	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json
 
 clean:
