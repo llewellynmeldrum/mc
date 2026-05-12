@@ -21,9 +21,10 @@ struct World {
 
     inline std::vector<ChunkView> chunksInRadius(ivec3 origin, u32 radius) {
         std::vector<ChunkView> out;
-
-        for (auto const& pair : chunkMap.data) {
-            out.emplace_back(pair.first, pair.second.get());
+        for (auto const& [coord, uptr]: chunkMap.data) {
+            if (glm::distance((vec3)origin,(vec3)coord) < radius){
+                out.emplace_back(coord, uptr.get());
+            }
         }
 
         return out;

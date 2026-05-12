@@ -16,6 +16,9 @@ const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
     return boundingBoxes.at(chunk_offset).get();
 }
 
+ChunkStatus ChunkMap::getChunkState(ivec3 chunk_offset) const{
+    return chunkState.at(chunk_offset);
+}
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.
 void ChunkMap::updateNeighbourMap(ivec3 pos) {
@@ -56,18 +59,26 @@ void ChunkMap::generate(ivec3 chunk_coord) {
 
         updateNeighbourMap(chunk_coord);
         updateBoundingBoxesMap(chunk_coord);
-        makeDirty(chunk_coord);
+        chunkState.emplace(chunk_coord, ChunkStatus::DIRTY);
     }
 }
 
 bool ChunkMap::isDirty(ivec3 pos) const {
-    auto it = is_dirty.find(pos);
-    return it != is_dirty.end() ? (*it).second : false;
+    return chunkState.at(pos)==ChunkStatus::DIRTY;
+}
+bool ChunkMap::isClean(ivec3 pos) const {
+    return chunkState.at(pos)==ChunkStatus::CLEAN;
+}
+bool ChunkMap::isMeshing(ivec3 pos) const {
+    return chunkState.at(pos)==ChunkStatus::CURRENTLY_MESHING;
 }
 
-void ChunkMap::makeDirty(ivec3 pos) {
-    is_dirty.insert_or_assign(pos, true);
+void ChunkMap::markDirty(ivec3 pos) {
+    chunkState.insert_or_assign(pos,ChunkStatus::DIRTY);
 }
-void ChunkMap::makeClean(ivec3 pos) {
-    is_dirty.insert_or_assign(pos, false);
+void ChunkMap::markClean(ivec3 pos) {
+    chunkState.insert_or_assign(pos,ChunkStatus::CLEAN);
+}
+void ChunkMap::markMeshing(ivec3 pos) {
+    chunkState.insert_or_assign(pos,ChunkStatus::CURRENTLY_MESHING);
 }

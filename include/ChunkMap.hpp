@@ -5,9 +5,9 @@
 #include <memory>
 
 enum struct ChunkStatus{
-    NOT_GENERATED,           // not generated yet
-    ENQUEUED_FOR_MESHING,   // i.e do not add it to the queue (unless a sooner mesh has appeared?)
-    MESHED_CLEAN,             // i.e no need to mesh
+    DIRTY,
+    CURRENTLY_MESHING,
+    CLEAN,
 };
 // should the mesh queue be a prio queue?
 struct ChunkMap {
@@ -22,6 +22,9 @@ struct ChunkMap {
     // chunk map
     std::unordered_map<ivec3, std::unique_ptr<Chunk>> data;
 
+    // chunk state map
+    std::unordered_map<ivec3, ChunkStatus> chunkState;
+
     // chunk metadata map
     std::unordered_map<ivec3, std::unique_ptr<ChunkMetadata>> metadata;
     const ChunkMetadata* getMetadata(ivec3 pos)const ;
@@ -33,8 +36,11 @@ struct ChunkMap {
     // whether or not a chunk needs to be remeshed
     std::unordered_map<ivec3, bool> is_dirty;
     bool isDirty(ivec3 pos) const;
-    void makeDirty(ivec3 pos);
-    void makeClean(ivec3 pos);
+    bool isClean(ivec3 pos) const;
+    bool isMeshing(ivec3 pos) const;
+    void markDirty(ivec3 pos);
+    void markClean(ivec3 pos);
+    void markMeshing(ivec3 pos);
 
     // world space bounding boxes for chunks (used in frustum culling)
     std::unordered_map<ivec3, std::unique_ptr<AABB>> boundingBoxes;
@@ -43,6 +49,7 @@ struct ChunkMap {
     ChunkGenerator generator;
     
     void           generate(ivec3 pos);
+    ChunkStatus getChunkState(ivec3 chunk_offset) const;
     const Chunk*   getNeighbourByOffset(ivec3 chunk_offset, ivec3 local_offset) const;
 private:
     void           updateNeighbourMap(ivec3 pos);

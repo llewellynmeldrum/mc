@@ -14,15 +14,22 @@
 #include "Profiler.hpp"
 #include <ranges>
 
-constexpr const i32 RENDER_DIST = 4;
-
+constexpr const i32 RENDER_DIST = 16;
+// TODO: 
+// Create some sort of chunk debug view, which renders on top of meshes.
+// This debug view will show a different color for :
+// -> A currently meshing chunk (yellow)
+// -> A dirty chunk             (red)
+// -> A clean chunk             (green)
+// Perhaps just an opaque cube that sits on top of the chunk.
 
 inline auto needs_meshing = [](const World& world){
     return [&world](const ChunkView & pair) {
         const auto& [chunk_coord, ptr] = pair;
-        return world.chunkMap.isDirty(chunk_coord);
+        return world.chunkMap.getChunkState(chunk_coord) == ChunkStatus::DIRTY;
     };
 };
+
 inline auto in_frustum = [](const Frustum& frustum, const World& world) {
     return [frustum, &world](const ChunkView & pair) {
         const auto& [chunk_coord, ptr] = pair;
@@ -30,40 +37,33 @@ inline auto in_frustum = [](const Frustum& frustum, const World& world) {
     };
 };
 
-inline auto is_dirty = [](const World& world) {
-    return [&world](const ChunkView & pair) {
-        const auto& [chunk_coord, ptr] = pair;
-        return world.chunkMap.isDirty(chunk_coord);
-    };
-};
 void Context::drawScene() {
-    if (cam.requestsMeshRegen) {
-        ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
+    ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-        auto candidate_chunkviews = 
-            world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
-            | std::views::filter(is_dirty(world)) 
-            | std::views::filter(needs_meshing(world)) 
-            | std::views::filter(in_frustum(cam.getFrustum(), world))
-            | std::ranges::to<std::vector<ChunkView>>();
+    auto candidate_chunkviews = 
+        world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
+        | std::views::filter(needs_meshing(world)) 
+//        | std::views::filter(in_frustum(cam.getFrustum(), world))
+        | std::ranges::to<std::vector<ChunkView>>();
 
-        // BUG: No check before pushing into queue for duplicate chunks
-        for (const auto& [chunk_pos, chunk]: candidate_chunkviews){
-            auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
-            auto* meta = world.chunkMap.getMetadata(chunk_pos);
-            // this doesnt HAVE to be a wait emplace, i think.
-            // We must however only mark a candidate chunk as MESHING if the try_emplace returns true
-            bool success = rend.mesher.toBeMeshed.try_emplace(chunk_pos, chunk, surrounding, meta);
-            if (success){
-                // mark ChunkState::MESHING
-            }else{
-                // stop submitting this frame
-                break;
-            }
+    // BUG: i have not verified that the frustum is working properly
+    std::size_t enqueued_for_meshing = 0;
+    for (const auto& [chunk_pos, chunk]: candidate_chunkviews){
+        if (world.chunkMap.isMeshing(chunk_pos)){
+            continue;
         }
-
-        cam.requestsMeshRegen = false;
+        auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
+        auto* meta = world.chunkMap.getMetadata(chunk_pos);
+        bool success = rend.mesher.toBeMeshed.try_emplace(chunk_pos, chunk, surrounding, meta);
+        if (success){
+            enqueued_for_meshing++;
+            world.chunkMap.markMeshing(chunk_pos);
+        }else{
+            // stop submitting this frame
+            break;
+        }
     }
+    LOG_DEBUG("enqueued_for_meshing this frame:{}",enqueued_for_meshing);
     constexpr std::size_t MaxMeshUploadsPerFrame = 12;
     for (std::size_t mesh_count = 0; mesh_count < MaxMeshUploadsPerFrame; mesh_count++){
         auto meshData = rend.mesher.chunkMeshData.try_dequeue();
@@ -74,7 +74,7 @@ void Context::drawScene() {
         // im pretty sure im replacing a bunch of the same meshes
         // I need to guarantee meshes are not yet in the queue, before enqueing them.
         rend.uploadMesh(chunk_pos, vertices, indices);
-        world.chunkMap.makeClean(chunk_pos);
+        world.chunkMap.markClean(chunk_pos);
     }
     rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
     static bool first_draw = true;

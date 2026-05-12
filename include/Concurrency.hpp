@@ -56,9 +56,9 @@ struct Queue{
     template<typename ...Args>
     inline bool try_emplace(Args&&... vargs){
         {
-            std::unique_lock lock(mtx, std::try_to_lock);
+            std::unique_lock lock(mtx);
 
-            if (!lock.owns_lock() || q.size()>=capacity){
+            if (q.size()>=capacity){
                 return false;
             }
             q.emplace_back(vargs...);
@@ -90,9 +90,9 @@ struct Queue{
     // 1. immediately able to grab the lock
     // 2. queue size>0
     inline std::optional<T> try_dequeue(){
-        std::unique_lock lock(mtx, std::try_to_lock);
+        std::unique_lock lock(mtx);
 
-        if (!lock.owns_lock() || q.empty()){
+        if (q.empty()){
             return std::nullopt;
         }
         const auto res = std::make_optional(q.front());
