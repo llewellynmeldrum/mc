@@ -94,6 +94,7 @@ void Window::scheduleClose() {
 }
 
 static void init_glFunctionLoader() {
+    std::println(stderr, "testing\n");
     LOG_DEBUG("setup gl function loader");
     // at the moment, using glbinding, but i think this is a reasonable thing to swap out
     glbinding::initialize(glfwGetProcAddress);

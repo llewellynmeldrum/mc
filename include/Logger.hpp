@@ -1,9 +1,6 @@
 #pragma once
 
-#include <source_location>
-#define THREAD_SAFE_LOGGING 
 #define INCLUDE_LOGGER_LAST
-// MAKE A PRECOMPILED HEADER THIS IS SO FUCKING SLOW TO COMPILE
 #include <cxxabi.h>
 #include <memory>
 #include <string>
@@ -55,72 +52,29 @@ inline LogLevel ERROR{ "[ERROR]", fmt::red, 3 };
 inline LogLevel FATAL{ "[FATAL]", fmt::green, 4 };
 inline LogLevel COUNT{ "[COUNT]", fmt::red, 5 };
 
-#include <mutex>
-#if defined(THREAD_SAFE_LOGGING)
-// #warning "Thread safe logging enabled! expect poor performance or out of order logs" 
-inline std::mutex __log_mtx;
-template<typename ...Args>
-void LOG_LVL(LogLevel lvl, std::source_location loc, const std::string_view fmt_str, Args... vargs){
-        std::lock_guard lock (__log_mtx);
-        std::print("{:03.3f} ", ms_since_start() / 1000.0); 
+#define LOG_LVL(lvl, file, ln, fmt_str, ...)                                                       \
+    do {                                                                                           \
+        std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
+        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::clear);                               \
+        std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::clear);                              \
+        std::println(fmt_str, ##__VA_ARGS__);                                                      \
+    } while (0)
 
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::clear);
-        std::print("{}{}:{:<3}{} ", fmt::bold, loc.file_name(), loc.line(), fmt::clear);
-        std::println("{}",std::vformat(fmt_str, std::make_format_args(vargs...)));
-}
-#else
-void LOG_LVL(LogLevel lvl, std::string_view file, std::size_t ln, std::string_view fmt_str, Args... vargs){
-        std::print("{:03.3f} ", ms_since_start() / 1000.0);
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::clear);
-        std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::clear);
-        std::println(fmt_str, std::forward<Args>(vargs)...);
-}
-#endif 
+#define LOG_DEBUG(fmt, ...) LOG_LVL(DEBUG, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...) LOG_LVL(INFO, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_NOTICE(fmt, ...) LOG_LVL(NOTICE, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...) LOG_LVL(WARN, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_LVL(ERROR, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_FATAL(fmt, ...) LOG_LVL(FATAL, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
 
-#define LOG_DEBUG(fmt, ...)\
-IMPL_LOG_DEBUG(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template<typename ...Args> void IMPL_LOG_DEBUG(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(DEBUG, loc, fmt, vargs...);
-}
-
-#define LOG_INFO(fmt, ...)\
-IMPL_LOG_INFO(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template <typename ...Args> void IMPL_LOG_INFO(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(INFO, loc, fmt, vargs...);
-}
-
-#define LOG_NOTICE(fmt, ...)\
-IMPL_LOG_NOTICE(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template <typename ...Args> void IMPL_LOG_NOTICE(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(NOTICE, loc, fmt, vargs...);
-}
-
-#define LOG_WARN(fmt, ...)\
-IMPL_LOG_WARN(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template <typename ...Args> void IMPL_LOG_WARN(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(WARN, loc, fmt, vargs...);
-}
-
-#define LOG_ERROR(fmt, ...)\
-IMPL_LOG_ERROR(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template <typename ...Args> void IMPL_LOG_ERROR(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(ERROR, loc, fmt, vargs...);
-}
-
-#define LOG_FATAL(fmt, ...)\
-IMPL_LOG_FATAL(std::source_location::current(), fmt, ##__VA_ARGS__) 
-template <typename ...Args> void IMPL_LOG_FATAL(std::source_location loc, std::string_view fmt, Args... vargs){
-    LOG_LVL(FATAL, loc, fmt, vargs...);
-}
-
-
-inline void LOG_EXIT(std::size_t code, std::source_location loc = std::source_location::current()){
-   if (code == EXIT_SUCCESS)
-       LOG_LVL(NOTICE, loc, "Exiting with code {}.", code);
-   else
-       LOG_LVL(FATAL, loc, "Exiting with code {}.", code);
-   exit(code);
-}
+#define LOG_EXIT(code)                                                                             \
+    do {                                                                                           \
+        if (code == EXIT_SUCCESS)                                                                  \
+            LOG_LVL(NOTICE, __FILE_NAME__, __LINE__, "Exiting with code {}.", code);               \
+        else                                                                                       \
+            LOG_LVL(FATAL, __FILE_NAME__, __LINE__, "Exiting with code {}.", code);                \
+        exit(code);                                                                                \
+    } while (0)
 
 template <typename T>
 constexpr std::string fmt_expr(const char* identifier, T&& expr) {

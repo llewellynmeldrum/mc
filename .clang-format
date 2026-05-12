@@ -1,3 +1,4 @@
+DisableFormat: true
 BasedOnStyle: LLVM
 
 ColumnLimit: 100                  # LLVM uses 80
@@ -18,3 +19,5 @@ AlignConsecutiveDeclarations: true
 AllowShortFunctionsOnASingleLine: InlineOnly
 BreakTemplateDeclarations: Yes
 SortIncludes: Never
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: CurrentLine

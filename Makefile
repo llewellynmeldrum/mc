@@ -1,164 +1,108 @@
-.PHONY: all build run clean asan lsan tsan ausan debug db
-
-all: run
-# --------------------------------------------------
-# Make flags
-MAKEFLAGS += -j8
-#MAKEFLAGS += --ignore-errors
-
-SHELL:= /bin/zsh
-
-GLBINDING  := external/glbinding
-GLM := external/OpenGL-Mathematics
-STB_IMAGE:= external/stb_image
-KHR := external/KHR
-FASTNOISELITE := external/FastNoiseLite
-IMGUI := external/imgui
-UNAME := $(shell uname)
-ifeq ($(UNAME),Darwin)
-	DEBUGGER 	:= lldb
-
-else ifeq ($(UNAME),Linux)
-	DEBUGGER := gdb
-	$(errror setup lvvm prefix)
-else
-	$(error Unsupported platform.)
-endif
+# CMake Wrapper Makefile
 # --------------------------------------------------
 
+BUILD_DIR      := build
+BUILD_FAST     := build-fast
+BUILD_ASAN     := build-asan
+BUILD_TSAN     := build-tsan
+BUILD_AUSAN    := build-ausan
 
-db:
-	@mv compile_commands.json compile_commands.json.bak
-	compiledb -n make clean all
-# --------------------------------------------------
+GENERATOR      := Ninja
+CXX            := /opt/gcc-16/bin/g++
+APP            := mc
 
-EXE := ./bin/mc
-CXX         :=/opt/gcc-16/bin/g++
-CXXFLAGS    :=-std=c++23
+JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
+BUILD_FLAGS := -j $(JOBS)
 
-APP_SRC := $(shell find ./src -type f -name '*.cpp')
-APP_OBJ := $(patsubst ./src/%.cpp,./build/%.o,$(APP_SRC))
+CMAKE_COMMON := -G "$(GENERATOR)" \
+	-DCMAKE_CXX_COMPILER="$(CXX)" \
+	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-IMGUI_SRC:= $(shell find ./external/imgui -maxdepth 1 -type f -name '*.cpp')
-IMGUI_OBJ:= $(patsubst ./external/imgui/%.cpp,./build/%.o,$(IMGUI_SRC))
+.PHONY: help configure build run clean rebuild \
+        fast run-fast \
+        debug run-debug \
+        asan run-asan \
+        tsan run-tsan \
+        ausan run-ausan \
+        compile-commands
 
-OBJ := $(APP_OBJ) $(IMGUI_OBJ)
-DEPS := $(OBJ:.o=.d)
-# --------------------------------------------------
+configure:
+	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_O1=ON
 
-# --------------------------------------------------
-CPPFLAGS 	:= -Iinclude 
+build: configure
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 
+run: build
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target run
 
-CXXFLAGS 	+=-Wall -Werror
-CXXFLAGS 	+=-Wimplicit-fallthrough
-CXXFLAGS 	+=-Wno-unused
-CXXFLAGS 	+=-MMD -MP
-CXXFLAGS 	+=$(shell pkg-config --cflags glfw3)
+debug: configure
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 
-
-
-CFLAGS := -Wall -Werror
-CFLAGS += -Wimplicit-fallthrough
-CFLAGS += -MMD -MP
-
-# --------------------------------------------------
-# Link flags
-
-
-# DEP: glfw3 (install via brew or apt or pacman or something similar)
-LDLIBS  	+= $(GL_LIBS) $(shell pkg-config --libs glfw3)
-
-CPPFLAGS += -isystem /opt/gcc-16/include/c++/17.0.0
-CPPFLAGS += -isystem /opt/gcc-16/include/c++/17.0.0/aarch64-apple-darwin23.5.0
-CPPFLAGS += -isystem /opt/gcc-16/lib/gcc/aarch64-apple-darwin23.5.0/17.0.0/include
-# DEP: GLBINDING (header only, no install)
-CPPFLAGS	+= -I$(KHR)
-CPPFLAGS	+= -I$(GLM)
-CPPFLAGS	+= -I$(STB_IMAGE)
-
-CPPFLAGS	+= -I$(GLBINDING)/source/glbinding/include
-CPPFLAGS	+= -I$(GLBINDING)/source/glbinding-aux/include
-CPPFLAGS 	+= -I$(GLBINDING)/build/source/glbinding/include
-CPPFLAGS 	+= -I$(GLBINDING)/build/source/glbinding-aux/include
-
-CPPFLAGS 	+= -I$(FASTNOISELITE)
-CPPFLAGS 	+= -I$(IMGUI)
-
-LDLIBS		+= -L$(GLBINDING)/build -Wl,-rpath,$(PWD)/external/glbinding/build
-LDLIBS 		+= -lglbinding -lglbinding-aux
-
-# DEP: FastNoiseLite
-
-
-test: CXXFLAGS+= -DTESTING
-test: clean all
-build: $(EXE)
-
-fastest: CXXFLAGS+= -O3 -ffast-math
-fastest: run
-
-fast: CXXFLAGS+= -O1 
-fast: run
-
-fast-math: CXXFLAGS+= -ffast-math
-fast-math: run
-
-run: CXXFLAGS+= -O1 
-run: $(EXE) 
-	$(EXE)
-
+run-debug: debug
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target debug
 
 # --------------------------------------------------
-# Compile C++ app sources
+# Optimized build
 
-./build/%.o: ./src/%.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+fast:
+	cmake -S . -B $(BUILD_FAST) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug\
+		-DMC_O2=ON
 
-./build/%.o: ./external/imgui/%.cpp
-	@mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	cmake --build $(BUILD_FAST) $(BUILD_FLAGS)
 
-$(EXE): $(OBJ) 
-	@mkdir -p $(dir $@)
-	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
+faster:
+	cmake -S . -B $(BUILD_FAST) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_O3=ON
 
-# --------------------------------------------------
-# Dependencies
+	cmake --build $(BUILD_FAST) $(BUILD_FLAGS)
 
--include $(DEPS) 
+run-fast: fast
+	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 
+run-faster: faster
+	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 # --------------------------------------------------
 # Sanitizers
 
-asan: export ASAN_OPTIONS=detect_leaks=0
-asan: CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -g
-asan: CFLAGS   += -fsanitize=address -fno-omit-frame-pointer -g
-asan: LDFLAGS  += -fsanitize=address -fno-omit-frame-pointer -g
-asan: all
+asan:
+	cmake -S . -B $(BUILD_ASAN) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_ENABLE_ASAN=ON
+	cmake --build $(BUILD_ASAN) $(BUILD_FLAGS)
 
-lsan: export ASAN_OPTIONS=detect_leaks=1
-lsan: CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer -g
-lsan: CFLAGS   += -fsanitize=address -fno-omit-frame-pointer -g
-lsan: LDFLAGS  += -fsanitize=address -fno-omit-frame-pointer -g
-lsan: all
+run-asan: asan
+	ASAN_OPTIONS=detect_leaks=0 cmake --build $(BUILD_ASAN) $(BUILD_FLAGS) --target run
 
-tsan: CXXFLAGS += -fsanitize=thread -fno-omit-frame-pointer -g
-tsan: CFLAGS   += -fsanitize=thread -fno-omit-frame-pointer -g
-tsan: LDFLAGS  += -fsanitize=thread -fno-omit-frame-pointer -g
-tsan: all
+tsan:
+	cmake -S . -B $(BUILD_TSAN) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_ENABLE_TSAN=ON
+	cmake --build $(BUILD_TSAN) $(BUILD_FLAGS)
 
-ausan: CXXFLAGS += -fsanitize=address,undefined -fno-omit-frame-pointer -g
-ausan: CFLAGS   += -fsanitize=address,undefined -fno-omit-frame-pointer -g
-ausan: LDFLAGS  += -fsanitize=address,undefined -fno-omit-frame-pointer -g
-ausan: all
+run-tsan: tsan
+	cmake --build $(BUILD_TSAN) $(BUILD_FLAGS) --target run
+
+ausan:
+	cmake -S . -B $(BUILD_AUSAN) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_ENABLE_ASAN=ON \
+		-DMC_ENABLE_UBSAN=ON
+	cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS)
+
+run-ausan: ausan
+	ASAN_OPTIONS=detect_leaks=0 cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS) --target run
 
 # --------------------------------------------------
+# Utilities
+
+compile-commands: configure
+	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json
 
 clean:
-	rm -rf build bin
+	rm -rf $(BUILD_DIR) $(BUILD_FAST) $(BUILD_ASAN) $(BUILD_TSAN) $(BUILD_AUSAN) bin
 
-debug: CXXFLAGS += -g
-debug: $(EXE)
-	$(DEBUGGER) -o -- $(EXE) $(ARGS)
+rebuild: clean build
