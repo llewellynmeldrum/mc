@@ -15,13 +15,6 @@
 #include <ranges>
 
 constexpr const i32 RENDER_DIST = 16;
-// TODO: 
-// Create some sort of chunk debug view, which renders on top of meshes.
-// This debug view will show a different color for :
-// -> A currently meshing chunk (yellow)
-// -> A dirty chunk             (red)
-// -> A clean chunk             (green)
-// Perhaps just an opaque cube that sits on top of the chunk.
 
 inline auto needs_meshing = [](const World& world){
     return [&world](const ChunkView & pair) {

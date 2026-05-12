@@ -16,6 +16,15 @@
 #include <tuple>
 #include "Concurrency.hpp"
 
+// TODO: 
+// Next time i work on chunk meshing:
+// Create some sort of chunk debug view, which renders on top of meshes.
+// This debug view will show a different color for :
+// -> A currently meshing chunk (yellow)
+// -> A dirty chunk             (red)
+// -> A clean chunk             (green)
+// Perhaps just an opaque cube that sits on top of the chunk.
+
 using std::views::enumerate;
 
 extern const std::array<std::array<Vertex, 4>, 6> defaultCubeFaces;
