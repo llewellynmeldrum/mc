@@ -47,10 +47,19 @@ void Context::drawScene() {
             | std::views::filter(in_frustum(cam.getFrustum(), world))
             | std::ranges::to<std::vector<ChunkView>>();
 
+        // BUG: No check before pushing into queue for duplicate chunks
         for (const auto& [chunk_pos, chunk]: candidate_chunkviews){
             auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
             auto* meta = world.chunkMap.getMetadata(chunk_pos);
-            rend.mesher.toBeMeshed.wait_emplace(chunk_pos, chunk, surrounding, meta);
+            // this doesnt HAVE to be a wait emplace, i think.
+            // We must however only mark a candidate chunk as MESHING if the try_emplace returns true
+            bool success = rend.mesher.toBeMeshed.try_emplace(chunk_pos, chunk, surrounding, meta);
+            if (success){
+                // mark ChunkState::MESHING
+            }else{
+                // stop submitting this frame
+                break;
+            }
         }
 
         cam.requestsMeshRegen = false;

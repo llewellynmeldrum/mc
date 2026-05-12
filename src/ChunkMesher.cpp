@@ -68,11 +68,10 @@ getNeighbourBlocks(const ChunkSnapshot& snapshot, ivec3 chunk_local) {
 
 
 
-// add a condition variable which sleeps the thread when queue is oversaturated
-// reduce rate ofaddign
 std::atomic<std::size_t> thread_id;
 #include "Logger.hpp"
 void ChunkMesher::meshChunks(
+    std::stop_token stopToken,
     Queue<ChunkSnapshot>& input_queue,
     Queue<ChunkMeshData>& output_queue,
     TextureAtlas& atlas
@@ -80,7 +79,8 @@ void ChunkMesher::meshChunks(
     const std::size_t id = thread_id.fetch_add(1);
     //TODO: wait for work with condition variable? if !running stop 
     //input_queue.wait_while_empty()
-    while (true){ //BUG: no proper exit 
+    while (!stopToken.stop_requested()){
+        
        auto snapshot = input_queue.wait_dequeue();
 
        // TODO: resereve both these to max size possible

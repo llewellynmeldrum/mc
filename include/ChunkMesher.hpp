@@ -21,5 +21,5 @@ struct ChunkMesher {
     Queue<ChunkMeshData> chunkMeshData;
 private:
     ThreadPool mesherThreads{6};
-    static void meshChunks( Queue<ChunkSnapshot>& input_queue, Queue<ChunkMeshData>& output_queue, TextureAtlas& atlas);
+    static void meshChunks( std::stop_token stopToken, Queue<ChunkSnapshot>& input_queue, Queue<ChunkMeshData>& output_queue, TextureAtlas& atlas);
 };
