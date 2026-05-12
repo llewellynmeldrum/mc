@@ -16,25 +16,33 @@
 
 constexpr const i32 RENDER_DIST = 4;
 
-auto needs_meshing = [](const World& world){
+
+inline auto needs_meshing = [](const World& world){
     return [&world](const ChunkView & pair) {
         const auto& [chunk_coord, ptr] = pair;
         return world.chunkMap.isDirty(chunk_coord);
     };
 };
-auto in_frustum = [](const Frustum& frustum, const World& world) {
+inline auto in_frustum = [](const Frustum& frustum, const World& world) {
     return [frustum, &world](const ChunkView & pair) {
         const auto& [chunk_coord, ptr] = pair;
         return frustum.isAABBInside(*world.chunkMap.getBoundingBox(chunk_coord));
     };
 };
+
+inline auto is_dirty = [](const World& world) {
+    return [&world](const ChunkView & pair) {
+        const auto& [chunk_coord, ptr] = pair;
+        return world.chunkMap.isDirty(chunk_coord);
+    };
+};
 void Context::drawScene() {
-    bool remesh_this_frame = false;
     if (cam.requestsMeshRegen) {
         ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
         auto candidate_chunkviews = 
             world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
+            | std::views::filter(is_dirty(world)) 
             | std::views::filter(needs_meshing(world)) 
             | std::views::filter(in_frustum(cam.getFrustum(), world))
             | std::ranges::to<std::vector<ChunkView>>();
@@ -45,25 +53,21 @@ void Context::drawScene() {
             rend.mesher.toBeMeshed.wait_emplace(chunk_pos, chunk, surrounding, meta);
         }
 
-        constexpr std::size_t MaxMeshUploadsPerFrame = 4;
-        for (std::size_t mesh_count = 0; mesh_count < MaxMeshUploadsPerFrame; mesh_count++){
-            auto meshData = rend.mesher.chunkMeshData.try_dequeue();
-            if (!meshData){
-                break;
-            }
-            const auto [chunk_pos, vertices, indices] = *meshData;
-            rend.uploadMesh(chunk_pos, vertices, indices);
-            world.chunkMap.makeClean(chunk_pos);
-        }
-
         cam.requestsMeshRegen = false;
     }
-    rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
-    if (remesh_this_frame) {
-        LOG_EXPR(rend.debug.mesh_count);
-        timer_log_avg_us("Chunk meshing", rend.debug.mesh_count);
-        timer_log_ms("Chunk meshing");
+    constexpr std::size_t MaxMeshUploadsPerFrame = 12;
+    for (std::size_t mesh_count = 0; mesh_count < MaxMeshUploadsPerFrame; mesh_count++){
+        auto meshData = rend.mesher.chunkMeshData.try_dequeue();
+        if (!meshData){
+            break;
+        }
+        const auto [chunk_pos, vertices, indices] = *meshData;
+        // im pretty sure im replacing a bunch of the same meshes
+        // I need to guarantee meshes are not yet in the queue, before enqueing them.
+        rend.uploadMesh(chunk_pos, vertices, indices);
+        world.chunkMap.makeClean(chunk_pos);
     }
+    rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");

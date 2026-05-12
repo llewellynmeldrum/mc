@@ -58,6 +58,14 @@ struct Queue{
         }
         cv.notify_one();
     }
+    template<typename ...Args>
+    void wait_emplace_unique(Args&&... vargs){
+        {
+            std::unique_lock lock(mtx);
+            q.emplace_back(std::forward<Args>(vargs)...);
+        }
+        cv.notify_one();
+    }
 
     template<typename ...Args>
     bool try_emplace(Args&&... vargs){

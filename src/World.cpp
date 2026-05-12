@@ -5,6 +5,7 @@
 #include "Chunk.hpp"
 #include "DEBUG.hpp"
 #include "Logger.hpp"
+
 // returns the origin (0,0,0) of whichever chunk *worldPos* is in.
 ivec3 World::worldToChunkCoord(vec3 worldPos) {
     f32   x = std::floor(worldPos.x / CHUNK_XWIDTH);

@@ -9,7 +9,7 @@ std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 po
     std::array<const Chunk*, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
     return res;
 }
-const ChunkMetadata* ChunkMap::getMetadata(ivec3 pos){
+const ChunkMetadata* ChunkMap::getMetadata(ivec3 pos)const {
     return metadata.at(pos).get();
 }
 const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
@@ -56,6 +56,7 @@ void ChunkMap::generate(ivec3 chunk_coord) {
 
         updateNeighbourMap(chunk_coord);
         updateBoundingBoxesMap(chunk_coord);
+        makeDirty(chunk_coord);
     }
 }
 

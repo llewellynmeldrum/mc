@@ -8,9 +8,9 @@
 struct World {
     World(World const&) = delete;
     World& operator=(World const&) = delete;
-
     World(World&&) = default;
     World& operator=(World&&) = default;
+
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
     static ivec3         worldToChunkCoord(vec3 worldPos);
     static vec3          chunkToWorldPos(ivec3 chunkPos);
@@ -20,14 +20,14 @@ struct World {
     ChunkMap chunkMap;
 
     inline std::vector<ChunkView> chunksInRadius(ivec3 origin, u32 radius) {
-    std::vector<ChunkView> out;
+        std::vector<ChunkView> out;
 
-    for (auto const& pair : chunkMap.data) {
-        out.emplace_back(pair.first, pair.second.get());
+        for (auto const& pair : chunkMap.data) {
+            out.emplace_back(pair.first, pair.second.get());
+        }
+
+        return out;
     }
-
-    return out;
-}
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(vec3 world_pos) const;
 
@@ -41,6 +41,5 @@ struct World {
 
     inline void generateChunk(const ivec3& chunk_pos) {
         chunkMap.generate(chunk_pos);
-        chunkMap.makeDirty(chunk_pos);
     }
 };
