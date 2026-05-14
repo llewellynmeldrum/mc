@@ -32,8 +32,24 @@ struct Block {
 
     constexpr auto operator<=>(const Block& other) const = default;
 
-    static constexpr inline const auto Null() { return Block{ .id = BlockType::null }; }
-    static constexpr inline const auto Empty() { return Block{ .id = BlockType::empty }; }
+    Block (): id(BlockType::AIR){} //NOLINT
+    Block (BlockType bt): id(bt){}
+    Block (const Block& rhs) = default;
+    Block (Block&& rhs) = default;
+    Block& operator=(this Block& lhs, const Block& rhs){
+        lhs.id=rhs.id;
+        return lhs;
+    }
+    Block& operator=(this Block& lhs, Block&& rhs){
+        if (lhs.id==rhs.id) {
+            return lhs;
+        }
+        lhs.id=std::move(rhs.id);
+        return lhs;
+    }
+
+    static constexpr inline const auto Null() { return Block{ BlockType::null }; }
+    static constexpr inline const auto Empty() { return Block{ BlockType::empty }; }
 };
 
-const inline auto AIR_BLOCK = Block{ .id = BlockType::AIR };
+const inline auto AIR_BLOCK = Block{ BlockType::AIR };

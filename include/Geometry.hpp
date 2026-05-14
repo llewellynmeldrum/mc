@@ -37,20 +37,21 @@ struct AABB {
         extents = max - center;
     }
 
-    // returns true if the AABB is infront of or intersecting plane P
-    // algorithm from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html
     inline bool testForwardIntersection(const Plane& p) const {
-        //
+        // returns true if the AABB is infront of or intersecting plane P
+        // algorithm from https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html
         // 1. Compute the 'projection interval radius'
         // clang-format off
         const vec3 p_abs_normal = glm::abs(p.normal);
-        const f32 r = extents.x * p_abs_normal.x
+        const f32 pir = extents.x * p_abs_normal.x
                     + extents.y * p_abs_normal.y
                     + extents.z * p_abs_normal.z;
 
-        //2. Compute dist(AABB_center, plane)
+        // 2. Compute dist(AABB_center, plane)
         f32 signed_dist = dot(p.normal, center) - p.distance;
-        return -r <= signed_dist;
+
+        // 3. if (-pir <= signed_dist): `this` is infront of plane.
+        return -pir <= signed_dist;
     }
 };
 

@@ -149,8 +149,8 @@ void DebugUI::ShowOverlay(bool* p_open) {
 
         IG::Separator();
         IG::Text("Concurrency");
-        IG::Text("ivec3AwaitingMeshing queue size: %lu", ctx->rend.mesher.toBeMeshed.wait_size());
-        IG::Text("MeshAwaitingUpload queue size: %lu", ctx->rend.mesher.chunkMeshData.wait_size());
+        IG::Text("ivec3AwaitingMeshing queue size: %lu", ctx->rend.mesher.meshJobQueue.wait_size());
+        IG::Text("MeshAwaitingUpload queue size: %lu", ctx->rend.mesher.meshResultQueue.wait_size());
         // TODO: mesh queue is getting oversaturated
     }
     IG::End();

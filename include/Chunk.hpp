@@ -1,61 +1,58 @@
 #pragma once
+#include <mdspan>
+#include <queue>
+#include <ranges>
+#include <unordered_map>
+#include <utility>
+#include <atomic>
+
 #include "Types.h"
 #include "Block.hpp"
-#include <mdspan>
-#include <ranges>
+#include "cppslop.hpp"
 #include "glmWrapper.hpp"
 #include "ChunkHelpers.hpp"
 #include "Vertex.hpp"
-#include <unordered_map>
-#include <utility>
-constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
-constexpr const i64 CHUNK_XWIDTH = 16;                                        // x/y/z
-constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
-constexpr const i64 CHUNK_HEIGHT = 16;                                        // x/y/z
-constexpr const i64 CHUNK_SIZE = CHUNK_XWIDTH * CHUNK_ZWIDTH * CHUNK_HEIGHT;  // x/y/z
-
-constexpr const auto CHUNK_XRANGE = std::views::iota(0, CHUNK_XWIDTH);  // x/y/z
-constexpr const auto CHUNK_YRANGE = std::views::iota(0, CHUNK_HEIGHT);  // x/y/z
-constexpr const auto CHUNK_ZRANGE = std::views::iota(0, CHUNK_ZWIDTH);  // x/y/z
-
-constexpr inline const auto EachBlockInChunk() {
-    return std::views::cartesian_product(CHUNK_XRANGE, CHUNK_YRANGE, CHUNK_ZRANGE);
-}
-
-#define MD_ACCESS_MACRO(T)                                                                         \
-    inline T& operator[](i16 x, i16 y, i16 z) {                                                    \
-        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];        \
-    }                                                                                              \
-    inline const T& operator[](i16 x, i16 y, i16 z) const {                                        \
-        return std::mdspan(data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];        \
-    }
-
+#include "noise/module/perlin.h"
+#include "ChunkHelpers.hpp"
 // each attribute of a chunks metadata can be 3d indexed by block (operator[x,y,z])
+// Contains (currently unused) debug information mostly about biome.
 struct ChunkMetadata {
     ChunkMetadata() = default;
     ~ChunkMetadata() = default;
     struct {
         std::array<f32, CHUNK_SIZE> data{};
-        MD_ACCESS_MACRO(f32)
+        MD_ACCESS_MACRO(f32, data)
     } blockTemperature;
 
     struct {
         std::array<f32, CHUNK_SIZE> data{};
-        MD_ACCESS_MACRO(f32)
+        MD_ACCESS_MACRO(f32, data)
     } blockHumidity;
+
 };
-struct Chunk {
+struct Chunk{
     Chunk() = default;
     ~Chunk() = default;
-    std::array<Block, CHUNK_SIZE> data{};  // all blocks are implicitly 0, i.e air
+    Chunk(std::span<Block> sp){
+        for (const auto& [i, val]: std::views::enumerate(sp)){
+            data[i] = std::move(val);
+        }
+    }
+    std::array<Block,CHUNK_SIZE>data{};
+    struct{
+        u32 finishedGeneration  : 1 = 0;
+        u32 isDirty             : 2 = 1;
+        u32 isMeshing           : 3 = 0;
+        u32 finishedMeshing     : 4 = 0;
+    }flags;
+
     static constexpr ivec3        Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 
-    bool isDirty = true;
 
-    MD_ACCESS_MACRO(Block)
+    MD_ACCESS_MACRO(Block,data)
 
     inline void setBlock(this auto& self, BlockType t, i16 x, i16 y, i16 z) {
-        self[x, y, z] = Block{ .id = t };
+        self[x, y, z] = Block( t );
     }
 
     inline void setBlocks(this auto& self, BlockType t, vec3 pos1, vec3 pos2) {
@@ -91,72 +88,179 @@ struct Chunk {
     inline Block getBlock(this auto& self, vec3 pos) { return self.getBlock(pos.x, pos.y, pos.z); }
     inline void  fillChunk(BlockType t) {
         for (auto& block : data) {
-            block = Block{ .id = t };
+            block = Block(t);
         }
     }
 };
 
-namespace ForEach {
-enum ControlFlow {
-    BREAK,
-    CONTINUE,
-};
-template <typename Func>
-void BlockInChunk(Func&& func) {
-    for (i32 x = 0; x < CHUNK_XWIDTH; x++) {
-        for (i32 y = 0; y < CHUNK_HEIGHT; y++) {
-            for (i32 z = 0; z < CHUNK_ZWIDTH; z++) {
-                switch (func(x, y, z)) {
-                case BREAK:
-                    goto BREAK_LOOP;
-                case CONTINUE:
-                    [[fallthrough]];
-                default:
-                    break;
-                }
-            }
-        }
-    }
-BREAK_LOOP:
-    return;
+auto operator<=>(const ivec3& lhs, const ivec3& rhs){
+    auto cmp_x = lhs.x<=>rhs.x;
+    if ( cmp_x != nullptr) return cmp_x;
+
+    auto cmp_y = lhs.x<=>rhs.x;
+    if ( cmp_y != nullptr) return cmp_y;
+
+    return lhs.z<=>rhs.z;
 }
-
-//
-//
-//
-//
-//
-
-}  // namespace ForEach
-
-
-
-
-struct ChunkSnapshot{
-
-    ivec3 world_pos;
-    const Chunk* chunk;
-    std::array<const Chunk*, NUM_NEIGHBOURS> surrounding_chunks;
-    const ChunkMetadata* meta;
-    std::size_t id;
-
-    ChunkSnapshot(
-        ivec3 _world_pos,
-        const Chunk* _chunk,
-        std::array<const Chunk*, NUM_NEIGHBOURS> _surrounding_chunks,
-        const ChunkMetadata* _meta)
-            : world_pos(_world_pos),
-            chunk(_chunk),
-            surrounding_chunks(_surrounding_chunks),
-            meta(_meta),
-            id(std::hash<glm::ivec3>{}(_world_pos))
-    {}
-    auto operator<=>(this const ChunkSnapshot&& lhs, const ChunkSnapshot&& rhs){
-        return lhs.id<=>rhs.id;
-    };
+struct PendingBlockWrite{
+    BlockType block;
+    ivec3 worldPos;
+    u8 priority;
+    ivec3 sourceChunkWorldPos;
+    PendingBlockWrite() = delete;
+    PendingBlockWrite(const ivec3 sourceChunkwpos, const ivec3& targetWPos, BlockType bt);
+    ~PendingBlockWrite() = default;
+    bool operator==(this PendingBlockWrite&& lhs, PendingBlockWrite&& rhs){
+        return lhs.priority==rhs.priority;
+    }
+    auto operator<=>(this PendingBlockWrite&& lhs, PendingBlockWrite&& rhs){
+        auto cmp1 = lhs.priority<=>rhs.priority;
+        if ( cmp1 != nullptr) return cmp1;
+        // TIE BREAK DETERMINISTICALLY BASED ON SOURCE CHUNK
+        else return lhs.sourceChunkWorldPos <=> rhs.sourceChunkWorldPos;
+    }
 };
-struct ChunkMeshData{
-    ivec3 world_pos;
+// max heap (prio queue) containing block writes
+// since we are placing based on priority anyway, im not sure this being a prio queue is even necessary
+using PendingWriteQueue = std::priority_queue<PendingBlockWrite>;
+
+// unordered, heap allocated list of block writes
+using PendingWriteList = std::vector<PendingBlockWrite>;
+
+//
+//
+
+template<
+std::size_t xExtent=CHUNK_XWIDTH,
+std::size_t yExtent=CHUNK_HEIGHT,
+std::size_t zExtent=CHUNK_ZWIDTH>
+struct BaseBlockSpan{
+    using Extents = std::extents<std::size_t, xExtent,yExtent,zExtent>;
+    inline Block& operator[](this auto& self, i16 x, i16 y, i16 z) {
+        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
+    }
+    inline Block& operator[](this auto& self, ivec3 v) {
+        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[v.x, v.y, v.z];
+    }
+    BaseBlockSpan() = default;
+    ~BaseBlockSpan() = default;
+    auto begin(){
+        return span.begin();
+    }
+    auto end(){
+        return span.end();
+    }
+    auto& data(){
+        return span;
+    }
+    bool tryWrite(PendingBlockWrite write);
+private:
+    std::mdspan<Block, Extents>span={};
+};
+
+// [x,y,z] accessible NON OWNING VIEW of chunk block storage.
+template<
+std::size_t xExtent=CHUNK_XWIDTH,
+std::size_t yExtent=CHUNK_HEIGHT,
+std::size_t zExtent=CHUNK_ZWIDTH,
+std::ranges::contiguous_range Cont = std::vector<Block>>
+struct BaseBlockStore{
+    BaseBlockStore() = default;
+    ~BaseBlockStore() = default;
+    using Extents = std::extents<std::size_t, xExtent,yExtent,zExtent>;
+    inline Block& operator[](this auto& self, i16 x, i16 y, i16 z) {
+        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
+    }
+    inline Block& operator[](this auto& self, vec3 v) {
+        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[v.x, v.y, v.z];
+    }
+    auto begin(){ return buf.begin(); }
+    auto end(){ return buf.end(); }
+    auto& data(){ return buf; }
+    // implicit conversion to a BlockSpan. 
+    operator BaseBlockSpan<xExtent,yExtent,zExtent> (this auto& self){
+        auto&& span = std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
+        BaseBlockSpan<xExtent,yExtent,zExtent>(std::move(span));
+    }
+private:
+    Cont buf={};
+};
+/// [x,y,z] accessible Inplace (std::array) block storage. No heap allocation.
+//  Default initialized to air
+using BlockStoreIP = BaseBlockStore<CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH, std::array<Block,CHUNK_SIZE>>;
+
+// [x,y,z] accessible non stack block storage. (likely) Incurs heap allocation.
+// Default initialized to air
+using BlockStore = BaseBlockStore<CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH, std::vector<Block>>;
+
+using BlockSpan = BaseBlockSpan<CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH>;
+
+//auto operator==(const ivec3& lhs, const ivec3& rhs){
+//    return lhs.x==rhs.x;
+//}
+
+// noisecontrollers control your body
+struct GenConfig{
+    struct NoiseController{
+        noise::module::Perlin height;
+    }noise;
+};
+
+extern std::atomic<u32> id_counter;
+struct ChunkTaskHeader{
+    ivec3 worldOffset;
+    u32 id;
+    ChunkTaskHeader(ivec3 _worldOffset) 
+        :worldOffset(std::move(_worldOffset))
+        ,id(id_counter.fetch_add(1))
+    {}
+};
+// QUEUE: GenJobQueue
+// PRODUCER: Main Thread
+// CONSUMER: Generator Thread
+struct GenJob{
+    ChunkTaskHeader head;
+    u64 worldSeed;
+    GenConfig cfg;
+};
+
+// QUEUE: GenResultQueue
+// PRODUCER: Generator Thread
+// CONSUMER: Main Thread
+struct GenResult{
+    ChunkTaskHeader head;
+    BlockStoreIP chunkBlocks;
+    ChunkMetadata meta;
+    PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
+};
+
+// QUEUE: MeshJobQueue
+// PRODUCER: Main Thread
+// CONSUMER: Mesher thread.
+FORWARD_DECL_STRUCT(TextureAtlas)
+struct MeshJob{
+    ChunkTaskHeader head;
+    BlockStore blocks;
+    std::array<BlockStore,6> surroundingChunks;
+    ChunkMetadata meta;
+    TextureAtlas* atlas;
+
+    MeshJob(ivec3 worldLocal, const Chunk* chunk, auto surroundingChunks, auto meta, auto* atlas){
+        this->head.worldOffset= worldLocal;
+        std::ranges::copy(chunk->data, blocks.begin());
+        this->surroundingChunks = std::move(surroundingChunks);
+        this->meta = std::move(meta);
+        this->atlas = atlas;
+    }
+};
+
+// QUEUE: MeshResultQueue
+// PRODUCER: Mesher Thread
+// CONSUMER: Main thread.
+struct MeshResult{
+    ChunkTaskHeader head;
     std::vector<Vertex> vertices;
     std::vector<u32> indices;
 };
+
+

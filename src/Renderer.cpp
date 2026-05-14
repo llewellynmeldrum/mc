@@ -18,7 +18,7 @@ void Renderer::setupRenderer() {
     prog.use();
     prog.setUniform("texture1", (int)0);
     prog.stop();
-    mesher.setupChunkMesher(atlas);
+    mesher.setupChunkMesher();
 }
 
 void Renderer::clear(const vec4 clear_color) {
@@ -37,8 +37,8 @@ void Renderer::draw(const mat4& view, const mat4& proj) {
     prog.setUniform("overlayOpacity", debug.blockOverlayOpacity);
     {
         ScopeTimer draw_timer{ "Renderer::draw", "draw call" };
-        for (const auto& [chunk_pos, mesh] : visibleChunkMeshes) {
-            const vec3 chunk_offset = World::chunkToWorldPos(chunk_pos);
+        for (const auto& [chunkLocal, mesh] : visibleChunkMeshes) {
+            const vec3 chunk_offset = World::chunkToWorldPos(chunkLocal);
             mat4       model = mat4(1.0f);
             model = translate(model, chunk_offset);
             prog.setUniform("model", model);

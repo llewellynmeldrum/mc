@@ -1,10 +1,14 @@
 
+#include "Chunk.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 
 #include "Context.hpp"
 
+#include "Profiler.hpp"
 #include "Logger.hpp"
+#include <algorithm>
+
 void Context::setupContext() {
     program_epoch_ns = get_current_ns();
     LOG_EXPR(this);
@@ -13,8 +17,167 @@ void Context::setupContext() {
     time.setupTimer();
     cam.setupCamera();
     rend.setupRenderer();
-
     ui.setupDebugUI(win.ptr);
+}
+std::vector<ivec3> Context::findChunksForGeneration(){
+    std::vector<ivec3> res;
+    auto chunkRange  = EachCoordInRange(-SIMULATION_DIST, SIMULATION_DIST,
+                                        -SIMULATION_DIST, SIMULATION_DIST,
+                                        -SIMULATION_DIST, SIMULATION_DIST);
+
+    for (const auto& [x,y,z] : chunkRange){
+        ivec3 key = World::worldToChunkCoord(cam.pos) + ivec3{x,y,z};
+        auto genStatus = world.chunkMap.queryGenStatus(key);
+        if (genStatus.finishedAll == false){
+            res.emplace_back(key);
+        }
+    }
+    return res;
+}
+
+std::size_t Context::enqueueGenerationJobs(){
+    auto chunkWorldPosForGen = findChunksForGeneration();
+
+    std::size_t res =0;
+    for (const ivec3& chunkWorldPos: chunkWorldPosForGen){
+
+        auto genStatus = world.chunkMap.queryGenStatus(chunkWorldPos);
+        if (genStatus.inProgress){
+            continue; // already 
+        }
+        bool success = world.chunkMap.generator.genJobQueue.try_emplace(
+            chunkWorldPos, 
+            WORLD_SEED,
+            world.genConfig
+        );
+        if (success){
+            res++;
+        }else{
+            break;
+        }
+    }
+    LOG_DEBUG("enqueued_for_meshing this frame:{}",res);
+    return res;
+}
+// update
+
+std::vector<ChunkView> Context::findChunksForMeshing(){
+    auto needs_meshing = [](const World& world){
+        return [&world](const ChunkView & pair) {
+            const auto& [chunk_coord, ptr] = pair;
+            return world.chunkMap.chunks.at(chunk_coord)->flags.isDirty;
+        };
+    };
+
+    auto in_frustum = [](const Frustum& frustum, const World& world) {
+        return [frustum, &world](const ChunkView & pair) {
+            const auto& [chunk_coord, ptr] = pair;
+            return frustum.isAABBInside(*world.chunkMap.getBoundingBox(chunk_coord));
+        };
+    };
+
+    
+    return  world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
+        | std::views::filter(needs_meshing(world)) 
+//      | std::views::filter(in_frustum(cam.getFrustum(), world))
+//       BUG: i have not verified that the frustum is working properly
+        | std::ranges::to<std::vector<ChunkView>>();
+}
+
+std::size_t Context::enqueueMeshingJobs(){
+    auto chunksForMeshing = findChunksForMeshing();
+
+    std::size_t enqueued_for_meshing =0;
+    for (const auto& [chunk_pos, chunk]: chunksForMeshing){
+        if (world.chunkMap[chunk_pos].flags.isMeshing){
+            continue;
+        }
+        // TODO: to (seriously, like 4-5x) reduce the size of a mesh jobs allocation, 
+        // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
+        // i.e the ones bordering the actual chunk in question.
+        auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
+        auto* meta = world.chunkMap.getMetadata(chunk_pos);
+        if (rend.mesher.meshJobQueue.try_emplace(chunk_pos, chunk, surrounding, meta, &rend.atlas)){
+            enqueued_for_meshing++;
+            world.chunkMap.markMeshing(chunk_pos);
+        } else{
+            // stop submitting this frame
+            break;
+        }
+    }
+    LOG_DEBUG("enqueued_for_meshing this frame:{}",enqueued_for_meshing);
+    return enqueued_for_meshing;
+}
+
+std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
+    constexpr std::size_t MaxMeshUploadsPerFrame = 12;
+    std::vector<MeshResult> output;
+    output.reserve(MaxMeshUploadsPerFrame);
+    for (std::size_t mesh_count = 0; mesh_count < MaxMeshUploadsPerFrame; mesh_count++){
+        std::optional<MeshResult> meshData = queue.try_dequeue();
+        if (!meshData){
+            break;
+        }
+        output.emplace_back(*meshData);
+        const auto [chunk_pos, vertices, indices] = *meshData;
+        // im pretty sure im replacing a bunch of the same meshes
+        // I need to guarantee meshes are not yet in the queue, before enqueing them.
+    }
+    return output;
+}
+
+std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
+    constexpr std::size_t MaxGenUploadsPerFrame = 12;
+    std::vector<GenResult> output;
+    output.reserve(MaxGenUploadsPerFrame);
+    for (std::size_t mesh_count = 0; mesh_count < MaxGenUploadsPerFrame; mesh_count++){
+        std::optional<GenResult> result = queue.try_dequeue();
+        if (!result){
+            break;
+        }
+        output.emplace_back(*result);
+    }
+    return output;
+}
+
+std::size_t Context::drainAndUploadMeshResults(){
+    std::size_t res =0;
+    auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
+    for (const auto& [header, vertices, indices] : candidateMeshes){
+        rend.uploadMesh(header.worldOffset, vertices, indices);
+        res++;
+        world.chunkMap.markClean(header.worldOffset);
+    }
+    return res;
+}
+
+std::size_t Context::drainAndUploadGenResults(){
+    auto chunkDatas = drainGenResults(world.chunkMap.generator.genResultQueue);
+    auto res = chunkDatas.size();
+    for (const auto& newGen : chunkDatas){
+        world.chunkMap.uploadGeneratedChunk(newGen);
+    }
+    return res;
+}
+void Context::update() {
+    //1. handle generation and meshing jobs
+    enqueueGenerationJobs();
+    drainAndUploadGenResults();
+
+    enqueueMeshingJobs();
+    drainAndUploadMeshResults();
+}
+
+void Context::draw() {
+    rend.clear({ 0.25, 0.5, 0.85, 1.0 });
+    ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
+
+    rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
+    static bool first_draw = true;
+    if (first_draw) {
+        LOG_DEBUG("Finished first draw");
+        first_draw = false;
+    }
 }
 
 void Context::handleInputs() {

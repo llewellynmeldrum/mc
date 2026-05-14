@@ -24,10 +24,24 @@ struct Context {
     DebugUI  ui;
     World    world;
 
+    static constexpr i32 RENDER_DIST = 16;
+    static constexpr i32 SIMULATION_DIST = 16;
+    static constexpr i32 WORLD_SEED = 1337;
 
     void setupContext();
     void handleInputs();
-    void drawScene();
+    void update();
+    void draw();
+private:
+    std::vector<ivec3> findChunksForGeneration();
+    std::vector<ChunkView> findChunksForMeshing();
+
+    std::size_t enqueueGenerationJobs();
+    std::size_t enqueueMeshingJobs();
+
+
+    std::size_t drainAndUploadGenResults();
+    std::size_t drainAndUploadMeshResults();
 };
 
 // Input::Key definitions (based on glfw3)

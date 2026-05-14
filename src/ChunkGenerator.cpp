@@ -1,13 +1,15 @@
 
+#include "Block.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 
 #include "World.hpp"
 #include "Logger.hpp"
 #include "Types.h"
-#include "FastNoiseLite.h"
 
 #include "lmath.hpp"
+#include "noise/noise.h"
+#include <queue>
 using NoiseSamples2D = std::array<f32, CHUNK_XWIDTH * CHUNK_ZWIDTH>;
 
 //          |?         swamp       jungle
@@ -19,6 +21,44 @@ using NoiseSamples2D = std::array<f32, CHUNK_XWIDTH * CHUNK_ZWIDTH>;
 constexpr i32 SEA_LEVEL = 64;
 constexpr i32 HEIGHT_LIMIT = 256;
 constexpr i32 WORLD_SEED = 1337;
+
+
+
+// a map of deferred BlockWrite requests are associated with each logical chunk.
+// Upon generation, when the GenChunkResult is being processed by the main thread,
+// the deferredWrite map is checked for the current chunk, and any changes are made IN ORDER.
+// Then, once changes to the current chunk are applied, we can make the changes to any 
+// deferredWrites made by the chunk that was just generated to any of its neighbours.
+static void genChunks(std::stop_token stopToken, 
+                      Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
+//ChunkTaskHeader:
+//    ivec3 worldOffset;
+//    u32 id;
+//GenJob:
+//    ChunkTaskHeader head;
+//    u64 worldSeed;
+//    GenConfig cfg;
+
+//GenResult:
+//    ChunkTaskHeader head;
+//    BlockStoreIP chunkBlocks;
+//    ChunkMetadata meta;
+//    PendingWriteList deferredWrites;
+    
+    struct BlockPalette {
+        BlockType topsoil = BlockType::GRASS_BLOCK;     // i.e grass for plains, NULL for desert (none)
+        BlockType soil = BlockType::DIRT_BLOCK;         // i.e dirt for plains, sand for desert.
+        BlockType crust = BlockType::STONE_BLOCK;       // i.e stone for plains, sandstone for desert.
+        BlockType deep_crust = BlockType::STONE_BLOCK;  // i.e stone for plains, stone for desert.
+    } palette;
+
+    // 1. use 2d noise for heightmap, place Palette.crust from 0->height
+    // 2. use 3d noise and thresholding to paint air blocks under certain Y (caves) 
+    // 3. Paint blocks (soil on top N blocks, grass on top 1 block.)
+    // 4. Paint ores in stone blocks below certain point
+    // 5. Create trees.
+}
+
 
 struct Biome {
     std::string_view name;
@@ -59,21 +99,8 @@ static const Biome plains{
 
 BiomeMap PLAINS_ONLY(CHUNK_ZWIDTH* CHUNK_XWIDTH, &plains);
 
-TerrainNoise::TerrainNoise() {
-    base.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    hills.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    valleys.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    detail.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-
-    base.SetFrequency(1 / 200.0f);
-    hills.SetFrequency(1 / 100.0f);
-    valleys.SetFrequency(1 / 100.0f);
-    detail.SetFrequency(1 / 25.0f);
-
-    hills.SetSeed(WORLD_SEED + 100);
-    valleys.SetSeed(WORLD_SEED + 200);
-    detail.SetSeed(WORLD_SEED + 300);
-}
+//TerrainNoise::TerrainNoise() {
+//}
 template <typename T>
 auto random_range(T min, T max) {
     f32 s = rand() / (f32)RAND_MAX;
@@ -81,23 +108,22 @@ auto random_range(T min, T max) {
     return min + static_cast<T>(s * range);
 }
 
-ChunkDataPair ChunkGenerator::gen(ivec3 chunk_coord) {
+ChunkDataPair ChunkGenerator::gen(ivec3 chunk_pos) {
     Chunk res;
-
-    const ivec3 chunk_offset = World::chunkToWorldPos(chunk_coord);
+    const ivec3 chunk_offset = World::chunkToWorldPos(chunk_pos);
     // |||||||||||||||||
     // step 0: biome selection
     // |||||||||||||||||
-    const auto& biomes = genChunkBiomeMap(chunk_coord, chunk_offset);
+    const auto& biomes = genChunkBiomeMap(chunk_pos, chunk_offset);
 
     // |||||||||||||||||
     // step 1: heightmap
     // |||||||||||||||||
     // -> based on biome for each block, a heightmap is created,
     //    representing the highest point for each xz in the chunk
-    const i32  chunk_min_world_y = chunk_coord.y * CHUNK_HEIGHT;
+    const i32  chunk_min_world_y = chunk_pos.y * CHUNK_HEIGHT;
     const i32  chunk_max_world_y = chunk_min_world_y + CHUNK_HEIGHT;
-    const auto heightmap = genChunkHeightmap(biomes, chunk_coord, chunk_offset);
+    const auto heightmap = genChunkHeightmap(biomes, chunk_pos, chunk_offset);
 
     for (i32 cx = 0; cx < CHUNK_XWIDTH; cx++) {
         for (i32 cz = 0; cz < CHUNK_ZWIDTH; cz++) {
@@ -161,21 +187,27 @@ BiomeMap ChunkGenerator::genChunkBiomeMap(ivec3 chunk_coord, ivec3 chunk_offset)
     return PLAINS_ONLY;
 }
 
+    noise::module::Perlin perlin;
 NoiseSamples2D sampleNoiseMap(const auto& noise_map, ivec3 chunk_offset) {
     NoiseSamples2D res;
     f32            x = static_cast<f32>(chunk_offset.x);
     f32            y = static_cast<f32>(chunk_offset.y);
     for (auto& f : res) {
-        f = noise_map.GetNoise(x, y);
+        f = noise_map.GetValue(x, y,0);
+        // TODO: Learn libnoise and figure out how to get some decent terrain gen,
+        // ALSO!!! Make sure libnoise is compiling with O3
+        // then make terrain generation automatic
+        // then multithread terrain generation
+        f*=100;
     }
     return res;
 }
 HeightMap ChunkGenerator::genChunkHeightmap(const BiomeMap& block_biomes, ivec3 chunk_coord,
                                             ivec3 chunk_offset) {
-    auto base_map = sampleNoiseMap(terrain_noise.base, chunk_offset);
-    auto hills_map = sampleNoiseMap(terrain_noise.hills, chunk_offset);
-    auto valleys_map = sampleNoiseMap(terrain_noise.valleys, chunk_offset);
-    auto detail_map = sampleNoiseMap(terrain_noise.detail, chunk_offset);
+    auto base_map = sampleNoiseMap(perlin, chunk_offset);
+    auto hills_map = sampleNoiseMap(perlin, chunk_offset);
+    auto valleys_map = sampleNoiseMap(perlin, chunk_offset);
+    auto detail_map = sampleNoiseMap(perlin, chunk_offset);
 
     HeightMap res;
     for (i32 cx = 0; cx < CHUNK_XWIDTH; cx++) {

@@ -16,27 +16,25 @@ const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
     return boundingBoxes.at(chunk_offset).get();
 }
 
-ChunkStatus ChunkMap::getChunkState(ivec3 chunk_offset) const{
-    return chunkState.at(chunk_offset);
-}
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.
 void ChunkMap::updateNeighbourMap(ivec3 pos) {
-    auto* self_ptr = data[pos].get();
+    auto* self_ptr = chunks[pos].get();
 
     std::array<const Chunk*, NUM_NEIGHBOURS> my_neighbours{};
-    for (std::size_t dir_idx = 0; dir_idx < my_neighbours.size(); dir_idx++) {
-        const ivec3 neighbour_chunk_pos = pos + Direction_offset[dir_idx];
-        if (data.contains(neighbour_chunk_pos)) {
+    for (const auto& dir : eachDirection) {
+        const i32   dir_idx = static_cast<i32>(dir);
+        const ivec3 neighbourChunkLocal = pos + Direction_offset[dir_idx];
+        if (chunks.contains(neighbourChunkLocal)) {
             // assign NEIGHBOUR to ourNeighbours.dir
-            const auto* neighbour_chunk = data[neighbour_chunk_pos].get();
-            if (!neighbour_chunk)
+            const auto* neighbourChunk = chunks[neighbourChunkLocal].get();
+            if (!neighbourChunk)
                 continue;
-            my_neighbours[dir_idx] = neighbour_chunk;
+            my_neighbours[dir_idx] = neighbourChunk;
 
             // assign SELF to ourNeighbours.dir.inverseDir
             const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
-            neighbours[neighbour_chunk_pos][inverseDir_idx] = self_ptr;
+            neighbours[neighbourChunkLocal][inverseDir_idx] = self_ptr;
         }
     }
     neighbours.emplace(pos, std::move(my_neighbours));
@@ -50,35 +48,27 @@ void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
 
 void ChunkMap::generate(ivec3 chunk_coord) {
     //    LOG_DEBUG("Generating chunk for {}", dbg_fmt(chunk_coord));
-    if (data.contains(chunk_coord)) {
-        LOG_WARN("Chunk generation requested on chunk that already exists.");
-    } else {
-        auto [chunk_data, chunk_metadata] = generator.gen(chunk_coord);
-        data.emplace(chunk_coord, std::make_unique<Chunk>(chunk_data));
-        metadata.emplace(chunk_coord, std::make_unique<ChunkMetadata>(chunk_metadata));
-
-        updateNeighbourMap(chunk_coord);
-        updateBoundingBoxesMap(chunk_coord);
-        chunkState.emplace(chunk_coord, ChunkStatus::DIRTY);
-    }
 }
 
 bool ChunkMap::isDirty(ivec3 pos) const {
-    return chunkState.at(pos)==ChunkStatus::DIRTY;
+    return chunks.at(pos)->flags.isDirty;
 }
 bool ChunkMap::isClean(ivec3 pos) const {
-    return chunkState.at(pos)==ChunkStatus::CLEAN;
+    return !chunks.at(pos)->flags.isDirty;
 }
+
 bool ChunkMap::isMeshing(ivec3 pos) const {
-    return chunkState.at(pos)==ChunkStatus::CURRENTLY_MESHING;
+    return !chunks.at(pos)->flags.isMeshing;
 }
 
 void ChunkMap::markDirty(ivec3 pos) {
-    chunkState.insert_or_assign(pos,ChunkStatus::DIRTY);
+    chunks.at(pos)->flags.isDirty = true;
 }
+
 void ChunkMap::markClean(ivec3 pos) {
-    chunkState.insert_or_assign(pos,ChunkStatus::CLEAN);
+    chunks.at(pos)->flags.isDirty = false;
 }
+
 void ChunkMap::markMeshing(ivec3 pos) {
-    chunkState.insert_or_assign(pos,ChunkStatus::CURRENTLY_MESHING);
+    chunks.at(pos)->flags.isMeshing = false;
 }

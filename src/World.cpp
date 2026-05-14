@@ -27,7 +27,7 @@ vec3 World::chunkToWorldPos(ivec3 chunkPos) {
 Block World::getBlock(ivec3 world_pos) const {
     ivec3 chunk_origin = World::worldToChunkCoord(world_pos);
     auto  chunk_ptr =
-        chunkMap.data.contains(chunk_origin) ? &chunkMap.data.at(chunk_origin) : nullptr;
+        chunkMap.chunks.contains(chunk_origin) ? &chunkMap.chunks.at(chunk_origin) : nullptr;
     if (chunk_ptr) {
         ivec3 chunk_local = world_pos - chunk_origin * (int)CHUNK_ZWIDTH;
         return chunk_ptr->get()->getBlock(chunk_local);
@@ -37,29 +37,29 @@ Block World::getBlock(ivec3 world_pos) const {
 }
 
 const Chunk* World::ch_getChunk(ivec3 chunk_coord) const {
-    if (!chunkMap.data.contains(chunk_coord)) {
+    if (!chunkMap.chunks.contains(chunk_coord)) {
         LOG_ERROR("Tried to access chunk which doesnt exist!");
         LOG_ERROR("Chunk:({}) does not exist!", dbg_fmt(chunk_coord));
-        LOG_ERROR("Generated chunks: (n={})", chunkMap.data.size());
-        for (const auto& [cpos, chunk] : chunkMap.data) {
+        LOG_ERROR("Generated chunks: (n={})", chunkMap.chunks.size());
+        for (const auto& [cpos, chunk] : chunkMap.chunks) {
             std::println("\t{} : {}", dbg_fmt(cpos), (void*)&chunk);
         }
         DEBUG_BREAKPOINT();
     }
-    return chunkMap.data.at(chunk_coord).get();
+    return chunkMap.chunks.at(chunk_coord).get();
 }
 
 Chunk& World::ch_getMutableChunk(ivec3 chunk_coord) {
-    if (!chunkMap.data.contains(chunk_coord)) {
+    if (!chunkMap.chunks.contains(chunk_coord)) {
         LOG_ERROR("Tried to access chunk which doesnt exist!");
         LOG_ERROR("Chunk:({}) does not exist!", dbg_fmt(chunk_coord));
-        LOG_ERROR("Generated chunks: (n={})", chunkMap.data.size());
-        for (const auto& [cpos, chunk] : chunkMap.data) {
+        LOG_ERROR("Generated chunks: (n={})", chunkMap.chunks.size());
+        for (const auto& [cpos, chunk] : chunkMap.chunks) {
             std::println("\t{} : {}", dbg_fmt(cpos), (void*)&chunk);
         }
         DEBUG_BREAKPOINT();
     }
-    return *chunkMap.data.at(chunk_coord);
+    return *chunkMap.chunks.at(chunk_coord);
 }
 
 const Chunk* World::getChunk(vec3 world_pos) const {

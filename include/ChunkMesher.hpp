@@ -8,18 +8,17 @@ struct World;
 struct ChunkMesher {
     ChunkMesher() = default;
     ~ChunkMesher() = default;
-    void setupChunkMesher(TextureAtlas& atlas){
+    void setupChunkMesher(){
         mesherThreads.launch(
             meshChunks,
-            std::ref(toBeMeshed),
-            std::ref(chunkMeshData),
-            std::ref(atlas)
+            std::ref(meshJobQueue),
+            std::ref(meshResultQueue)
         );
     }
 
-    Queue<ChunkSnapshot> toBeMeshed;
-    Queue<ChunkMeshData> chunkMeshData;
+    Queue<MeshJob> meshJobQueue;
+    Queue<MeshResult> meshResultQueue;
 private:
     ThreadPool mesherThreads{6};
-    static void meshChunks( std::stop_token stopToken, Queue<ChunkSnapshot>& input_queue, Queue<ChunkMeshData>& output_queue, TextureAtlas& atlas);
+    static void meshChunks(std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue);
 };
