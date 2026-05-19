@@ -13,6 +13,9 @@ struct World {
     World(World&&) = delete;
     World& operator=(World&&) = delete;
 
+    inline void setupWorld(){
+        chunkMap.setupChunkMap();
+    }
     ChunkMap chunkMap;
     GenConfig genConfig;
 

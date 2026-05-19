@@ -18,7 +18,7 @@ struct Renderer {
     void swap();
     void present();
     template <typename ...Args>
-    void uploadMesh(vec3 chunk_pos, Args&&... args) {
+    inline void uploadMesh(vec3 chunk_pos, Args&&... args) {
         visibleChunkMeshes.insert_or_assign(chunk_pos, Mesh{std::forward<Args>(args)...});
     }
 

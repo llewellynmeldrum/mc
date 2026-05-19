@@ -19,7 +19,7 @@ struct ChunkGenerator {
     TerrainNoise terrain_noise;
     ChunkDataPair gen(ivec3 pos);
 
-    void setupChunkGenerator(){
+    inline void setupChunkGenerator(){
         genThreads.launch(
             genChunks,
             std::ref(genJobQueue),

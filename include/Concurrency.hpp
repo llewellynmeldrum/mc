@@ -1,4 +1,5 @@
 #pragma once 
+#include "Logger.hpp"
 #include <deque>
 #include <mutex>
 #include <vector>
@@ -35,6 +36,21 @@ struct Queue{
     }
 
 
+    // BLOCKS until:
+    // 1. able to grab the lock
+    // 2. queue size<capacity
+    template<typename U>
+    requires std::same_as<std::remove_cvref_t<U>,T>
+    inline void wait_enqueue(U&& obj){
+        {
+            std::unique_lock lock(mtx);
+            not_full.wait(lock, [&](){
+                return q.size()<capacity;
+            });
+            q.emplace_back(std::forward<U>(obj));
+        }
+        not_empty.notify_one();
+    }
     // BLOCKS until:
     // 1. able to grab the lock
     // 2. queue size<capacity

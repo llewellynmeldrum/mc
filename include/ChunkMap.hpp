@@ -26,9 +26,19 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     ChunkMap& operator=(ChunkMap const&) = delete;
     ChunkMap(ChunkMap&&) = delete;
     ChunkMap& operator=(ChunkMap&&) = delete;
+    inline void setupChunkMap(){
+        generator.setupChunkGenerator();
+    }
 
+    ChunkGenerator generator;
     // chunk map
     std::unordered_map<ivec3, std::unique_ptr<Chunk>> chunks;
+    std::unordered_map<ivec3, ChunkGenStatus> genStatus;
+    std::unordered_map<ivec3, PendingWriteQueue> pendingWritesMap;
+    std::unordered_map<ivec3, std::unique_ptr<ChunkMetadata>> metadata;
+    std::unordered_map<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
+    std::unordered_map<ivec3, bool> is_dirty;
+
     inline Chunk& operator[](const ivec3& chunkLocal) {
         return *chunks.at(chunkLocal).get();
     }
@@ -36,17 +46,17 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     inline void uploadGeneratedChunk(GenResult gen_res){
         auto&& chunkBlocks = std::move(gen_res.chunkBlocks);
         auto&& chunkMeta = std::move(gen_res.meta);
-        const auto& key = gen_res.head.worldOffset;
+        const auto& chunkPos = gen_res.head.worldOffset;
 
-        if (!chunks.contains(key)) {
-            chunks.emplace(key, std::make_unique<Chunk>(chunkBlocks.buffer()));
-            metadata.emplace(key, std::make_unique<ChunkMetadata>(chunkMeta));
-            chunks[key]->flags.finishedGeneration=true;
+        if (!chunks.contains(chunkPos)) {
+            chunks.emplace(chunkPos, std::make_unique<Chunk>(chunkBlocks.buffer()));
+            metadata.emplace(chunkPos, std::make_unique<ChunkMetadata>(chunkMeta));
+            chunks[chunkPos]->flags.finishedGeneration=true;
 
-            handlePendingWrites(key, static_cast<ChunkSpan>(chunkBlocks), gen_res.deferredWrites);
-            updateNeighbourMap(key);
-            updateBoundingBoxesMap(key);
-            markGenerated(key);
+            handlePendingWrites(chunkPos, static_cast<ChunkSpan>(chunkBlocks), gen_res.deferredWrites);
+            updateNeighbourMap(chunkPos);
+            updateBoundingBoxesMap(chunkPos);
+            markGenerated(chunkPos);
         } else {
             // do we insert the chunk into the map anyway?
             // We might have to decide based on request priority or something idk
@@ -86,18 +96,7 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
         }
     }
 
-    std::unordered_map<ivec3, ChunkGenStatus> genStatus;
-    std::unordered_map<ivec3, PendingWriteQueue> pendingWritesMap;
 
-
-    // chunk metadata map
-    std::unordered_map<ivec3, std::unique_ptr<ChunkMetadata>> metadata;
-
-    // chunk neighbour map
-    std::unordered_map<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
-
-    // whether or not a chunk needs to be remeshed
-    std::unordered_map<ivec3, bool> is_dirty;
     bool isDirty(ivec3 pos) const;
     bool isClean(ivec3 pos) const;
     bool isMeshing(ivec3 pos) const;
@@ -113,7 +112,6 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     std::unordered_map<ivec3, std::unique_ptr<AABB>> boundingBoxes;
     const AABB*   getBoundingBox(ivec3 chunk_offset) const;
 
-    ChunkGenerator generator;
     ChunkMetadata* getMetadata(ivec3 pos)const ;
     std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(ivec3 pos) const;
     

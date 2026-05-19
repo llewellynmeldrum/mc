@@ -1,5 +1,6 @@
 
 #include "Chunk.hpp"
+#include "ChunkHelpers.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 
@@ -18,6 +19,7 @@ void Context::setupContext() {
     cam.setupCamera();
     rend.setupRenderer();
     ui.setupDebugUI(win.ptr);
+    world.setupWorld();
 }
 std::vector<ivec3> Context::findChunksForGeneration(){
     std::vector<ivec3> res;
@@ -26,8 +28,9 @@ std::vector<ivec3> Context::findChunksForGeneration(){
                                         -SIMULATION_DIST, SIMULATION_DIST);
 
     for (const auto& [x,y,z] : chunkRange){
-        ivec3 key = World::worldToChunkCoord(cam.pos) + ivec3{x,y,z};
-        auto genStatus = world.chunkMap.queryGenStatus(key);
+        const ivec3 camWorld = World::worldToChunkCoord(cam.pos);
+        const ivec3 key = camWorld + ivec3{x,y,z}; // dont you have to 
+        const auto genStatus = world.chunkMap.queryGenStatus(key);
         if (genStatus.finishedAll == false){
             res.emplace_back(key);
         }
@@ -36,9 +39,9 @@ std::vector<ivec3> Context::findChunksForGeneration(){
 }
 
 std::size_t Context::enqueueGenerationJobs(){
-    auto chunkWorldPosForGen = findChunksForGeneration();
-
-    std::size_t res =0;
+    const auto chunkWorldPosForGen = findChunksForGeneration();
+    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
+    std::size_t res = 0;
     for (const ivec3& chunkWorldPos: chunkWorldPosForGen){
 
         auto genStatus = world.chunkMap.queryGenStatus(chunkWorldPos);
@@ -53,10 +56,12 @@ std::size_t Context::enqueueGenerationJobs(){
         if (success){
             res++;
         }else{
+            LOG_DEBUG("FAILED TO ENQUEUE FOR GEN");
+
             break;
         }
     }
-    LOG_DEBUG("enqueued_for_meshing this frame:{}",res);
+    if (res>0) LOG_DEBUG("enqueued_for_gen this frame:{}",res);
     return res;
 }
 // update
@@ -87,7 +92,7 @@ std::vector<ChunkView> Context::findChunksForMeshing(){
 std::size_t Context::enqueueMeshingJobs(){
     auto chunksForMeshing = findChunksForMeshing();
 
-    std::size_t enqueued_for_meshing =0;
+    std::size_t res =0;
     for (const auto& [chunk_pos, chunk_ptr]: chunksForMeshing){
         if (world.chunkMap.isMeshing(chunk_pos)){
             continue;
@@ -104,15 +109,15 @@ std::size_t Context::enqueueMeshingJobs(){
             meta,
             &rend.atlas
         )){
-            enqueued_for_meshing++;
+            res++;
             world.chunkMap.markMeshing(chunk_pos);
         } else{
             // stop submitting this frame
             break;
         }
     }
-    LOG_DEBUG("enqueued_for_meshing this frame:{}",enqueued_for_meshing);
-    return enqueued_for_meshing;
+    if (res>0) LOG_DEBUG("enqueued_for_meshing this frame:{}",res);
+    return res;
 }
 
 std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
@@ -148,7 +153,8 @@ std::size_t Context::drainAndUploadMeshResults(){
     std::size_t res =0;
     auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
     for (const auto& [header, vertices, indices] : candidateMeshes){
-        rend.uploadMesh(header.worldOffset, vertices, indices);
+        ivec3 chunkPos = worldToChunkCoord(header.worldOffset);
+        rend.uploadMesh(chunkPos, vertices, indices);
         res++;
         world.chunkMap.markClean(header.worldOffset);
     }

@@ -226,9 +226,10 @@ struct ChunkTaskHeader{
 // CONSUMER: Generator Thread
 struct GenJob{
     ALL_CTORS_DEFAULT(GenJob);
-    GenJob(ivec3 worldOffset, u64 worldSeed)
-        :head(worldOffset)
-        , worldSeed(worldSeed)
+    GenJob(ivec3 _worldOffset, u64 _worldSeed, GenConfig _cfg)
+        :head(_worldOffset)
+        , worldSeed(_worldSeed)
+        , cfg(_cfg)
         {}
     ChunkTaskHeader head;
     u64 worldSeed;
@@ -258,13 +259,13 @@ struct MeshJob{
     const TextureAtlas* atlas;
 
     MeshJob(
-        ivec3 _worldOffset,
+        ivec3 _worldPos,
         const Chunk* _chunk_ptr, 
         std::array<const Chunk*, 6> _surroundingChunkPtrs,
         const ChunkMetadata* _meta,
         const TextureAtlas* _atlas)
         :
-        head(_worldOffset),
+        head(_worldPos),
         blocks(*_chunk_ptr)
     {
         for (const auto& [i,chunk_ptr]: std::views::enumerate(_surroundingChunkPtrs)){
@@ -280,8 +281,8 @@ struct MeshJob{
 // CONSUMER: Main thread.
 struct MeshResult{
     ChunkTaskHeader head;
-    std::vector<Vertex> vertices;
-    std::vector<u32> indices;
+    std::vector<Vertex> vertices{};
+    std::vector<u32> indices{};
 };
 
 

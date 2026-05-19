@@ -35,7 +35,7 @@ constexpr i32 WORLD_SEED = 1337;
 //    ChunkStore chunkBlocks;
 //    ChunkMetadata meta;
 //    PendingWriteList deferredWrites;
-static void genChunks(std::stop_token stopToken, 
+void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
     
     struct BlockPalette {
@@ -49,11 +49,12 @@ static void genChunks(std::stop_token stopToken,
 
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
-        Noise2D<FastNoiseLite::NoiseType::OpenSimplex2> heightNoise(job.worldSeed);
-
-
         GenResult res{job.head.worldOffset};
+
+        Noise2D heightNoise(NoiseType::OpenSimplex2);
+
         auto& cfg = job.cfg;
+        const auto& woffset = job.head.worldOffset;
         struct Heightmap{
             std::array<u32, CHUNK_XWIDTH*CHUNK_ZWIDTH> buf;
             u32& operator[](u32 x, u32 z){
@@ -67,13 +68,17 @@ static void genChunks(std::stop_token stopToken,
             double n = heightNoise.sample(x,z); // -1 to 1 range
             heightmap[x,z] = cfg.SEA_LEVEL + n*maxVerticalDelta;
         }
+
         // 2. apply heightmap
         for (const auto [x,z]: EachInRange(0,CHUNK_XWIDTH,0,CHUNK_ZWIDTH)){
-            const auto& height = heightmap[x,z];
+            const auto& worldHeight = heightmap[x,z];
+            const auto height = worldHeight-woffset.y;
             for (const auto y: EachInRange(0, height)){
                 res.chunkBlocks[x,y,z] = BlockType::STONE_BLOCK;
+
             }
         }
+        output_queue.wait_enqueue(res);
     }
     
     // 1. use 2d noise for heightmap, place Palette.crust from 0->height

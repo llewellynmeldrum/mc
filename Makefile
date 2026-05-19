@@ -1,5 +1,6 @@
 # CMake Wrapper Makefile
 # --------------------------------------------------
+all: run
 
 BUILD_DIR      := build
 BUILD_FAST     := build-fast

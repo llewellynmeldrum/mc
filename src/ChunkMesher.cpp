@@ -82,7 +82,7 @@ void ChunkMesher::meshChunks
        auto job = input_queue.wait_dequeue();
 
         MeshResult res{job.head.worldOffset};
-       // WARNING: These are pretty huge reserve()s. no idea if they will even be beneficial 
+       // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
