@@ -44,7 +44,7 @@ inline constexpr const auto CHUNK_ZRANGE = std::views::iota(0, CHUNK_ZWIDTH);  /
 constexpr inline const auto EachBlockInChunk() {
     return std::views::cartesian_product(CHUNK_XRANGE, CHUNK_YRANGE, CHUNK_ZRANGE);
 }
-constexpr inline const auto EachCoordInRange(
+constexpr inline const auto EachInRange(
     i64 x0, i64 x1,
     i64 y0, i64 y1,
     i64 z0, i64 z1) {
@@ -52,6 +52,20 @@ constexpr inline const auto EachCoordInRange(
     using std::views::cartesian_product;
 
     return cartesian_product(iota(x0,x1), iota(y0,y1), iota(z0,z1));
+}
+constexpr inline const auto EachInRange(
+    i64 x0, i64 x1,
+    i64 z0, i64 z1) {
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(x0,x1), iota(z0,z1));
+}
+constexpr inline const auto EachInRange(
+    i64 x0, i64 x1){
+    using std::views::iota;
+
+    return iota(x0,x1);
 }
 
 #define MD_ACCESS_MACRO(T, storage)                                                                         \

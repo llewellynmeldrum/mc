@@ -21,19 +21,6 @@
 */
 
 void App::setup() {
-    constexpr i64 chunk_hoz_radius = 16;
-    {
-        ScopeTimer world_gen("World Gen", "chunk");
-        for (i64 x = -chunk_hoz_radius; x <= chunk_hoz_radius; x++) {
-            for (i64 z = -chunk_hoz_radius; z <= chunk_hoz_radius; z++) {
-                for (i64 y = 0; y <= World::NUM_VERTICAL_CHUNKS; y++) {
-                    ctx.world.generateChunk({ x, y, z });
-                }
-            }
-        }
-    }
-    timer_log_ms_avg_us("World Gen", pow(chunk_hoz_radius * 2, 2) * World::NUM_VERTICAL_CHUNKS);
-
     ivec3 spawn_pos = { -61, +130, -83 };
     ctx.cam.pos = spawn_pos;
     ctx.cam.pitch = -23.4;

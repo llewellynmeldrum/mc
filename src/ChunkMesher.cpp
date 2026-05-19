@@ -46,7 +46,7 @@ glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
 
 
 std::array<Block, DirectionCount> 
-getNeighbourBlocks(const MeshJob& job, ivec3 chunkLocal) {
+getNeighbourBlocks(MeshJob& job, ivec3 chunkLocal) {
     std::array<Block, DirectionCount> res{};
 
     constexpr ivec3 lo = ivec3(0);
@@ -60,11 +60,11 @@ getNeighbourBlocks(const MeshJob& job, ivec3 chunkLocal) {
 
         if (neighbourInBounds) [[likely]] {
             const auto& p = neighbourBlockPos;
-            res[dir_idx] = (job.blocks[neighbourBlockPos]);
+            res[dir_idx] = job.blocks[neighbourBlockPos];
         } else [[unlikely]] {
             neighbourBlockPos = euclid_mod(neighbourBlockPos, Chunk::Extents);
             assert(lmath::isVecInBounds(neighbourBlockPos, lo, hi));
-            res[dir_idx] = neighbourChunk[neighbourBlockPos];
+            res[dir_idx] = neighbourChunk.at(neighbourBlockPos);
         }
     }
     static_assert(res.size() == DirectionCount);
@@ -81,13 +81,13 @@ void ChunkMesher::meshChunks
         
        auto job = input_queue.wait_dequeue();
 
-        MeshResult res{.worldLocal = job.worldLocal};
+        MeshResult res{job.head.worldOffset};
        // WARNING: These are pretty huge reserve()s. no idea if they will even be beneficial 
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const ivec3 world_pos = job.worldLocal;
-        const auto chunk = job.blocks;
+        const ivec3 world_pos = job.head.worldOffset;
+        auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;
 

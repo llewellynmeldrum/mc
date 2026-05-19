@@ -2,7 +2,7 @@
 
 #include "Types.h"
 #include <array>
-enum class BlockType : i64 {
+enum class BlockType : u8 {
     null = 0,
     empty = 0,
     AIR = 0,

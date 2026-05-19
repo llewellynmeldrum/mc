@@ -8,6 +8,7 @@ CompileFlags:
   Add:
     - -D__STRICT_ANSI__
     - -U__SIZEOF_FLOAT128__T_ANSI__
+  Remove: [-fmodules-ts, -fmodule-mapper=*, -fdeps-format=*]
 
 # clangd will yell about __float128 or some shit on arm64
 Diagnostics:

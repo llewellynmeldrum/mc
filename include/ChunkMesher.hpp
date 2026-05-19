@@ -3,8 +3,9 @@
 #include "Mesh.hpp"
 #include "Chunk.hpp"
 #include "TextureAtlas.hpp"
+#include "cppslop.hpp"
 
-struct World;
+FORWARD_DECL_STRUCT(World)
 struct ChunkMesher {
     ChunkMesher() = default;
     ~ChunkMesher() = default;

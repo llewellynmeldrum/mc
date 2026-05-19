@@ -22,11 +22,7 @@ PendingBlockWrite::PendingBlockWrite(const ivec3 sourceChunkwpos, const ivec3& t
     ,sourceChunkWorldPos(sourceChunkwpos)
     {}
 
-template<
-std::size_t xExtent,
-std::size_t yExtent,
-std::size_t zExtent>
-bool BaseBlockSpan<xExtent,yExtent,zExtent>::tryWrite(PendingBlockWrite write){
+bool ChunkSpan::tryWrite(PendingBlockWrite write){
     const auto& chunkLocal = worldToChunkCoord(write.worldPos);
     Block& curBlock = span[write.worldPos.x,write.worldPos.y,write.worldPos.z];
     // the higher 'priority' block wins.
@@ -34,5 +30,7 @@ bool BaseBlockSpan<xExtent,yExtent,zExtent>::tryWrite(PendingBlockWrite write){
     const auto& curPrio = BlockPriorityMap.at(curBlock.id);
     if (newPrio > curPrio){
         curBlock = write.block;
+        return true;
     }
+    return false;
 }

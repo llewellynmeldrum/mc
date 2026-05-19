@@ -13,6 +13,8 @@ APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
 BUILD_FLAGS := -j $(JOBS)
+# WARNING: CONCURRENCY DISABLED IN BUILD FOR DEBUGGING
+BUILD_FLAGS := 
 
 CMAKE_COMMON := -G "$(GENERATOR)" \
 	-DCMAKE_CXX_COMPILER="$(CXX)" \

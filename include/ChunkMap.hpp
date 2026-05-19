@@ -8,15 +8,16 @@
 
 // should the mesh queue be a prio queue?
 struct ChunkGenStatus{
-    u32 hasEntry:               01 = 0;
-    u32 finishedHeightmap:      02 = 0;
-    u32 finishedTrees:          03 = 0;
+    u32 hasEntry:               1 = 0;
+    u32 finishedHeightmap:      1 = 0;
+    u32 finishedTrees:          1 = 0;
     // ...
 
-    u32 inProgress:             30 = 0; // currently enqueued for generation
-    u32 finishedAll:            31 = 0;
+    u32 inProgress:             1 = 0; // currently enqueued for generation
+    u32 finishedAll:            1 = 0;
 };
 struct ChunkMap {
+std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     ChunkMap() = default;
     ~ChunkMap() = default;
 
@@ -36,19 +37,16 @@ struct ChunkMap {
         auto&& chunkBlocks = std::move(gen_res.chunkBlocks);
         auto&& chunkMeta = std::move(gen_res.meta);
         const auto& key = gen_res.head.worldOffset;
-        // before uploading, check for any deferred writes pending:
-        // if pendingBlockWrites.contains(key){
-        //  
-        // }
 
         if (!chunks.contains(key)) {
-            chunks.emplace(key, std::make_unique<Chunk>(chunkBlocks.data()));
+            chunks.emplace(key, std::make_unique<Chunk>(chunkBlocks.buffer()));
             metadata.emplace(key, std::make_unique<ChunkMetadata>(chunkMeta));
             chunks[key]->flags.finishedGeneration=true;
 
-            handlePendingWrites(key, chunkBlocks, gen_res.deferredWrites);
+            handlePendingWrites(key, static_cast<ChunkSpan>(chunkBlocks), gen_res.deferredWrites);
             updateNeighbourMap(key);
             updateBoundingBoxesMap(key);
+            markGenerated(key);
         } else {
             // do we insert the chunk into the map anyway?
             // We might have to decide based on request priority or something idk
@@ -56,7 +54,7 @@ struct ChunkMap {
     }
     void handlePendingWrites(
         const ivec3 src_wpos, 
-        BlockSpan srcBlocks, 
+        ChunkSpan srcBlocks, 
         const PendingWriteList& newWriteList)
     {
         // 1. apply any pending writes TO CURRENT chunk which exist on the map.
@@ -103,16 +101,20 @@ struct ChunkMap {
     bool isDirty(ivec3 pos) const;
     bool isClean(ivec3 pos) const;
     bool isMeshing(ivec3 pos) const;
+    bool isGenerated(ivec3 pos) const ;
+    bool isMeshed(ivec3 pos) const ;
     void markDirty(ivec3 pos);
     void markClean(ivec3 pos);
     void markMeshing(ivec3 pos);
+    void markGenerated(ivec3 pos);
+    void markMeshed(ivec3 pos);
 
     // world space bounding boxes for chunks (used in frustum culling)
     std::unordered_map<ivec3, std::unique_ptr<AABB>> boundingBoxes;
     const AABB*   getBoundingBox(ivec3 chunk_offset) const;
 
     ChunkGenerator generator;
-    const ChunkMetadata* getMetadata(ivec3 pos)const ;
+    ChunkMetadata* getMetadata(ivec3 pos)const ;
     std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(ivec3 pos) const;
     
     void           generate(ivec3 pos);

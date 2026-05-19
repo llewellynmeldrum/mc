@@ -5,7 +5,8 @@ project(mc LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
+# this might break shit because it assumes libc++ instead of libstdc++
+set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "include-what-you-use" CACHE STRING "IWYU" FORCE)
 
 # -- source files --
 file( GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS
@@ -27,6 +28,7 @@ set_target_properties( mc PROPERTIES
 )
 
 
+
 # -- warnings --
 
 target_compile_options(mc PRIVATE
@@ -34,7 +36,20 @@ target_compile_options(mc PRIVATE
     -Werror
     -Wimplicit-fallthrough
     -Wno-unused
+    -fdiagnostics-color=always
+    -fmax-errors=5
+    -ftemplate-backtrace-limit=5
+    -fdiagnostics-show-template-tree
 )
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(mc PRIVATE
+        -fdiagnostics-color=always
+        -fdiagnostics-color=always
+        -fdiagnostics-show-template-tree
+#        -fdiagnostics-show-caret
+    )
+endif()
 
 # -- includes --
 
@@ -45,8 +60,8 @@ target_include_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/FastNoiseLite"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
 
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
@@ -67,29 +82,27 @@ target_link_libraries(mc PRIVATE ${GLFW3_LIBRARIES})
 target_link_directories(mc PRIVATE ${GLFW3_LIBRARY_DIRS})
 
 
-# -GLBINDING
 
+# -GLBINDING
 target_link_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )
-
 target_link_libraries(mc PRIVATE
     glbinding
     glbinding-aux
 )
-
 set_target_properties(mc PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )
 
-# Precompiled headers
+# --- Precompiled headers
 
 target_precompile_headers(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include/pch.hpp"
 )
 
 
-# Optimization and sanitizers
+# --- Optimization and sanitizers
 
 option(MC_ENABLE_ASAN  "Enable AddressSanitizer" OFF)
 option(MC_ENABLE_LSAN  "Enable AddressSanitizer leak detection" OFF)

@@ -1,19 +1,24 @@
 #pragma once
+#include <functional>
 #include <mdspan>
 #include <queue>
 #include <ranges>
 #include <unordered_map>
 #include <utility>
 #include <atomic>
+#include <vector>
 
+#include "AnsiCodes.hpp"
 #include "Types.h"
 #include "Block.hpp"
 #include "cppslop.hpp"
+#include "glbinding/gl/enum.h"
 #include "glmWrapper.hpp"
 #include "ChunkHelpers.hpp"
 #include "Vertex.hpp"
-#include "noise/module/perlin.h"
+#include "NoiseSystem.hpp"
 #include "ChunkHelpers.hpp"
+#include "NoiseSystem.hpp"
 // each attribute of a chunks metadata can be 3d indexed by block (operator[x,y,z])
 // Contains (currently unused) debug information mostly about biome.
 struct ChunkMetadata {
@@ -41,9 +46,9 @@ struct Chunk{
     std::array<Block,CHUNK_SIZE>data{};
     struct{
         u32 finishedGeneration  : 1 = 0;
-        u32 isDirty             : 2 = 1;
-        u32 isMeshing           : 3 = 0;
-        u32 finishedMeshing     : 4 = 0;
+        u32 isDirty             : 1 = 1;
+        u32 isMeshing           : 1 = 0;
+        u32 finishedMeshing     : 1 = 0;
     }flags;
 
     static constexpr ivec3        Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
@@ -93,12 +98,12 @@ struct Chunk{
     }
 };
 
-auto operator<=>(const ivec3& lhs, const ivec3& rhs){
+inline auto operator<=>(const ivec3& lhs, const ivec3& rhs){
     auto cmp_x = lhs.x<=>rhs.x;
-    if ( cmp_x != nullptr) return cmp_x;
+    if ( cmp_x != 0) return cmp_x; // NOLINT
 
-    auto cmp_y = lhs.x<=>rhs.x;
-    if ( cmp_y != nullptr) return cmp_y;
+    auto cmp_y = lhs.y<=>rhs.y;
+    if ( cmp_y != 0) return cmp_y; // NOLINT
 
     return lhs.z<=>rhs.z;
 }
@@ -110,12 +115,13 @@ struct PendingBlockWrite{
     PendingBlockWrite() = delete;
     PendingBlockWrite(const ivec3 sourceChunkwpos, const ivec3& targetWPos, BlockType bt);
     ~PendingBlockWrite() = default;
-    bool operator==(this PendingBlockWrite&& lhs, PendingBlockWrite&& rhs){
-        return lhs.priority==rhs.priority;
+    bool operator==(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
+        if (lhs.priority==rhs.priority) return true;
+        else return lhs.sourceChunkWorldPos == rhs.sourceChunkWorldPos;
     }
-    auto operator<=>(this PendingBlockWrite&& lhs, PendingBlockWrite&& rhs){
+    auto operator<=>(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
         auto cmp1 = lhs.priority<=>rhs.priority;
-        if ( cmp1 != nullptr) return cmp1;
+        if ( cmp1 != 0) return cmp1; //NOLINT
         // TIE BREAK DETERMINISTICALLY BASED ON SOURCE CHUNK
         else return lhs.sourceChunkWorldPos <=> rhs.sourceChunkWorldPos;
     }
@@ -130,80 +136,80 @@ using PendingWriteList = std::vector<PendingBlockWrite>;
 //
 //
 
-template<
-std::size_t xExtent=CHUNK_XWIDTH,
-std::size_t yExtent=CHUNK_HEIGHT,
-std::size_t zExtent=CHUNK_ZWIDTH>
-struct BaseBlockSpan{
-    using Extents = std::extents<std::size_t, xExtent,yExtent,zExtent>;
-    inline Block& operator[](this auto& self, i16 x, i16 y, i16 z) {
-        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
+struct ChunkSpan{
+    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
+    private:
+        std::mdspan<Block, Extents>span;
+    public:
+    inline Block& operator[](i16 x, i16 y, i16 z) {
+        return span[x,y,z];
     }
-    inline Block& operator[](this auto& self, ivec3 v) {
-        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[v.x, v.y, v.z];
+    inline Block& operator[](ivec3 v) {
+        return span[v.x,v.y,v.z];
     }
-    BaseBlockSpan() = default;
-    ~BaseBlockSpan() = default;
-    auto begin(){
-        return span.begin();
-    }
-    auto end(){
-        return span.end();
-    }
-    auto& data(){
-        return span;
-    }
+    ChunkSpan(Block* _data): span(_data){}
+    ~ChunkSpan() = default;
     bool tryWrite(PendingBlockWrite write);
-private:
-    std::mdspan<Block, Extents>span={};
 };
 
 // [x,y,z] accessible NON OWNING VIEW of chunk block storage.
-template<
-std::size_t xExtent=CHUNK_XWIDTH,
-std::size_t yExtent=CHUNK_HEIGHT,
-std::size_t zExtent=CHUNK_ZWIDTH,
-std::ranges::contiguous_range Cont = std::vector<Block>>
-struct BaseBlockStore{
-    BaseBlockStore() = default;
-    ~BaseBlockStore() = default;
-    using Extents = std::extents<std::size_t, xExtent,yExtent,zExtent>;
-    inline Block& operator[](this auto& self, i16 x, i16 y, i16 z) {
-        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[x, y, z];
+struct ChunkStore{
+private:
+    std::vector<Block> buf={};
+public:
+    ChunkStore(const Chunk& chunk){
+        std::ranges::copy(chunk.data,buf.begin());
     }
-    inline Block& operator[](this auto& self, vec3 v) {
-        return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH)[v.x, v.y, v.z];
+    ChunkStore() = default;
+    ~ChunkStore() = default;
+    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
+    inline auto span(){
+        return std::mdspan(data(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
+    }
+    inline const auto cspan()const{
+        return std::mdspan(cdata(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
+    }
+    inline Block& operator[](i16 x, i16 y, i16 z) {
+        return span()[x, y, z];
+    }
+    inline Block& operator[](ivec3 v) {
+        return span()[v.x, v.y, v.z];
+    }
+    inline const Block& at(i16 x, i16 y, i16 z) const{
+        return cspan()[x,y,z];
+    }
+    inline const Block& at(ivec3 v) const{
+        return cspan()[v.x,v.y,v.z];
     }
     auto begin(){ return buf.begin(); }
     auto end(){ return buf.end(); }
-    auto& data(){ return buf; }
-    // implicit conversion to a BlockSpan. 
-    operator BaseBlockSpan<xExtent,yExtent,zExtent> (this auto& self){
-        auto&& span = std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
-        BaseBlockSpan<xExtent,yExtent,zExtent>(std::move(span));
+    Block* data(){ return buf.data(); }
+    const Block* cdata()const { return buf.data(); }
+    auto& buffer(){ return buf; }
+
+    // implicit conversion to a ChunkSpan. 
+    operator ChunkSpan (){
+        return {data()};
     }
-private:
-    Cont buf={};
 };
 /// [x,y,z] accessible Inplace (std::array) block storage. No heap allocation.
 //  Default initialized to air
-using BlockStoreIP = BaseBlockStore<CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH, std::array<Block,CHUNK_SIZE>>;
 
 // [x,y,z] accessible non stack block storage. (likely) Incurs heap allocation.
 // Default initialized to air
-using BlockStore = BaseBlockStore<CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH, std::vector<Block>>;
 
-using BlockSpan = BaseBlockSpan<CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH>;
 
 //auto operator==(const ivec3& lhs, const ivec3& rhs){
 //    return lhs.x==rhs.x;
 //}
 
-// noisecontrollers control your body
+#define    ALL_CTORS_DEFAULT(T)\
+T(const T&)=default;\
+T(T&&)=default;\
+T& operator=(T&&)=default;\
+T& operator=(const T&)=default;
 struct GenConfig{
-    struct NoiseController{
-        noise::module::Perlin height;
-    }noise;
+    constexpr static u32 SEA_LEVEL = 64;
 };
 
 extern std::atomic<u32> id_counter;
@@ -219,6 +225,11 @@ struct ChunkTaskHeader{
 // PRODUCER: Main Thread
 // CONSUMER: Generator Thread
 struct GenJob{
+    ALL_CTORS_DEFAULT(GenJob);
+    GenJob(ivec3 worldOffset, u64 worldSeed)
+        :head(worldOffset)
+        , worldSeed(worldSeed)
+        {}
     ChunkTaskHeader head;
     u64 worldSeed;
     GenConfig cfg;
@@ -228,8 +239,9 @@ struct GenJob{
 // PRODUCER: Generator Thread
 // CONSUMER: Main Thread
 struct GenResult{
+    GenResult(ivec3 worldOffset) :head(worldOffset) {}
     ChunkTaskHeader head;
-    BlockStoreIP chunkBlocks;
+    ChunkStore chunkBlocks;
     ChunkMetadata meta;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
 };
@@ -240,17 +252,26 @@ struct GenResult{
 FORWARD_DECL_STRUCT(TextureAtlas)
 struct MeshJob{
     ChunkTaskHeader head;
-    BlockStore blocks;
-    std::array<BlockStore,6> surroundingChunks;
+    ChunkStore blocks;
+    std::array<ChunkStore,6> surroundingChunks;
     ChunkMetadata meta;
-    TextureAtlas* atlas;
+    const TextureAtlas* atlas;
 
-    MeshJob(ivec3 worldLocal, const Chunk* chunk, auto surroundingChunks, auto meta, auto* atlas){
-        this->head.worldOffset= worldLocal;
-        std::ranges::copy(chunk->data, blocks.begin());
-        this->surroundingChunks = std::move(surroundingChunks);
-        this->meta = std::move(meta);
-        this->atlas = atlas;
+    MeshJob(
+        ivec3 _worldOffset,
+        const Chunk* _chunk_ptr, 
+        std::array<const Chunk*, 6> _surroundingChunkPtrs,
+        const ChunkMetadata* _meta,
+        const TextureAtlas* _atlas)
+        :
+        head(_worldOffset),
+        blocks(*_chunk_ptr)
+    {
+        for (const auto& [i,chunk_ptr]: std::views::enumerate(_surroundingChunkPtrs)){
+            surroundingChunks[i] = ChunkStore{*chunk_ptr};
+        }
+        meta = *_meta;
+        atlas = _atlas;
     }
 };
 

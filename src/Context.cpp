@@ -21,7 +21,7 @@ void Context::setupContext() {
 }
 std::vector<ivec3> Context::findChunksForGeneration(){
     std::vector<ivec3> res;
-    auto chunkRange  = EachCoordInRange(-SIMULATION_DIST, SIMULATION_DIST,
+    auto chunkRange  = EachInRange(-SIMULATION_DIST, SIMULATION_DIST,
                                         -SIMULATION_DIST, SIMULATION_DIST,
                                         -SIMULATION_DIST, SIMULATION_DIST);
 
@@ -65,7 +65,7 @@ std::vector<ChunkView> Context::findChunksForMeshing(){
     auto needs_meshing = [](const World& world){
         return [&world](const ChunkView & pair) {
             const auto& [chunk_coord, ptr] = pair;
-            return world.chunkMap.chunks.at(chunk_coord)->flags.isDirty;
+            return world.chunkMap.isDirty(chunk_coord);
         };
     };
 
@@ -88,16 +88,22 @@ std::size_t Context::enqueueMeshingJobs(){
     auto chunksForMeshing = findChunksForMeshing();
 
     std::size_t enqueued_for_meshing =0;
-    for (const auto& [chunk_pos, chunk]: chunksForMeshing){
-        if (world.chunkMap[chunk_pos].flags.isMeshing){
+    for (const auto& [chunk_pos, chunk_ptr]: chunksForMeshing){
+        if (world.chunkMap.isMeshing(chunk_pos)){
             continue;
         }
         // TODO: to (seriously, like 4-5x) reduce the size of a mesh jobs allocation, 
         // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
         // i.e the ones bordering the actual chunk in question.
-        auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
-        auto* meta = world.chunkMap.getMetadata(chunk_pos);
-        if (rend.mesher.meshJobQueue.try_emplace(chunk_pos, chunk, surrounding, meta, &rend.atlas)){
+        const auto surrounding = world.chunkMap.getSurroundingChunks(chunk_pos);
+        const auto* meta = world.chunkMap.getMetadata(chunk_pos);
+        if (rend.mesher.meshJobQueue.try_emplace(
+            chunk_pos,
+            chunk_ptr,
+            surrounding,
+            meta,
+            &rend.atlas
+        )){
             enqueued_for_meshing++;
             world.chunkMap.markMeshing(chunk_pos);
         } else{
@@ -120,8 +126,6 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
         }
         output.emplace_back(*meshData);
         const auto [chunk_pos, vertices, indices] = *meshData;
-        // im pretty sure im replacing a bunch of the same meshes
-        // I need to guarantee meshes are not yet in the queue, before enqueing them.
     }
     return output;
 }

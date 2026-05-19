@@ -1,15 +1,24 @@
 
+#include "ChunkHelpers.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "Logger.hpp"
 #include <memory>
+#include <ranges>
 
 std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 pos) const {
     std::array<const Chunk*, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
     return res;
 }
-const ChunkMetadata* ChunkMap::getMetadata(ivec3 pos)const {
+std::array<ChunkStore, NUM_NEIGHBOURS> ChunkMap::copySurroundingChunks(ivec3 pos) const {
+    std::array<ChunkStore,NUM_NEIGHBOURS>res;
+    for (const auto [i,val]: std::views::enumerate(neighbours.at(pos))){
+        res[i] = ChunkStore(*val);
+    }
+    return res;
+}
+ChunkMetadata* ChunkMap::getMetadata(ivec3 pos)const {
     return metadata.at(pos).get();
 }
 const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
@@ -58,7 +67,13 @@ bool ChunkMap::isClean(ivec3 pos) const {
 }
 
 bool ChunkMap::isMeshing(ivec3 pos) const {
-    return !chunks.at(pos)->flags.isMeshing;
+    return chunks.at(pos)->flags.isMeshing;
+}
+bool ChunkMap::isMeshed(ivec3 pos) const {
+    return chunks.at(pos)->flags.finishedMeshing;
+}
+bool ChunkMap::isGenerated(ivec3 pos) const {
+    return chunks.at(pos)->flags.finishedGeneration;
 }
 
 void ChunkMap::markDirty(ivec3 pos) {
@@ -70,5 +85,11 @@ void ChunkMap::markClean(ivec3 pos) {
 }
 
 void ChunkMap::markMeshing(ivec3 pos) {
-    chunks.at(pos)->flags.isMeshing = false;
+    chunks.at(pos)->flags.isMeshing = true;
+}
+void ChunkMap::markMeshed(ivec3 pos) {
+    chunks.at(pos)->flags.finishedMeshing= true;
+}
+void ChunkMap::markGenerated(ivec3 pos) {
+    chunks.at(pos)->flags.finishedGeneration = true;
 }

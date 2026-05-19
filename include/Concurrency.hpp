@@ -80,7 +80,7 @@ struct Queue{
             // (wait while q.epmty)
         });
 
-        T res = std::move(q.front());
+        T res = q.front();
         q.pop_front();
         not_full.notify_one(); 
         return res;
@@ -95,7 +95,7 @@ struct Queue{
         if (q.empty()){
             return std::nullopt;
         }
-        const auto res = std::make_optional(q.front());
+        const auto res = std::make_optional(std::move(q.front()));
         q.pop_front();
         not_full.notify_one(); 
         return res;
