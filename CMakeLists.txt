@@ -5,24 +5,24 @@ project(mc LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-# this might break shit because it assumes libc++ instead of libstdc++
-set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "include-what-you-use" CACHE STRING "IWYU" FORCE)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+option(MC_ENABLE_IWYU "Run include-what-you-use" OFF)
+
+if(MC_ENABLE_IWYU)
+    set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE include-what-you-use)
+endif()
 
 # -- source files --
 file( GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
+add_subdirectory(external/imgui)
 
-file( GLOB IMGUI_SRC CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/*.cpp"
-)
 
 add_executable(mc
     ${APP_SRC}
-    ${IMGUI_SRC}
 )
-
 set_target_properties( mc PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
 )
@@ -41,6 +41,9 @@ target_compile_options(mc PRIVATE
     -ftemplate-backtrace-limit=5
     -fdiagnostics-show-template-tree
 )
+
+# TEMPORARY FOR BENCHMARKING
+#target_compile_options(mc PRIVATE -ftime-report)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(mc PRIVATE
@@ -76,10 +79,11 @@ target_include_directories(mc PRIVATE
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW3 REQUIRED glfw3)
 
+target_include_directories(imgui PRIVATE ${GLFW3_INCLUDE_DIRS})
 target_include_directories(mc PRIVATE ${GLFW3_INCLUDE_DIRS})
-target_compile_options(mc PRIVATE ${GLFW3_CFLAGS_OTHER})
-target_link_libraries(mc PRIVATE ${GLFW3_LIBRARIES})
-target_link_directories(mc PRIVATE ${GLFW3_LIBRARY_DIRS})
+target_compile_options(imgui PRIVATE ${GLFW3_CFLAGS_OTHER})
+target_link_libraries(imgui PUBLIC ${GLFW3_LIBRARIES})
+target_link_directories(imgui PUBLIC ${GLFW3_LIBRARY_DIRS})
 
 
 
@@ -90,6 +94,7 @@ target_link_directories(mc PRIVATE
 target_link_libraries(mc PRIVATE
     glbinding
     glbinding-aux
+    imgui
 )
 set_target_properties(mc PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"

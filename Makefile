@@ -14,8 +14,6 @@ APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
 BUILD_FLAGS := -j $(JOBS)
-# WARNING: CONCURRENCY DISABLED IN BUILD FOR DEBUGGING
-BUILD_FLAGS := 
 
 CMAKE_COMMON := -G "$(GENERATOR)" \
 	-DCMAKE_CXX_COMPILER="$(CXX)" \
@@ -31,8 +29,8 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
 
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
-		-DCMAKE_BUILD_TYPE=Debug \
 		-DMC_O1=ON
+#		-DCMAKE_BUILD_TYPE=Debug \
 
 build: configure
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
