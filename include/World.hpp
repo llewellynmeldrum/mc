@@ -1,4 +1,5 @@
 #include "Chunk.hpp"
+#include "ChunkConcurrency.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
@@ -20,13 +21,13 @@ struct World {
     GenConfig genConfig;
 
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
-    static ivec3         worldToChunkCoord(vec3 worldPos);
-    static vec3          chunkToWorldPos(ivec3 chunkPos);
+    [[deprecated]]    static glm::ivec3         worldToChunkCoord(glm::vec3 worldPos);
+    [[deprecated]]    static glm::vec3          chunkToWorldPos(glm::ivec3 chunkPos);
 
-    inline std::vector<ChunkView> chunksInRadius(ivec3 origin, u32 radius) {
+    inline std::vector<ChunkView> chunksInRadius(WorldBlockPos chunkCoord, u32 radiusChunks) {
         std::vector<ChunkView> out;
         for (auto const& [coord, uptr]: chunkMap.chunks) {
-            if (glm::distance((vec3)origin,(vec3)coord) < radius){
+            if (glm::distance((glm::vec3)chunkCoord,(glm::vec3)coord) < radiusChunks){
                 out.emplace_back(coord, uptr.get());
             }
         }
@@ -34,7 +35,7 @@ struct World {
         return out;
     }
 
-    std::vector<std::pair<Block, Direction>> getNeighbourBlocks(vec3 world_pos) const;
+    std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;
 
-    Block getBlock(ivec3 world_pos) const;
+    Block getBlock(WorldBlockPos world_pos) const;
 };

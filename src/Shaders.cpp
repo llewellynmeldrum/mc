@@ -6,6 +6,7 @@
 #define _DEBUG
 using namespace gl;
 
+using namespace glm;
 Shader::Shader(i32 shader_type, const char* src_path) : src_path(src_path) {
     this->ShaderType = shader_type;
     this->id = glCreateShader(static_cast<GLenum>(shader_type));

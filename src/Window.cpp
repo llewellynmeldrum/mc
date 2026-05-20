@@ -1,5 +1,4 @@
 #include "Window.hpp"
-#include "Context.hpp"
 #include "stb_image.hpp"
 #include "GLFWCallbacks.hpp"
 #include <cassert>
@@ -91,6 +90,9 @@ bool Window::shouldClose() {
 
 void Window::scheduleClose() {
     glfwSetWindowShouldClose(ptr, true);
+}
+void Window::terminate() {
+    glfwTerminate();
 }
 
 static void init_glFunctionLoader() {

@@ -1,4 +1,5 @@
 #include "DebugUI.hpp"
+#include "ChunkConcurrency.hpp"
 #include "Context.hpp"
 #include "DebugFormat.hpp"
 #include "GLFW/glfw3.h"
@@ -105,7 +106,7 @@ void DebugUI::ShowOverlay(bool* p_open) {
     else
         facing_str += ",   ";
 
-    auto ch_pos = World::worldToChunkCoord(ctx->cam.pos);
+    auto ch_pos = toWorldChunkCoord(ctx->cam.pos);
     if (IG::Begin("Debug Overlay", p_open, window_flags)) {
         IG::Text("DEBUG OVERLAY");
 

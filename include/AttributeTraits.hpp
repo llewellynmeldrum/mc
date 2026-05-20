@@ -26,7 +26,7 @@ struct attribute_traits<f32> {
 };
 
 template <>
-struct attribute_traits<vec2> {
+struct attribute_traits<glm::vec2> {
     using value_type = f32;
     static constexpr i32  count = 2;
     static constexpr auto vertex_attribute_type = VertexAttributeType::f32;
@@ -34,7 +34,7 @@ struct attribute_traits<vec2> {
     static constexpr bool normalized = false;
 };
 template <>
-struct attribute_traits<vec3> {
+struct attribute_traits<glm::vec3> {
     using value_type = f32;
     static constexpr i32  count = 3;
     static constexpr auto vertex_attribute_type = VertexAttributeType::f32;
@@ -42,7 +42,7 @@ struct attribute_traits<vec3> {
     static constexpr bool normalized = false;
 };
 template <>
-struct attribute_traits<vec4> {
+struct attribute_traits<glm::vec4> {
     using value_type = f32;
     static constexpr i32  count = 4;
     static constexpr auto vertex_attribute_type = VertexAttributeType::f32;

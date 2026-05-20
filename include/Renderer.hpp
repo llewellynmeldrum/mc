@@ -13,8 +13,8 @@ struct Renderer {
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  mesher;
     void setupRenderer();
-    void draw(const mat4& view, const mat4& proj);
-    void clear(const vec4 clear_color);
+    void draw(const glm::mat4& view, const glm::mat4& proj);
+    void clear(const glm::vec4 clear_color);
     void swap();
     void present();
     template <typename ...Args>

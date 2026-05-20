@@ -2,9 +2,9 @@
 #include "Block.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
-#include "DEBUG.hpp"
+#include "Assertion.hpp"
 
-#include "FastNoiseLite.h"
+#include "NoiseSystem.hpp"
 #include "World.hpp"
 #include "Logger.hpp"
 #include "Types.h"
@@ -37,33 +37,9 @@ constexpr i32 WORLD_SEED = 1337;
 //    ChunkMetadata meta;
 //    PendingWriteList deferredWrites;
 //
-struct AssertionPassthrough{
-    int line;
-    std::string_view pretty_fn;
-};
-#define ASSERT_LT(a,b) assert_lt(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 
-template<typename ...Args>
-constexpr inline bool assert_lt(auto a, auto b,
-                                std::string_view str_a, std::string_view str_b,
-                                std::string_view file_name, std::string_view fn, std::string_view pretty_fn, int line, Args... vargs){
-    if (!(a<b)){
-        println( stderr, "\e[31;1;4m"
-            "Assertion FAILED in {"/*FILE*/"}:{"/*LINE*/"} !\n"     "\e[0m\e[31;1m"
-             "Expected:{} {}{}{} < {}{}{},"                 "\n"
-              "{}Where{} {}{}{}={}{}{}, {}{}{}={}{}{}."                         "\n"
-               "{}in function:{} {}",
-            file_name, line,
-             fmt::clear, fmt::blue, str_a, fmt::clear, fmt::blue,  str_b, fmt::clear,
-              fmt::red,fmt::clear, fmt::blue, str_a, fmt::clear, fmt::orange, a, fmt::clear,
-                    fmt::blue, str_b, fmt::clear, fmt::orange, b, fmt::clear,
-               fmt::red, pretty_fn, fmt::clear);                                         
 
-        DEBUG_BREAKPOINT_QUIET();
-        return false;
-    }
-    return true;
-}
+
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
     

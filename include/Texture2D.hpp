@@ -8,7 +8,7 @@ struct Texture2D {
     Texture2D() = default;
     ~Texture2D() = default;
 
-    Texture2D(const char* tex_dir, i32 image_fmt, vec4 border_color);
+    Texture2D(const char* tex_dir, i32 image_fmt, glm::vec4 border_color);
     void setup();
     void bind();
 
@@ -17,13 +17,13 @@ struct Texture2D {
     i32         pxwidth, pxheight, nchannels;
     std::string texturePath{};
     i32         imageFormat;
-    vec4        borderColor;
+    glm::vec4        borderColor;
 
   private:
     void init();
     void unbind();
 
-    void setBorderColor(vec4 color);
+    void setBorderColor(glm::vec4 color);
     void setMinifyMode(i32 mode);
     void setMagnifyMode(i32 mode);
     void setWrapMode(i32 mode);

@@ -62,8 +62,8 @@ struct ShaderProgram{
         LOG_EXIT(EXIT_FAILURE);
     }
     void setUniform(const std::string& name, const i32& val);
-    void setUniform(const std::string& name, const mat4& val);
-    void setUniform(const std::string& name, const vec2& val);
+    void setUniform(const std::string& name, const glm::mat4& val);
+    void setUniform(const std::string& name, const glm::vec2& val);
     void setUniform(const std::string& name, const f32& val);
     void setUniform(const std::string& name, const f64& val);
 

@@ -1,5 +1,6 @@
 
 #include "Chunk.hpp"
+#include "ChunkConcurrency.hpp"
 #include "ChunkHelpers.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
@@ -10,6 +11,7 @@
 #include "Logger.hpp"
 #include <algorithm>
 
+using namespace glm;
 void Context::setupContext() {
     program_epoch_ns = get_current_ns();
     LOG_EXPR(this);
@@ -27,9 +29,9 @@ std::vector<ivec3> Context::findChunksForGeneration(){
                                         -SIMULATION_DIST, SIMULATION_DIST,
                                         -SIMULATION_DIST, SIMULATION_DIST);
 
-    for (const auto& [x,y,z] : chunkRange){
-        const ivec3 camWorld = World::worldToChunkCoord(cam.pos);
-        const ivec3 key = camWorld + ivec3{x,y,z}; // dont you have to 
+    for (const auto& [cx,cy,cz] : chunkRange){
+        const ivec3 chunkCoord = toWorldChunkCoord(cam.pos);
+        const ivec3 key = chunkCoord + ivec3{cx,cy,cz}; // dont you have to 
         const auto genStatus = world.chunkMap.queryGenStatus(key);
         if (genStatus.finishedAll == false){
             res.emplace_back(key);
@@ -82,7 +84,7 @@ std::vector<ChunkView> Context::findChunksForMeshing(){
     };
 
     
-    return  world.chunksInRadius(World::worldToChunkCoord(cam.pos), RENDER_DIST) 
+    return  world.chunksInRadius(toWorldChunkCoord(cam.pos), RENDER_DIST) 
         | std::views::filter(needs_meshing(world)) 
 //      | std::views::filter(in_frustum(cam.getFrustum(), world))
 //       BUG: i have not verified that the frustum is working properly

@@ -1,8 +1,5 @@
 #pragma once
 
-#include "glm/gtc/type_ptr.hpp"
-#define GLM_FORCE_CONSTEXPR
-using namespace glm;
 template <class T>
 concept is_glm_type = requires(T obj) {
     true;
@@ -16,7 +13,7 @@ const auto data(T obj) {
     return glm::value_ptr(obj);
 }
 
-inline auto operator<=>(const ivec3& lhs, const ivec3& rhs){
+inline auto operator<=>(const glm::ivec3& lhs, const glm::ivec3& rhs){
     auto cmp_x = lhs.x<=>rhs.x;
     if ( cmp_x != 0) return cmp_x; // NOLINT
 

@@ -20,18 +20,18 @@ struct Camera {
     void setupCamera();
     void move(Direction dir, f32 dt);
     void rotate(Direction dir, f32 dt);
-    void rotateByMouse(vec2 offset, f32 dt);
+    void rotateByMouse(glm::vec2 offset, f32 dt);
 
     bool requestsMeshRegen = true;
     // at the moment, any movement causes mesh regen for all chunks.
     // Should probably only be those that are visible.
     inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
-    vec3 pos{};       // world
+    glm::vec3 pos{};       // world
     f32  aspectRatio{};
-    mat4 projection_matrix = mat4(1.0f);
+    glm::mat4 projection_matrix = glm::mat4(1.0f);
 
-    CachedValue<mat4>    cached_viewMatrix{};
+    CachedValue<glm::mat4>    cached_viewMatrix{};
     CachedValue<Frustum> cached_frustum{};
 
     inline const Frustum& getFrustum() const {
@@ -41,30 +41,30 @@ struct Camera {
                 }
         );
     }
-    inline vec3 getFacing() const{
-        return vec3{
-            cos(radians(yaw)) * cos(radians(pitch)),
-            sin(radians(pitch)),
-            sin(radians(yaw)) * cos(radians(pitch)),
+    inline glm::vec3 getFacing() const{
+        return glm::vec3{
+            cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+            sin(glm::radians(pitch)),
+            sin(glm::radians(yaw)) * cos(glm::radians(pitch)),
         };
     };
 
-    inline vec3 getFront() const {
+    inline glm::vec3 getFront() const {
         return normalize(getFacing());
     }
-    inline vec3 getUp() const{
+    inline glm::vec3 getUp() const{
         return normalize(cross(getRight(), getFront()));
     }
-    inline vec3 getRight() const{
+    inline glm::vec3 getRight() const{
         return normalize(cross(getFront(), WorldUp()));
     }
-    inline const mat4& getViewMatrix() { 
+    inline const glm::mat4& getViewMatrix() { 
         return cached_viewMatrix.get([this](){
             return lookAt(pos, pos + getFront(), WorldUp());
         });
     }
 
-    inline vec3 getRight() {
+    inline glm::vec3 getRight() {
         const auto& v = getViewMatrix();
         return { v[0][0], v[1][0], v[2][0] };
     }
@@ -78,15 +78,15 @@ struct Camera {
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
 
-    inline mat4 getProjectionMatrix() {
-        return glm::perspective(radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
+    inline glm::mat4 getProjectionMatrix() {
+        return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
     }
 
   private:
-    static inline constexpr vec3 WorldUp(){
+    static inline constexpr glm::vec3 WorldUp(){
         return WorldVector(Direction::UP);
     }
-    ivec3 block_pos;  // read only var?
+    glm::ivec3 block_pos;  // read only var?
     void  moveUpward(f32 dt);
     void  moveDownward(f32 dt);
     void  moveForward(f32 dt);

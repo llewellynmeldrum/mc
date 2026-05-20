@@ -116,7 +116,7 @@ struct ChunkMap {
     std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(WorldChunkCoord pos) const;
     
     void           generate(WorldChunkCoord pos);
-    inline ChunkGenStatus queryGenStatus(ivec3 key){
+    inline ChunkGenStatus queryGenStatus(WorldChunkCoord key){
             auto it = genStatus.find(key);
             if (it == genStatus.end()){
                 // not found, definitely needs to be generated

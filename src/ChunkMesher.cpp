@@ -46,14 +46,14 @@ glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
 
 
 std::array<Block, DirectionCount> 
-getNeighbourBlocks(MeshJob& job, ivec3 chunkLocal) {
+getNeighbourBlocks(MeshJob& job, ChunkBlockPos chunkLocal) {
     std::array<Block, DirectionCount> res{};
 
-    constexpr ivec3 lo = ivec3(0);
-    constexpr ivec3 hi = Chunk::Extents;
+    constexpr glm::ivec3 lo = glm::ivec3(0);
+    constexpr glm::ivec3 hi = Chunk::Extents;
     for (const auto& [faceDirection, neighbourOffset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(faceDirection);
-        ivec3       neighbourBlockPos = chunkLocal + neighbourOffset;
+        ChunkBlockPos neighbourBlockPos = chunkLocal + neighbourOffset;
         const auto neighbourChunk = job.surroundingChunks[dir_idx];
 
         const bool neighbourInBounds = lmath::isVecInBounds(neighbourBlockPos, lo, hi);
@@ -86,7 +86,7 @@ void ChunkMesher::meshChunks
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const ivec3 world_pos = job.head.chunkCoord;
+        const WorldBlockPos world_pos = toWorldBlockPos(job.head.chunkCoord);
         auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;
@@ -95,9 +95,9 @@ void ChunkMesher::meshChunks
 
         u32 vtx_count = 0;
         for (const auto& [x, y, z] : EachBlockInChunk()) {
-            const vec3 chunkLocal = { x, y, z };
+            const ChunkBlockPos chunkLocal = { x, y, z };
             // TODO: UNUSED ATM
-            const vec3 overlayColor = {0,0,0}; 
+            const glm::vec3 overlayRBG = {0,0,0}; 
 
             Block block = chunk[x, y, z];
             if (block.isAir()) {
@@ -120,12 +120,15 @@ void ChunkMesher::meshChunks
                     res.indices.push_back(mapped_index);
                 }
                 for (const auto& [vertex_idx, vtx] : enumerate(vtx_data)) {
-                    vec3 chunk_offsetted_vtx_pos = vtx.pos + chunkLocal;
-                    vec2 texture_coords = uv_tex_coords[vertex_idx];
+                    decltype(Vertex::pos) chunk_offsetted_vtx_pos =
+                        static_cast<decltype(Vertex::pos)>(vtx.pos)
+                        +
+                        static_cast<decltype(Vertex::pos)>(chunkLocal);
+                    glm::vec2 texture_coords = uv_tex_coords[vertex_idx];
                     res.vertices.emplace_back(
                         chunk_offsetted_vtx_pos,
                         texture_coords, 
-                        overlayColor, 
+                        overlayRBG, 
                         static_cast<i32>(faceDir)
                     );
                     vtx_count++;
@@ -150,57 +153,49 @@ static constexpr glm::vec3 PPP{ 0.5, 0.5, 0.5};
 constexpr std::array<std::array<Vertex,4>,6> defaultCubeFaces = {
     // Direction::forward
     std::array<Vertex,4>{
-        Vertex{PNN,vec2(0,0),vec3(1.0f),0},
-        Vertex{NNN,vec2(1,0),vec3(1.0f),0},
-        Vertex{NPN,vec2(1,1),vec3(1.0f),0},
-        Vertex{PPN,vec2(0,1),vec3(1.0f),0},
+        Vertex{PNN,glm::vec2(0,0),glm::vec3(1.0f),0},
+        Vertex{NNN,glm::vec2(1,0),glm::vec3(1.0f),0},
+        Vertex{NPN,glm::vec2(1,1),glm::vec3(1.0f),0},
+        Vertex{PPN,glm::vec2(0,1),glm::vec3(1.0f),0},
     },
     // Direction::backward
     std::array<Vertex,4>{
-        Vertex{NNP,vec2(0,0),vec3(1.0f),1},
-        Vertex{PNP,vec2(1,0),vec3(1.0f),1},
-        Vertex{PPP,vec2(1,1),vec3(1.0f),1},
-        Vertex{NPP,vec2(0,1),vec3(1.0f),1},
+        Vertex{NNP,glm::vec2(0,0),glm::vec3(1.0f),1},
+        Vertex{PNP,glm::vec2(1,0),glm::vec3(1.0f),1},
+        Vertex{PPP,glm::vec2(1,1),glm::vec3(1.0f),1},
+        Vertex{NPP,glm::vec2(0,1),glm::vec3(1.0f),1},
     },
     // Direction:: Left
     std::array<Vertex,4>{
-        Vertex{NNN,vec2(0,0),vec3(1.0f),2},
-        Vertex{NNP,vec2(1,0),vec3(1.0f),2},
-        Vertex{NPP,vec2(1,1),vec3(1.0f),2},
-        Vertex{NPN,vec2(0,1),vec3(1.0f),2},
+        Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),2},
+        Vertex{NNP,glm::vec2(1,0),glm::vec3(1.0f),2},
+        Vertex{NPP,glm::vec2(1,1),glm::vec3(1.0f),2},
+        Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),2},
     },
 
     // Direction::Right
     std::array<Vertex,4>{
-        Vertex{PNP,vec2(0,0),vec3(1.0f),3},
-        Vertex{PNN,vec2(1,0),vec3(1.0f),3},
-        Vertex{PPN,vec2(1,1),vec3(1.0f),3},
-        Vertex{PPP,vec2(0,1),vec3(1.0f),3},
+        Vertex{PNP,glm::vec2(0,0),glm::vec3(1.0f),3},
+        Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),3},
+        Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),3},
+        Vertex{PPP,glm::vec2(0,1),glm::vec3(1.0f),3},
     },
     // Direction::Down
     std::array<Vertex,4>{
-        Vertex{NNN,vec2(0,0),vec3(1.0f),4},
-        Vertex{PNN,vec2(1,0),vec3(1.0f),4},
-        Vertex{PNP,vec2(1,1),vec3(1.0f),4},
-        Vertex{NNP,vec2(0,1),vec3(1.0f),4},
+        Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),4},
+        Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),4},
+        Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),4},
+        Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),4},
     },
     // Direction::Up
     std::array<Vertex,4>{
-        Vertex{NPP,vec2(0,0),vec3(1.0f),5},
-        Vertex{PPP,vec2(1,0),vec3(1.0f),5},
-        Vertex{PPN,vec2(1,1),vec3(1.0f),5},
-        Vertex{NPN,vec2(0,1),vec3(1.0f),5},
+        Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),5},
+        Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),5},
+        Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),5},
+        Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),5},
     },
 };
 constexpr std::array<u32,INDICES_PER_FACE> defaultCubeIndices{
     { 3, 0, 1, 1, 2, 3,},
 };
-
 static_assert(defaultCubeFaces.size()==6);
-[[maybe_unused]] vec3 getBlockOverlayColor(ivec3 local, const ChunkMetadata* meta) {
-    auto temp = meta->blockTemperature[local.x, local.y, local.z];
-    auto humidity = meta->blockHumidity[local.x, local.y, local.z];
-    return { temp, 0, humidity };
-    // TODO: Make a better mapping function?
-    // I feel like red = temp and blue = humidity is kinda stupid
-};

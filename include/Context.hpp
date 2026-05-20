@@ -33,7 +33,7 @@ struct Context {
     void update();
     void draw();
 private:
-    std::vector<ivec3> findChunksForGeneration();
+    std::vector<glm::ivec3> findChunksForGeneration();
     std::vector<ChunkView> findChunksForMeshing();
 
     std::size_t enqueueGenerationJobs();

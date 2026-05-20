@@ -31,6 +31,6 @@ struct Input {
     std::array<KeyState, KEY_MAX + 1> keyState{};
     std::unordered_map<Key, f32>      keyRepeatCooldown;
 
-    vec2 mousepos = { 0.0, 0.0 };  // mapped to ndc like coords
-    vec2 prevmousepos = { 0.0, 0.0 };
+    glm::vec2 mousepos = { 0.0, 0.0 };  // mapped to ndc like coords
+    glm::vec2 prevmousepos = { 0.0, 0.0 };
 };

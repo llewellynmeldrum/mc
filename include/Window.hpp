@@ -12,6 +12,7 @@ struct Window {
     void swapBuffers();
     bool shouldClose();
     void scheduleClose();
+    void terminate();
 
     GLFWwindow* ptr = nullptr;
     i32         x = 0;

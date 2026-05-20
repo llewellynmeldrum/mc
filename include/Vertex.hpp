@@ -43,18 +43,18 @@ struct Vertex {
     // Maybe each face gets a blendFactor uniform, (which can be manipulated to change shadow
     // direction), and each block gets a color? Chunks could just include an extra DEBUG_COLOR field
     // which conditionally compiles or something.
-    vec3 pos;  // local
-    vec2 txCoords;
-    vec3 overlayColor{ 1.0f };
+    glm::vec3 pos;  // local
+    glm::vec2 txCoords;
+    glm::vec3 overlayColor{ 1.0f };
     i32  face_direction;
 
     static constexpr auto layout() {
         return VertexLayout<4>{ 
             .stride = sizeof(Vertex),
             .attrs = {
-               make_attr<vec3>(0, offsetof(Vertex, pos)),
-               make_attr<vec2>(1, offsetof(Vertex, txCoords)),
-               make_attr<vec3>(2, offsetof(Vertex, overlayColor)),
+               make_attr<glm::vec3>(0, offsetof(Vertex, pos)),
+               make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),
+               make_attr<glm::vec3>(2, offsetof(Vertex, overlayColor)),
                make_attr<i32>(3, offsetof(Vertex, face_direction)),
             }, 
         };

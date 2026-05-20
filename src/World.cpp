@@ -7,7 +7,9 @@
 #include "DEBUG.hpp"
 #include "Logger.hpp"
 
+using namespace glm;
 // returns the origin (0,0,0) of whichever chunk *worldPos* is in.
+[[deprecated("In favour of toWorldChunkCoord()")]]
 ivec3 World::worldToChunkCoord(vec3 worldPos) {
     f32   x = std::floor(worldPos.x / CHUNK_XWIDTH);
     f32   y = std::floor(worldPos.y / CHUNK_HEIGHT);
@@ -17,6 +19,7 @@ ivec3 World::worldToChunkCoord(vec3 worldPos) {
 }
 
 // returns the origin (0,0,0) of the chunk at *chunkPos*
+[[deprecated("In favour of toWorldBlockPos()")]]
 vec3 World::chunkToWorldPos(ivec3 chunkPos) {
     f32  x = chunkPos.x * CHUNK_XWIDTH;
     f32  y = chunkPos.y * CHUNK_HEIGHT;

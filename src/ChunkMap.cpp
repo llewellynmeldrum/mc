@@ -7,6 +7,7 @@
 #include <memory>
 #include <ranges>
 
+using namespace glm;
 std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 pos) const {
     std::array<const Chunk*, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
     return res;

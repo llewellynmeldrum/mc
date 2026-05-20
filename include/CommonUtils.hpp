@@ -1,10 +1,7 @@
 #pragma once
 #include "Types.h"
 #include <cstdlib>
-#include <functional>
 #include <string_view>
-#include <type_traits>
-#include "glmWrapper.hpp"
 
 // clang-format off
 #define DECL_SMART_ENUM(NAME, UNDERLYING_T, ...) \
@@ -48,20 +45,20 @@ const static inline std::unordered_map<i8,i8> inverseDirection_n = {
 	{5,4},
 };
 
-constexpr inline std::array<ivec3, 6> Direction_offset{
+constexpr inline std::array<glm::ivec3, 6> Direction_offset{
     // clang-format off
-    ivec3{  0,  0, -1 },
-    ivec3{  0,  0, +1 },
-    ivec3{ -1,  0,  0 },
-    ivec3{ +1,  0,  0 },
-    ivec3{  0, -1,  0 },
-    ivec3{  0, +1,  0 },
+    glm::ivec3{  0,  0, -1 },
+    glm::ivec3{  0,  0, +1 },
+    glm::ivec3{ -1,  0,  0 },
+    glm::ivec3{ +1,  0,  0 },
+    glm::ivec3{  0, -1,  0 },
+    glm::ivec3{  0, +1,  0 },
     // clang-format on
 };
 
 // clang-format off
 // To be used like: for (const auto& [dir, dirOffset]: eachDirOffset)
-constexpr inline std::initializer_list<std::pair<Direction, const ivec3&>> eachDirOffset = {
+constexpr inline std::initializer_list<std::pair<Direction, const glm::ivec3&>> eachDirOffset = {
     { Direction ::FORWARD,  Direction_offset[static_cast<i8>(Direction ::FORWARD)] },
     { Direction ::BACKWARD, Direction_offset[static_cast<i8>(Direction ::BACKWARD)] },
     { Direction ::LEFT,     Direction_offset[static_cast<i8>(Direction ::LEFT)] },

@@ -6,6 +6,7 @@
 #include "Logger.hpp"
 #include <unordered_map>
 
+using namespace glm;
 void TextureAtlas::setupTextureAtlas() {
     texture = Texture2D(textureImagePath.c_str(), to_i32(gl::GL_RGBA), { 0, 1, 0, 1 });
     texture.setup();

@@ -1,5 +1,6 @@
 #include "Geometry.hpp"
 #include "Camera.hpp"
+using namespace glm;
 void Frustum::update(this auto& self, const Camera* cam) {
     const f32& aspect = cam->aspectRatio;
     const f32& vFov = cam->vertical_fov;

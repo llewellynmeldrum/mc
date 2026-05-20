@@ -5,6 +5,7 @@
 #include "Camera.hpp"
 #include "glmWrapper.hpp"
 
+using namespace glm;
 void Camera::setupCamera() {
     pos = { 0, 0, 6 };
     block_pos = pos;

@@ -1,20 +1,18 @@
 #pragma once
-#include <cstdint>
-#include <limits>
-typedef uint64_t u64;
-typedef uint32_t u32;
-typedef uint16_t u16;
-typedef uint8_t  u8;
+using u64 = uint64_t;
+using u32 = uint32_t;
+using u16 = uint16_t;
+using u8 = uint8_t;
 
-typedef int64_t i64;
-typedef int32_t i32;
-typedef int16_t i16;
-typedef int8_t  i8;
+using i64 = int64_t;
+using i32 = int32_t;
+using i16 = int16_t;
+using i8 = int8_t;
 
-typedef float  f32;
-typedef double f64;
+using f32 = float;
+using f64 = double;
 
-typedef char Byte;
+using Byte = char;
 
 const inline f32 F32_MAX = std::numeric_limits<f32>::max();
 const inline f32 F32_MIN = std::numeric_limits<f32>::lowest();

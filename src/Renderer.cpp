@@ -37,10 +37,10 @@ void Renderer::draw(const mat4& view, const mat4& proj) {
     prog.setUniform("overlayOpacity", debug.blockOverlayOpacity);
     {
         ScopeTimer draw_timer{ "Renderer::draw", "draw call" };
-        for (const auto& [chunkLocal, mesh] : visibleChunkMeshes) {
-            const vec3 chunk_offset = World::chunkToWorldPos(chunkLocal);
+        for (const auto& [chunkCoord, mesh] : visibleChunkMeshes) {
+            const vec3 chunkWorldPos = toWorldBlockPos(chunkCoord);
             mat4       model = mat4(1.0f);
-            model = translate(model, chunk_offset);
+            model = translate(model, chunkWorldPos);
             prog.setUniform("model", model);
             mesh.draw();
             debug.vertex_count += mesh.offset_count;
