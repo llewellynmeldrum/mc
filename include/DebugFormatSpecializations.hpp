@@ -106,7 +106,7 @@ inline std::string dbg_fmt(const BlockType& val) {
     return "INVALID";
 }
 inline std::string dbg_fmt(const Block& val) {
-    return dbg_fmt(val.id);
+    return dbg_fmt(val.type);
 }
 
 #include "CommonUtils.hpp"

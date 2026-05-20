@@ -81,12 +81,12 @@ void ChunkMesher::meshChunks
         
        auto job = input_queue.wait_dequeue();
 
-        MeshResult res{job.head.worldOffset};
+        MeshResult res{job.head.chunkCoord};
        // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const ivec3 world_pos = job.head.worldOffset;
+        const ivec3 world_pos = job.head.chunkCoord;
         auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;

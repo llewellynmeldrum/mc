@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #define INCLUDE_LOGGER_LAST
 #include <cxxabi.h>
 #include <memory>
@@ -52,8 +53,10 @@ inline LogLevel ERROR{ "[ERROR]", fmt::red, 3 };
 inline LogLevel FATAL{ "[FATAL]", fmt::green, 4 };
 inline LogLevel COUNT{ "[COUNT]", fmt::red, 5 };
 
+extern std::mutex log_mut;
 #define LOG_LVL(lvl, file, ln, fmt_str, ...)                                                       \
     do {                                                                                           \
+        std::unique_lock<std::mutex> lock(log_mut);                                                \
         std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
         std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::clear);                               \
         std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::clear);                              \

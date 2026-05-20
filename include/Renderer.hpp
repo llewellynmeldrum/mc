@@ -18,13 +18,13 @@ struct Renderer {
     void swap();
     void present();
     template <typename ...Args>
-    inline void uploadMesh(vec3 chunk_pos, Args&&... args) {
-        visibleChunkMeshes.insert_or_assign(chunk_pos, Mesh{std::forward<Args>(args)...});
+    inline void uploadMesh(WorldChunkCoord chunkCoord, Args&&... args) {
+        visibleChunkMeshes.insert_or_assign(chunkCoord, Mesh{std::forward<Args>(args)...});
     }
 
     void updateViewport(int x, int y, int w, int h);
 
-    std::unordered_map<ivec3, Mesh> visibleChunkMeshes;
+    std::unordered_map<WorldChunkCoord, Mesh> visibleChunkMeshes;
 
     struct {
         bool        wireframe{ false };

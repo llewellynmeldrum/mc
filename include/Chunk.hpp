@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "AnsiCodes.hpp"
+#include "CommonUtils.hpp"
 #include "Types.h"
 #include "Block.hpp"
 #include "cppslop.hpp"
@@ -19,7 +20,30 @@
 #include "NoiseSystem.hpp"
 #include "ChunkHelpers.hpp"
 #include "NoiseSystem.hpp"
-// each attribute of a chunks metadata can be 3d indexed by block (operator[x,y,z])
+#include "lmath.hpp"
+
+
+struct PendingBlockWrite{
+    BlockType block;
+    WorldBlockPos blockPos;
+    u8 priority;
+    WorldChunkCoord sourceChunkCoord;
+    PendingBlockWrite(const WorldChunkCoord _sourceChunkCoord, const WorldBlockPos& _blockPos, BlockType bt);
+
+    PendingBlockWrite() = delete;
+    ~PendingBlockWrite() = default;
+
+    inline bool operator==(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
+        if (lhs.priority==rhs.priority) return true;
+        else return lhs.sourceChunkCoord == rhs.sourceChunkCoord;
+    }
+    inline auto operator<=>(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
+        auto cmp1 = lhs.priority<=>rhs.priority;
+        if ( cmp1 != 0) return cmp1; //NOLINT
+        // TIE BREAK DETERMINISTICALLY BASED ON SOURCE CHUNK
+        else return lhs.sourceChunkCoord <=> rhs.sourceChunkCoord;
+    }
+};
 // Contains (currently unused) debug information mostly about biome.
 struct ChunkMetadata {
     ChunkMetadata() = default;
@@ -43,6 +67,7 @@ struct Chunk{
             data[i] = std::move(val);
         }
     }
+    bool tryWrite(PendingBlockWrite write);
     std::array<Block,CHUNK_SIZE>data{};
     struct{
         u32 finishedGeneration  : 1 = 0;
@@ -51,81 +76,55 @@ struct Chunk{
         u32 finishedMeshing     : 1 = 0;
     }flags;
 
-    static constexpr ivec3        Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
+    static constexpr ivec3 Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 
 
     MD_ACCESS_MACRO(Block,data)
 
-    inline void setBlock(this auto& self, BlockType t, i16 x, i16 y, i16 z) {
-        self[x, y, z] = Block( t );
+    inline void setBlock(BlockType t, i16 x, i16 y, i16 z) {
+        span()[x, y, z] = Block( t );
+    }
+    inline void setBlock(BlockType t, ChunkBlockPos pos) {
+        return setBlock(t, pos.x, pos.y, pos.z); 
     }
 
-    inline void setBlocks(this auto& self, BlockType t, vec3 pos1, vec3 pos2) {
-        vec3 min =
-            vec3(std::min(pos1.x, pos2.x), std::min(pos1.y, pos2.y), std::min(pos1.z, pos2.z));
-        vec3 max =
-            vec3(std::max(pos1.x, pos2.x), std::max(pos1.y, pos2.y), std::max(pos1.z, pos2.z));
-        for (i64 x = min.x; x < max.x; x++) {
-            for (i64 y = min.y; y < max.y; y++) {
-                for (i64 z = min.z; z < max.z; z++) {
-                    self.setBlock(t, x, y, z);
-                }
-            }
+    inline void setBlocks(BlockType t, ChunkBlockPos pos1, ChunkBlockPos pos2) {
+        ChunkBlockPos min = glm::min(pos1,pos2);
+        ChunkBlockPos max = glm::max(pos1,pos2);
+        for (auto [x,y,z] : EachInRange(min,max)){
+            setBlock(t, x, y, z);
         }
     }
+
     // @brief sets a column of blocks starting at origin of size (1xheightx1) to t
-    inline void setColumn(this auto& self, BlockType t, ivec3 origin, i32 height) {
-        for (i64 y = origin.y; y < origin.y + height; y++) {
-            self.setBlock(t, origin.x, y, origin.z);
+    inline void setColumn(BlockType t, ChunkBlockPos origin, i32 height) {
+        for (auto y: EachInRange(origin.y, origin.y+height)) {
+            setBlock(t, origin.x, y, origin.z);
         }
     }
-    inline void setBlock(BlockType t, vec3 pos) { return setBlock(t, pos.x, pos.y, pos.z); }
 
-    inline Block getBlock(this auto& self, i16 x, i16 y, i16 z) {
-        if (x < 0 || x >= CHUNK_XWIDTH)
-            return AIR_BLOCK;
-        if (y < 0 || y >= CHUNK_HEIGHT)
-            return AIR_BLOCK;
-        if (z < 0 || z >= CHUNK_ZWIDTH)
-            return AIR_BLOCK;
+
+    inline decltype(auto) at(this auto& self, i32 x, i32 y, i32 z) {
+        if (x < 0 || x >= CHUNK_XWIDTH||y < 0 || y >= CHUNK_HEIGHT|| z < 0 || z >= CHUNK_ZWIDTH){
+            throw std::out_of_range("Chunk coordinates requested by .at() call are out of range!");
+        }
         return self[x, y, z];
     }
-    inline Block getBlock(this auto& self, vec3 pos) { return self.getBlock(pos.x, pos.y, pos.z); }
-    inline void  fillChunk(BlockType t) {
+
+    inline decltype(auto) at(this auto& self, vec3 pos) {
+        return self.at(pos.x, pos.y, pos.z); 
+    }
+
+    inline void fillChunk(BlockType t) {
         for (auto& block : data) {
             block = Block(t);
         }
     }
 };
 
-inline auto operator<=>(const ivec3& lhs, const ivec3& rhs){
-    auto cmp_x = lhs.x<=>rhs.x;
-    if ( cmp_x != 0) return cmp_x; // NOLINT
+// chunkBlockPos->      worldChunkCoord = deleted
+// worldChunkCoord->    chunkBlockPos = deleted
 
-    auto cmp_y = lhs.y<=>rhs.y;
-    if ( cmp_y != 0) return cmp_y; // NOLINT
-
-    return lhs.z<=>rhs.z;
-}
-struct PendingBlockWrite{
-    BlockType block;
-    ivec3 worldPos;
-    u8 priority;
-    ivec3 sourceChunkWorldPos;
-    PendingBlockWrite() = delete;
-    PendingBlockWrite(const ivec3 sourceChunkwpos, const ivec3& targetWPos, BlockType bt);
-    ~PendingBlockWrite() = default;
-    bool operator==(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
-        if (lhs.priority==rhs.priority) return true;
-        else return lhs.sourceChunkWorldPos == rhs.sourceChunkWorldPos;
-    }
-    auto operator<=>(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
-        auto cmp1 = lhs.priority<=>rhs.priority;
-        if ( cmp1 != 0) return cmp1; //NOLINT
-        // TIE BREAK DETERMINISTICALLY BASED ON SOURCE CHUNK
-        else return lhs.sourceChunkWorldPos <=> rhs.sourceChunkWorldPos;
-    }
-};
 // max heap (prio queue) containing block writes
 // since we are placing based on priority anyway, im not sure this being a prio queue is even necessary
 using PendingWriteQueue = std::priority_queue<PendingBlockWrite>;
@@ -137,19 +136,30 @@ using PendingWriteList = std::vector<PendingBlockWrite>;
 //
 
 struct ChunkSpan{
-    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
-    private:
-        std::mdspan<Block, Extents>span;
     public:
-    inline Block& operator[](i16 x, i16 y, i16 z) {
-        return span[x,y,z];
-    }
-    inline Block& operator[](ivec3 v) {
-        return span[v.x,v.y,v.z];
-    }
-    ChunkSpan(Block* _data): span(_data){}
+    ChunkSpan(Block* _data):
+        _span(_data){}
     ~ChunkSpan() = default;
     bool tryWrite(PendingBlockWrite write);
+    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
+        std::mdspan<Block, Extents>_span;
+
+    auto span(this auto& self){
+        return self._span;
+    }
+    inline decltype(auto) at(this auto& self, i16 x, i16 y, i16 z) {
+        return self.span()[x,y,z];
+    }
+    inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
+        return self.span()[p.x,p.y,p.z];
+    }
+
+    inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {
+        return self.span()[x,y,z];
+    }
+    inline decltype(auto) operator[](this auto& self, ChunkBlockPos p) {
+        return self.span()[p.x,p.y,p.z];
+    }
 };
 
 // [x,y,z] accessible NON OWNING VIEW of chunk block storage.
@@ -158,33 +168,40 @@ private:
     std::vector<Block> buf={};
 public:
     ChunkStore(const Chunk& chunk){
+        buf.resize(CHUNK_SIZE);
         std::ranges::copy(chunk.data,buf.begin());
     }
-    ChunkStore() = default;
+    ChunkStore(){
+        buf.resize(CHUNK_SIZE);
+    }
     ~ChunkStore() = default;
-    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
-    inline auto span(){
-        return std::mdspan(data(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
+    inline auto data(this auto& self){
+        return self.buf.data(); 
     }
-    inline const auto cspan()const{
-        return std::mdspan(cdata(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
+    inline decltype(auto) span(this auto& self){
+        return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
     }
-    inline Block& operator[](i16 x, i16 y, i16 z) {
-        return span()[x, y, z];
+
+    inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {
+        return self.span()[x, y, z];
     }
-    inline Block& operator[](ivec3 v) {
-        return span()[v.x, v.y, v.z];
+    inline decltype(auto) operator[](this auto& self, ChunkBlockPos p) {
+        return self.span()[p.x, p.y, p.z];
     }
-    inline const Block& at(i16 x, i16 y, i16 z) const{
-        return cspan()[x,y,z];
+
+    inline decltype(auto) at(this auto& self, i16 x, i16 y, i16 z) {
+        return self.span()[x, y, z];
     }
-    inline const Block& at(ivec3 v) const{
-        return cspan()[v.x,v.y,v.z];
+    inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
+        return self.span()[p.x, p.y, p.z];
     }
-    auto begin(){ return buf.begin(); }
-    auto end(){ return buf.end(); }
-    Block* data(){ return buf.data(); }
-    const Block* cdata()const { return buf.data(); }
+
+    inline auto begin(this auto& self){
+        return self.buf.begin(); 
+    }
+    inline auto end(this auto& self){
+        return self.buf.end(); 
+    }
     auto& buffer(){ return buf; }
 
     // implicit conversion to a ChunkSpan. 
@@ -192,45 +209,29 @@ public:
         return {data()};
     }
 };
-/// [x,y,z] accessible Inplace (std::array) block storage. No heap allocation.
-//  Default initialized to air
-
-// [x,y,z] accessible non stack block storage. (likely) Incurs heap allocation.
-// Default initialized to air
 
 
-//auto operator==(const ivec3& lhs, const ivec3& rhs){
-//    return lhs.x==rhs.x;
-//}
-
-#define    ALL_CTORS_DEFAULT(T)\
-T(const T&)=default;\
-T(T&&)=default;\
-T& operator=(T&&)=default;\
-T& operator=(const T&)=default;
 struct GenConfig{
     constexpr static u32 SEA_LEVEL = 64;
 };
 
 extern std::atomic<u32> id_counter;
 struct ChunkTaskHeader{
-    ivec3 worldOffset;
+    WorldChunkCoord chunkCoord;
     u32 id;
-    ChunkTaskHeader(ivec3 _worldOffset) 
-        :worldOffset(std::move(_worldOffset))
-        ,id(id_counter.fetch_add(1))
-    {}
+    ChunkTaskHeader(WorldChunkCoord _worldOffset) :
+        chunkCoord(_worldOffset),
+        id(id_counter.fetch_add(1)){}
 };
 // QUEUE: GenJobQueue
 // PRODUCER: Main Thread
 // CONSUMER: Generator Thread
 struct GenJob{
     ALL_CTORS_DEFAULT(GenJob);
-    GenJob(ivec3 _worldOffset, u64 _worldSeed, GenConfig _cfg)
-        :head(_worldOffset)
-        , worldSeed(_worldSeed)
-        , cfg(_cfg)
-        {}
+    GenJob(WorldChunkCoord _chunkCoord, u64 _worldSeed, GenConfig _cfg) :
+        head(_chunkCoord),
+        worldSeed(_worldSeed),
+        cfg(_cfg){}
     ChunkTaskHeader head;
     u64 worldSeed;
     GenConfig cfg;
@@ -240,7 +241,8 @@ struct GenJob{
 // PRODUCER: Generator Thread
 // CONSUMER: Main Thread
 struct GenResult{
-    GenResult(ivec3 worldOffset) :head(worldOffset) {}
+    GenResult(WorldChunkCoord _chunkCoord) :
+        head(_chunkCoord) {}
     ChunkTaskHeader head;
     ChunkStore chunkBlocks;
     ChunkMetadata meta;
@@ -259,13 +261,13 @@ struct MeshJob{
     const TextureAtlas* atlas;
 
     MeshJob(
-        ivec3 _worldPos,
+        WorldChunkCoord _chunkCoord,
         const Chunk* _chunk_ptr, 
         std::array<const Chunk*, 6> _surroundingChunkPtrs,
         const ChunkMetadata* _meta,
         const TextureAtlas* _atlas)
         :
-        head(_worldPos),
+        head(_chunkCoord),
         blocks(*_chunk_ptr)
     {
         for (const auto& [i,chunk_ptr]: std::views::enumerate(_surroundingChunkPtrs)){
@@ -284,5 +286,6 @@ struct MeshResult{
     std::vector<Vertex> vertices{};
     std::vector<u32> indices{};
 };
+
 
 

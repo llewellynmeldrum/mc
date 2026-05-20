@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Types.h"
 // i refuse to pollute 5 different classes with this bullshit
 #define DECL_MOVE_ONLY(CLASS_NAME)                                                                 \
     CLASS_NAME(const CLASS_NAME&) = delete;                                                        \
@@ -43,3 +44,35 @@
     namespace NAMESPACE {                                                                          \
         FORWARD_DECL_CLASS(NAME,UNDERLYING)                                                       \
     }
+
+#define    ALL_CTORS_DEFAULT(T)\
+    T(const T&)=default;\
+    T(T&&)=default;\
+    T& operator=(T&&)=default;\
+    T& operator=(const T&)=default;
+
+constexpr inline const auto EachInRange(
+    i64 x0, i64 x1,
+    i64 y0, i64 y1,
+    i64 z0, i64 z1) {
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(x0,x1), iota(y0,y1), iota(z0,z1));
+}
+
+constexpr inline const auto EachInRange(
+    i64 x0, i64 x1,
+    i64 z0, i64 z1) {
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(x0,x1), iota(z0,z1));
+}
+
+constexpr inline const auto EachInRange(
+    i64 x0, i64 x1){
+    using std::views::iota;
+
+    return iota(x0,x1);
+}

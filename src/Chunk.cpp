@@ -6,6 +6,13 @@ std::atomic<u32> id_counter{0};
 // lower priority blocks during PENDING BLOCK WRITES in worldgen.
 // Priority is ignored during other phases of generation, i.e it is only considered
 // in the case of a pending blockWrite
+// NOTE:
+// In order for this model to work without some other deterministic tiebreaker,
+// isnt it required that every block has a distinct priority?
+// Because elsewise, 2 chunks could write to the same spot with a distinct blocks A and B which have identical priority, in which case the order of loading the chunks would determine which would win.
+// In other words, if every block has a different priority, its deterministic, since load order doesnt matter if it ends up being the same block anyway.
+// WARNING: 
+// ALL BLOCKS MUST HAVE DIFFERENT PRIORITY!! SEE ABOVE FOR WHY
 const std::unordered_map<BlockType, u8> BlockPriorityMap{
     { BlockType::null,              0},
     { BlockType::empty,             0},
@@ -14,21 +21,38 @@ const std::unordered_map<BlockType, u8> BlockPriorityMap{
     { BlockType::GRASS_BLOCK,       3},
     { BlockType::STONE_BLOCK,       2},
 };
+constexpr inline u8 BlockPriority(BlockType bt){
+    return BlockPriorityMap.at(bt);
+}
+constexpr inline u8 BlockPriority(Block b){
+    return BlockPriorityMap.at(b.type);
+}
 
-PendingBlockWrite::PendingBlockWrite(const ivec3 sourceChunkwpos, const ivec3& targetWPos, BlockType bt)
-    : block(bt)
-    , worldPos(targetWPos)
-    ,priority(BlockPriorityMap.at(bt))
-    ,sourceChunkWorldPos(sourceChunkwpos)
-    {}
+PendingBlockWrite::PendingBlockWrite(const WorldChunkCoord _sourceChunkCoord, const WorldBlockPos& _blockPos, BlockType bt) :
+    block(bt),
+    blockPos(_blockPos),
+    priority(BlockPriority(bt)),
+    sourceChunkCoord(_sourceChunkCoord){}
 
-bool ChunkSpan::tryWrite(PendingBlockWrite write){
-    const auto& chunkLocal = worldToChunkCoord(write.worldPos);
-    Block& curBlock = span[write.worldPos.x,write.worldPos.y,write.worldPos.z];
+bool Chunk::tryWrite(PendingBlockWrite write){
+    Block& curBlock = this->at(write.blockPos);
     // the higher 'priority' block wins.
     const auto& newPrio = write.priority;
-    const auto& curPrio = BlockPriorityMap.at(curBlock.id);
+    const auto& curPrio = BlockPriority(curBlock);
     if (newPrio > curPrio){
+        //BUG:  Tiebreaker not being used
+        curBlock = write.block;
+        return true;
+    }
+    return false;
+}
+bool ChunkSpan::tryWrite(PendingBlockWrite write){
+    Block& curBlock = this->at(write.blockPos);
+    // the higher 'priority' block wins.
+    const auto& newPrio = write.priority;
+    const auto& curPrio = BlockPriority(curBlock);
+    if (newPrio > curPrio){
+        //BUG:  Tiebreaker not being used, because currently existing blocks dont know where they came from
         curBlock = write.block;
         return true;
     }

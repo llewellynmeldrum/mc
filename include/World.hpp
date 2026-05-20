@@ -36,11 +36,5 @@ struct World {
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(vec3 world_pos) const;
 
-    Chunk&       getMutableChunk(vec3 world_pos);
-    const Chunk* getChunk(vec3 world_pos) const;
-
-    Chunk&       ch_getMutableChunk(ivec3 chunk_pos);
-    const Chunk* ch_getChunk(ivec3 chunk_pos) const;
-
     Block getBlock(ivec3 world_pos) const;
 };

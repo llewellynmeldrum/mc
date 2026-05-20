@@ -6,7 +6,8 @@
 #include <memory>
 #include <queue>
 
-// should the mesh queue be a prio queue?
+// should the mesh queue be a prio queue? 
+// idk bro what makes you ask
 struct ChunkGenStatus{
     u32 hasEntry:               1 = 0;
     u32 finishedHeightmap:      1 = 0;
@@ -17,7 +18,6 @@ struct ChunkGenStatus{
     u32 finishedAll:            1 = 0;
 };
 struct ChunkMap {
-std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     ChunkMap() = default;
     ~ChunkMap() = default;
 
@@ -31,92 +31,91 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
     }
 
     ChunkGenerator generator;
-    // chunk map
-    std::unordered_map<ivec3, std::unique_ptr<Chunk>> chunks;
-    std::unordered_map<ivec3, ChunkGenStatus> genStatus;
-    std::unordered_map<ivec3, PendingWriteQueue> pendingWritesMap;
-    std::unordered_map<ivec3, std::unique_ptr<ChunkMetadata>> metadata;
-    std::unordered_map<ivec3, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
-    std::unordered_map<ivec3, bool> is_dirty;
+    std::unordered_map<WorldChunkCoord, std::unique_ptr<Chunk>> chunks;
+    std::unordered_map<WorldChunkCoord, ChunkGenStatus> genStatus;
+    std::unordered_map<WorldChunkCoord, PendingWriteQueue> pendingWritesMap;
+    std::unordered_map<WorldChunkCoord, std::unique_ptr<ChunkMetadata>> metadata;
+    std::unordered_map<WorldChunkCoord, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
+    std::unordered_map<WorldChunkCoord, bool> is_dirty;
+    std::unordered_map<WorldChunkCoord, std::unique_ptr<AABB>> boundingBoxes;
+    const AABB*   getBoundingBox(WorldChunkCoord chunk_offset) const;
 
-    inline Chunk& operator[](const ivec3& chunkLocal) {
+    inline Chunk& operator[](const ChunkBlockPos& chunkLocal) {
         return *chunks.at(chunkLocal).get();
     }
 
     inline void uploadGeneratedChunk(GenResult gen_res){
-        auto&& chunkBlocks = std::move(gen_res.chunkBlocks);
-        auto&& chunkMeta = std::move(gen_res.meta);
-        const auto& chunkPos = gen_res.head.worldOffset;
+        ChunkStore& chunkBlocks = gen_res.chunkBlocks;
+        ChunkMetadata& chunkMeta = gen_res.meta;
+        const auto& deferredWrites = gen_res.deferredWrites;
+        const auto& chunkCoord = gen_res.head.chunkCoord;
 
-        if (!chunks.contains(chunkPos)) {
-            chunks.emplace(chunkPos, std::make_unique<Chunk>(chunkBlocks.buffer()));
-            metadata.emplace(chunkPos, std::make_unique<ChunkMetadata>(chunkMeta));
-            chunks[chunkPos]->flags.finishedGeneration=true;
+        if (!chunks.contains(chunkCoord)) {
+            chunks.emplace(chunkCoord, std::make_unique<Chunk>(chunkBlocks.buffer()));
+            metadata.emplace(chunkCoord, std::make_unique<ChunkMetadata>(chunkMeta));
+            chunks[chunkCoord]->flags.finishedGeneration=true;
 
-            handlePendingWrites(chunkPos, static_cast<ChunkSpan>(chunkBlocks), gen_res.deferredWrites);
-            updateNeighbourMap(chunkPos);
-            updateBoundingBoxesMap(chunkPos);
-            markGenerated(chunkPos);
+            handlePendingWrites(chunkCoord, static_cast<ChunkSpan>(chunkBlocks), deferredWrites);
+            updateNeighbourMap(chunkCoord);
+            updateBoundingBoxesMap(chunkCoord);
+            markGenerated(chunkCoord);
         } else {
             // do we insert the chunk into the map anyway?
             // We might have to decide based on request priority or something idk
         }
     }
     void handlePendingWrites(
-        const ivec3 src_wpos, 
+        const WorldChunkCoord chunkCoord, 
         ChunkSpan srcBlocks, 
         const PendingWriteList& newWriteList)
     {
         // 1. apply any pending writes TO CURRENT chunk which exist on the map.
-        if (pendingWritesMap.contains(src_wpos)){
-            PendingWriteQueue& writesForSrc = pendingWritesMap.at(src_wpos);
-            while (!writesForSrc.empty()){
-                const auto write = writesForSrc.top();
-                writesForSrc.pop();
+        if (pendingWritesMap.contains(chunkCoord)){
+            PendingWriteQueue& writesForMe = pendingWritesMap.at(chunkCoord);
+            while (!writesForMe.empty()){
+                const auto write = writesForMe.top(); writesForMe.pop();
                 srcBlocks.tryWrite(write);
             }
         }
         
-        // 2. Apply any pending writes TO OTHER chunks from pwl
+        // 2. Apply any NEW pending writes TO OTHER chunks from pwl
         for (const auto& write: newWriteList){
-            // a.) if the OTHER chunk exists, apply the write
-            const auto& targetChunkCoord = worldToChunkCoord(write.worldPos);
+            // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
+            const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
             if (chunks.contains(targetChunkCoord)){
-                const auto& chunkLocal = worldToChunkCoord(write.worldPos);
-                srcBlocks.tryWrite(write);
+                chunks.at(targetChunkCoord)->tryWrite(write);
             }else{
-                // b.) if not, add to the map, so it can be applied later,
-                // in the worst case upon its generation.
-                bool mapEntryExists = pendingWritesMap.contains(write.worldPos);
+                // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
+                // and then enqueue the write.
+                bool mapEntryExists = pendingWritesMap.contains(write.blockPos);
                 if (!mapEntryExists){
-                    pendingWritesMap.emplace(write.worldPos, std::priority_queue<PendingBlockWrite>{});
+                    pendingWritesMap.emplace(write.blockPos, std::priority_queue<PendingBlockWrite>{});
                 }
-                pendingWritesMap.at(write.worldPos).push(write);
+                pendingWritesMap.at(write.blockPos).push(write);
             }
         }
     }
 
 
-    bool isDirty(ivec3 pos) const;
-    bool isClean(ivec3 pos) const;
-    bool isMeshing(ivec3 pos) const;
-    bool isGenerated(ivec3 pos) const ;
-    bool isMeshed(ivec3 pos) const ;
-    void markDirty(ivec3 pos);
-    void markClean(ivec3 pos);
-    void markMeshing(ivec3 pos);
-    void markGenerated(ivec3 pos);
-    void markMeshed(ivec3 pos);
+    std::array<ChunkStore, NUM_NEIGHBOURS> 
+        copySurroundingChunks(WorldChunkCoord pos) const;
 
-    // world space bounding boxes for chunks (used in frustum culling)
-    std::unordered_map<ivec3, std::unique_ptr<AABB>> boundingBoxes;
-    const AABB*   getBoundingBox(ivec3 chunk_offset) const;
+    bool isDirty(WorldChunkCoord pos) const;
+    bool isClean(WorldChunkCoord pos) const;
+    bool isMeshing(WorldChunkCoord pos) const;
+    bool isGenerated(WorldChunkCoord pos) const ;
+    bool isMeshed(WorldChunkCoord pos) const ;
+    void markDirty(WorldChunkCoord pos);
+    void markClean(WorldChunkCoord pos);
+    void markMeshing(WorldChunkCoord pos);
+    void markGenerated(WorldChunkCoord pos);
+    void markMeshed(WorldChunkCoord pos);
 
-    ChunkMetadata* getMetadata(ivec3 pos)const ;
-    std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(ivec3 pos) const;
+
+    ChunkMetadata* getMetadata(WorldChunkCoord pos)const ;
+    std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(WorldChunkCoord pos) const;
     
-    void           generate(ivec3 pos);
-    const Chunk*   getNeighbourByOffset(ivec3 chunk_offset, ivec3 local_offset) const;
+    void           generate(WorldChunkCoord pos);
     inline ChunkGenStatus queryGenStatus(ivec3 key){
             auto it = genStatus.find(key);
             if (it == genStatus.end()){
@@ -127,8 +126,8 @@ std::array<ChunkStore, NUM_NEIGHBOURS> copySurroundingChunks(ivec3 pos) const;
             }
     }
 private:
-    void           updateNeighbourMap(ivec3 pos);
-    void           updateBoundingBoxesMap(ivec3 chunkCoord);
+    void           updateNeighbourMap(WorldChunkCoord chunkCoord);
+    void           updateBoundingBoxesMap(WorldChunkCoord chunkCoord);
 
 
 };

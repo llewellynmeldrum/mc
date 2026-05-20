@@ -17,6 +17,7 @@ const static char* ligrey                           = "\e[90m";
 const static char* cyan                             = "\e[34m";
 const static char* green                            = "\e[32m";
 const static char* blue                             = "\e[36m";
+const static char* orange = "\e[38;5;208m";
 const static char* grey                             = "\e[90";
 const static char* yellow                           = "\e[33m";
 const static char* purple                           = "\e[35m";

@@ -1,4 +1,5 @@
 
+#include "ChunkHelpers.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "World.hpp"
 
@@ -24,49 +25,28 @@ vec3 World::chunkToWorldPos(ivec3 chunkPos) {
     return res;
 }
 
-Block World::getBlock(ivec3 world_pos) const {
-    ivec3 chunk_origin = World::worldToChunkCoord(world_pos);
+Block World::getBlock(WorldBlockPos worldPos) const {
+    WorldChunkCoord chunkCoord = toWorldChunkCoord(worldPos);
     auto  chunk_ptr =
-        chunkMap.chunks.contains(chunk_origin) ? &chunkMap.chunks.at(chunk_origin) : nullptr;
+        chunkMap.chunks.contains(chunkCoord) ? &chunkMap.chunks.at(chunkCoord) : nullptr;
     if (chunk_ptr) {
-        ivec3 chunk_local = world_pos - chunk_origin * (int)CHUNK_ZWIDTH;
-        return chunk_ptr->get()->getBlock(chunk_local);
+        auto worldChunkOffset = chunkCoord * (int)CHUNK_ZWIDTH;
+        ChunkBlockPos chunkLocal = worldPos - worldChunkOffset;
+        return chunk_ptr->get()->at(chunkLocal);
     } else {
         return Block::Empty();
     }
+    // TODO: 
+    // currently midway through refactoring all ambiguous uses of ivec3 
+    // to the WorldBlockPos, WorldChunkCoord, and ChunkBlockPos types.
+    // I might consider making them custom types that cant implicitly 
+    // convert into eachother, but CAN implicitly conver to ivec3.
+    // ---
+    // But,  the first stage is a typedef and changing all uses to whatever they are supposed to be
+    // This is also helping me identify bugs in the implementation
+    // ---
+    // We have a segfault right now that I believe is occuring inside setBlock or smth
+    // the function which uploads generated chunks is almost certainly broken, 
+    // anyways good luck
 }
 
-const Chunk* World::ch_getChunk(ivec3 chunk_coord) const {
-    if (!chunkMap.chunks.contains(chunk_coord)) {
-        LOG_ERROR("Tried to access chunk which doesnt exist!");
-        LOG_ERROR("Chunk:({}) does not exist!", dbg_fmt(chunk_coord));
-        LOG_ERROR("Generated chunks: (n={})", chunkMap.chunks.size());
-        for (const auto& [cpos, chunk] : chunkMap.chunks) {
-            std::println("\t{} : {}", dbg_fmt(cpos), (void*)&chunk);
-        }
-        DEBUG_BREAKPOINT();
-    }
-    return chunkMap.chunks.at(chunk_coord).get();
-}
-
-Chunk& World::ch_getMutableChunk(ivec3 chunk_coord) {
-    if (!chunkMap.chunks.contains(chunk_coord)) {
-        LOG_ERROR("Tried to access chunk which doesnt exist!");
-        LOG_ERROR("Chunk:({}) does not exist!", dbg_fmt(chunk_coord));
-        LOG_ERROR("Generated chunks: (n={})", chunkMap.chunks.size());
-        for (const auto& [cpos, chunk] : chunkMap.chunks) {
-            std::println("\t{} : {}", dbg_fmt(cpos), (void*)&chunk);
-        }
-        DEBUG_BREAKPOINT();
-    }
-    return *chunkMap.chunks.at(chunk_coord);
-}
-
-const Chunk* World::getChunk(vec3 world_pos) const {
-    ivec3 chunk_coord = World::worldToChunkCoord(world_pos);
-    return ch_getChunk(chunk_coord);
-}
-Chunk& World::getMutableChunk(vec3 world_pos) {
-    ivec3 cpos = World::worldToChunkCoord(world_pos);
-    return ch_getMutableChunk(cpos);
-}

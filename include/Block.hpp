@@ -22,30 +22,36 @@ inline BlockAttribArray<f32> blockOpacity = {
 };
 static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
 struct Block {
-    BlockType            id{ BlockType::AIR };
-    constexpr inline u64 idx() const noexcept { return static_cast<i64>(id); }
+    BlockType            type{ BlockType::AIR };
+    constexpr inline u64 idx() const noexcept { return static_cast<i64>(type); }
     constexpr inline i64 texture_id() const noexcept {
         return idx() - 1;  // this is hacky idk why i have to do this
     }
     constexpr inline bool isOpaque() const noexcept { return blockOpacity[idx()] >= 1.0; }
-    constexpr inline bool isAir() const noexcept { return id == BlockType::AIR; }
+    constexpr inline bool isAir() const noexcept { return type == BlockType::AIR; }
 
     constexpr auto operator<=>(const Block& other) const = default;
 
-    Block (): id(BlockType::AIR){} //NOLINT
-    Block (BlockType bt): id(bt){}
+    Block (): type(BlockType::AIR){} //NOLINT
+    Block (BlockType bt): type(bt){}
     Block (const Block& rhs) = default;
     Block (Block&& rhs) = default;
-    Block& operator=(this Block& lhs, const Block& rhs){
-        lhs.id=rhs.id;
-        return lhs;
-    }
-    Block& operator=(this Block& lhs, Block&& rhs){
-        if (lhs.id==rhs.id) {
-            return lhs;
+    Block& operator=(const Block& rhs)= default;
+    Block& operator=(Block&& rhs){
+        if (this->type==rhs.type) {
+            return *this;
         }
-        lhs.id=std::move(rhs.id);
-        return lhs;
+        this->type = std::move(rhs.type);
+        return *this;
+    }
+    Block& operator=(BlockType rhs){
+        // BUG: segfault here, this is invalid
+
+        if (this->type==rhs) {
+            return *this;
+        }
+        this->type = rhs;
+        return *this;
     }
 
     static constexpr inline const auto Null() { return Block{ BlockType::null }; }

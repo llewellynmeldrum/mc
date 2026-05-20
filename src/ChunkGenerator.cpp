@@ -2,6 +2,7 @@
 #include "Block.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
+#include "DEBUG.hpp"
 
 #include "FastNoiseLite.h"
 #include "World.hpp"
@@ -35,6 +36,34 @@ constexpr i32 WORLD_SEED = 1337;
 //    ChunkStore chunkBlocks;
 //    ChunkMetadata meta;
 //    PendingWriteList deferredWrites;
+//
+struct AssertionPassthrough{
+    int line;
+    std::string_view pretty_fn;
+};
+#define ASSERT_LT(a,b) assert_lt(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
+
+template<typename ...Args>
+constexpr inline bool assert_lt(auto a, auto b,
+                                std::string_view str_a, std::string_view str_b,
+                                std::string_view file_name, std::string_view fn, std::string_view pretty_fn, int line, Args... vargs){
+    if (!(a<b)){
+        println( stderr, "\e[31;1;4m"
+            "Assertion FAILED in {"/*FILE*/"}:{"/*LINE*/"} !\n"     "\e[0m\e[31;1m"
+             "Expected:{} {}{}{} < {}{}{},"                 "\n"
+              "{}Where{} {}{}{}={}{}{}, {}{}{}={}{}{}."                         "\n"
+               "{}in function:{} {}",
+            file_name, line,
+             fmt::clear, fmt::blue, str_a, fmt::clear, fmt::blue,  str_b, fmt::clear,
+              fmt::red,fmt::clear, fmt::blue, str_a, fmt::clear, fmt::orange, a, fmt::clear,
+                    fmt::blue, str_b, fmt::clear, fmt::orange, b, fmt::clear,
+               fmt::red, pretty_fn, fmt::clear);                                         
+
+        DEBUG_BREAKPOINT_QUIET();
+        return false;
+    }
+    return true;
+}
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
     
@@ -49,16 +78,19 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
 
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
-        GenResult res{job.head.worldOffset};
+        GenResult res{job.head.chunkCoord};
 
         Noise2D heightNoise(NoiseType::OpenSimplex2);
 
         auto& cfg = job.cfg;
-        const auto& woffset = job.head.worldOffset;
+        const auto& worldBlockOffset = toWorldBlockPos(job.head.chunkCoord);
         struct Heightmap{
             std::array<u32, CHUNK_XWIDTH*CHUNK_ZWIDTH> buf;
+            auto span(){
+                return std::mdspan(buf.data(),CHUNK_XWIDTH, CHUNK_ZWIDTH);
+            }
             u32& operator[](u32 x, u32 z){
-                    return std::mdspan(buf.data(), CHUNK_XWIDTH, CHUNK_ZWIDTH)[x, z];
+                return span()[x,z];
             }
         }heightmap;
 
@@ -72,9 +104,19 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
         // 2. apply heightmap
         for (const auto [x,z]: EachInRange(0,CHUNK_XWIDTH,0,CHUNK_ZWIDTH)){
             const auto& worldHeight = heightmap[x,z];
-            const auto height = worldHeight-woffset.y;
+            auto height = worldHeight-worldBlockOffset.y;
             for (const auto y: EachInRange(0, height)){
-                res.chunkBlocks[x,y,z] = BlockType::STONE_BLOCK;
+                // BUG: SEGFAULT HERE!
+                height = glm::clamp((i64)height, (i64)0, (i64)CHUNK_HEIGHT);
+                // create assert less than, assert gthan
+
+                ASSERT_LT(x,Chunk::Extents.x);
+                ASSERT_LT(y,Chunk::Extents.y);
+                ASSERT_LT(z,Chunk::Extents.z);
+                assert(x>=0);
+                assert(y>=0);
+                assert(z>=0);
+                res.chunkBlocks.at(x,y,z) = BlockType::STONE_BLOCK;
 
             }
         }

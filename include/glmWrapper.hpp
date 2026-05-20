@@ -15,3 +15,13 @@ template <class T>
 const auto data(T obj) {
     return glm::value_ptr(obj);
 }
+
+inline auto operator<=>(const ivec3& lhs, const ivec3& rhs){
+    auto cmp_x = lhs.x<=>rhs.x;
+    if ( cmp_x != 0) return cmp_x; // NOLINT
+
+    auto cmp_y = lhs.y<=>rhs.y;
+    if ( cmp_y != 0) return cmp_y; // NOLINT
+
+    return lhs.z<=>rhs.z;
+}

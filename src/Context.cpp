@@ -153,10 +153,10 @@ std::size_t Context::drainAndUploadMeshResults(){
     std::size_t res =0;
     auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
     for (const auto& [header, vertices, indices] : candidateMeshes){
-        ivec3 chunkPos = worldToChunkCoord(header.worldOffset);
+        WorldChunkCoord chunkPos = toWorldChunkCoord(header.chunkCoord);
         rend.uploadMesh(chunkPos, vertices, indices);
         res++;
-        world.chunkMap.markClean(header.worldOffset);
+        world.chunkMap.markClean(header.chunkCoord);
     }
     return res;
 }
