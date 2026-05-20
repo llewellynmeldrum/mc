@@ -9,3 +9,5 @@ include/annotated_gl.h
 
 imgui.ini
 build*/
+
+resources/fonts
