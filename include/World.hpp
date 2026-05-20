@@ -4,8 +4,11 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 #include <memory>
+#include <print>
 
 #include "Camera.hpp"
+    inline std::size_t distcount{0};
+    inline f32 dist_sum{0};
 struct World {
     World() = default;
     ~World() = default;
@@ -21,17 +24,22 @@ struct World {
     GenConfig genConfig;
 
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
-    [[deprecated]]    static glm::ivec3         worldToChunkCoord(glm::vec3 worldPos);
-    [[deprecated]]    static glm::vec3          chunkToWorldPos(glm::ivec3 chunkPos);
 
     inline std::vector<ChunkView> chunksInRadius(WorldBlockPos chunkCoord, u32 radiusChunks) {
         std::vector<ChunkView> out;
         for (auto const& [coord, uptr]: chunkMap.chunks) {
-            if (glm::distance((glm::vec3)chunkCoord,(glm::vec3)coord) < radiusChunks){
+            const auto dist = glm::distance((glm::vec3)chunkCoord,(glm::vec3)coord);
+            dist_sum+=dist;
+            distcount++;
+            if (dist <= radiusChunks){
                 out.emplace_back(coord, uptr.get());
             }
         }
+        std::println("Chunks in radius:{}",out.size());
 
+        if (distcount % 100 == 0){
+            std::println("Dist avg:{}",dist_sum/distcount);
+        }
         return out;
     }
 

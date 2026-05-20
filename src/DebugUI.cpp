@@ -119,22 +119,26 @@ void DebugUI::ShowOverlay(bool* p_open) {
 
         IG::Separator();
         IG::Text("Performance:");
-        const auto& fps_rb = ctx->time.framerate_ringbuf;
-        std::string one_pcnt_low = std::format("1% low: {:2.1f}", fps_rb.n_percent_low(1.0));
-        IG::Text("FPS: %2.1lf", fps_rb.avg());
-        IG::SameLine();
-        IG::Text("(%s)",one_pcnt_low.c_str());
-        auto plotFrametime = [](const auto& fps_rb, const std::string name="Frametime"){
-            IG::Text("%s: %2.2lfms", name.c_str(), 1000.0 / fps_rb.avg());
+        const auto& fps_rb = ctx->time.ringbufs.at("frame");
+
+        auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
+assert(k!=0);
+        std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
+        IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
+        IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
+
+        auto plotFrametime = [](const auto& rb_map, const std::string key="????"){
+            auto ft_rb = rb_map.at(key);
+            IG::Text("%s: %2.2lfms", key.c_str(), ft_rb.avg());
             IG::SameLine();
-            std::string id = "##"+name;
-            IG::PlotLines(id.c_str(), fps_rb.data(), fps_rb.size(), 0);
+            std::string id = "##"+key;
+            IG::PlotLines(id.c_str(), ft_rb.data(), ft_rb.size(), 0);
         };
-        plotFrametime(ctx->time.framerate_ringbuf,      "Frametime");
-        plotFrametime(ctx->time.inp_framerate_ringbuf,  "Input    ");
-//        plotFrametime(ctx->time.upd_framerate_ringbuf);
-        plotFrametime(ctx->time.drw_framerate_ringbuf,  "Draw     ");
-        plotFrametime(ctx->time.ren_framerate_ringbuf,  "Render   ");
+        plotFrametime(ctx->time.ringbufs,  "frame");
+        plotFrametime(ctx->time.ringbufs,  "input");
+        plotFrametime(ctx->time.ringbufs, "update");
+        plotFrametime(ctx->time.ringbufs,  "draw");
+        plotFrametime(ctx->time.ringbufs, "render");
 
         IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
@@ -154,6 +158,16 @@ void DebugUI::ShowOverlay(bool* p_open) {
         IG::Text("genResultQueue size: %lu", ctx->world.chunkMap.generator.genResultQueue.wait_size());
         IG::Text("meshJobQueue size: %lu", ctx->rend.mesher.meshJobQueue.wait_size());
         IG::Text("meshResultQueue size: %lu", ctx->rend.mesher.meshResultQueue.wait_size());
+        IG::Separator();
+        IG::Text("World Data");
+        IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+        IG::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.chunks.size());
+        IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pendingWritesMap.size());
+        {
+            std::size_t successful = ctx->world.chunkMap.pendingWritesSuccessful;
+            std::size_t  attempted = ctx->world.chunkMap.pendingWritesAttempted;
+            IG::Text("Pending chunk writes completed: %lu/%lu", successful, attempted);
+        }
         // TODO: mesh queue is getting oversaturated
     }
     IG::End();

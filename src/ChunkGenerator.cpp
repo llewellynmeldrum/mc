@@ -1,5 +1,6 @@
 
 #include "Block.hpp"
+#include "ChunkHelpers.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "Assertion.hpp"
@@ -22,6 +23,7 @@ constexpr i32 SEA_LEVEL = 64;
 constexpr i32 HEIGHT_LIMIT = 256;
 constexpr i32 WORLD_SEED = 1337;
 
+using namespace glm;
 
 //ChunkTaskHeader:
 //    ivec3 worldOffset;
@@ -68,24 +70,30 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
             u32& operator[](u32 x, u32 z){
                 return span()[x,z];
             }
-        }heightmap;
+        }worldHeightmap;
 
+        for (auto [x,y,z]: EachBlockInChunk()){
+            res.chunkBlocks.at(x,y,z) = BlockType::STONE_BLOCK;
+        }
+        /*
         // 1. create heightmap
         u32 maxVerticalDelta = +64; // above sea level, also the depth of the deepest valley
         for (const auto [x,z] : EachInRange(0, CHUNK_XWIDTH, 0, CHUNK_ZWIDTH)){
+            const ivec2 blockWorldPos = {x+worldBlockOffset.x, z+worldBlockOffset.z};
             double n = heightNoise.sample(x,z); // -1 to 1 range
-            heightmap[x,z] = cfg.SEA_LEVEL + n*maxVerticalDelta;
+            worldHeightmap[x,z] = cfg.SEA_LEVEL + n*maxVerticalDelta;
         }
 
         // 2. apply heightmap
         for (const auto [x,z]: EachInRange(0,CHUNK_XWIDTH,0,CHUNK_ZWIDTH)){
-            const auto& worldHeight = heightmap[x,z];
+            const auto& worldHeight = worldHeightmap[x,z];
             auto height = worldHeight-worldBlockOffset.y;
-            for (const auto y: EachInRange(0, height)){
+            for (const auto dy: EachInRange(0, CHUNK_HEIGHT)){
                 // BUG: SEGFAULT HERE!
-                height = glm::clamp((i64)height, (i64)0, (i64)CHUNK_HEIGHT);
                 // create assert less than, assert gthan
 
+                auto y = dy+height;
+                y = glm::clamp((i64)y, (i64)0, (i64)CHUNK_HEIGHT-1);
                 ASSERT_LT(x,Chunk::Extents.x);
                 ASSERT_LT(y,Chunk::Extents.y);
                 ASSERT_LT(z,Chunk::Extents.z);
@@ -96,6 +104,7 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
 
             }
         }
+        */
         output_queue.wait_enqueue(res);
     }
     

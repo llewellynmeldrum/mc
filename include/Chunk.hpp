@@ -184,7 +184,7 @@ struct MeshJob{
     MeshJob(
         WorldChunkCoord _chunkCoord,
         const Chunk* _chunk_ptr, 
-        std::array<const Chunk*, 6> _surroundingChunkPtrs,
+        std::span<const Chunk*const > _surroundingChunkPtrs,
         const ChunkMetadata* _meta,
         const TextureAtlas* _atlas)
         :
@@ -192,7 +192,11 @@ struct MeshJob{
         blocks(*_chunk_ptr)
     {
         for (const auto& [i,chunk_ptr]: std::views::enumerate(_surroundingChunkPtrs)){
-            surroundingChunks[i] = ChunkStore{*chunk_ptr};
+            if (chunk_ptr){
+                surroundingChunks[i] = ChunkStore{*chunk_ptr};
+            }else{
+                surroundingChunks[i] = ChunkStore{};
+            }
         }
         meta = *_meta;
         atlas = _atlas;

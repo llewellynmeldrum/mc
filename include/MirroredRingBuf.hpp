@@ -46,19 +46,21 @@ struct MirroredRingBuf {
         assert(k <= size());
         auto v = buf;
         // quick select k lowest elements
-        std::nth_element(v.begin(), v.begin() + k, v.end());
+        std::ranges::nth_element(v, v.begin() + k);
         size_t sum = std::accumulate(v.begin(), v.begin() + k, f32(0));
         return sum / k;
     }
     // use quick select to average the highest k=percent/size() elements .
     inline T n_percent_high(const f64 percent) const noexcept {
         size_t k = (percent / 100.0) * size();
+        // TODO: broken
         k = std::min(size(), k);
-        assert(k < size());
         auto v = buf;
         // quick select k largest elements
         std::nth_element(v.begin(), v.begin() + k, v.begin() + k, std::greater<>());
         T sum = std::accumulate(v.begin(), v.begin() + k, T{});
+        if (k==0) return 0;
+        assert(k!=0);
         return sum / k;
     }
 

@@ -4,6 +4,7 @@
 #include "ChunkHelpers.hpp"
 
 #include <memory>
+#include <print>
 #include <queue>
 
 // should the mesh queue be a prio queue? 
@@ -44,6 +45,9 @@ struct ChunkMap {
         return *chunks.at(chunkLocal).get();
     }
 
+    int uploadedChunkCount = 0;
+    int pendingWritesAttempted= 0;
+    int pendingWritesSuccessful = 0;
     inline void uploadGeneratedChunk(GenResult gen_res){
         ChunkStore& chunkBlocks = gen_res.chunkBlocks;
         ChunkMetadata& chunkMeta = gen_res.meta;
@@ -51,14 +55,16 @@ struct ChunkMap {
         const auto& chunkCoord = gen_res.head.chunkCoord;
 
         if (!chunks.contains(chunkCoord)) {
-            chunks.emplace(chunkCoord, std::make_unique<Chunk>(chunkBlocks.buffer()));
+            auto [it, emplaced] = chunks.try_emplace(chunkCoord, std::make_unique<Chunk>(chunkBlocks.buffer()));
+            
+            std::println("{} Uploaded chunk {}", emplaced?" Successfully":"Failed to", uploadedChunkCount++);
             metadata.emplace(chunkCoord, std::make_unique<ChunkMetadata>(chunkMeta));
             chunks[chunkCoord]->flags.finishedGeneration=true;
+            chunks[chunkCoord]->flags.isDirty=true;
 
             handlePendingWrites(chunkCoord, static_cast<ChunkSpan>(chunkBlocks), deferredWrites);
             updateNeighbourMap(chunkCoord);
             updateBoundingBoxesMap(chunkCoord);
-            markGenerated(chunkCoord);
         } else {
             // do we insert the chunk into the map anyway?
             // We might have to decide based on request priority or something idk
@@ -74,7 +80,13 @@ struct ChunkMap {
             PendingWriteQueue& writesForMe = pendingWritesMap.at(chunkCoord);
             while (!writesForMe.empty()){
                 const auto write = writesForMe.top(); writesForMe.pop();
-                srcBlocks.tryWrite(write);
+                pendingWritesSuccessful += srcBlocks.tryWrite(write);
+                pendingWritesAttempted++;
+            }
+            if (pendingWritesMap.at(chunkCoord).empty()){
+                // remove the queue if it no longer has anything remaining
+                // TODO: Is this is a bad idea?
+                pendingWritesMap.erase(chunkCoord);
             }
         }
         
@@ -83,15 +95,16 @@ struct ChunkMap {
             // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
             const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
             if (chunks.contains(targetChunkCoord)){
-                chunks.at(targetChunkCoord)->tryWrite(write);
+                pendingWritesSuccessful += chunks.at(targetChunkCoord)->tryWrite(write);
+                pendingWritesAttempted++;
             }else{
                 // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
                 // and then enqueue the write.
-                bool mapEntryExists = pendingWritesMap.contains(write.blockPos);
+                bool mapEntryExists = pendingWritesMap.contains(targetChunkCoord);
                 if (!mapEntryExists){
-                    pendingWritesMap.emplace(write.blockPos, std::priority_queue<PendingBlockWrite>{});
+                    pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
                 }
-                pendingWritesMap.at(write.blockPos).push(write);
+                pendingWritesMap.at(targetChunkCoord).push(write);
             }
         }
     }
@@ -113,7 +126,7 @@ struct ChunkMap {
 
 
     ChunkMetadata* getMetadata(WorldChunkCoord pos)const ;
-    std::array<const Chunk*, NUM_NEIGHBOURS> getSurroundingChunks(WorldChunkCoord pos) const;
+    std::span<const Chunk*const> getSurroundingChunks(glm::ivec3 pos) const ;
     
     void           generate(WorldChunkCoord pos);
     inline ChunkGenStatus queryGenStatus(WorldChunkCoord key){

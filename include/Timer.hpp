@@ -1,27 +1,29 @@
 #pragma once
-#include "Logger.hpp"
 #include "Types.h"
 #include "MirroredRingBuf.hpp"
 // src/Timer.cpp
 struct Timer {
+public:
     Timer() = default;
     ~Timer() = default;
 
     u64 framecount = 0;
-    void setupTimer();
-    void update();
+    template<typename ...Args>
+    void setupTimer(Args... vargs) {
+        (ringbufs.try_emplace(vargs), ...); 
+        setupTimer_impl();
+    }
 
-    void bench_input();
-    void bench_update();
-    void bench_draw();
-    void bench_render();
-    f64 total_elapsed_s = 0.0; // set to the current elapsed second count AT THE START OF THE FRAME.
-    f64 dt_s = 0.016; // for the entire frame.
-    f64 t0_mid_frame = 0;
+    f64 start_of_frame = 0.0;
+    f64 dt_s = 0.016;   // for the entire period between start and end frame
+    void start_frame();
+    void bench_start(std::string_view key);
+    void bench_end(std::string_view key);
+    void end_frame();
 
-    MirroredRingBuf<f32, 200> framerate_ringbuf;
-    MirroredRingBuf<f32, 200> inp_framerate_ringbuf;
-    MirroredRingBuf<f32, 200> upd_framerate_ringbuf;
-    MirroredRingBuf<f32, 200> drw_framerate_ringbuf;
-    MirroredRingBuf<f32, 200> ren_framerate_ringbuf;
+    std::unordered_map<std::string_view, MirroredRingBuf<f32, 200>> ringbufs{};
+    std::unordered_map<std::string_view, f64> start_time{};
+private:
+    void setupTimer_impl();
 };
+

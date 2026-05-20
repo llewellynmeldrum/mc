@@ -8,8 +8,8 @@
 #include <ranges>
 
 using namespace glm;
-std::array<const Chunk*, NUM_NEIGHBOURS> ChunkMap::getSurroundingChunks(ivec3 pos) const {
-    std::array<const Chunk*, NUM_NEIGHBOURS> res{ neighbours.at(pos) };
+std::span<const Chunk*const> ChunkMap::getSurroundingChunks(ivec3 pos) const {
+    std::span res{neighbours.at(pos)};
     return res;
 }
 std::array<ChunkStore, NUM_NEIGHBOURS> ChunkMap::copySurroundingChunks(ivec3 pos) const {

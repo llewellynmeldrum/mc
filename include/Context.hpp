@@ -16,6 +16,7 @@ struct Context {
     Context() = default;
     ~Context() = default;
 
+    std::size_t chunksMeshed{0};
     Window   win;
     Timer    time;
     Input    input;
@@ -24,8 +25,8 @@ struct Context {
     DebugUI  ui;
     World    world;
 
-    static constexpr i32 RENDER_DIST = 16;
-    static constexpr i32 SIMULATION_DIST = 16;
+    static constexpr i32 RENDER_DIST = 4;
+    static constexpr i32 SIMULATION_DIST = 2;
     static constexpr i32 WORLD_SEED = 1337;
 
     void setupContext();

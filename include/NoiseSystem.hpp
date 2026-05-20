@@ -119,6 +119,9 @@ struct Noise2D{
     inline f32 sample(f32 x, f32 y){
         return obj.GetNoise(x,y);
     }
+    inline f32 sample(glm::vec2 v){
+        return obj.GetNoise(v.x,v.y);
+    }
 
  private:
     FastNoiseLite obj;

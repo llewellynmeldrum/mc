@@ -11,32 +11,38 @@ void App::setup() {
 }
 
 void App::loop() {
-    ctx.time.update();
+    ctx.time.bench_start("frame");
 
     // INPUT
     {
+        ctx.time.bench_start("input");
         ctx.input.poll();
         ctx.handleInputs(); 
-        ctx.time.bench_input();
+        ctx.time.bench_end("input");
     }
+
     // UPDATE:
     {
+        ctx.time.bench_start("update");
         ctx.update();
-        ctx.time.bench_update();
+        ctx.time.bench_end("update");
     }
 
     // DRAWING
     {
+        ctx.time.bench_start("draw");
         ctx.draw(); 
         ctx.ui.drawDebugUI(); 
-        ctx.time.bench_draw();
+        ctx.time.bench_end("draw");
     }
 
     {
+        ctx.time.bench_start("render");
         ctx.ui.render();
         ctx.win.swapBuffers();
-        ctx.time.bench_render();
+        ctx.time.bench_end("render");
     }
+    ctx.time.bench_end("frame");
 }
 
 bool App::shouldClose() {
