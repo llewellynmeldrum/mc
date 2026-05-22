@@ -1,4 +1,5 @@
 #pragma once
+#include "ChunkConcurrency.hpp"
 #include "Concurrency.hpp"
 #include "Mesh.hpp"
 #include "Chunk.hpp"

@@ -2,6 +2,7 @@
 #include "Chunk.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkHelpers.hpp"
+#include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 
@@ -21,6 +22,10 @@ void Context::setupContext() {
         "frame",
         "input",
         "update",
+        "enqueueGen",
+        "drainGen",
+        "enqueueMesh",
+        "drainMesh",
         "draw",
         "render"
     );
@@ -29,13 +34,57 @@ void Context::setupContext() {
     ui.setupDebugUI(win.ptr);
     world.setupWorld();
 }
+void Context::loop(){
+    time.bench_start("frame");
+
+    // INPUT
+    {
+        time.bench_start("input");
+        input.poll();
+        handleInputs(); 
+        time.bench_end("input");
+    }
+
+    // UPDATE:
+    {
+        time.bench_start("update");
+        update();
+        time.bench_end("update");
+    }
+
+    // DRAWING
+    {
+        time.bench_start("draw");
+        draw(); 
+        ui.drawDebugUI(); 
+        time.bench_end("draw");
+    }
+
+    {
+        time.bench_start("render");
+        ui.render();
+        win.swapBuffers();
+        time.bench_end("render");
+    }
+    time.bench_end("frame");
+}
 
 void Context::update() {
+    time.bench_start("enqueueGen");
     enqueueGenerationJobs();
-    drainAndUploadGenResults();
+    time.bench_end("enqueueGen");
 
+    time.bench_start("drainGen");
+    drainAndUploadGenResults();
+    time.bench_end("drainGen");
+
+    time.bench_start("enqueueMesh");
     enqueueMeshingJobs();
+    time.bench_end("enqueueMesh");
+
+    time.bench_start("drainMesh");
     drainAndUploadMeshResults();
+    time.bench_end("drainMesh");
 }
 
 std::vector<ivec3> Context::findChunksForGeneration(){
@@ -84,59 +133,91 @@ std::size_t Context::enqueueGenerationJobs(){
 }
 // update
 
-std::vector<ChunkView> Context::findChunksForMeshing(){
-    auto needs_meshing = [](const World& world){
-        return [&world](const ChunkView & pair) {
-            const auto& [chunk_coord, ptr] = pair;
-            return world.chunkMap.isDirty(chunk_coord);
-        };
-    };
+std::vector<MeshJob> Context::findMeshJobs(){
 
     auto in_frustum = [](const Frustum& frustum, const World& world) {
-        return [frustum, &world](const ChunkView & pair) {
-            const auto& [chunk_coord, ptr] = pair;
-            return frustum.isAABBInside(*world.chunkMap.getBoundingBox(chunk_coord));
+        return [frustum, &world](const WorldChunkCoord& chunk_coord) {
+            return frustum.isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
         };
     };
 
     
-    return  world.chunksInRadius(toWorldChunkCoord(cam.pos), RENDER_DIST) 
-        | std::views::filter(needs_meshing(world)) 
-//      | std::views::filter(in_frustum(cam.getFrustum(), world))
-//       BUG: i have not verified that the frustum is working properly
-        | std::ranges::to<std::vector<ChunkView>>();
-}
+    const auto camChunkCoord = toWorldChunkCoord(cam.pos);
+    const auto candidateList = world.generatedChunkCoordsInRadius(camChunkCoord, RENDER_DIST, maxMeshesPerFrame);
+    // TODO: 
+    // Unify chunk map into a single ChunkEntry struct,
+    // perhaps a separate map for pendingBlockWrites, since they can apply to ungenerated chunks,
+    // Keep refining queue logic to make chunk meshing faster,
+    // -> Consider a partial sort of in ranges meshes (nth element?)
+    // Im currently only sorting the first N in the arbitrary evaluation order of the cartesian product.
+    // Perhaps i make the loop itself expand out from the center, i.e instead of:
+    // 123       526
+    // 4C5   ->  1C3  (nearby chunks are checked first, leaving sorting uneccesary)
+    // 678       847
+    //
+    // NOTE:
+    // The enumeration of other chunks should also only start at the point of unmeshed chunks
+    // This whole thing is a bit of a shitshow, is this really the right way to go over them?
+    //
 
-std::size_t Context::enqueueMeshingJobs(){
-    auto chunksForMeshing = findChunksForMeshing();
-//    LOG_DEBUG("Enqueued {} for meshing.",chunksForMeshing.size());
-
-    std::size_t res = 0;
-    for (const auto& [chunkCoord, chunk_ptr]: chunksForMeshing){
-        if (world.chunkMap.isMeshing(chunkCoord)){
-            continue;
-        }
+    std::vector<MeshJob> res;
+    for (const auto candidate: candidateList){
         // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
         // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
         // i.e the ones bordering the actual chunk in question.
-        const auto surrounding = world.chunkMap.getSurroundingChunks(chunkCoord);
-        const auto* meta = world.chunkMap.getMetadata(chunkCoord);
-        if (rend.mesher.meshJobQueue.try_emplace(
-            chunkCoord,
+        const auto surrounding = world.chunkMap.getSurroundingChunks(candidate);
+        const auto* meta = world.chunkMap.getMetadata(candidate);
+        const auto generationID = world.chunkMap.getLatestMeshRevisionID(candidate);
+        const auto* chunk_ptr = world.chunkMap.getEntry(candidate);
+        res.emplace_back(
+            generationID,
+            candidate,
             chunk_ptr,
             surrounding,
             meta,
             &rend.atlas
-        )){
+        );
+
+    }
+    return res;
+}
+
+std::size_t Context::enqueueMeshingJobs(){
+    auto jobsForMeshing = findMeshJobs();
+
+    std::size_t res = 0;
+    for (auto& job: jobsForMeshing){
+        if (rend.mesher.meshJobQueue.try_enqueue(std::move(job))){
+            world.chunkMap.markMeshing(job.chunkCoord);
             res++;
-            world.chunkMap.markMeshing(chunkCoord);
         } else{
             // stop submitting this frame
             break;
         }
+        //NOTE:
+        // its possible that using an emplace method could be faster,
+        // since we avoid constructing the object in case of lock contention.
+        // Either way, we have to make the chunk entry lookup, so im unsure of the benefit here.
+        // Cant be that bad, since they released unordered_map::emplace() which emplaces regardless
+        // of insertion, and it took them until c++17 to fix that with try_emplace.
     }
-    LOG_DEBUG("enqueued_for_meshing this frame:{}/{}",res,chunksForMeshing.size());
+    LOG_DEBUG("enqueued_for_meshing this frame:{}/{}",res,jobsForMeshing.size());
     return res;
+}
+
+
+std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
+    constexpr std::size_t MaxGenUploadsPerFrame = 12;
+    std::vector<GenResult> output;
+    output.reserve(MaxGenUploadsPerFrame);
+    for (std::size_t mesh_count = 0; mesh_count < MaxGenUploadsPerFrame; mesh_count++){
+        std::optional<GenResult> result = queue.try_dequeue();
+        if (!result){
+            break; // give up this frame?
+        }
+        output.emplace_back(*result);
+    }
+    return output;
 }
 
 std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
@@ -150,37 +231,22 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
             if (!meshData){
                 continue;
             }
-            output.emplace_back(*meshData);
-            const auto [chunk_pos, vertices, indices] = *meshData;
+            output.emplace_back(std::move(*meshData));
         }
     }
 
     return output;
 }
-
-std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
-    constexpr std::size_t MaxGenUploadsPerFrame = 12;
-    std::vector<GenResult> output;
-    output.reserve(MaxGenUploadsPerFrame);
-    for (std::size_t mesh_count = 0; mesh_count < MaxGenUploadsPerFrame; mesh_count++){
-        std::optional<GenResult> result = queue.try_dequeue();
-        if (!result){
-            break;
-        }
-        output.emplace_back(*result);
-    }
-    return output;
-}
-
 std::size_t Context::drainAndUploadMeshResults(){
     std::size_t res =0;
     auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
-    for (const auto& [header, vertices, indices] : candidateMeshes){
-        WorldChunkCoord chunkPos = header.chunkCoord;
-        rend.uploadMesh(chunkPos, vertices, indices);
+    for (const auto& [candidateGen, chunkCoord, vertices, indices] : candidateMeshes){
+        if (vertices.size()>0){
+            rend.uploadMesh(chunkCoord, vertices, indices);
+        } 
         chunksMeshed++;
         res++;
-        world.chunkMap.markClean(header.chunkCoord);
+        world.chunkMap.markClean(chunkCoord);
     }
     return res;
 }
@@ -198,7 +264,7 @@ void Context::draw() {
     rend.clear({ 0.25, 0.5, 0.85, 1.0 });
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-    rend.draw(cam.getViewMatrix(), cam.getProjectionMatrix());
+    rend.draw(cam);
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");

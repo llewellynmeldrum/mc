@@ -1,5 +1,8 @@
 #pragma once
 #include "Types.h"
+#include "cppslop.hpp"
+#include <unordered_map>
+
 enum class KeyState {
     Released,
     JustPressed,
@@ -132,19 +135,19 @@ static constexpr KeyCode KEY_RIGHT_CONTROL(345);
 static constexpr KeyCode KEY_RIGHT_ALT(346);
 static constexpr KeyCode KEY_RIGHT_SUPER(347);
 static constexpr KeyCode KEY_MENU(348);
+
 struct Key {
     i32  code{ KEY_UNKNOWN };
     bool pressed{ false };
-    Key(unsigned char c) : code(static_cast<i32>(c)) {}  // implicit cast from uchar
-    operator i32() const noexcept { return code; }       // implicit cast to i32
+    Key(unsigned char c) : code(static_cast<i32>(c)) {}  // implicit ctor cast FROM uchar
+    operator i32() const noexcept { return code; }       // implicit operator cast TO i32
 };
+
 inline bool operator==(const Key& a, const Key& b) noexcept {
     return a.code == b.code;
 }
-#include <unordered_map>
-namespace std {
-template <>
-struct hash<Key> {
-    size_t operator()(const Key& k) const noexcept { return std::hash<i32>{}(k.code); }
-};
-}  // namespace std
+
+STD_HASH_SPECIALIZATION(Key, k, 
+    return std::hash<i32>{}(k.code);
+)
+

@@ -15,6 +15,7 @@
 #include "Profiling.hpp"
 #include <optional>
 using namespace glm;
+constexpr f32 UI_SCALE = 1.25;
 namespace IG = ImGui;  // namespace alias for convinience
 void DebugUI::drawUI() {
     ShowOverlay(nullptr);
@@ -32,9 +33,9 @@ void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
 
     ImGuiStyle& style = IG::GetStyle();
     style.ScaleAllSizes(
-        main_scale * 1.5);  // Bake a fixed style scale. (until we have a solution for dynamic style
+        main_scale * UI_SCALE);  // Bake a fixed style scale. (until we have a solution for dynamic style
                             // scaling, changing this requires resetting Style + calling this again)
-    style.FontScaleDpi = main_scale * 1.5;
+    style.FontScaleDpi = main_scale * UI_SCALE;
 
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(win_ptr, true);
@@ -122,23 +123,22 @@ void DebugUI::ShowOverlay(bool* p_open) {
         const auto& fps_rb = ctx->time.ringbufs.at("frame");
 
         auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
-assert(k!=0);
+        assert(k!=0);
         std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
         IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
         IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
 
         auto plotFrametime = [](const auto& rb_map, const std::string key="????"){
             auto ft_rb = rb_map.at(key);
-            IG::Text("%s: %2.2lfms", key.c_str(), ft_rb.avg());
+            // todo find longest string and make it the field length
+            IG::Text("%-*s: %2.2lfms", 10, key.c_str(), ft_rb.avg());
             IG::SameLine();
             std::string id = "##"+key;
             IG::PlotLines(id.c_str(), ft_rb.data(), ft_rb.size(), 0);
         };
-        plotFrametime(ctx->time.ringbufs,  "frame");
-        plotFrametime(ctx->time.ringbufs,  "input");
-        plotFrametime(ctx->time.ringbufs, "update");
-        plotFrametime(ctx->time.ringbufs,  "draw");
-        plotFrametime(ctx->time.ringbufs, "render");
+        for (const auto& [key, val]: ctx->time.ringbufs){
+            plotFrametime(ctx->time.ringbufs,  std::string(key));
+        }
 
         IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
@@ -152,12 +152,29 @@ assert(k!=0);
         IG::Text("Process metrics");
         IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
 
+        auto& gen = ctx->world.chunkMap.generator;
+        auto& mesher = ctx->rend.mesher;
+        auto showSizeUnique = [](auto name, auto& q){
+
+            auto s1 = name+ std::string("            size: %lu");
+            auto s2 = name+ std::string(" unique elements: %lu (%4.2lf%)");
+
+            auto total_sz = q.wait_size();
+            auto unique_sz = q.uniqueSet.size();
+            IG::Text(s1.c_str(), total_sz);
+            IG::Text(s2.c_str(), unique_sz, ((f64)unique_sz/total_sz)*100.0);
+        };
+        #define ShowSizeUnique(name) showSizeUnique(#name ,name)
+
         IG::Separator();
         IG::Text("Concurrency");
-        IG::Text("genJobQueue size: %lu", ctx->world.chunkMap.generator.genJobQueue.wait_size());
-        IG::Text("genResultQueue size: %lu", ctx->world.chunkMap.generator.genResultQueue.wait_size());
-        IG::Text("meshJobQueue size: %lu", ctx->rend.mesher.meshJobQueue.wait_size());
-        IG::Text("meshResultQueue size: %lu", ctx->rend.mesher.meshResultQueue.wait_size());
+        ShowSizeUnique(gen.genJobQueue);
+        ShowSizeUnique(gen.genResultQueue);
+
+        ShowSizeUnique(mesher.meshJobQueue);
+        ShowSizeUnique(mesher.meshResultQueue);
+
+
         IG::Separator();
         IG::Text("World Data");
         IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);

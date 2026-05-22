@@ -13,6 +13,7 @@
 // src/Context.cpp
 struct Context {
   public:
+    static constexpr std::size_t maxMeshesPerFrame = 128;
     Context() = default;
     ~Context() = default;
 
@@ -25,9 +26,10 @@ struct Context {
     DebugUI  ui;
     World    world;
 
-    static constexpr i32 RENDER_DIST = 4;
-    static constexpr i32 SIMULATION_DIST = 2;
-    static constexpr i32 WORLD_SEED = 1337;
+    void loop();
+    static constexpr i32 RENDER_DIST = 8;
+    static constexpr i32 SIMULATION_DIST = 16; //controls chunk 
+    static constexpr u64 WORLD_SEED = 1337;
 
     void setupContext();
     void handleInputs();
@@ -35,7 +37,7 @@ struct Context {
     void draw();
 private:
     std::vector<glm::ivec3> findChunksForGeneration();
-    std::vector<ChunkView> findChunksForMeshing();
+    std::vector<MeshJob> findMeshJobs();
 
     std::size_t enqueueGenerationJobs();
     std::size_t enqueueMeshingJobs();

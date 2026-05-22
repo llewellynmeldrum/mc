@@ -56,12 +56,12 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
 
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
-        GenResult res{job.head.chunkCoord};
+        GenResult res{job.chunkCoord};
 
         Noise2D heightNoise(NoiseType::OpenSimplex2);
 
         auto& cfg = job.cfg;
-        const auto& worldBlockOffset = toWorldBlockPos(job.head.chunkCoord);
+        const auto& worldBlockOffset = toWorldBlockPos(job.chunkCoord);
         struct Heightmap{
             std::array<u32, CHUNK_XWIDTH*CHUNK_ZWIDTH> buf;
             auto span(){
@@ -72,8 +72,10 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
             }
         }worldHeightmap;
 
-        for (auto [x,y,z]: EachBlockInChunk()){
-            res.chunkBlocks.at(x,y,z) = BlockType::STONE_BLOCK;
+        if (worldBlockOffset.y < 64){
+            for (auto [x,y,z]: EachBlockInChunk()){
+                res.chunkBlocks.at(x,y,z) = BlockType::STONE_BLOCK;
+            }
         }
         /*
         // 1. create heightmap

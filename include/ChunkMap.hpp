@@ -1,4 +1,6 @@
+#pragma once 
 #include "Chunk.hpp"
+#include "CoordTypes.hpp"
 #include "Geometry.hpp"
 #include "ChunkGenerator.hpp"
 #include "ChunkHelpers.hpp"
@@ -31,7 +33,34 @@ struct ChunkMap {
         generator.setupChunkGenerator();
     }
 
+    inline auto getEntry(WorldChunkCoord coord){
+        return chunks.at(coord).get();
+    }
+    inline bool hasEntry(WorldChunkCoord coord){
+        return chunks.contains(coord);
+    }
     ChunkGenerator generator;
+    inline MeshRevisionID getLatestMeshRevisionID(WorldChunkCoord chunkCoord){
+        if (!latestMeshRevisionMap.contains(chunkCoord)){
+            // chunk has not yet been enqueued for generation!!
+            return 0;
+        } else{
+            return latestMeshRevisionMap.at(chunkCoord);
+        }
+    }
+    inline MeshRevisionID assignNewMeshRevision(WorldChunkCoord chunkCoord){
+        if (!latestMeshRevisionMap.contains(chunkCoord)){
+            latestMeshRevisionMap.try_emplace(chunkCoord, 0);
+            return 0;
+        }
+        auto& res = latestMeshRevisionMap.at(chunkCoord);
+        // this function should mean: 
+        // i am assigning a NEW mesh revision.
+        //
+        // World generation should be the trigger to insert it into the map
+        return ++res; 
+    }
+    std::unordered_map<WorldChunkCoord, MeshRevisionID> latestMeshRevisionMap;
     std::unordered_map<WorldChunkCoord, std::unique_ptr<Chunk>> chunks;
     std::unordered_map<WorldChunkCoord, ChunkGenStatus> genStatus;
     std::unordered_map<WorldChunkCoord, PendingWriteQueue> pendingWritesMap;
@@ -39,25 +68,28 @@ struct ChunkMap {
     std::unordered_map<WorldChunkCoord, std::array<const Chunk*, NUM_NEIGHBOURS>> neighbours;
     std::unordered_map<WorldChunkCoord, bool> is_dirty;
     std::unordered_map<WorldChunkCoord, std::unique_ptr<AABB>> boundingBoxes;
-    const AABB*   getBoundingBox(WorldChunkCoord chunk_offset) const;
 
-    inline Chunk& operator[](const ChunkBlockPos& chunkLocal) {
-        return *chunks.at(chunkLocal).get();
-    }
 
     int uploadedChunkCount = 0;
     int pendingWritesAttempted= 0;
     int pendingWritesSuccessful = 0;
+    // @Brief:
+    // Called at the start of chunk generation
+    void initChunk(WorldChunkCoord chunkCoord){
+        auto [it, inserted] = latestMeshRevisionMap.try_emplace(chunkCoord);
+        assert(inserted && "Entry should not yet exist.");
+    }
+    // @Brief:
+    // Called at the END of chunk generation
     inline void uploadGeneratedChunk(GenResult gen_res){
         ChunkStore& chunkBlocks = gen_res.chunkBlocks;
         ChunkMetadata& chunkMeta = gen_res.meta;
         const auto& deferredWrites = gen_res.deferredWrites;
-        const auto& chunkCoord = gen_res.head.chunkCoord;
+        const auto& chunkCoord = gen_res.chunkCoord;
 
         if (!chunks.contains(chunkCoord)) {
             auto [it, emplaced] = chunks.try_emplace(chunkCoord, std::make_unique<Chunk>(chunkBlocks.buffer()));
             
-            std::println("{} Uploaded chunk {}", emplaced?" Successfully":"Failed to", uploadedChunkCount++);
             metadata.emplace(chunkCoord, std::make_unique<ChunkMetadata>(chunkMeta));
             chunks[chunkCoord]->flags.finishedGeneration=true;
             chunks[chunkCoord]->flags.isDirty=true;
@@ -70,44 +102,7 @@ struct ChunkMap {
             // We might have to decide based on request priority or something idk
         }
     }
-    void handlePendingWrites(
-        const WorldChunkCoord chunkCoord, 
-        ChunkSpan srcBlocks, 
-        const PendingWriteList& newWriteList)
-    {
-        // 1. apply any pending writes TO CURRENT chunk which exist on the map.
-        if (pendingWritesMap.contains(chunkCoord)){
-            PendingWriteQueue& writesForMe = pendingWritesMap.at(chunkCoord);
-            while (!writesForMe.empty()){
-                const auto write = writesForMe.top(); writesForMe.pop();
-                pendingWritesSuccessful += srcBlocks.tryWrite(write);
-                pendingWritesAttempted++;
-            }
-            if (pendingWritesMap.at(chunkCoord).empty()){
-                // remove the queue if it no longer has anything remaining
-                // TODO: Is this is a bad idea?
-                pendingWritesMap.erase(chunkCoord);
-            }
-        }
-        
-        // 2. Apply any NEW pending writes TO OTHER chunks from pwl
-        for (const auto& write: newWriteList){
-            // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
-            const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
-            if (chunks.contains(targetChunkCoord)){
-                pendingWritesSuccessful += chunks.at(targetChunkCoord)->tryWrite(write);
-                pendingWritesAttempted++;
-            }else{
-                // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
-                // and then enqueue the write.
-                bool mapEntryExists = pendingWritesMap.contains(targetChunkCoord);
-                if (!mapEntryExists){
-                    pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
-                }
-                pendingWritesMap.at(targetChunkCoord).push(write);
-            }
-        }
-    }
+    void handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList);
 
 
     std::array<ChunkStore, NUM_NEIGHBOURS> 
@@ -125,10 +120,10 @@ struct ChunkMap {
     void markMeshed(WorldChunkCoord pos);
 
 
-    ChunkMetadata* getMetadata(WorldChunkCoord pos)const ;
-    std::span<const Chunk*const> getSurroundingChunks(glm::ivec3 pos) const ;
+    ChunkMetadata*                  getMetadata(WorldChunkCoord pos)const ;
+    std::span<const Chunk*const>    getSurroundingChunks(glm::ivec3 pos) const ;
+    const AABB*                     getBoundingBox(WorldChunkCoord chunk_offset) const;
     
-    void           generate(WorldChunkCoord pos);
     inline ChunkGenStatus queryGenStatus(WorldChunkCoord key){
             auto it = genStatus.find(key);
             if (it == genStatus.end()){
@@ -138,6 +133,7 @@ struct ChunkMap {
                 return it->second;
             }
     }
+
 private:
     void           updateNeighbourMap(WorldChunkCoord chunkCoord);
     void           updateBoundingBoxesMap(WorldChunkCoord chunkCoord);

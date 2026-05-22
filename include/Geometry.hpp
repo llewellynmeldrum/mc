@@ -70,6 +70,14 @@ struct Frustum {
                 v.testForwardIntersection(top)   &&
                 v.testForwardIntersection(bot);
     }
+    inline bool isAABBInside(const AABB* v)const {
+        return  v->testForwardIntersection(far)   && 
+                v->testForwardIntersection(near)  &&
+                v->testForwardIntersection(left)  &&
+                v->testForwardIntersection(right) &&
+                v->testForwardIntersection(top)   &&
+                v->testForwardIntersection(bot);
+    }
 
     Plane far;
     Plane near;

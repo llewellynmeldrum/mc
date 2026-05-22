@@ -19,7 +19,7 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
 	-DCMAKE_CXX_COMPILER="$(CXX)" \
 	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-.PHONY: help configure build run clean rebuild \
+.PHONY: help configure build run clean clean-all rebuild \
         fast run-fast \
         debug run-debug \
         asan run-asan \
@@ -104,6 +104,11 @@ db: configure
 	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json
 
 clean:
+	find $(BUILD_DIR)/CMakeFiles/mc.dir/src -name '*.o' -delete 2>/dev/null || true
+	find $(BUILD_DIR)/CMakeFiles/mc.dir/src -name '*.o.d' -delete 2>/dev/null || true
+	rm -f bin/$(APP)
+
+clean-all:
 	rm -rf $(BUILD_DIR) $(BUILD_FAST) $(BUILD_ASAN) $(BUILD_TSAN) $(BUILD_AUSAN) bin
 
 rebuild: clean build

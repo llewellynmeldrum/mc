@@ -51,6 +51,31 @@
     T& operator=(T&&)=default;\
     T& operator=(const T&)=default;
 
+// NOTE! This requires an equality operator to be defined as well.
+#define STD_HASH_SPECIALIZATION(T, tName, HashFunctionContents)     \
+namespace std{                                                      \
+    template<>                                                      \
+    struct hash<T>{                                                 \
+        std::size_t operator()(const T& tName) const {              \
+            HashFunctionContents                                    \
+        }                                                           \
+    };                                                              \
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// @SECTION
+// std::views iota and cartesian product wrappers (1/2/3D range based for loop helpers)
 constexpr inline const auto EachInRange(
     i64 x0, i64 x1,
     i64 y0, i64 y1,
@@ -76,3 +101,19 @@ constexpr inline const auto EachInRange(
 
     return iota(x0,x1);
 }
+
+constexpr inline const auto EachInRange(
+    glm::ivec3 min, glm::ivec3 max){
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(min.x,max.x), iota(min.y,max.y), iota(min.z,max.z));
+}
+constexpr inline const auto EachInRange(
+    glm::ivec2 min, glm::ivec2 max){
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(min.x,max.x), iota(min.y,max.y));
+}
+

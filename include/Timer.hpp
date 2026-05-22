@@ -1,6 +1,7 @@
 #pragma once
 #include "Types.h"
 #include "MirroredRingBuf.hpp"
+#include <map>
 // src/Timer.cpp
 struct Timer {
 public:
@@ -21,8 +22,8 @@ public:
     void bench_end(std::string_view key);
     void end_frame();
 
-    std::unordered_map<std::string_view, MirroredRingBuf<f32, 200>> ringbufs{};
-    std::unordered_map<std::string_view, f64> start_time{};
+    std::map<std::string_view, MirroredRingBuf<f32, 200>> ringbufs{};
+    std::map<std::string_view, f64> start_time{};
 private:
     void setupTimer_impl();
 };

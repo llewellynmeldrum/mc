@@ -81,12 +81,12 @@ void ChunkMesher::meshChunks
         
        auto job = input_queue.wait_dequeue();
 
-        MeshResult res{job.head.chunkCoord};
+        MeshResult res{job.meshGeneration, job.chunkCoord};
        // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const WorldBlockPos world_pos = toWorldBlockPos(job.head.chunkCoord);
+        const WorldBlockPos world_pos = toWorldBlockPos(job.chunkCoord);
         auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;
@@ -135,7 +135,6 @@ void ChunkMesher::meshChunks
                 }
             }
        }
-       if (vtx_count==0) continue;
        output_queue.wait_emplace(res);
     }
 

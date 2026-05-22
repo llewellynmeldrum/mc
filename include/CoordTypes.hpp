@@ -1,6 +1,6 @@
+#pragma once 
 #include "ChunkConstants.hpp"
 #include "lmath.hpp"
-static inline constexpr glm::ivec3 Chunk_Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 // Identifies a CHUNK in the WORLD.
 using WorldChunkCoord = glm::ivec3;      
 // Identifies a BLOCK in the WORLD.

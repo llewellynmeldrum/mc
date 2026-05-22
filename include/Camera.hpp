@@ -78,7 +78,7 @@ struct Camera {
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
 
-    inline glm::mat4 getProjectionMatrix() {
+    inline glm::mat4 getProjectionMatrix() const{
         return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
     }
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 
+#include "CoordTypes.hpp"
 #include "Types.h"
 #include "CommonUtils.hpp"
 #include "cppslop.hpp"
@@ -32,9 +33,11 @@ struct MeshBase {
 
 struct IndexedMesh {
     DECL_MOVE_ONLY(IndexedMesh);
+    WorldChunkCoord chunkCoord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
-    IndexedMesh(std::vector<Vertex> vertices, std::vector<u32> offsets) {
+    IndexedMesh(WorldChunkCoord _chunkCoord, std::vector<Vertex> vertices, std::vector<u32> offsets) {
+        chunkCoord = _chunkCoord;
         IndexedMesh::setupMesh(vertices, offsets);
     }
 

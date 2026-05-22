@@ -1,4 +1,5 @@
 
+#include "ChunkConcurrency.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "Renderer.hpp"
 
@@ -6,6 +7,7 @@
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "World.hpp"
+#include <algorithm>
 
 using namespace gl;
 using namespace glm;
@@ -29,7 +31,9 @@ void Renderer::clear(const vec4 clear_color) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::draw(const mat4& view, const mat4& proj) {
+void Renderer::draw(Camera& cam){
+    auto& view = cam.getViewMatrix();
+    const auto& proj = cam.getProjectionMatrix();
     prog.use();
     atlas.texture.bind();
     prog.setUniform("view", view);
@@ -37,8 +41,21 @@ void Renderer::draw(const mat4& view, const mat4& proj) {
     prog.setUniform("overlayOpacity", debug.blockOverlayOpacity);
     {
         ScopeTimer draw_timer{ "Renderer::draw", "draw call" };
-        for (const auto& [chunkCoord, mesh] : visibleChunkMeshes) {
-            const vec3 chunkWorldPos = toWorldBlockPos(chunkCoord);
+        // sort the vector by nearest chunks (std::less)
+        auto sqdist = [](const auto& a, const auto& b) -> i32{
+            auto sq = [](i32 v){ return v*v;};
+            return sq(b.x-a.x) + sq(b.y-a.y) + sq(b.z-a.z);
+        };
+        auto source = static_cast<WorldChunkCoord>(cam.pos);
+        std::ranges::sort(visibleChunkMeshes, [sqdist, source](const auto& lhs, const auto& rhs){
+            // sort ascending, i.e mesh closest first.
+            // Will have to flip when i do transperancy
+            return sqdist(source,lhs.chunkCoord) < sqdist(source,rhs.chunkCoord);
+        });
+        for (const auto& mesh : visibleChunkMeshes) {
+            const vec3 chunkWorldPos = toWorldBlockPos(mesh.chunkCoord);
+ //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
+//            std::println("{}",chunkDist);
             mat4       model = mat4(1.0f);
             model = translate(model, chunkWorldPos);
             prog.setUniform("model", model);

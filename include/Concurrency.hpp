@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include <deque>
 #include <mutex>
+#include <unordered_set>
 #include <vector>
 struct ThreadPool{
     ThreadPool(std::size_t _count=1): count(_count){}
@@ -24,29 +25,25 @@ struct Queue{
     std::condition_variable not_empty;
     std::condition_variable not_full;
     std::size_t capacity = 1024;
-    // graph queue size in order to 
-    inline std::size_t wait_size(){
-        {
-            std::lock_guard lock(mtx);
-            return q.size();
-        }
-    }
-    inline std::size_t size_unlocked(){
-        return q.size();
-    }
+
+    // TODO:  this is for debugging
+    std::unordered_set<T> uniqueSet;
+
 
 
     // BLOCKS until:
     // 1. able to grab the lock
     // 2. queue size<capacity
     template<typename U>
-    requires std::same_as<std::remove_cvref_t<U>,T>
+    requires std::same_as<std::remove_cvref_t<U>,T> && 
+            std::constructible_from<T, U&&>
     inline void wait_enqueue(U&& obj){
         {
             std::unique_lock lock(mtx);
             not_full.wait(lock, [&](){
                 return q.size()<capacity;
             });
+            uniqueSet.emplace(std::forward<U>(obj));
             q.emplace_back(std::forward<U>(obj));
         }
         not_empty.notify_one();
@@ -61,6 +58,7 @@ struct Queue{
             not_full.wait(lock, [&](){
                 return q.size()<capacity;
             });
+            uniqueSet.emplace(std::forward<Args>(vargs)...);
             q.emplace_back(std::forward<Args>(vargs)...);
         }
         not_empty.notify_one();
@@ -74,10 +72,28 @@ struct Queue{
         {
             std::unique_lock lock(mtx);
 
-            if (q.size()>=capacity){
+            if ( !(q.size()<capacity) ){
                 return false;
             }
-            q.emplace_back(vargs...);
+            uniqueSet.emplace(std::forward<Args>(vargs)...);
+            q.emplace_back(std::forward<Args>(vargs)...);
+        }
+        not_empty.notify_one(); 
+        return true;
+    }
+
+    template<typename U>
+    requires std::same_as<std::remove_cvref_t<U>,T> && 
+            std::constructible_from<T, U&&>
+    inline bool try_enqueue(U&& obj){
+        {
+            std::unique_lock lock(mtx);
+
+            if ( !(q.size()<capacity) ){
+                return false;
+            }
+            uniqueSet.emplace(std::forward<U>(obj));
+            q.push_back(std::forward<U>(obj));
         }
         not_empty.notify_one(); 
         return true;
@@ -91,13 +107,15 @@ struct Queue{
     inline T wait_dequeue(){
         std::unique_lock lock(mtx);
 
+        // (wait until queue is not empty)
         not_empty.wait(lock, [&](){
-            return !q.empty();
-            // (wait while q.epmty)
+            return (q.empty() == false);
         });
 
-        T res = q.front();
+        T res = std::move(q.front());
         q.pop_front();
+        uniqueSet.erase(res);
+
         not_full.notify_one(); 
         return res;
     }
@@ -113,12 +131,11 @@ struct Queue{
         }
         const auto res = std::make_optional(std::move(q.front()));
         q.pop_front();
+        uniqueSet.erase(*res);
+
         not_full.notify_one(); 
         return res;
     }
-
-
-
 
 
 
@@ -132,6 +149,16 @@ struct Queue{
         not_empty.wait(lock, [&](){
             return !q.empty();
         });
+    }
+    inline std::size_t wait_size(){
+        {
+            std::lock_guard lock(mtx);
+            return q.size();
+        }
+    }
+
+    inline std::size_t size_unlocked(){
+        return q.size();
     }
 
 };

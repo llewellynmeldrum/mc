@@ -8,6 +8,40 @@
 #include <ranges>
 
 using namespace glm;
+    void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
+        // 1. apply any pending writes TO CURRENT chunk which exist on the map.
+        if (pendingWritesMap.contains(chunkCoord)){
+            PendingWriteQueue& writesForMe = pendingWritesMap.at(chunkCoord);
+            while (!writesForMe.empty()){
+                const auto write = writesForMe.top(); writesForMe.pop();
+                pendingWritesSuccessful += srcBlocks.tryWrite(write);
+                pendingWritesAttempted++;
+            }
+            if (pendingWritesMap.at(chunkCoord).empty()){
+                // remove the queue if it no longer has anything remaining
+                // TODO: Is this is a bad idea?
+                pendingWritesMap.erase(chunkCoord);
+            }
+        }
+        
+        // 2. Apply any NEW pending writes TO OTHER chunks from pwl
+        for (const auto& write: newWriteList){
+            // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
+            const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
+            if (chunks.contains(targetChunkCoord)){
+                pendingWritesSuccessful += chunks.at(targetChunkCoord)->tryWrite(write);
+                pendingWritesAttempted++;
+            }else{
+                // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
+                // and then enqueue the write.
+                bool mapEntryExists = pendingWritesMap.contains(targetChunkCoord);
+                if (!mapEntryExists){
+                    pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
+                }
+                pendingWritesMap.at(targetChunkCoord).push(write);
+            }
+        }
+    }
 std::span<const Chunk*const> ChunkMap::getSurroundingChunks(ivec3 pos) const {
     std::span res{neighbours.at(pos)};
     return res;
@@ -56,9 +90,6 @@ void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
     boundingBoxes.emplace(chunk_coord, std::make_unique<AABB>(min, max));
 }
 
-void ChunkMap::generate(ivec3 chunk_coord) {
-    //    LOG_DEBUG("Generating chunk for {}", dbg_fmt(chunk_coord));
-}
 
 bool ChunkMap::isDirty(ivec3 pos) const {
     return chunks.at(pos)->flags.isDirty;
@@ -79,10 +110,12 @@ bool ChunkMap::isGenerated(ivec3 pos) const {
 
 void ChunkMap::markDirty(ivec3 pos) {
     chunks.at(pos)->flags.isDirty = true;
+    chunks.at(pos)->flags.finishedMeshing= false;
 }
 
 void ChunkMap::markClean(ivec3 pos) {
     chunks.at(pos)->flags.isDirty = false;
+    chunks.at(pos)->flags.finishedMeshing= true;
 }
 
 void ChunkMap::markMeshing(ivec3 pos) {
