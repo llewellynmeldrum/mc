@@ -33,6 +33,7 @@ struct AABB {
 
     glm::vec3 center = glm::vec3(0);
     glm::vec3 extents = glm::vec3(0);
+    // create an axis aligned bounding box from a min and a max world position
     AABB(const glm::vec3& min, const glm::vec3& max) {
         center = min + max * 0.5f;
         extents = max - center;

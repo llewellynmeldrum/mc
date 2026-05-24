@@ -5,23 +5,23 @@
 
 void App::setup() {
     glm::ivec3 spawn_pos = { -61, +130, -83 };
-    ctx.cam.pos = spawn_pos;
-    ctx.cam.pitch = -23.4;
-    ctx.cam.yaw = 56.3;
+    sim.cam.pos = spawn_pos;
+    sim.cam.pitch = -23.4;
+    sim.cam.yaw = 56.3;
 }
 
 void App::loop() {
-    ctx.loop();
+    sim.loop();
 }
 
 bool App::shouldClose() {
-    return ctx.win.shouldClose();
+    return sim.win.shouldClose();
 }
 
 int main(int argc, char** argv) {
 
     App app;
-    app.ctx.setupContext();
+    app.sim.setupContext();
     app.setup();
     while (!app.shouldClose()) {
         app.loop();
@@ -32,8 +32,8 @@ int main(int argc, char** argv) {
 
 
 void App::exit(i32 exit_code) {
-    ctx.ui.destroyDebugUI();
-    ctx.win.terminate();
+    sim.ui.destroyDebugUI();
+    sim.win.terminate();
     std::println("{}", ScopeTimer::summary());
     std::exit(exit_code);
 }

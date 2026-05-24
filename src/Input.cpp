@@ -8,8 +8,6 @@ static void glfw_key_callback(GLFWwindow* window, int key, int code, int action,
 // TODO: implement mouse lookaround input
 
 void Input::setupInput(GLFWwindow* ptr) {
-    keyRepeatCooldown.insert({ KEY_T, 0 });
-    keyRepeatCooldown.insert({ KEY_R, 0 });
     glfwSetKeyCallback(ptr, glfw_key_callback);
 }
 
@@ -18,7 +16,7 @@ void Input::poll() {
 }
 
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods) {
-    auto* ctx = (Context*)glfwGetWindowUserPointer(window);
+    auto* ctx = (Simulation*)glfwGetWindowUserPointer(window);
     auto& input = ctx->input;
     //    LOG_DEBUG("Key {} pressed, code:{}, action:{},mods={},", key, code, action, mods);
     if (key == GLFW_KEY_UNKNOWN) {

@@ -32,14 +32,19 @@ configure:
 		-DMC_O1=ON
 #		-DCMAKE_BUILD_TYPE=Debug \
 
+configure-debug:
+	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
+		-DMC_O1=ON \
+		-DCMAKE_BUILD_TYPE=Debug 
+
 build: configure
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 
 run: build
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target run
 
-debug: configure
-	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
+debug: configure-debug
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) 
 
 run-debug: debug
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target debug

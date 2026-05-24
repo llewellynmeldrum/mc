@@ -1,0 +1,65 @@
+#pragma once 
+#include <string_view>
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "imgui_stdlib.h"
+
+// ImGui wrapper to make use of some c++ stuff
+namespace UI{
+    using vec2 = ImVec2;
+    using color = ImVec4;
+    enum struct WinFlags{
+        None                   = 0,
+        NoTitleBar             = 1 << 0,   // Disable title-bar
+        NoResize               = 1 << 1,   // Disable user resizing with the lower-right grip
+        NoMove                 = 1 << 2,   // Disable user moving the window
+        NoScrollbar            = 1 << 3,   // Disable scrollbars (window can still scroll with mouse or programmatically)
+        NoScrollWithMouse      = 1 << 4,   // Disable user vertically scrolling with mouse wheel. On child window, mouse wheel
+        NoCollapse             = 1 << 5,   // Disable user collapsing window by double-clicking on it. Also referred to as Win
+        AlwaysAutoResize       = 1 << 6,   // Resize every window to its content every frame
+        NoBackground           = 1 << 7,   // Disable drawing background color (WindowBg, etc.) and outside border. Similar as
+        NoSavedSettings        = 1 << 8,   // Never load/save settings in .ini file
+        NoMouseInputs          = 1 << 9,   // Disable catching mouse, hovering test with pass through.
+        MenuBar                = 1 << 10,  // Has a menu-bar
+        HorizontalScrollbar    = 1 << 11,  // Allow horizontal scrollbar to appear (off by default). You may use SetNextWindow
+        NoFocusOnAppearing     = 1 << 12,  // Disable taking focus when transitioning from hidden to visible state
+        NoBringToFrontOnFocus  = 1 << 13,  // Disable bringing window to front when taking focus (e.g. clicking on it or progr
+        AlwaysVerticalScrollbar= 1 << 14,  // Always show vertical scrollbar (even if ContentSize.y < Size.y)
+        AlwaysHorizontalScrollbar=1<< 15,  // Always show horizontal scrollbar (even if ContentSize.x < Size.x)
+        NoNavInputs            = 1 << 16,  // No keyboard/gamepad navigation within the window
+        NoNavFocus             = 1 << 17,  // No focusing toward this window with keyboard/gamepad navigation (e.g. skipped by
+        UnsavedDocument        = 1 << 18,  // Display a dot next to the title. When used in a tab/docking context, tab is sele
+        NoDocking              = 1 << 19,  // Disable docking of this window
+        NoNav                  = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
+        NoDecoration           = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse,
+        NoInputs               = ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
+    };
+    constexpr WinFlags operator|(WinFlags lhs, WinFlags rhs){
+        using T = std::underlying_type_t<WinFlags>;
+        return static_cast<WinFlags>(static_cast<T>(lhs)|static_cast<T>(rhs));
+    }
+
+    template<typename... Args>
+    inline void Text(std::format_string<Args...> fmt, Args&&... args){
+        std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
+        ImGui::TextUnformatted(out.c_str());
+    }
+    // screen pos 
+    inline vec2 getCursorPos(){
+        return ImGui::GetCursorScreenPos();
+    }
+    inline void pushColor(color c){
+        ImGui::PushStyleColor(0,c);
+    }
+    inline void popColor(color c){
+        ImGui::PushStyleColor(0,c);
+    }
+    inline bool StartWindow(const char* name, WinFlags flags, std::function<bool()> pred=[]{ return true;}){
+        bool open = pred();
+        return ImGui::Begin(name, &open, static_cast<int>(flags));
+    }
+    inline void EndWindow(){
+    }
+};

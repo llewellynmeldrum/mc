@@ -12,7 +12,8 @@ enum class KeyState {
 };
 using KeyCode = i32;
 constexpr KeyCode        KEY_MAX(348);
-constexpr KeyCode        KEY_MIN(32);
+constexpr KeyCode        KEY_MIN(31);
+constexpr KeyCode        KEY_COUNT(KEY_MAX-KEY_MIN);
 static constexpr KeyCode KEY_UNKNOWN(-1);
 static constexpr KeyCode KEY_SPACE(32);
 static constexpr KeyCode KEY_APOSTROPHE(39);
@@ -134,12 +135,13 @@ static constexpr KeyCode KEY_RIGHT_SHIFT(344);
 static constexpr KeyCode KEY_RIGHT_CONTROL(345);
 static constexpr KeyCode KEY_RIGHT_ALT(346);
 static constexpr KeyCode KEY_RIGHT_SUPER(347);
-static constexpr KeyCode KEY_MENU(348);
+static constexpr KeyCode KEY_MENU(348);//////////////////////////////////////////////
+
 
 struct Key {
     i32  code{ KEY_UNKNOWN };
     bool pressed{ false };
-    Key(unsigned char c) : code(static_cast<i32>(c)) {}  // implicit ctor cast FROM uchar
+    Key(i32 c) : code(static_cast<i32>(c)) {}  // implicit ctor cast FROM uchar
     operator i32() const noexcept { return code; }       // implicit operator cast TO i32
 };
 
@@ -151,3 +153,129 @@ STD_HASH_SPECIALIZATION(Key, k,
     return std::hash<i32>{}(k.code);
 )
 
+template<typename Tv>
+constexpr std::unordered_map<KeyCode, Tv> makeKeyMap(Tv __default=Tv{}){
+    return std::unordered_map<KeyCode,Tv>{
+        {KEY_UNKNOWN, std::forward<Tv>(__default)},
+        {KEY_SPACE, std::forward<Tv>(__default)},
+        {KEY_APOSTROPHE, std::forward<Tv>(__default)},
+        {KEY_COMMA, std::forward<Tv>(__default)},
+        {KEY_MINUS, std::forward<Tv>(__default)},
+        {KEY_PERIOD, std::forward<Tv>(__default)},
+        {KEY_SLASH, std::forward<Tv>(__default)},
+        {KEY_ZERO, std::forward<Tv>(__default)},
+        {KEY_ONE, std::forward<Tv>(__default)},
+        {KEY_TWO, std::forward<Tv>(__default)},
+        {KEY_THREE, std::forward<Tv>(__default)},
+        {KEY_FOUR, std::forward<Tv>(__default)},
+        {KEY_FIVE, std::forward<Tv>(__default)},
+        {KEY_SIX, std::forward<Tv>(__default)},
+        {KEY_SEVEN, std::forward<Tv>(__default)},
+        {KEY_EIGHT, std::forward<Tv>(__default)},
+        {KEY_NINE, std::forward<Tv>(__default)},
+        {KEY_SEMICOLON, std::forward<Tv>(__default)},
+        {KEY_EQUAL, std::forward<Tv>(__default)},
+        {KEY_A, std::forward<Tv>(__default)},
+        {KEY_B, std::forward<Tv>(__default)},
+        {KEY_C, std::forward<Tv>(__default)},
+        {KEY_D, std::forward<Tv>(__default)},
+        {KEY_E, std::forward<Tv>(__default)},
+        {KEY_F, std::forward<Tv>(__default)},
+        {KEY_G, std::forward<Tv>(__default)},
+        {KEY_H, std::forward<Tv>(__default)},
+        {KEY_I, std::forward<Tv>(__default)},
+        {KEY_J, std::forward<Tv>(__default)},
+        {KEY_K, std::forward<Tv>(__default)},
+        {KEY_L, std::forward<Tv>(__default)},
+        {KEY_M, std::forward<Tv>(__default)},
+        {KEY_N, std::forward<Tv>(__default)},
+        {KEY_O, std::forward<Tv>(__default)},
+        {KEY_P, std::forward<Tv>(__default)},
+        {KEY_Q, std::forward<Tv>(__default)},
+        {KEY_R, std::forward<Tv>(__default)},
+        {KEY_S, std::forward<Tv>(__default)},
+        {KEY_T, std::forward<Tv>(__default)},
+        {KEY_U, std::forward<Tv>(__default)},
+        {KEY_V, std::forward<Tv>(__default)},
+        {KEY_W, std::forward<Tv>(__default)},
+        {KEY_X, std::forward<Tv>(__default)},
+        {KEY_Y, std::forward<Tv>(__default)},
+        {KEY_Z, std::forward<Tv>(__default)},
+        {KEY_LEFT_BRACKET, std::forward<Tv>(__default)},
+        {KEY_BACKSLASH, std::forward<Tv>(__default)},
+        {KEY_RIGHT_BRACKET, std::forward<Tv>(__default)},
+        {KEY_GRAVE_ACCENT, std::forward<Tv>(__default)},
+        {KEY_WORLD_1, std::forward<Tv>(__default)},
+        {KEY_WORLD_2, std::forward<Tv>(__default)},
+        {KEY_ESCAPE, std::forward<Tv>(__default)},
+        {KEY_ENTER, std::forward<Tv>(__default)},
+        {KEY_TAB, std::forward<Tv>(__default)},
+        {KEY_BACKSPACE, std::forward<Tv>(__default)},
+        {KEY_INSERT, std::forward<Tv>(__default)},
+        {KEY_DELETE, std::forward<Tv>(__default)},
+        {KEY_RIGHT, std::forward<Tv>(__default)},
+        {KEY_LEFT, std::forward<Tv>(__default)},
+        {KEY_DOWN, std::forward<Tv>(__default)},
+        {KEY_UP, std::forward<Tv>(__default)},
+        {KEY_PAGE_UP, std::forward<Tv>(__default)},
+        {KEY_PAGE_DOWN, std::forward<Tv>(__default)},
+        {KEY_HOME, std::forward<Tv>(__default)},
+        {KEY_END, std::forward<Tv>(__default)},
+        {KEY_CAPS_LOCK, std::forward<Tv>(__default)},
+        {KEY_SCROLL_LOCK, std::forward<Tv>(__default)},
+        {KEY_NUM_LOCK, std::forward<Tv>(__default)},
+        {KEY_PRINT_SCREEN, std::forward<Tv>(__default)},
+        {KEY_PAUSE, std::forward<Tv>(__default)},
+        {KEY_F1, std::forward<Tv>(__default)},
+        {KEY_F2, std::forward<Tv>(__default)},
+        {KEY_F3, std::forward<Tv>(__default)},
+        {KEY_F4, std::forward<Tv>(__default)},
+        {KEY_F5, std::forward<Tv>(__default)},
+        {KEY_F6, std::forward<Tv>(__default)},
+        {KEY_F7, std::forward<Tv>(__default)},
+        {KEY_F8, std::forward<Tv>(__default)},
+        {KEY_F9, std::forward<Tv>(__default)},
+        {KEY_F10, std::forward<Tv>(__default)},
+        {KEY_F11, std::forward<Tv>(__default)},
+        {KEY_F12, std::forward<Tv>(__default)},
+        {KEY_F13, std::forward<Tv>(__default)},
+        {KEY_F14, std::forward<Tv>(__default)},
+        {KEY_F15, std::forward<Tv>(__default)},
+        {KEY_F16, std::forward<Tv>(__default)},
+        {KEY_F17, std::forward<Tv>(__default)},
+        {KEY_F18, std::forward<Tv>(__default)},
+        {KEY_F19, std::forward<Tv>(__default)},
+        {KEY_F20, std::forward<Tv>(__default)},
+        {KEY_F21, std::forward<Tv>(__default)},
+        {KEY_F22, std::forward<Tv>(__default)},
+        {KEY_F23, std::forward<Tv>(__default)},
+        {KEY_F24, std::forward<Tv>(__default)},
+        {KEY_F25, std::forward<Tv>(__default)},
+        {KEY_KP_0, std::forward<Tv>(__default)},
+        {KEY_KP_1, std::forward<Tv>(__default)},
+        {KEY_KP_2, std::forward<Tv>(__default)},
+        {KEY_KP_3, std::forward<Tv>(__default)},
+        {KEY_KP_4, std::forward<Tv>(__default)},
+        {KEY_KP_5, std::forward<Tv>(__default)},
+        {KEY_KP_6, std::forward<Tv>(__default)},
+        {KEY_KP_7, std::forward<Tv>(__default)},
+        {KEY_KP_8, std::forward<Tv>(__default)},
+        {KEY_KP_9, std::forward<Tv>(__default)},
+        {KEY_KP_DECIMAL, std::forward<Tv>(__default)},
+        {KEY_KP_DIVIDE, std::forward<Tv>(__default)},
+        {KEY_KP_MULTIPLY, std::forward<Tv>(__default)},
+        {KEY_KP_SUBTRACT, std::forward<Tv>(__default)},
+        {KEY_KP_ADD, std::forward<Tv>(__default)},
+        {KEY_KP_ENTER, std::forward<Tv>(__default)},
+        {KEY_KP_EQUAL, std::forward<Tv>(__default)},
+        {KEY_LEFT_SHIFT, std::forward<Tv>(__default)},
+        {KEY_LEFT_CONTROL, std::forward<Tv>(__default)},
+        {KEY_LEFT_ALT, std::forward<Tv>(__default)},
+        {KEY_LEFT_SUPER, std::forward<Tv>(__default)},
+        {KEY_RIGHT_SHIFT, std::forward<Tv>(__default)},
+        {KEY_RIGHT_CONTROL, std::forward<Tv>(__default)},
+        {KEY_RIGHT_ALT, std::forward<Tv>(__default)},
+        {KEY_RIGHT_SUPER, std::forward<Tv>(__default)},
+        {KEY_MENU, std::forward<Tv>(__default)},
+    };
+}

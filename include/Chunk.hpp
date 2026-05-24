@@ -68,6 +68,12 @@ struct Chunk{
         u32 isMeshing           : 1 = 0;
         u32 finishedMeshing     : 1 = 0;
     }flags;
+    auto begin(){
+        return data.begin();
+    }
+    auto end(){
+        return data.end();
+    }
 
     static constexpr glm::ivec3 Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 

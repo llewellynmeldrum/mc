@@ -50,12 +50,14 @@ void Camera::move(Direction dir, f32 dt) {
     block_pos = new_block_pos;
 }
 void Camera::rotateByMouse(vec2 offset, f32 dt) {
-    pitch += dt * mouse_sensitivity * offset.y;
-    yaw -= dt * mouse_sensitivity * offset.x;  // up down is inverted
-    pitch = glm::max(pitch, -89.0f);
-    pitch = glm::min(pitch, 89.0f);
-    cached_viewMatrix.invalidate();
-    cached_frustum.invalidate();
+    if (enable_mouse_panning){
+        pitch += dt * mouse_sensitivity * offset.y;
+        yaw -= dt * mouse_sensitivity * offset.x;  // up down is inverted
+        pitch = glm::max(pitch, -89.0f);
+        pitch = glm::min(pitch, 89.0f);
+        cached_viewMatrix.invalidate();
+        cached_frustum.invalidate();
+    }
     // requestMeshRegeneration();
 }
 void Camera::rotate(Direction dir, f32 dt) {

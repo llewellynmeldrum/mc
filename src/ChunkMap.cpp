@@ -1,5 +1,5 @@
-
 #include "ChunkHelpers.hpp"
+#include "CoordTypes.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
@@ -28,8 +28,9 @@ using namespace glm;
         for (const auto& write: newWriteList){
             // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
             const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
-            if (chunks.contains(targetChunkCoord)){
-                pendingWritesSuccessful += chunks.at(targetChunkCoord)->tryWrite(write);
+            if (entries.contains(targetChunkCoord)){
+                auto& entry = entries.at(targetChunkCoord);
+                pendingWritesSuccessful += entry->block_data.tryWrite(write);
                 pendingWritesAttempted++;
             }else{
                 // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
@@ -42,88 +43,42 @@ using namespace glm;
             }
         }
     }
-std::span<const Chunk*const> ChunkMap::getSurroundingChunks(ivec3 pos) const {
-    std::span res{neighbours.at(pos)};
-    return res;
-}
-std::array<ChunkStore, NUM_NEIGHBOURS> ChunkMap::copySurroundingChunks(ivec3 pos) const {
-    std::array<ChunkStore,NUM_NEIGHBOURS>res;
-    for (const auto [i,val]: std::views::enumerate(neighbours.at(pos))){
-        res[i] = ChunkStore(*val);
-    }
-    return res;
-}
-ChunkMetadata* ChunkMap::getMetadata(ivec3 pos)const {
-    return metadata.at(pos).get();
-}
-const AABB*   ChunkMap::getBoundingBox(ivec3 chunk_offset) const{
-    return boundingBoxes.at(chunk_offset).get();
+// TODO: 
+// mid refactor splicing in the new chunkentry system
+// Also made those spiral algorithms
+const AABB*   ChunkMap::getBoundingBox(WorldChunkCoord chunkCoord) const{
+    return &entries.at(chunkCoord)->bounding_box;
 }
 
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.
-void ChunkMap::updateNeighbourMap(ivec3 pos) {
-    auto* self_ptr = chunks[pos].get();
+void ChunkMap::updateNeighbourMap(ivec3 chunkCoord) {
+    auto* self_ptr = &entries[chunkCoord]->block_data;
 
-    std::array<const Chunk*, NUM_NEIGHBOURS> my_neighbours{};
-    for (const auto& dir : eachDirection) {
+    std::array<const Chunk*, N_NEIGHBOURS> my_neighbours{};
+    for (const auto& [dir,offset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(dir);
-        const ivec3 neighbourChunkLocal = pos + Direction_offset[dir_idx];
-        if (chunks.contains(neighbourChunkLocal)) {
-            // assign NEIGHBOUR to ourNeighbours.dir
-            const auto* neighbourChunk = chunks[neighbourChunkLocal].get();
-            if (!neighbourChunk)
+        const ivec3 neighbourChunkCoord = chunkCoord + offset;
+        if (entries.contains(neighbourChunkCoord)) {
+            // assign NEIGHBOUR to OUR NeighbourList @dir
+            const auto* neighbourChunk = &entries[neighbourChunkCoord]->block_data;
+            if (!neighbourChunk){
                 continue;
+            }
             my_neighbours[dir_idx] = neighbourChunk;
 
-            // assign SELF to ourNeighbours.dir.inverseDir
+            // assign OURSELVES to NEIGHBOUR.dir @inverseDir
             const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
-            neighbours[neighbourChunkLocal][inverseDir_idx] = self_ptr;
+            entries[neighbourChunkCoord]->neighbours[inverseDir_idx] = self_ptr;
         }
     }
-    neighbours.emplace(pos, std::move(my_neighbours));
+    entries.at(chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
 }
 
-void ChunkMap::updateBoundingBoxesMap(ivec3 chunk_coord) {
-    const ivec3 min = chunk_coord * Chunk::Extents;
-    const ivec3 max = min + Chunk::Extents;
-    boundingBoxes.emplace(chunk_coord, std::make_unique<AABB>(min, max));
+void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
+    const WorldBlockPos min = toWorldBlockPos(chunkCoord);
+    const WorldBlockPos max = min + Chunk::Extents;
+    entries.at(chunkCoord)->bounding_box = {min, max};
 }
 
 
-bool ChunkMap::isDirty(ivec3 pos) const {
-    return chunks.at(pos)->flags.isDirty;
-}
-bool ChunkMap::isClean(ivec3 pos) const {
-    return !chunks.at(pos)->flags.isDirty;
-}
-
-bool ChunkMap::isMeshing(ivec3 pos) const {
-    return chunks.at(pos)->flags.isMeshing;
-}
-bool ChunkMap::isMeshed(ivec3 pos) const {
-    return chunks.at(pos)->flags.finishedMeshing;
-}
-bool ChunkMap::isGenerated(ivec3 pos) const {
-    return chunks.at(pos)->flags.finishedGeneration;
-}
-
-void ChunkMap::markDirty(ivec3 pos) {
-    chunks.at(pos)->flags.isDirty = true;
-    chunks.at(pos)->flags.finishedMeshing= false;
-}
-
-void ChunkMap::markClean(ivec3 pos) {
-    chunks.at(pos)->flags.isDirty = false;
-    chunks.at(pos)->flags.finishedMeshing= true;
-}
-
-void ChunkMap::markMeshing(ivec3 pos) {
-    chunks.at(pos)->flags.isMeshing = true;
-}
-void ChunkMap::markMeshed(ivec3 pos) {
-    chunks.at(pos)->flags.finishedMeshing= true;
-}
-void ChunkMap::markGenerated(ivec3 pos) {
-    chunks.at(pos)->flags.finishedGeneration = true;
-}

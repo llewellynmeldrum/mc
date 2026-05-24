@@ -13,11 +13,11 @@ using namespace glm;
 Block World::getBlock(WorldBlockPos worldPos) const {
     WorldChunkCoord chunkCoord = toWorldChunkCoord(worldPos);
     auto  chunk_ptr =
-        chunkMap.chunks.contains(chunkCoord) ? &chunkMap.chunks.at(chunkCoord) : nullptr;
+        chunkMap.entries.contains(chunkCoord) ? &chunkMap.entries.at(chunkCoord) : nullptr;
     if (chunk_ptr) {
         auto worldChunkOffset = chunkCoord * (int)CHUNK_ZWIDTH;
         ChunkBlockPos chunkLocal = worldPos - worldChunkOffset;
-        return chunk_ptr->get()->at(chunkLocal);
+        return chunk_ptr->get()->block_data.at(chunkLocal);
     } else {
         return Block::Empty();
     }

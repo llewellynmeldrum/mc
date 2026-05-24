@@ -39,6 +39,7 @@ private:
     std::vector<Block> buf={};
 public:
     ChunkStore(const Chunk& chunk);
+    ChunkStore(const Chunk* chunk);
     ChunkStore();
     ~ChunkStore() = default;
     inline auto data(this auto& self){

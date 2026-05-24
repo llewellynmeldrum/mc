@@ -32,6 +32,10 @@ void Window::setupWindow(void* ctx_ptr) {
         LOG_ERROR("Failed to initialize GLFW.");
         LOG_EXIT(EXIT_FAILURE);
     }
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -40,7 +44,11 @@ void Window::setupWindow(void* ctx_ptr) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, true);  // required for opengl 3.2+
 #endif
 
-    this->ptr = glfwCreateWindow(px_w, px_h, "Window Title", nullptr, nullptr);
+    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    this->ptr = glfwCreateWindow(mode->width, mode->height, "My Title", nullptr, nullptr);
     if (!ptr) {
         LOG_ERROR("Failed to initialize GLFW.");
         glfwTerminate();
@@ -93,6 +101,12 @@ void Window::scheduleClose() {
 }
 void Window::terminate() {
     glfwTerminate();
+}
+void Window::captureCursor(){
+    glfwSetInputMode(ptr, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}
+void Window::freeCursor(){
+    glfwSetInputMode(ptr, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 static void init_glFunctionLoader() {

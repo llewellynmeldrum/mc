@@ -3,6 +3,8 @@
 #include <queue>
 #include <atomic>
 
+#include "ChunkConstants.hpp"
+#include "ChunkEntry.hpp"
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"
 
@@ -46,30 +48,24 @@ struct MeshJob{
     std::size_t meshGeneration;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
-    std::array<ChunkStore,6> surroundingChunks;
+    std::vector<ChunkStore> surroundingChunks{6,ChunkStore{}};
     ChunkMetadata meta;
     const TextureAtlas* atlas;
 
-    MeshJob(
-        std::size_t meshGeneration,
-        WorldChunkCoord _chunkCoord,
-        const Chunk* _chunk_ptr, 
-        std::span<const Chunk*const > _surroundingChunkPtrs,
-        const ChunkMetadata* _meta,
-        const TextureAtlas* _atlas)
-        :
-        chunkCoord(_chunkCoord),
-        blocks(*_chunk_ptr)
+    MeshJob(WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry):
+
+        meshGeneration(entry->latest_mesh_revision),
+        chunkCoord(key),
+        blocks(&entry->block_data),
+        meta(entry->metadata),
+        atlas(_atlas)
     {
-        for (const auto& [i,chunk_ptr]: std::views::enumerate(_surroundingChunkPtrs)){
-            if (chunk_ptr){
-                surroundingChunks[i] = ChunkStore{*chunk_ptr};
-            }else{
-                surroundingChunks[i] = ChunkStore{};
-            }
+        assert(surroundingChunks.size()==N_NEIGHBOURS);
+        for (const auto [i,neighbour_ptr] : std::views::enumerate(entry->neighbours)){
+            if (!neighbour_ptr) continue;
+
+            surroundingChunks[i] = *neighbour_ptr;
         }
-        meta = *_meta;
-        atlas = _atlas;
     }
 };
 

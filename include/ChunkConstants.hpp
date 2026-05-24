@@ -1,6 +1,6 @@
 #pragma once 
 #include "Types.h"
-inline constexpr const size_t NUM_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
+inline constexpr const size_t N_NEIGHBOURS = 6;  // up, down, left, right, front, back (3d chunks)
 inline constexpr const i64 CHUNK_XWIDTH = 16;                                        // x/y/z
 inline constexpr const i64 CHUNK_ZWIDTH = 16;                                        // x/y/z
 inline constexpr const i64 CHUNK_HEIGHT = 16;                                        // x/y/z

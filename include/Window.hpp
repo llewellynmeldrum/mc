@@ -14,6 +14,8 @@ struct Window {
     void scheduleClose();
     void terminate();
 
+    void captureCursor();
+    void freeCursor();
     GLFWwindow* ptr = nullptr;
     i32         x = 0;
     i32         y = 0;

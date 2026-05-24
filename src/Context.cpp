@@ -13,7 +13,7 @@
 #include <algorithm>
 
 using namespace glm;
-void Context::setupContext() {
+void Simulation::setupContext() {
     program_epoch_ns = get_current_ns();
     LOG_EXPR(this);
     win.setupWindow(static_cast<void*>(this));
@@ -34,42 +34,50 @@ void Context::setupContext() {
     ui.setupDebugUI(win.ptr);
     world.setupWorld();
 }
-void Context::loop(){
+
+void Simulation::freeCursor(){
+    win.freeCursor();
+    cam.disableMousePanning();
+}
+void Simulation::captureCursor(){
+    win.captureCursor();
+    cam.enableMousePanning();
+}
+
+void Simulation::loop(){
+    time.start_frame();
     time.bench_start("frame");
 
     // INPUT
-    {
-        time.bench_start("input");
-        input.poll();
-        handleInputs(); 
-        time.bench_end("input");
-    }
+    time.bench_start("input");
+    input.poll();
+    handleInputs(); 
+    time.bench_end("input");
 
-    // UPDATE:
-    {
+    if (isPaused() == false){
+        // UPDATE:
         time.bench_start("update");
         update();
         time.bench_end("update");
-    }
 
+    }
     // DRAWING
-    {
-        time.bench_start("draw");
-        draw(); 
-        ui.drawDebugUI(); 
-        time.bench_end("draw");
-    }
+    time.bench_start("draw");
+    draw(); 
+    time.bench_end("draw");
+    ui.updateUI();
+    ui.drawDebugUI(); 
+    ui.render();
 
-    {
-        time.bench_start("render");
-        ui.render();
-        win.swapBuffers();
-        time.bench_end("render");
-    }
+    time.bench_start("render");
+    win.swapBuffers();
+    time.bench_end("render");
+
     time.bench_end("frame");
+    time.end_frame();
 }
 
-void Context::update() {
+void Simulation::update() {
     time.bench_start("enqueueGen");
     enqueueGenerationJobs();
     time.bench_end("enqueueGen");
@@ -87,32 +95,51 @@ void Context::update() {
     time.bench_end("drainMesh");
 }
 
-std::vector<ivec3> Context::findChunksForGeneration(){
-    std::vector<ivec3> res;
-    auto chunkRange  = EachInRange(-SIMULATION_DIST, SIMULATION_DIST,
-                                        -SIMULATION_DIST, SIMULATION_DIST,
-                                        -SIMULATION_DIST, SIMULATION_DIST);
+std::vector<ivec3> Simulation::findChunksForGeneration(){
+    std::vector<ivec3> candidates;
+    const ivec3 chunkCoord = toWorldChunkCoord(cam.pos);
+    // enumerate them based on their range to the player, such that nearest chunks come first.
+    auto func = [this, &candidates](i32 x, i32 y, i32 z){
+        const ivec3 key = ivec3{x,y,z}; // dont you have to 
+        const ChunkEntry* entry = world.chunkMap.make_or_getEntry(key);
+        if (entry->status.qualifiesForGeneration()){
+            candidates.emplace_back(key);
+        }
+    };
 
-    for (const auto& [cx,cy,cz] : chunkRange){
-        const ivec3 chunkCoord = toWorldChunkCoord(cam.pos);
-        const ivec3 key = chunkCoord + ivec3{cx,cy,cz}; // dont you have to 
-        const auto genStatus = world.chunkMap.queryGenStatus(key);
-        if (genStatus.finishedAll == false){
-            res.emplace_back(key);
+    const i32& dist = SIMULATION_DIST;
+    const i32& oy = chunkCoord.y;
+
+    i32 minY = oy-dist;
+    i32 maxY = oy+dist;
+    // this genuinely took like 2 hours to make, holy christ man i hate geometric shit
+    // Anyways this iterates in 'expanding spirals', per horizontal slice, such that we get 
+    // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
+    for (i32 y = maxY; y>=minY; y--){
+        i32 x{chunkCoord.x}, z{chunkCoord.z};
+        func(x,y,z); // center point
+        for (int r = 1; r<= dist; r++){
+            const int r2 = 2*r;
+            func(--x,y,z); // move out of the centre point
+            for (int j = 0; j<r2 -1;j++)    func(x,y,++z); // traverse the remaining (-X) edge
+            for (int j = 0; j<r2 ; j++)     func(++x,y,z); // traverse the whole     (Z+) edge
+            for (int j = 0; j<r2 ; j++)     func(x,y,--z); // traverse the whole     (+X) edge
+            for (int j = 0; j<r2 ; j++)     func(--x,y,z); // traverse the whole     (+X) edge
         }
     }
-    return res;
+    return candidates;
 }
 
-std::size_t Context::enqueueGenerationJobs(){
-    const auto chunkWorldPosForGen = findChunksForGeneration();
+std::size_t Simulation::enqueueGenerationJobs(){
+    // BUG: we are enqueing the duplicate jobs.
+    const auto candidates = findChunksForGeneration();
 //    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
     std::size_t res = 0;
-    for (const ivec3& chunkWorldPos: chunkWorldPosForGen){
+    for (const ivec3& chunkWorldPos: candidates){
 
-        auto genStatus = world.chunkMap.queryGenStatus(chunkWorldPos);
-        if (genStatus.inProgress){
-            continue; // already 
+        const auto& entry = world.chunkMap.get_entry(chunkWorldPos);
+        if (entry->status.qualifiesForGeneration() == false){
+            continue; 
         }
         bool success = world.chunkMap.generator.genJobQueue.try_emplace(
             chunkWorldPos, 
@@ -121,19 +148,13 @@ std::size_t Context::enqueueGenerationJobs(){
         );
         if (success){
             res++;
-            world.chunkMap.genStatus.try_emplace(chunkWorldPos,ChunkGenStatus{.inProgress=true});
-        }else{
-//            LOG_DEBUG("FAILED TO ENQUEUE FOR GEN");
-
-            break;
+            entry->status.beginGeneration();
         }
     }
- //   if (res>0) LOG_DEBUG("enqueued_for_gen this frame:{}",res);
     return res;
 }
-// update
 
-std::vector<MeshJob> Context::findMeshJobs(){
+std::vector<MeshJob> Simulation::findMeshJobs(){
 
     auto in_frustum = [](const Frustum& frustum, const World& world) {
         return [frustum, &world](const WorldChunkCoord& chunk_coord) {
@@ -144,56 +165,40 @@ std::vector<MeshJob> Context::findMeshJobs(){
     
     const auto camChunkCoord = toWorldChunkCoord(cam.pos);
     const auto candidateList = world.generatedChunkCoordsInRadius(camChunkCoord, RENDER_DIST, maxMeshesPerFrame);
-    // TODO: 
-    // Unify chunk map into a single ChunkEntry struct,
-    // perhaps a separate map for pendingBlockWrites, since they can apply to ungenerated chunks,
-    // Keep refining queue logic to make chunk meshing faster,
-    // -> Consider a partial sort of in ranges meshes (nth element?)
-    // Im currently only sorting the first N in the arbitrary evaluation order of the cartesian product.
-    // Perhaps i make the loop itself expand out from the center, i.e instead of:
-    // 123       526
-    // 4C5   ->  1C3  (nearby chunks are checked first, leaving sorting uneccesary)
-    // 678       847
-    //
-    // NOTE:
-    // The enumeration of other chunks should also only start at the point of unmeshed chunks
-    // This whole thing is a bit of a shitshow, is this really the right way to go over them?
-    //
 
     std::vector<MeshJob> res;
-    for (const auto candidate: candidateList){
+    for (const auto candidateCoord: candidateList){
         // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
         // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
         // i.e the ones bordering the actual chunk in question.
-        const auto surrounding = world.chunkMap.getSurroundingChunks(candidate);
-        const auto* meta = world.chunkMap.getMetadata(candidate);
-        const auto generationID = world.chunkMap.getLatestMeshRevisionID(candidate);
-        const auto* chunk_ptr = world.chunkMap.getEntry(candidate);
+        auto entry = world.chunkMap.get_entry(candidateCoord);
+        // make this construct based on the entry by const reference or something
         res.emplace_back(
-            generationID,
-            candidate,
-            chunk_ptr,
-            surrounding,
-            meta,
-            &rend.atlas
+            candidateCoord,
+            &rend.atlas,
+            entry
         );
 
     }
     return res;
 }
 
-std::size_t Context::enqueueMeshingJobs(){
+std::size_t Simulation::enqueueMeshingJobs(){
     auto jobsForMeshing = findMeshJobs();
 
     std::size_t res = 0;
     for (auto& job: jobsForMeshing){
-        if (rend.mesher.meshJobQueue.try_enqueue(std::move(job))){
-            world.chunkMap.markMeshing(job.chunkCoord);
-            res++;
-        } else{
-            // stop submitting this frame
+        const auto& entry = world.chunkMap.get_entry(job.chunkCoord);
+        auto& q = rend.mesher.meshJobQueue;
+
+        const bool queueIsFull = !q.try_enqueue(std::move(job));
+        if (queueIsFull){
             break;
+        } else{
+            entry->status.beginMeshing();
+            res++;
         }
+
         //NOTE:
         // its possible that using an emplace method could be faster,
         // since we avoid constructing the object in case of lock contention.
@@ -208,11 +213,12 @@ std::size_t Context::enqueueMeshingJobs(){
 
 std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
     constexpr std::size_t MaxGenUploadsPerFrame = 12;
-    std::vector<GenResult> output;
-    output.reserve(MaxGenUploadsPerFrame);
+    std::vector<GenResult> output; output.reserve(MaxGenUploadsPerFrame);
+
     for (std::size_t mesh_count = 0; mesh_count < MaxGenUploadsPerFrame; mesh_count++){
         std::optional<GenResult> result = queue.try_dequeue();
-        if (!result){
+        bool queueIsEmpty = !result.has_value();
+        if (queueIsEmpty){
             break; // give up this frame?
         }
         output.emplace_back(*result);
@@ -237,30 +243,45 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
 
     return output;
 }
-std::size_t Context::drainAndUploadMeshResults(){
-    std::size_t res =0;
+std::size_t Simulation::drainAndUploadMeshResults(){
+    std::size_t res = 0;
     auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
     for (const auto& [candidateGen, chunkCoord, vertices, indices] : candidateMeshes){
         if (vertices.size()>0){
             rend.uploadMesh(chunkCoord, vertices, indices);
+            res++;
+            this->chunksMeshed++;
         } 
-        chunksMeshed++;
-        res++;
-        world.chunkMap.markClean(chunkCoord);
+        world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
     }
     return res;
 }
 
-std::size_t Context::drainAndUploadGenResults(){
-    auto chunkDatas = drainGenResults(world.chunkMap.generator.genResultQueue);
-    auto res = chunkDatas.size();
-    for (const auto& newGen : chunkDatas){
+std::size_t Simulation::drainAndUploadGenResults(){
+    auto drainedMeshes = drainGenResults(world.chunkMap.generator.genResultQueue);
+    auto res = drainedMeshes.size();
+    for (const auto& newGen : drainedMeshes){
         world.chunkMap.uploadGeneratedChunk(newGen);
     }
     return res;
 }
 
-void Context::draw() {
+void Simulation::pause(){
+    freeCursor();
+    paused=true;
+}
+void Simulation::unpause(){
+    captureCursor();
+    paused=false;
+}
+bool Simulation::isPaused(){
+    return paused;
+}
+void Simulation::togglePause(){
+    if (paused) unpause();
+    else pause();
+}
+void Simulation::draw() {
     rend.clear({ 0.25, 0.5, 0.85, 1.0 });
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
@@ -272,77 +293,85 @@ void Context::draw() {
     }
 }
 
-void Context::handleInputs() {
-    if (input.getKey(KEY_ESCAPE) == KeyState::Held) {
-        win.scheduleClose();
-        return;
-    }
-    f32 dt = time.dt_s;
-    // dt = 1/60
-    for (auto& [key, cd] : input.keyRepeatCooldown) {
-        if (cd > 0.0f) {
-            cd -= dt;
+void Simulation::handleInputs() {
+    auto signal = 
+    input.mapToggleKey(KEY_ESCAPE, [this]{
+        if (isPaused()){
+            unpause();
+            return InputSignal::CONTINUE;
+        } else{
+            win.scheduleClose();
+            return InputSignal::RETURN;
         }
-    }
-    f32 scaled_dt = dt * 60;
+    });
+    if (signal == InputSignal::RETURN){ return; }
+
+    input.updateCooldowns(time.dt_s);
+    const f32 scaled_dt = time.dt_s * 60;
+
+    input.mapToggleKey(KEY_P, [this]{
+        togglePause();
+    });
+
+    if (isPaused()) return;
+    // WARNING: Anything below here is ignored during paused frames
 
     if (input.mousepos != input.prevmousepos) {
         const vec2 diff = input.prevmousepos - input.mousepos;
         cam.rotateByMouse(diff, scaled_dt);
     }
 
-    if (input.getKey(KEY_T) == KeyState::Held) {
-        // toggle wireframe renderer
-        if (input.keyRepeatCooldown.at(KEY_T) <= 0.0f) {
-            rend.debug.wireframe = !rend.debug.wireframe;
-            input.keyRepeatCooldown[KEY_T] = 0.1f;
+    input.mapToggleKey(KEY_T, [this]{
+        rend.debug.wireframe = !rend.debug.wireframe;
+    });
+    input.mapToggleKey(KEY_R,[this]{
+        for (const auto& [worldCoord, entry]: world.chunkMap.entries){
+            entry->requestMeshRegen();
         }
-    }
-    if (input.getKey(KEY_R) == KeyState::Held) {
-        // remesh current chunk
-        if (input.keyRepeatCooldown.at(KEY_R) <= 0.0f) {
-            rend.debug.wireframe = !rend.debug.wireframe;
-            input.keyRepeatCooldown[KEY_R] = 0.1f;
-        }
-    }
-    if (input.getKey(KEY_LEFT_SHIFT) == KeyState::Held) {
-        cam.moveSpeed = Camera::SPRINT_MOVESPEED;
-    } else {
-        cam.moveSpeed = Camera::BASE_MOVESPEED;
-    }
-    if (input.getKey(KEY_W) == KeyState::Held) {
-        cam.move(Direction::FORWARD, scaled_dt);
-    }
-    if (input.getKey(KEY_S) == KeyState::Held) {
-        cam.move(Direction::BACKWARD, scaled_dt);
-    }
-    if (input.getKey(KEY_A) == KeyState::Held) {
-        cam.move(Direction::LEFT, scaled_dt);
-    }
-    if (input.getKey(KEY_D) == KeyState::Held) {
-        cam.move(Direction::RIGHT, scaled_dt);
-    }
-    if (input.getKey(KEY_SPACE) == KeyState::Held) {
-        cam.move(Direction::UP, scaled_dt);
-    }
-    if (input.getKey(KEY_E) == KeyState::Held) {
-        cam.move(Direction::UP, scaled_dt);
-    }
-    if (input.getKey(KEY_Q) == KeyState::Held) {
-        cam.move(Direction::DOWN, scaled_dt);
-    }
+        rend.visibleChunkMeshes.clear();
+    });
 
-    if (input.getKey(KEY_LEFT) == KeyState::Held) {
-        cam.rotate(Direction::LEFT, scaled_dt);
-    }
-    if (input.getKey(KEY_RIGHT) == KeyState::Held) {
-        cam.rotate(Direction::RIGHT, scaled_dt);
-    }
-    if (input.getKey(KEY_UP) == KeyState::Held) {
-        cam.rotate(Direction::UP, scaled_dt);
-    }
-    if (input.getKey(KEY_DOWN) == KeyState::Held) {
-        cam.rotate(Direction::DOWN, scaled_dt);
-    }
+    static_assert(KEY_MAX>=KEY_LEFT_SHIFT && KEY_LEFT_SHIFT>KEY_MIN);
+    input.mapHeldKey(KEY_LEFT_SHIFT,[this](bool isHeld){
+        if (isHeld){
+            cam.moveSpeed = Camera::SPRINT_MOVESPEED;
+        }else{
+            cam.moveSpeed = Camera::BASE_MOVESPEED;
+        }
+    });
+    input.mapHeldKey(KEY_W,[this]{
+		cam.move(Direction::FORWARD, time.dt_s);
+	});
+    input.mapHeldKey(KEY_S,[this]{
+		cam.move(Direction::BACKWARD, time.dt_s);
+	});
+    input.mapHeldKey(KEY_A,[this]{
+		cam.move(Direction::LEFT, time.dt_s);
+	});
+    input.mapHeldKey(KEY_D,[this]{
+		cam.move(Direction::RIGHT, time.dt_s);
+	});
+    input.mapHeldKey(KEY_SPACE,[this]{
+		cam.move(Direction::UP, time.dt_s);
+	});
+    input.mapHeldKey(KEY_E,[this]{
+		cam.move(Direction::UP, time.dt_s);
+	});
+    input.mapHeldKey(KEY_Q,[this]{
+		cam.move(Direction::DOWN, time.dt_s);
+	});
+
+    input.mapHeldKey(KEY_LEFT,[this]{
+		cam.rotate(Direction::LEFT, time.dt_s);
+	});
+    input.mapHeldKey(KEY_RIGHT,[this]{
+		cam.rotate(Direction::RIGHT, time.dt_s);
+	});
+    input.mapHeldKey(KEY_UP,[this]{
+		cam.rotate(Direction::UP, time.dt_s);
+	});
+    input.mapHeldKey(KEY_DOWN,[this]{
+		cam.rotate(Direction::DOWN, time.dt_s);
+	});
     input.prevmousepos = input.mousepos;
 }

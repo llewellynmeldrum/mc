@@ -14,8 +14,8 @@ struct Camera {
   public:
     Camera() = default;
     ~Camera() = default;
-    static constexpr f32 BASE_MOVESPEED = 0.2f;
-    static constexpr f32 SPRINT_MOVESPEED = 5.0f;
+    static constexpr f32 BASE_MOVESPEED = 12.0f;
+    static constexpr f32 SPRINT_MOVESPEED = 300.0f;
 
     void setupCamera();
     void move(Direction dir, f32 dt);
@@ -33,6 +33,13 @@ struct Camera {
 
     CachedValue<glm::mat4>    cached_viewMatrix{};
     CachedValue<Frustum> cached_frustum{};
+    bool enable_mouse_panning = true;
+    inline void enableMousePanning(){
+        enable_mouse_panning = true;
+    }
+    inline void disableMousePanning(){
+        enable_mouse_panning = false;
+    }
 
     inline const Frustum& getFrustum() const {
         return cached_frustum.get(

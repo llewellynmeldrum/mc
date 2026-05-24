@@ -11,11 +11,11 @@
 
 #include "Concurrency.hpp"
 // src/Context.cpp
-struct Context {
+struct Simulation {
   public:
     static constexpr std::size_t maxMeshesPerFrame = 128;
-    Context() = default;
-    ~Context() = default;
+    Simulation() = default;
+    ~Simulation() = default;
 
     std::size_t chunksMeshed{0};
     Window   win;
@@ -26,16 +26,23 @@ struct Context {
     DebugUI  ui;
     World    world;
 
+    void captureCursor();
+    void freeCursor();
     void loop();
-    static constexpr i32 RENDER_DIST = 8;
-    static constexpr i32 SIMULATION_DIST = 16; //controls chunk 
+    static constexpr i32 RENDER_DIST = 6;
+    static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1337;
 
     void setupContext();
     void handleInputs();
     void update();
     void draw();
+    void pause();
+    void unpause();
+    bool isPaused();
+    void togglePause();
 private:
+    bool paused;
     std::vector<glm::ivec3> findChunksForGeneration();
     std::vector<MeshJob> findMeshJobs();
 

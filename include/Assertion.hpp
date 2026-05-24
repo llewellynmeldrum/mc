@@ -1,6 +1,5 @@
 #pragma once 
 #include "DebugFormat.hpp"
-#include "DebugFormatSpecializations.hpp"
 
 #include "AnsiCodes.hpp"
 #include "DEBUG.hpp"
@@ -8,6 +7,7 @@
 #define ASSERT_LT(a,b) assert_lt(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 #define ASSERT_GT(a,b) assert_gt(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 #define ASSERT_EQ(a,b) assert_eq(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
+#define ASSERT_NEQ(a,b) assert_neq(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 #define ASSERT_TRUE(a) assert_true(a,#a,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 #define ASSERT_LEQ(a,b) assert_leq(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
 #define ASSERT_GEQ(a,b) assert_geq(a,b,#a,#b,__FILE_NAME__, __FUNCTION__, __PRETTY_FUNCTION__, __LINE__)
@@ -91,6 +91,16 @@ inline bool assert_eq(auto a, auto b,
                                 std::string_view file_name, std::string_view fn, std::string_view pretty_fn, int line){
     if (!(a==b)){
         assert_generic_failure("==", a,b,str_a,str_b,file_name,fn,pretty_fn,line);
+        return false;
+    } else{
+        return true;
+    }
+}
+inline bool assert_neq(auto a, auto b,
+                                std::string_view str_a, std::string_view str_b,
+                                std::string_view file_name, std::string_view fn, std::string_view pretty_fn, int line){
+    if (!(a!=b)){
+        assert_generic_failure("!=", a,b,str_a,str_b,file_name,fn,pretty_fn,line);
         return false;
     } else{
         return true;

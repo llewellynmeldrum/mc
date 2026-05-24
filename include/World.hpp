@@ -20,42 +20,49 @@ struct World {
     World& operator=(World&&) = delete;
 
     inline void setupWorld(){
-        chunkMap.setupChunkMap();
+        chunkMap.setup_chunk_map();
     }
+
     ChunkMap chunkMap;
     GenConfig genConfig;
 
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
 
     // returns generated chunks within a radius from source, sorted in ascending order of distance to source
-    inline std::vector<WorldChunkCoord> generatedChunkCoordsInRadius(WorldChunkCoord source, u32 radiusChunks, u32 maxChunks) {
-        const size_t nChunks = std::pow(radiusChunks*2,3);
-        std::vector<WorldChunkCoord> candidateList;
-        candidateList.reserve(nChunks);
+    inline std::vector<WorldChunkCoord> generatedChunkCoordsInRadius(WorldChunkCoord chunkCoord, i32 dist, u32 maxChunks) {
+        const size_t nChunksInRadius = std::pow(2*dist+1,3);
+        std::vector<WorldChunkCoord> candidates;
+        candidates.reserve(nChunksInRadius);
 
-        glm::ivec3 lo(-radiusChunks);
-        glm::ivec3 hi(radiusChunks);
-        std::size_t count = 0;
-        for (auto [x,y,z]: EachInRange(lo,hi)){
-            glm::vec3 candidate = {x,y,z};
-            if (!chunkMap.hasEntry(candidate)) continue;
-            if (chunkMap.isMeshing(candidate)) continue;
-
-            candidateList.emplace_back(candidate);
-            if (++count >= maxChunks) break;
-            // skip meshing entirely if chunk is not generated yet
-        }
-
-        auto sqdist = [](const auto& a, const auto& b) {
-            auto sq = [](i32 v){ return v*v;};
-            return sq(b.x-a.x) + sq(b.y-a.y) + sq(b.z-a.z);
+        auto add = [this, &candidates](i32 x, i32 y, i32 z){
+            const auto key = glm::ivec3{x,y,z}; // dont you have to 
+            const ChunkEntry* entry = chunkMap.make_or_getEntry(key);
+            if (entry->status.qualifiesForMeshing()){
+                candidates.emplace_back(key);
+            }
         };
 
-//        std::ranges::sort(candidateList, [sqdist,source](const auto& a, const auto& b){
-//            // sort ascending 
-//            return sqdist(source,a) < sqdist(source,b);
-//        });
-        return candidateList;
+        const i32& oy = chunkCoord.y;
+
+        // TODO: refactor, pull this out into an iota like function maybe?
+        i32 minY = oy-dist;
+        i32 maxY = oy+dist;
+        // this genuinely took like 2 hours to make, holy christ man i hate geometric shit
+        // Anyways this iterates in 'expanding spirals', per horizontal slice, such that we get 
+        // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
+        for (i32 y = maxY; y>=minY; y--){
+            i32 x{chunkCoord.x}, z{chunkCoord.z};
+            add(x,y,z); // center point
+            for (i32 r = 1; r<= dist; r++){
+                const i32 r2 = 2*r;
+                add(--x,y,z); // move out of the centre point
+                for (int j = 0; j<r2 - 1;j++)    add(x,y,++z); // traverse the remaining (-X) edge
+                for (int j = 0; j<r2 ; j++)     add(++x,y,z);  // traverse the whole     (Z+) edge
+                for (int j = 0; j<r2 ; j++)     add(x,y,--z);  // traverse the whole     (+X) edge
+                for (int j = 0; j<r2 ; j++)     add(--x,y,z);  // traverse the whole     (+X) edge
+            }
+        }
+        return candidates;
     }
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;

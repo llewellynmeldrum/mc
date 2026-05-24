@@ -15,7 +15,7 @@ public:
     void loop();
     void exit(i32 exit_code);
 
-    Context ctx;
+    Simulation sim;
     bool shouldClose();
 private:
 };
