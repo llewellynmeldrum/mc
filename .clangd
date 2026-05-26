@@ -6,6 +6,7 @@ Documentation:
 
 CompileFlags:
   Add:
+    - std=c++23
     - -D__STRICT_ANSI__
     - -U__SIZEOF_FLOAT128__T_ANSI__
   Remove: [-fmodules-ts, -fmodule-mapper=*, -fdeps-format=*]
