@@ -25,7 +25,7 @@ void IndexedMesh::setupMesh(std::vector<Vertex> vertices, std::vector<u32> indic
     offset_count = indices.size();
     vao.bind();
     assert((indices.size() / 6) * 4 == vertices.size());
-    vbo.load(vertices);
+    vbo.load<Vertex>(vertices);
     ebo.load(indices);
     vao.apply_layout(Vertex::layout());
     vao.unbind();
@@ -40,7 +40,7 @@ void IndexedMesh::draw() const {
 void MeshBase::setupMesh(std::vector<Vertex> vertices) {
     vertex_count = vertices.size();
     vao.bind();
-    vbo.load(vertices);
+    vbo.load<Vertex>(vertices);
     vao.apply_layout(Vertex::layout());
     vao.unbind();
 }

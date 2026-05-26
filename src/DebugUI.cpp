@@ -2,6 +2,7 @@
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkConstants.hpp"
+#include "ChunkDebugColors.hpp"
 #include "Context.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
@@ -364,6 +365,13 @@ void DebugUI::drawMainOverlay(Simulation* ctx) {
     auto ch_pos = toWorldChunkCoord(ctx->cam.pos);
     if (UI::StartWindow("DebugOverlay",window_flags)) {
         ImGui::Text("DEBUG OVERLAY");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Dirty()), "Dirty");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Meshed()), "Meshed");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Meshing()), "Meshing");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Generated()), "Generated");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Generating()), "Generating");
+        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Ungenerated()), "Ungenerated");
+
 
         ImGui::Separator();
         ImGui::Text("Positions:");
@@ -431,13 +439,13 @@ void DebugUI::drawMainOverlay(Simulation* ctx) {
             {
                 UI::setTextColor(0,255,0);
                     UI::Text(additions.c_str()); 
-                UI::resetTextColor();
+                UI::ResetTextColor();
 
                 UI::SameLine();
 
                 UI::setTextColor(0,255,0);
                     UI::Text(avg.c_str()); 
-                UI::resetTextColor();
+                UI::ResetTextColor();
             }
             UI::SameLine();
             UI::Text(n_unique);

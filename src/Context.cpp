@@ -32,7 +32,7 @@ void Simulation::setupContext() {
         "render"
     );
     cam.setupCamera();
-    rend.setupRenderer();
+    rend.setup();
     ui.setupDebugUI(win.ptr);
     world.setupWorld();
 }
@@ -310,6 +310,7 @@ void Simulation::draw() {
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
     rend.draw(cam);
+    rend.draw_debugChunks(cam,world);
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");

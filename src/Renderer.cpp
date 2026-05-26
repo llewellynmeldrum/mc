@@ -14,13 +14,15 @@ using namespace glm;
 void Renderer::updateViewport(int x, int y, int w, int h) {
     glViewport(x, y, w, h);
 }
-void Renderer::setupRenderer() {
+void Renderer::setup() {
     atlas.setupTextureAtlas();
     prog.setupShaderProgram("shaders/vs.glsl", "shaders/fs.glsl");
     prog.use();
     prog.setUniform("texture1", (int)0);
     prog.stop();
-    mesher.setupChunkMesher();
+    mesher.launchChunkMeshers();
+
+    dbg_rend.setup();
 }
 
 void Renderer::clear(const vec4 clear_color) {
@@ -29,6 +31,13 @@ void Renderer::clear(const vec4 clear_color) {
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
     glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Renderer::draw_debugChunks(Camera& cam, World& world){
+    dbg_rend.update(cam,world);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    dbg_rend.draw(cam);
+    glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
 }
 
 void Renderer::draw(Camera& cam){

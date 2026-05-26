@@ -4,49 +4,68 @@
 #include "CoordTypes.hpp"
 #include "Geometry.hpp"
 #include "Types.h"
+#include "cppslop.hpp"
+#include "Bitwise.hpp"
+
+
 struct ChunkEntryStatus{
 public:
+    ChunkEntryStatus()=default;
+    ~ChunkEntryStatus()=default;
+    constexpr ChunkEntryStatus(u32 _flags):flags(_flags){}
     bool qualifiesForGeneration()const {
-        return !generated && !on_gen_job_queue;
+        return !isGenerated() && !isGenerating();
     }
     bool qualifiesForMeshing()const {
-        return generated && needs_meshing && !on_mesh_job_queue;
+        return isGenerated() && needsMeshing() && !isMeshing();
     }
 
     void beginGeneration(){
-        on_gen_job_queue = 1;
+        SetBit(flags,on_gen_job_queue_offset);
     }
+
     void endGeneration(){
-        on_gen_job_queue = 0;  // removed from job queue 
-        generated = 1;          // marked as generated (never unmarked)
-        needs_meshing = 1;      // marked as needs_meshing (unmarked on mesh finish, marked again by the 
-                                // camera if the player moves across a chunk boundary or a block boundary)
+        UnsetBit(flags, on_gen_job_queue_offset);  // removed from job queue 
+        SetBit(flags,generated_offset);          // marked as generated (never unmarked)
+        SetBit(flags,needs_meshing_offset);// marked as needs_meshing (unmarked on mesh finish, marked again by the 
     }
 
     void beginMeshing(){
-        on_mesh_job_queue = 1;
+        SetBit(flags,on_mesh_job_queue_offset);
     }
     void endMeshing(){
-        needs_meshing = 0;
-        on_mesh_job_queue = 0;
-        meshed = 1;
+        UnsetBit(flags,needs_meshing_offset);
+        UnsetBit(flags,on_mesh_job_queue_offset);
+        SetBit(flags,meshed_offset);
     }
 
     void makeDirty(){
-        needs_meshing = 1;
+        SetBit(flags,needs_meshing_offset);
     }
-    bool isGenerated()const{return generated;}
-    bool isGenerating()const{return on_gen_job_queue;}
-    bool isMeshed()const{return meshed;}
-    bool isMeshing()const{return on_mesh_job_queue;}
 
+    bool isDirty()const{return GetBit(flags,meshed_offset) && GetBit(flags,needs_meshing_offset);}
+
+    static constexpr ChunkEntryStatus Dirty(){ return       {0b110000}; }
+    static constexpr ChunkEntryStatus Meshed(){ return      {0b010000}; }
+    static constexpr ChunkEntryStatus Meshing(){ return     {0b001000}; }
+    static constexpr ChunkEntryStatus Generated(){ return   {0b000100}; }
+    static constexpr ChunkEntryStatus Generating(){ return  {0b000010}; }
+    static constexpr ChunkEntryStatus Ungenerated(){ return {0b000001}; }
+
+
+    constexpr bool isGenerating()const{return GetBit(flags,on_gen_job_queue_offset);}
+    constexpr bool isGenerated()const{return GetBit(flags,generated_offset);}
+    constexpr bool isMeshing()const{return GetBit(flags,on_mesh_job_queue_offset);}
+    constexpr bool isMeshed()const{return GetBit(flags,meshed_offset);}
+    constexpr bool needsMeshing()const{return GetBit(flags,needs_meshing_offset);}
+
+    u32 flags;
 private:
-    u32 on_gen_job_queue:      1 = 0; // currently enqueued for generation
-    u32 generated:             2 = 0; // Exited gen queue, has block data
-
-    u32 on_mesh_job_queue:     3 = 0; // Currently enqueued for meshing
-    u32 meshed:                4 = 0; 
-    u32 needs_meshing:         5 = 0;
+    static constexpr u32 on_gen_job_queue_offset     = 1; // currently enqueued for generation 
+    static constexpr u32 generated_offset            = 2; // Exited gen queue, has block data
+    static constexpr u32 on_mesh_job_queue_offset    = 3; // Currently enqueued for meshing
+    static constexpr u32 meshed_offset               = 4; // finished meshing
+    static constexpr u32 needs_meshing_offset        = 5; // mesh is finished but dirty
     
 };
 // @Brief:

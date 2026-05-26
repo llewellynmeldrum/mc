@@ -2,6 +2,7 @@
 #include "Types.h"
 #include "Vertex.hpp"
 #include "cppslop.hpp"
+#include "glbinding/gl/enum.h"
 #include <cstddef>
 #include <utility>
 
@@ -9,6 +10,7 @@ FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 
 struct VertexArray {
     DECL_NO_COPY(VertexArray);
+    VertexArray(std::nullopt_t){} // create without initializing
     VertexArray() { make(); }
     ~VertexArray() { destroy(); }
     // T lhs(std::move(rhs));
@@ -29,6 +31,7 @@ struct VertexArray {
     void destroy();
 
     void drawElements(i32 num, gl::GLenum usage_hint) const;
+    void drawElementsInstanced(i32 num_elements, i32 instance_count, gl::GLenum usage_hint) const;
     void drawArrays(i32 count, gl::GLenum usage_hint, i32 offset = 0) const;
 
     template <std::size_t AttrCount>
@@ -44,6 +47,7 @@ struct VertexArray {
 
 struct VertexBuffer {
     DECL_NO_COPY(VertexBuffer);
+    VertexBuffer(std::nullopt_t){} // create empty without initializing
     VertexBuffer() { make(); }
     ~VertexBuffer() { destroy(); }
     // T lhs(std::move(rhs));
@@ -63,16 +67,23 @@ struct VertexBuffer {
     void unbind() const;
     void destroy();
 
-    void load(std::span<const Vertex> c, i32 offset = 0);
+
+    template<typename T>
+    void load(std::span<const T>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
+        const void* data = static_cast<const void*>(c.data() + offset);
+        load_bytes(data, c.size_bytes(), usage);
+    }
 
   private:
-    constexpr static gl::GLenum BufferUsage();
+    void load_bytes(const void* data, std::size_t size_bytes, gl::GLenum usage);
+    constexpr static gl::GLenum DefaultBufferUsage();
     constexpr static gl::GLenum BufferTarget();
     u32                         id;
 };
 
 struct ElementBuffer {
     DECL_NO_COPY(ElementBuffer);
+    ElementBuffer(std::nullopt_t){} // create empty without initializing
     ElementBuffer() { make(); }
     ~ElementBuffer() { destroy(); }
 

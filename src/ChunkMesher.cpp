@@ -30,8 +30,8 @@
 using std::views::enumerate;
 
 
-extern const std::array<std::array<Vertex, VERTICES_PER_FACE>, FACES_PER_BLOCK> defaultCubeFaces;
-extern const std::array<u32, INDICES_PER_BLOCK>                   defaultCubeIndices;
+extern const std::array<std::array<Vertex, VTX_PER_FACE>, FACES_PER_CUBE> defaultCubeFaces;
+extern const std::array<u32, INDICES_PER_FACE>                   defaultCubeIndices;
 
 static const auto& getDefaultFaceVertexData(Direction dir) {
     return defaultCubeFaces[static_cast<i8>(dir)];
@@ -149,23 +149,24 @@ static constexpr glm::vec3 PPN{ 0.5, 0.5,-0.5};
 static constexpr glm::vec3 PNP{ 0.5,-0.5, 0.5};
 static constexpr glm::vec3 NPP{-0.5, 0.5, 0.5};
 static constexpr glm::vec3 PPP{ 0.5, 0.5, 0.5};
-constexpr std::array<std::array<Vertex,4>,6> defaultCubeFaces = {
+using Face = std::array<Vertex,VTX_PER_FACE>;
+constexpr std::array<std::array<Vertex,VTX_PER_FACE>, FACES_PER_CUBE> defaultCubeFaces = {
     // Direction::forward
-    std::array<Vertex,4>{
+    Face{
         Vertex{PNN,glm::vec2(0,0),glm::vec3(1.0f),0},
         Vertex{NNN,glm::vec2(1,0),glm::vec3(1.0f),0},
         Vertex{NPN,glm::vec2(1,1),glm::vec3(1.0f),0},
         Vertex{PPN,glm::vec2(0,1),glm::vec3(1.0f),0},
     },
-    // Direction::backward
-    std::array<Vertex,4>{
+    // Direction::Backward
+    Face{
         Vertex{NNP,glm::vec2(0,0),glm::vec3(1.0f),1},
         Vertex{PNP,glm::vec2(1,0),glm::vec3(1.0f),1},
         Vertex{PPP,glm::vec2(1,1),glm::vec3(1.0f),1},
         Vertex{NPP,glm::vec2(0,1),glm::vec3(1.0f),1},
     },
     // Direction:: Left
-    std::array<Vertex,4>{
+    Face{
         Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),2},
         Vertex{NNP,glm::vec2(1,0),glm::vec3(1.0f),2},
         Vertex{NPP,glm::vec2(1,1),glm::vec3(1.0f),2},
@@ -173,21 +174,21 @@ constexpr std::array<std::array<Vertex,4>,6> defaultCubeFaces = {
     },
 
     // Direction::Right
-    std::array<Vertex,4>{
+    Face{
         Vertex{PNP,glm::vec2(0,0),glm::vec3(1.0f),3},
         Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),3},
         Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),3},
         Vertex{PPP,glm::vec2(0,1),glm::vec3(1.0f),3},
     },
     // Direction::Down
-    std::array<Vertex,4>{
+    Face{
         Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),4},
         Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),4},
         Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),4},
         Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),4},
     },
     // Direction::Up
-    std::array<Vertex,4>{
+    Face{
         Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),5},
         Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),5},
         Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),5},

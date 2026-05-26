@@ -10,7 +10,7 @@ FORWARD_DECL_STRUCT(World)
 struct ChunkMesher {
     ChunkMesher() = default;
     ~ChunkMesher() = default;
-    void setupChunkMesher(){
+    void launchChunkMeshers(){
         mesherThreads.launch(
             meshChunks,
             std::ref(meshJobQueue),

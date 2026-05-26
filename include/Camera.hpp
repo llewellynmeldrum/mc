@@ -16,6 +16,7 @@ struct Camera {
     ~Camera() = default;
     static constexpr f32 BASE_MOVESPEED = 12.0f;
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
+    static constexpr i32 DebugChunkRenderDistance = 8;
 
     void setupCamera();
     void move(Direction dir, f32 dt);

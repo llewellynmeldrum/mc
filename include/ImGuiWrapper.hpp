@@ -1,4 +1,5 @@
 #pragma once 
+#include "glm/ext/vector_float4.hpp"
 #include <format>
 #include <functional>
 #include <string_view>
@@ -45,11 +46,29 @@ namespace UI{
         return static_cast<WinFlags>(std::to_underlying(lhs)
                                      |std::to_underlying(rhs));
     }
-
+    inline void SetTextColor(glm::vec4 c){
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r,c.g,c.b,c.a));
+    }
+    inline void SetTextColor(Color c){
+        ImGui::PushStyleColor(ImGuiCol_Text, c);
+    }
+    inline void setTextColor(i32 r, i32 g, i32 b, i32 a=255){
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(r,g,b,a));
+    }
+    inline void ResetTextColor(){
+        ImGui::PopStyleColor();
+    }
     template<typename... Args>
     inline void Text(std::format_string<Args...> fmt, Args&&... args){
         std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
         ImGui::TextUnformatted(out.c_str());
+    }
+
+    template<typename... Args>
+    inline void ColoredText(glm::vec4 color, std::format_string<Args...> fmt, Args&&... args){
+        SetTextColor(color);
+        Text(fmt,args...);
+        ResetTextColor();
     }
 
     inline void Text(const std::string& s){
@@ -64,15 +83,6 @@ namespace UI{
         return ImGui::GetCursorScreenPos();
     }
 
-    inline void setTextColor(Color c){
-        ImGui::PushStyleColor(ImGuiCol_Text, c);
-    }
-    inline void setTextColor(i32 r, i32 g, i32 b, i32 a=255){
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(r,g,b,a));
-    }
-    inline void resetTextColor(){
-        ImGui::PopStyleColor();
-    }
 
     inline bool StartWindow(const char* name, WinFlags flags, std::function<bool()> pred=[]{ return true;}){
         bool open = pred();

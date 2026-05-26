@@ -10,7 +10,7 @@ constexpr GLenum ElementBuffer::BufferUsage() {
 }
 // NOTE: In gl, known as 'usage' param to glBufferData(target, ...)
 // eg: GL_ELEMENT_ARRAY_BUFFER, GL_ARRAY_BUFFER
-constexpr GLenum VertexBuffer::BufferUsage() {
+constexpr GLenum VertexBuffer::DefaultBufferUsage() {
     return GL_STATIC_DRAW;
 }
 
@@ -30,9 +30,9 @@ void ElementBuffer::load(std::span<const u32> indices, i32 offset) {
     glBufferData(BufferTarget(), indices.size_bytes(), indices.data() + offset, BufferUsage());
 }
 
-void VertexBuffer::load(std::span<const Vertex> c, i32 offset) {
+void VertexBuffer::load_bytes(const void* data, std::size_t size_bytes,gl::GLenum usage){
     this->bind();
-    glBufferData(BufferTarget(), c.size_bytes(), c.data() + offset, BufferUsage());
+    glBufferData(BufferTarget(), size_bytes, data, usage);
 }
 
 void VertexArray::apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs) {
@@ -57,6 +57,7 @@ void VertexArray::apply_layout_impl(i32 stride, std::span<const VertexAttribute>
             );
         }
         glEnableVertexAttribArray(attr.location);
+        glVertexAttribDivisor(attr.location,attr.divisor);
     }
 }
 
@@ -110,6 +111,9 @@ void VertexArray::unbind() const {
     glBindVertexArray(0);
 }
 
+void VertexArray::drawElementsInstanced(i32 num_elements, i32 instance_count, gl::GLenum usage_hint) const{
+    glDrawElementsInstanced(usage_hint, num_elements, GL_UNSIGNED_INT, nullptr,instance_count);
+}
 void VertexArray::drawElements(i32 num, GLenum usage_hint) const {
     assert(num != 0);
     glDrawElements(usage_hint, num, GL_UNSIGNED_INT, nullptr);
