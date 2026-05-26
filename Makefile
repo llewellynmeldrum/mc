@@ -1,12 +1,15 @@
 # CMake Wrapper Makefile
 # --------------------------------------------------
-all: run
+all: run-asan
 
 BUILD_DIR      := build
 BUILD_FAST     := build-fast
 BUILD_ASAN     := build-asan
 BUILD_TSAN     := build-tsan
 BUILD_AUSAN    := build-ausan
+
+ASAN_OPTS := detect_leaks=0:color=always:abort_on_error=1:halt_on_error=1
+UBSAN_OPTS := color=always:print_stacktrace=1:halt_on_error=1
 
 GENERATOR      := Ninja
 CXX            := /opt/gcc-16/bin/g++
@@ -80,8 +83,7 @@ asan:
 		-DMC_ENABLE_ASAN=ON
 	cmake --build $(BUILD_ASAN) $(BUILD_FLAGS)
 
-run-asan: asan
-	ASAN_OPTIONS=detect_leaks=0 cmake --build $(BUILD_ASAN) $(BUILD_FLAGS) --target run
+
 
 tsan:
 	cmake -S . -B $(BUILD_TSAN) $(CMAKE_COMMON) \
@@ -99,8 +101,11 @@ ausan:
 		-DMC_ENABLE_UBSAN=ON
 	cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS)
 
+run-asan: asan
+	ASAN_OPTIONS="$(ASAN_OPTS)" cmake --build $(BUILD_ASAN) $(BUILD_FLAGS) --target run
+
 run-ausan: ausan
-	ASAN_OPTIONS=detect_leaks=0 cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS) --target run
+	ASAN_OPTIONS="$(ASAN_OPTS)" UBSAN_OPTIONS="$(UBSAN_OPTS)" cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS) --target run
 
 # --------------------------------------------------
 # Utilities
