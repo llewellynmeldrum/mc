@@ -2,6 +2,7 @@
 #include "Logger.hpp"
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 
@@ -22,11 +23,11 @@ struct ThreadPool{
 
 template<typename T>
 struct Queue{
+    std::size_t capacity = 256;
     std::mutex mtx;
     std::deque<T> q;
     std::condition_variable not_empty;
     std::condition_variable not_full;
-    std::size_t capacity = 1024;
 
     // TODO:  this is for debugging
     std::unordered_set<T> uniqueSet;
@@ -100,6 +101,23 @@ struct Queue{
         not_empty.notify_one(); 
         return true;
     }
+    inline std::size_t slotsRemaining(){
+        return capacity-q.size();
+    }
+    inline std::size_t try_batch_enqueue(std::span<T> batch){
+        std::lock_guard lock(mtx);
+
+        if ( slotsRemaining() < batch.size()){
+            // cant accomodate the entire span
+            return 0;
+        }
+        for (std::size_t i = 0; i<batch.size(); i++){
+            uniqueSet.emplace(batch[i]);
+            q.push_back(batch[i]);
+            not_empty.notify_one(); 
+        }
+        return batch.size();
+    }
 
 
 
@@ -137,6 +155,29 @@ struct Queue{
 
         not_full.notify_one(); 
         return res;
+    }
+    // Succeeds only if:
+    // 1. immediately able to grab the lock
+    // 2. queue size>0
+    inline std::optional<std::vector<T>> try_batch_dequeue(std::size_t batch_size){
+        std::lock_guard lock(mtx);
+
+        if (q.empty()){
+            return std::nullopt;
+        }
+
+        std::vector<T> batch;
+        batch_size = std::min(batch_size, q.size());
+        batch.reserve(batch_size);
+
+        for (std::size_t i = 0; i<batch_size; i++){
+            uniqueSet.erase(q.front());
+            batch.push_back(std::move(q.front()));
+            q.pop_front();
+            not_full.notify_one(); 
+        }
+
+        return std::make_optional(batch);
     }
 
 

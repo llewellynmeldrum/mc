@@ -28,11 +28,39 @@ struct World {
 
     static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
 
-    // returns generated chunks within a radius from source, sorted in ascending order of distance to source
-    inline std::vector<WorldChunkCoord> generatedChunkCoordsInRadius(WorldChunkCoord chunkCoord, i32 dist, u32 maxChunks) {
+    inline std::vector<std::pair<bool, WorldChunkCoord>> chunksInRadius(WorldChunkCoord chunkCoord, i32 dist) {
         const size_t nChunksInRadius = std::pow(2*dist+1,3);
-        std::vector<WorldChunkCoord> candidates;
+        std::vector<std::pair<bool,WorldChunkCoord>> candidates;
         candidates.reserve(nChunksInRadius);
+
+        auto add = [this, &candidates](i32 x, i32 y, i32 z){
+            const auto key = glm::ivec3{x,y,z}; // dont you have to 
+            candidates.emplace_back(chunkMap.has_entry(key),key);
+        };
+
+        const i32& oy = chunkCoord.y;
+
+        i32 minY = oy-dist;
+        i32 maxY = oy+dist;
+        for (i32 y = maxY; y>=minY; y--){
+            i32 x{chunkCoord.x}, z{chunkCoord.z};
+            add(x,y,z); // center point
+            for (i32 r = 1; r<= dist; r++){
+                const i32 r2 = 2*r;
+                add(--x,y,z); // move out of the centre point
+                for (int j = 0; j<r2 - 1;j++)    add(x,y,++z); // traverse the remaining (-X) edge
+                for (int j = 0; j<r2 ; j++)     add(++x,y,z);  // traverse the whole     (Z+) edge
+                for (int j = 0; j<r2 ; j++)     add(x,y,--z);  // traverse the whole     (+X) edge
+                for (int j = 0; j<r2 ; j++)     add(--x,y,z);  // traverse the whole     (+X) edge
+            }
+        }
+        return candidates;
+    }
+    inline std::vector<WorldChunkCoord> 
+    meshReadyChunksInRad(WorldChunkCoord chunkCoord, i32 dist, i32 maxChunks=0) {
+        const size_t nChunks= maxChunks==0 ? std::pow(2*dist+1,3) : maxChunks;
+        std::vector<WorldChunkCoord> candidates;
+        candidates.reserve(nChunks);
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = glm::ivec3{x,y,z}; // dont you have to 
@@ -60,6 +88,9 @@ struct World {
                 for (int j = 0; j<r2 ; j++)     add(++x,y,z);  // traverse the whole     (Z+) edge
                 for (int j = 0; j<r2 ; j++)     add(x,y,--z);  // traverse the whole     (+X) edge
                 for (int j = 0; j<r2 ; j++)     add(--x,y,z);  // traverse the whole     (+X) edge
+            }
+            if (candidates.size() >= nChunks){
+                return candidates;
             }
         }
         return candidates;

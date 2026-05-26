@@ -96,9 +96,7 @@ struct Input {
     inline void mapHeldKey(KeyCode key, Fn&& callable){
         assert(KEY_MAX>=key && key>KEY_MIN);
         bool held = getKey(key)==KeyState::Held;
-        if (held){
-                std::invoke(callable,held);
-        }
+        std::invoke(callable,held);
     }
 
     glm::vec2 mousepos = { 0.0, 0.0 };  // mapped to ndc like coords

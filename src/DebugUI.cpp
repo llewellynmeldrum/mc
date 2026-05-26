@@ -23,10 +23,13 @@
 #include <string>
 using namespace glm;
 
-constexpr ImVec2 PAD = {5.0f, 25.0f};
-constexpr ImVec2 ALIGN_TOP_LEFT = {0.0f,0.0f};
-constexpr ImVec2 ALIGN_TOP_RIGHT = {1.0f,0.0f};
-constexpr ImVec2 ALIGN_MID_MID = {0.5f,0.5f};
+using ScreenPos = ImVec2;
+using Color = ImColor;
+constexpr ScreenPos PAD = {5.0f, 25.0f};
+constexpr ScreenPos ALIGN_TOP_LEFT = {0.0f,0.0f};
+constexpr ScreenPos ALIGN_TOP_RIGHT = {1.0f,0.0f};
+constexpr ScreenPos ALIGN_MID_MID = {0.5f,0.5f};
+constexpr ImVec2 GRAPH_SIZE = {400,40};
 constexpr f32 UI_SCALE = 1.25;
 namespace IG = ImGui;  // namespace alias for convinience
 enum struct DrawMode{
@@ -35,27 +38,27 @@ enum struct DrawMode{
 struct DebugDraw{
     DrawMode drawMode = DrawMode::Center;
     ImDrawList* d = nullptr;
-    ImVec2 transform={};
-    ImColor fillColor{};
-    ImColor strokeColor{};
+    ScreenPos transform={};
+    Color fillColor{};
+    Color strokeColor{};
     void selectWindow(){
-        d= IG::GetWindowDrawList();
+        d= ImGui::GetWindowDrawList();
     }
     bool fillEnabled = false;
-    void fill(ImColor col){
+    void fill(Color col){
         fillEnabled = true;
         fillColor = col;
     }
-    void noFill(ImColor col){
+    void noFill(Color col){
         fillEnabled = false;
     }
 
     bool strokeEnabled = false;
-    void stroke(ImColor col){
+    void stroke(Color col){
         strokeEnabled = true;
         strokeColor = col;
     }
-    void noStroke(ImColor col){
+    void noStroke(Color col){
         strokeEnabled = false;
     }
     void validate_context(){
@@ -69,193 +72,140 @@ struct DebugDraw{
     void popWindowTransform(){
         transform={};
     }
-    void rect(vec2 c, vec2 extents, f32 thick=1.0f){
+    void rect(ScreenPos pos, ScreenPos extents, f32 thick=1.0f){
         validate_context();
-        ImVec2 h = {
+        ScreenPos half = {
             extents.x*0.5f,
             extents.y*0.5f
         };
-        ImVec2 tl = {
-            c.x-h.x,
-            c.y-h.y,
+        ScreenPos tl = {
+            pos.x-half.x,
+            pos.y-half.y,
         };
-        ImVec2 br = {
-            c.x+h.x,
-            c.y+h.y,
+        ScreenPos br = {
+            pos.x+half.x,
+            pos.y+half.y,
         };
         tl+=transform; br+=transform;
         if (fillEnabled){
             d->AddRectFilled(tl,br,fillColor);
         }
         if (strokeEnabled){
-            d->AddRect(tl,br,strokeColor,thick);
+            d->AddRect(tl,br,strokeColor,0.0f,0,thick);
         }
     }
-    void circle(vec2 c, f32 r, f32 thick=1.0f){
+    void circle(ScreenPos center, f32 r, f32 thick=1.0f){
         validate_context();
-        ImVec2 tl = {
-            c.x-r,
-            c.y-r,
+        ScreenPos tl = {
+            center.x-r,
+            center.y-r,
         };
-        ImVec2 br = {
-            c.x+r,
-            c.y+r,
+        ScreenPos br = {
+            center.x+r,
+            center.y+r,
         };
-        c.x+=transform.x; 
-        c.y+=transform.y; 
+        center.x+=transform.x; 
+        center.y+=transform.y; 
         if (fillEnabled){
-            d->AddCircleFilled({c.x,c.y},r,fillColor);
+            d->AddCircleFilled({center.x,center.y},r,fillColor);
         }
         if (strokeEnabled){
-            d->AddCircle({c.x,c.y},r,fillColor);
+            d->AddCircle({center.x,center.y},r,fillColor,0,thick);
         }
     }
     void text(const std::string& str, vec2 ic, f32 fontSize=16.0f){
         validate_context();
-        ImVec2 c = {ic.x,ic.y};
+        ScreenPos c = {ic.x,ic.y};
         c+=transform;
-        ImVec2 he = IG::CalcTextSize(str.c_str())*0.5f;
-        ImVec2 tm = {c.x-he.x,c.y};
+        ScreenPos he = ImGui::CalcTextSize(str.c_str())*0.5f;
+        ScreenPos tm = {c.x,c.y};
         if (fillEnabled){
             d->AddText(tm,fillColor,str.c_str());
         }
     }
 };
-struct ChunkDebugger{
-    DebugDraw& draw;
-    bool lock_chunk_y_to_cam=true;
-    vec3 camPos;
-    i32 chunkY = 0;
-    static constexpr i32 halfExtent = 32;
-    static constexpr i32 ROWS = halfExtent*2;
-    static constexpr i32 COLS = halfExtent*2;
-    static constexpr i32 HEIGHT = halfExtent*2;
+struct CellState{
+    std::string name{};
+    Color color{};
+    
+    static CellState empty        (){return {"empty ", Color(92, 89, 85)};}
+    static CellState generating   (){return {"generating", Color(184, 165, 140)};}
+    static CellState generated    (){return {"generated", Color(133, 81, 12)};}
+    static CellState meshing      (){return {"meshing", Color(255, 162, 0)};}
+    static CellState meshed       (){return {"meshed", Color(50, 255, 25)};}
+
+    static void drawLegend(ScreenPos pos, DebugDraw& d, UI::vec2 contentSize){
+        empty        ().drawAsLegend(contentSize.x * 0.02, pos, d);
+        generating   ().drawAsLegend(contentSize.x * 0.02, pos, d);
+        generated    ().drawAsLegend(contentSize.x * 0.02, pos, d);
+        meshing      ().drawAsLegend(contentSize.x * 0.02, pos, d);
+        meshed       ().drawAsLegend(contentSize.x * 0.02, pos, d);
+        
+    }
+    void drawAsLegend(f32 size, ScreenPos& pos, DebugDraw& d){
+        auto gap = size *.4;
+        d.fill(color);
+        d.rect(pos,{size,size});
+        d.fill(Color{255,255,255,255});
+        d.text(name, {pos.x+size, pos.y-size*.5}, 12.0f);
+        pos.y+=size + gap;
+    }
+};
+
+struct MinimapCell{
+    CellState state;
+    MinimapCell(): state(CellState::empty()){}
+    MinimapCell(ChunkEntryStatus status){
+        state=CellState::empty();
+        if (status.isGenerating()){
+            state=CellState::generating();
+        }
+        if (status.isGenerated()){
+            state=CellState::generated();
+        } 
+        if (status.isMeshing()){
+            state=CellState::meshing();
+        } 
+        if (status.isMeshed()){
+            state=CellState::meshed();
+        }
+    }
+};
+struct ChunkMinimap{
+    DebugDraw& d;
+    bool cameraLock=true;
+    WorldChunkCoord centerChunk;
+    static constexpr i32 MinimapRange = 32;
+    static constexpr i32 CellCount = MinimapRange*MinimapRange*MinimapRange;
+    static constexpr auto halfRange = ivec3(MinimapRange*.5f);
+    std::array<MinimapCell, CellCount> cells;
+
     static constexpr f32 chunkW = 20;
     static constexpr f32 chunkGap = 2;
-    std::array<ChunkEntry*, ROWS*COLS*HEIGHT> vals;
 
-    decltype(auto) at(this auto&& self, i32 x, i32 y, i32 z){
-        return self.span()[x+halfExtent,y+halfExtent,z+halfExtent];
-    }
-    decltype(auto) at(this auto&& self, i32 x, i32 z){
-        return self.at(x,self.chunkY,z);
-    }
-    decltype(auto) at(this auto&& self, WorldChunkCoord v){
-        return self.at(v.x,v.y,v.z);
-    }
-    decltype(auto) span(this auto&& self){
-        return std::mdspan(self.vals.data(),ROWS,HEIGHT, COLS);
-
-    }
-    void updateChunkGrid(Simulation* ctx){
-        const auto& coordList = ctx->world.generatedChunkCoordsInRadius({0,chunkY,0}, 8, 100);
-        for (const auto& coord: coordList){
-            if (coord.y<halfExtent && coord.y>=-halfExtent &&
-                coord.x<halfExtent && coord.x>=-halfExtent &&
-                coord.z<halfExtent && coord.z>=-halfExtent){
-                at(coord) = ctx->world.chunkMap.get_entry(coord);
-            }
-        }
-        camPos = toWorldChunkCoord(ctx->cam.pos);
-        if (lock_chunk_y_to_cam){
-            chunkY=camPos.y;
-        }
-
-    }
-    ImColor defaultColor = ImColor(92, 89, 85);
-    ImColor generatingColor = ImColor(184, 165, 140);
-    ImColor generatedColor = ImColor(133, 81, 12);
-    ImColor meshingColor = ImColor(255, 162, 0);
-    ImColor meshedColor = ImColor(50, 255, 25);
-    void showPreview(){
-        draw.selectWindow();
-        draw.pushWindowTransform();
-        vec2 pos = {35,35};
-        #define showColorPreview(name)\
-        draw.fill(name);\
-        draw.rect(pos,{chunkW,chunkW});\
-        draw.fill(ImColor{255,255,255,255});\
-        draw.text(#name, {pos.x+chunkW+chunkW, pos.y-12}, 12.0f);\
-        pos.y+=chunkW+chunkGap;\
-
-        showColorPreview(defaultColor)
-        showColorPreview(generatingColor)
-        showColorPreview(generatedColor)
-        showColorPreview(meshingColor)
-        showColorPreview(meshedColor)
-
-    }
-    void showChunkGrid(){
-        draw.selectWindow();
-        draw.pushWindowTransform();
-        draw.transform += IG::GetWindowSize()*.5;
-        
-        draw.fill(ImColor(255,120,255));
-        draw.stroke(ImColor(255,255,255));
-        // somethings wrong with the transforms, probably some shit with the negativse.
-        for (const auto [ix,iz] :EachInRange(-15,halfExtent, -halfExtent,halfExtent)){
-            auto px = ix * chunkW + ix*chunkGap;
-            auto py = iz * chunkW + iz*chunkGap;
-            const auto& status = at(ix,iz)->status;
-            draw.fill(defaultColor);
-            if (at(ix,iz)){
-                if (status.isGenerating()){
-                    draw.fill(generatingColor);
-                }
-                if (status.isGenerated()){
-                    draw.fill(generatedColor);
-                } 
-                if (status.isMeshing()){
-                    draw.fill(meshingColor);
-                } 
-                if (status.isMeshed()){
-                    draw.fill(meshedColor);
-                }
-            }
-            draw.rect({px,py},{chunkW,chunkW});
-        }
-        draw.fill(ImColor(255,0,0));
-        for (const auto ix :EachInRange(0,COLS)){
-            auto px = ix * chunkW + ix*chunkGap;
-            auto py = 50;
-            draw.text(std::format("{}",ix-halfExtent),{px,py});
-        }
-        for (const auto iz :EachInRange(0,COLS)){
-            auto py = iz * chunkW + iz*chunkGap;
-            auto px = 50;
-            draw.text(std::format("{}",iz-halfExtent),{px,-py});
-        }
-        draw.fill(ImColor(255,0,0));
-        auto toscreen =[](auto v){
-            auto px = v.x * chunkW + v.x*chunkGap;
-            auto py = v.z * chunkW + v.z*chunkGap;
-            return vec2{px,py};
-        };
-        draw.circle(toscreen(camPos),50);
-    }
 };
 void DebugUI::drawUI() {
     auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
-    ShowFullscreenOverlay(ctx);
-    ShowMainOverlay(ctx);
-    ShowChunkDebugger(ctx);
+    drawFullscreenOverlay(ctx);
+    drawMainOverlay(ctx);
+    drawChunkDebugger(ctx);
 }
 
 DebugDraw draw;
-ChunkDebugger dbg(draw);
+ChunkMinimap minimap{draw};
 
 void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
     this->win_ptr = _win_ptr;
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
-    IG::CreateContext();
-    ImGuiIO& io = IG::GetIO();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;      // IF using Docking Branch
     float main_scale = ImGui_ImplGlfw_GetContentScaleForMonitor(glfwGetPrimaryMonitor());
-    IG::StyleColorsDark();
+    ImGui::StyleColorsDark();
 
-    ImGuiStyle& style = IG::GetStyle();
+    ImGuiStyle& style = ImGui::GetStyle();
     style.ScaleAllSizes(
         main_scale * UI_SCALE);  // Bake a fixed style scale. (until we have a solution for dynamic style
                             // scaling, changing this requires resetting Style + calling this again)
@@ -270,36 +220,35 @@ void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
 void DebugUI::drawDebugUI() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
-    IG::NewFrame();
+    ImGui::NewFrame();
     drawUI();
 }
 void DebugUI::render() {
-    IG::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(IG::GetDrawData());
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void DebugUI::updateUI() {
     auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
-    dbg.updateChunkGrid(ctx);
-    auto& io = IG::GetIO();
+    auto& io = ImGui::GetIO();
 }
 
 void DebugUI::destroyDebugUI() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
-    IG::DestroyContext();
+    ImGui::DestroyContext();
 }
 
-void DebugUI::ShowFullscreenOverlay(Simulation* ctx) {
-    auto io = IG::GetIO();
+void DebugUI::drawFullscreenOverlay(Simulation* ctx) {
+    auto io = ImGui::GetIO();
     if (ctx->isPaused()){
-        auto* d = IG::GetForegroundDrawList();
+        auto* d = ImGui::GetForegroundDrawList();
         auto display_size = io.DisplaySize;
         d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 64));
         const char* text = "PAUSED";
-        ImVec2 text_size = ImGui::CalcTextSize(text) * 2.5f; // default font size
+        ScreenPos text_size = ImGui::CalcTextSize(text) * 2.5f; // default font size
 
-        ImVec2 text_pos = ImVec2(
+        ScreenPos text_pos = ScreenPos(
             (display_size.x - text_size.x) * 0.5f,
             (display_size.y - text_size.y) * 0.5f
         );
@@ -307,91 +256,84 @@ void DebugUI::ShowFullscreenOverlay(Simulation* ctx) {
         d->AddText(text_pos, IM_COL32_WHITE, text);
     }
 }
-void DebugUI::ShowChunkDebugger(Simulation* ctx) {
-    if (dbg.lock_chunk_y_to_cam){
-        dbg.camPos= {
-            ctx->cam.pos.x / Chunk_Extents.x,
-            ctx->cam.pos.y / Chunk_Extents.y,
-            ctx->cam.pos.z / Chunk_Extents.z,
-        };
-    }
-
+void DebugUI::drawChunkDebugger(Simulation* ctx) {
 
     constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
 
 
-    auto&         io = IG::GetIO();
-    const auto* viewport = IG::GetMainViewport();
-    ImVec2 SCREEN_POS = viewport->WorkPos;
-    ImVec2 SCREEN_SIZE = viewport->WorkSize;
-    auto win_sz = SCREEN_SIZE * ImVec2{.4f,.5f};
-    IG::SetNextWindowSize(win_sz,ImGuiCond_Always);
+    auto&         io = ImGui::GetIO();
+    const auto* viewport = ImGui::GetMainViewport();
+    ScreenPos pos = viewport->WorkPos;
+    ScreenPos size = viewport->WorkSize;
+    auto win_sz = size * ScreenPos{.4f,.5f};
+    ImGui::SetNextWindowSize(win_sz,ImGuiCond_Always);
 
-    IG::SetNextWindowPos( ImVec2{SCREEN_SIZE.x -win_sz.x-PAD.x,PAD.y}, ImGuiCond_Always, ALIGN_TOP_LEFT);
+    ImGui::SetNextWindowPos( ScreenPos{size.x -win_sz.x-PAD.x,PAD.y}, ImGuiCond_Always, ALIGN_TOP_LEFT);
 
-    if (IG::Begin("ChunkDebugger", nullptr, window_flags)) {
-        ImVec2 avail = IG::GetContentRegionAvail();
+    if (ImGui::Begin("ChunkDebugger", nullptr, window_flags)) {
+        ScreenPos avail = ImGui::GetContentRegionAvail();
 
-        float spacing = IG::GetStyle().ItemSpacing.x;
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
 
         // Child windows relative to parent content size.
         float left_w  = avail.x * 0.25f;
         float right_w = avail.x - left_w - spacing;
         float child_h = avail.y;
 
-        IG::Text("neither");
-            {
-                IG::BeginChild(
-                    "chunk-debug-left-panel",
-                    ImVec2{ left_w, child_h },
-                    true // border
-                );
-                IG::Text("left panelkdajhf;dksjlfskfjlkjfakjflskjdklsfkljsdlkfjsdkl");
-                if (IG::Checkbox("Lock map chunkY to cam pos?", &dbg.lock_chunk_y_to_cam)) {
-                    std::println("Checkbox state: {}", dbg.lock_chunk_y_to_cam ? "true" : "false");
-                }
-                IG::BeginDisabled(dbg.lock_chunk_y_to_cam);
-                IG::SliderInt("chunkY",&dbg.chunkY,-16, +16);
-                IG::EndDisabled();
-                dbg.showPreview();
-
-
-                IG::EndChild();
+        {
+            ImGui::BeginChild(
+                "chunk-debug-left-panel",
+                ScreenPos{ left_w, child_h },
+                true // border
+            );
+            ImGui::Text("OPTIONS:");
+            // TODO: REDO MINIMAP FROM THE GROUND UP, 
+            // DO SOME MORE PLANNING BEFORE TRYING AGAIN.
+            if (ImGui::Checkbox("Lock map chunkY to cam pos?", &minimap.cameraLock)) {
+                std::println("Checkbox state: {}", minimap.cameraLock ? "true" : "false");
             }
+            ImGui::BeginDisabled(minimap.cameraLock);
+            ImGui::SliderInt("chunkY",&minimap.centerChunk.y,-16, +16);
+            ImGui::EndDisabled();
+            // minimap.drawLegend();
 
-            IG::SameLine();
-            {
-                IG::BeginChild(
-                    "chunk-debug-minimap-panel",
-                    ImVec2{right_w, child_h},
-                    true // border
-                );
-                IG::Text("minimap panel");
-                dbg.showChunkGrid();
 
-                
-                draw.popWindowTransform();
-            }
-            IG::EndChild();
+            ImGui::EndChild();
+        }
+
+        ImGui::SameLine();
+        {
+            ImGui::BeginChild(
+                "chunk-debug-minimap-panel",
+                ScreenPos{right_w, child_h},
+                true // border
+            );
+            ImGui::Text("minimap panel");
+            //minimap.drawChunkMinimap();
+            
+            draw.popWindowTransform();
+        }
+        ImGui::EndChild();
     }
-    IG::End();
+    ImGui::End();
 }
-void DebugUI::ShowMainOverlay(Simulation* ctx) {
-    ImGuiIO&         io = IG::GetIO();
+
+void DebugUI::drawMainOverlay(Simulation* ctx) {
+    ImGuiIO&         io = ImGui::GetIO();
     UI::WinFlags window_flags = UI::WinFlags::NoDecoration | UI::WinFlags::NoDocking |
                                     UI::WinFlags::AlwaysAutoResize | UI::WinFlags::NoSavedSettings |
                                     UI::WinFlags::NoFocusOnAppearing | UI::WinFlags::NoNav | UI::WinFlags::NoMove;
-    const ImGuiViewport* viewport = IG::GetMainViewport();
-    ImVec2 work_pos = viewport->WorkPos;  // Use work area to avoid menu-bar/task-bar, if any!
-    ImVec2 work_size = viewport->WorkSize;
-    ImVec2 window_pos, window_pos_pivot;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ScreenPos work_pos = viewport->WorkPos;  
+    ScreenPos work_size = viewport->WorkSize;
+    ScreenPos window_pos, window_pos_pivot;
     window_pos.x = (work_pos.x + PAD.x);
     window_pos.y = (work_pos.y + PAD.y);
     window_pos_pivot.x = 0.0f;
     window_pos_pivot.y = 0.0f;
-    IG::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-    IG::SetNextWindowViewport(viewport->ID);
-    IG::SetNextWindowBgAlpha(0.35f);  // Transparent background
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::SetNextWindowBgAlpha(0.35f);  // Transparent background
     std::string facing_str{};
     const vec3& facing = ctx->cam.getFront();
     auto        approx_eq = [](auto x, auto target) {
@@ -421,168 +363,108 @@ void DebugUI::ShowMainOverlay(Simulation* ctx) {
 
     auto ch_pos = toWorldChunkCoord(ctx->cam.pos);
     if (UI::StartWindow("DebugOverlay",window_flags)) {
-        IG::Text("DEBUG OVERLAY");
+        ImGui::Text("DEBUG OVERLAY");
 
-        IG::Separator();
-        IG::Text("Positions:");
-        IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->cam.pos.x, ctx->cam.pos.y, ctx->cam.pos.z);
-        IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
-        IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->cam.pitch, ctx->cam.yaw);
-        IG::Text("Facing: %s", facing_str.c_str());
+        ImGui::Separator();
+        ImGui::Text("Positions:");
+        ImGui::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->cam.pos.x, ctx->cam.pos.y, ctx->cam.pos.z);
+        ImGui::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
+        ImGui::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->cam.pitch, ctx->cam.yaw);
+        ImGui::Text("Facing: %s", facing_str.c_str());
 
-        IG::Separator();
-        IG::Text("Performance:");
+        ImGui::Separator();
+        ImGui::Text("Performance:");
         const auto& fps_rb = ctx->time.ringbufs.at("frame");
 
         auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
         assert(k!=0);
         std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
-        IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
-        IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
+        ImGui::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
+        ImGui::SameLine(); ImGui::Text("(%s)",one_pcnt_low.c_str());
 
-        auto plotFrametime = [](const auto& rb_map, const std::string key="????"){
-            auto ft_rb = rb_map.at(key);
-            // todo find longest string and make it the field length
-            IG::Text("%-*s: %2.2lfms", 10, key.c_str(), ft_rb.avg());
-            IG::SameLine();
+        auto plotRingBuf = [](const auto& rb,std::size_t max, const std::string key="????", const std::string fmt="p??", bool printValue=false){
+            
+            if (printValue){
+                std::string _fmt = std::string("%-12s: %")+fmt;
+                // todo find longest string and make it the field length
+                ImGui::Text(_fmt.c_str(), key.c_str(), rb.avg());
+                UI::SameLine();
+            }
             std::string id = "##"+key;
-            IG::PlotLines(id.c_str(), ft_rb.data(), ft_rb.size(), 0);
+//void ImGui::PlotLines(const char* label, const float* values, int values_count, int values_offset, const char* overlay_text, float scale_min, float scale_max, ImVec2 graph_size, int stride)
+            if (!max) max=FLT_MAX;
+            ImGui::PlotLines(id.c_str(), rb.data(), rb.size(), 0, "", FLT_MAX, max, GRAPH_SIZE);
         };
         for (const auto& [key, val]: ctx->time.ringbufs){
-            plotFrametime(ctx->time.ringbufs,  std::string(key));
+            plotRingBuf(ctx->time.ringbufs.at(key), std::size_t(0), std::string(key), "2.2lfms", true);
         }
 
-        IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
+        ImGui::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
-        IG::Separator();
-        IG::Text("Per frame draw info:");
-        IG::Text("Vertex Count: %llu", ctx->rend.debug.vertex_count);
-        IG::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
-        IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
+        ImGui::Separator();
+        ImGui::Text("Per frame draw info:");
+        ImGui::Text("Vertex Count: %llu", ctx->rend.debug.vertex_count);
+        ImGui::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
+        ImGui::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
 
-        IG::Separator();
-        IG::Text("Process metrics");
-        IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
+        ImGui::Separator();
+        ImGui::Text("Process metrics");
+        ImGui::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
 
         auto& gen = ctx->world.chunkMap.generator;
         auto& mesher = ctx->rend.mesher;
-        auto showSizeUnique = [](auto name, auto& q){
+        auto drawSizeAndUniqueness = [&plotRingBuf, &ctx](const std::string name, std::size_t max, auto& q, auto newcount, const auto& rb){
 
             auto total_sz = q.wait_size();
             auto unique_sz = q.uniqueSet.size();
-            std::string pct ="all ";
+            std::string percentUnique ="all ";
             if (total_sz!=unique_sz){
-                pct = std::format("{:4.2f}%",
-                    ((f64)unique_sz/total_sz)*100.0
-                );
+                percentUnique = std::format("{:4.1}%",((f64)unique_sz/total_sz)*100.0);
             }
+            std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
 
-            IG::Text("%s size : %lu (%s unique)", name, total_sz, pct.c_str());
+            auto newcounts_per_second = rb.avg();
+            std::string additions = std::format("+{:<4}",newcount);
+            std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
+            std::string n_unique = std::format("({:<5} unique)",percentUnique);
+            UI::Text(cur_size); UI::SameLine();
+            {
+                UI::setTextColor(0,255,0);
+                    UI::Text(additions.c_str()); 
+                UI::resetTextColor();
+
+                UI::SameLine();
+
+                UI::setTextColor(0,255,0);
+                    UI::Text(avg.c_str()); 
+                UI::resetTextColor();
+            }
+            UI::SameLine();
+            UI::Text(n_unique);
+            UI::SameLine();
+            plotRingBuf(rb, max, name);
         };
-        #define ShowSizeUnique(name) showSizeUnique(#name ,name)
 
-        IG::Separator();
-        IG::Text("Concurrency");
-        ShowSizeUnique(gen.genJobQueue);
-        ShowSizeUnique(gen.genResultQueue);
+        ImGui::Separator();
+        ImGui::Text("Concurrency");
+        drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->genJobsThisFrame, ctx->rb_genJobsAdded);
+        drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->genResultsThisFrame,ctx->rb_genJobsAdded);
 
-        ShowSizeUnique(mesher.meshJobQueue);
-        ShowSizeUnique(mesher.meshResultQueue);
+        drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.meshJobQueue,ctx->meshJobsThisFrame,ctx->rb_meshJobsAdded);
+        drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->meshResultsThisFrame,ctx->rb_meshResultsAdded);
 
 
-        IG::Separator();
-        IG::Text("World Data");
-        IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-        IG::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.entries.size());
-        IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pendingWritesMap.size());
+        ImGui::Separator();
+        ImGui::Text("World Data");
+        ImGui::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+        ImGui::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.entries.size());
+        ImGui::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pendingWritesMap.size());
         {
             std::size_t successful = ctx->world.chunkMap.pendingWritesSuccessful;
             std::size_t  attempted = ctx->world.chunkMap.pendingWritesAttempted;
-            IG::Text("Pending chunk writes completed: %lu/%lu", successful, attempted);
+            ImGui::Text("Pending chunk writes completed: %lu/%lu", successful, attempted);
         }
         // TODO: mesh queue is getting oversaturated
     }
-    IG::End();
-    struct Segment {
-        vec3 s, e;
-    };
-    struct Line3D {
-        mat4    vp;
-        Camera& cam;
-        Window& win;
-        vec3    start;
-        vec3    end;
-        Line3D(mat4 vp, Camera& cam, Window& win, vec3 start, vec3 end)
-            : vp(vp), cam(cam), win(win), start(start), end(end) {
-            constexpr f32 segment_length = 0.01;
-            size_t        seg_count = distance(start, end) / segment_length;
-            vec3          s = start;
-            vec3          e = start;
-
-            for (size_t i = 0; i < seg_count; i++) {
-                e += end * (i / (f32)seg_count);
-                segments.emplace_back(s, e);
-                s = e;
-            }
-        }
-        std::vector<Segment> segments;
-
-        f32 w2s(vec3 wpos, f32 wrad) {
-            auto ss = w2s(wpos);
-            auto es = w2s(wpos + cam.getRight() * wrad);
-            if (!ss || !es)
-                return 0;
-            return distance(*ss, *es);
-        }
-
-        std::optional<vec2> w2s(vec3 w) {
-            vec4 w4 = vp * vec4(w, 1.0);
-            if (w4.w <= 0.0f)
-                return std::nullopt;
-            vec3 ndc = vec3{ w4.x, w4.y, w4.z } / w4.w;
-            // -1 : 1
-            // 0->W
-            f32 x = ((ndc.x + 1.0) * win.px_w * 0.5);
-            f32 y = ((1.0 - ndc.y) * win.px_h * 0.5);
-            return std::make_optional<vec2>(x, y);
-        }
-        inline void draw_seg(ImDrawList* d, dvec3 s, vec3 e, i32 color = 0xFF00FFFF,
-                             f32 thick = 3.0) {
-            auto ss = w2s(s);
-            auto es = w2s(e);
-            if (!ss || !es)
-                return;
-            d->AddLine({ ss->x, ss->y }, { es->x, es->y }, color, thick);
-        }
-        inline void ig_draw(f32 wthick) {
-            // split the line into a bunch of lines and render those
-            auto* d = IG::GetForegroundDrawList();
-            int   i = 0;
-            for (const auto& s : segments) {
-                f32 scr_thick = std::min(scr_thick, w2s(s.s + s.e, wthick));
-                draw_seg(d, s.s, s.e, ImColor(i, i, i), scr_thick);
-                i++;
-            }
-        }
-        inline void ig_drawcircle(vec3 pos, f32 rad) {
-            const auto& d = IG::GetForegroundDrawList();
-            auto        ss = w2s(pos);
-            f32         scr_rad = w2s(pos, rad);
-            if (!ss)
-                return;
-            d->AddCircleFilled({ ss->x, ss->y }, scr_rad, 0xFF00FFFF);
-        }
-    };
-    mat4 vp = ctx->cam.getProjectionMatrix() * ctx->cam.getViewMatrix();
-    /*
-    Line3D beacon(vp, ctx->cam, ctx->win, { 0, 0, 0 }, { 0, 1000, 0 });
-    vec3   s = beacon.start;
-    vec3   e = beacon.end;
-
-    vec3 mid = s + e;
-    mid *= 0.5;
-
-    beacon.ig_drawcircle(mid, 100);
-    beacon.ig_draw(3.0);
-    */
+    ImGui::End();
 }

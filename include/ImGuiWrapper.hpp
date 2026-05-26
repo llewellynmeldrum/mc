@@ -1,16 +1,21 @@
 #pragma once 
+#include <format>
+#include <functional>
 #include <string_view>
+#include <utility>
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_stdlib.h"
+#include "Types.h"
+
 
 // ImGui wrapper to make use of some c++ stuff
 namespace UI{
     using vec2 = ImVec2;
-    using color = ImVec4;
-    enum struct WinFlags{
+    using Color = ImVec4;
+    enum struct WinFlags: i32{
         None                   = 0,
         NoTitleBar             = 1 << 0,   // Disable title-bar
         NoResize               = 1 << 1,   // Disable user resizing with the lower-right grip
@@ -37,8 +42,8 @@ namespace UI{
         NoInputs               = ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
     };
     constexpr WinFlags operator|(WinFlags lhs, WinFlags rhs){
-        using T = std::underlying_type_t<WinFlags>;
-        return static_cast<WinFlags>(static_cast<T>(lhs)|static_cast<T>(rhs));
+        return static_cast<WinFlags>(std::to_underlying(lhs)
+                                     |std::to_underlying(rhs));
     }
 
     template<typename... Args>
@@ -46,16 +51,29 @@ namespace UI{
         std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
         ImGui::TextUnformatted(out.c_str());
     }
+
+    inline void Text(const std::string& s){
+        ImGui::TextUnformatted(s.c_str());
+    }
+    inline void SameLine(){
+        ImGui::SameLine();
+    }
+
     // screen pos 
     inline vec2 getCursorPos(){
         return ImGui::GetCursorScreenPos();
     }
-    inline void pushColor(color c){
-        ImGui::PushStyleColor(0,c);
+
+    inline void setTextColor(Color c){
+        ImGui::PushStyleColor(ImGuiCol_Text, c);
     }
-    inline void popColor(color c){
-        ImGui::PushStyleColor(0,c);
+    inline void setTextColor(i32 r, i32 g, i32 b, i32 a=255){
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(r,g,b,a));
     }
+    inline void resetTextColor(){
+        ImGui::PopStyleColor();
+    }
+
     inline bool StartWindow(const char* name, WinFlags flags, std::function<bool()> pred=[]{ return true;}){
         bool open = pred();
         return ImGui::Begin(name, &open, static_cast<int>(flags));

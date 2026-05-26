@@ -10,9 +10,11 @@
 
 #include "Profiler.hpp"
 #include "Logger.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include <algorithm>
 
 using namespace glm;
+glm::mat4 h;
 void Simulation::setupContext() {
     program_epoch_ns = get_current_ns();
     LOG_EXPR(this);
@@ -79,32 +81,44 @@ void Simulation::loop(){
 
 void Simulation::update() {
     time.bench_start("enqueueGen");
-    enqueueGenerationJobs();
+    genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
     time.bench_end("enqueueGen");
+    rb_genJobsAdded.write(genJobsThisFrame);
 
     time.bench_start("drainGen");
-    drainAndUploadGenResults();
+    genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
     time.bench_end("drainGen");
+    rb_genResultsAdded.write(genResultsThisFrame);
 
     time.bench_start("enqueueMesh");
-    enqueueMeshingJobs();
+    meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
     time.bench_end("enqueueMesh");
+    rb_meshJobsAdded.write(meshJobsThisFrame);
 
     time.bench_start("drainMesh");
-    drainAndUploadMeshResults();
+    meshResultsThisFrame = drainAndUploadMeshResults(maxMeshUploadsPerFrame);
     time.bench_end("drainMesh");
+    rb_meshResultsAdded.write(meshResultsThisFrame);
 }
 
-std::vector<ivec3> Simulation::findChunksForGeneration(){
+enum struct IterationSignal{
+    CONTINUE,
+    BREAK,
+};
+std::vector<ivec3> Simulation::findChunksForGeneration(std::size_t maxJobs){
     std::vector<ivec3> candidates;
     const ivec3 chunkCoord = toWorldChunkCoord(cam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
-    auto func = [this, &candidates](i32 x, i32 y, i32 z){
+    auto func = [this, &candidates, &maxJobs](i32 x, i32 y, i32 z) -> IterationSignal{
         const ivec3 key = ivec3{x,y,z}; // dont you have to 
         const ChunkEntry* entry = world.chunkMap.make_or_getEntry(key);
         if (entry->status.qualifiesForGeneration()){
             candidates.emplace_back(key);
         }
+        if (candidates.size()>=maxJobs){
+            return IterationSignal::BREAK;
+        }
+        return IterationSignal::CONTINUE;
     };
 
     const i32& dist = SIMULATION_DIST;
@@ -117,24 +131,49 @@ std::vector<ivec3> Simulation::findChunksForGeneration(){
     // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
     for (i32 y = maxY; y>=minY; y--){
         i32 x{chunkCoord.x}, z{chunkCoord.z};
-        func(x,y,z); // center point
+        // center point
+        if(func(x,y,z)==IterationSignal::BREAK){
+            goto EXIT_LOOP;
+        }
         for (int r = 1; r<= dist; r++){
             const int r2 = 2*r;
-            func(--x,y,z); // move out of the centre point
-            for (int j = 0; j<r2 -1;j++)    func(x,y,++z); // traverse the remaining (-X) edge
-            for (int j = 0; j<r2 ; j++)     func(++x,y,z); // traverse the whole     (Z+) edge
-            for (int j = 0; j<r2 ; j++)     func(x,y,--z); // traverse the whole     (+X) edge
-            for (int j = 0; j<r2 ; j++)     func(--x,y,z); // traverse the whole     (+X) edge
+            // move out of the centre point
+            if(func(--x,y,z)==IterationSignal::BREAK){
+                goto EXIT_LOOP;
+            }
+            for (int j = 0; j<r2 -1;j++)    {
+                // traverse the remaining (-X) edge
+                if(func(x,y,++z)==IterationSignal::BREAK){
+                    goto EXIT_LOOP;
+                }
+            }
+            for (int j = 0; j<r2 ; j++){
+                // traverse the whole     (Z+) edge
+                if(func(++x,y,z)==IterationSignal::BREAK){ 
+                    goto EXIT_LOOP;
+                }
+            }
+            for (int j = 0; j<r2 ; j++){
+                if(func(x,y,--z)==IterationSignal::BREAK){ // traverse the whole     (+X) edge
+                    goto EXIT_LOOP;
+                }
+            }
+            for (int j = 0; j<r2 ; j++){
+                if(func(--x,y,z)==IterationSignal::BREAK){ // traverse the whole     (+X) edge
+                    goto EXIT_LOOP;
+                }
+            }
         }
     }
+EXIT_LOOP:
     return candidates;
 }
 
-std::size_t Simulation::enqueueGenerationJobs(){
+std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     // BUG: we are enqueing the duplicate jobs.
-    const auto candidates = findChunksForGeneration();
+    const auto candidates = findChunksForGeneration(maxJobs);
 //    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
-    std::size_t res = 0;
+    std::size_t count = 0;
     for (const ivec3& chunkWorldPos: candidates){
 
         const auto& entry = world.chunkMap.get_entry(chunkWorldPos);
@@ -147,14 +186,14 @@ std::size_t Simulation::enqueueGenerationJobs(){
             world.genConfig
         );
         if (success){
-            res++;
+            count++;
             entry->status.beginGeneration();
         }
     }
-    return res;
+    return count;
 }
 
-std::vector<MeshJob> Simulation::findMeshJobs(){
+std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 
     auto in_frustum = [](const Frustum& frustum, const World& world) {
         return [frustum, &world](const WorldChunkCoord& chunk_coord) {
@@ -164,7 +203,7 @@ std::vector<MeshJob> Simulation::findMeshJobs(){
 
     
     const auto camChunkCoord = toWorldChunkCoord(cam.pos);
-    const auto candidateList = world.generatedChunkCoordsInRadius(camChunkCoord, RENDER_DIST, maxMeshesPerFrame);
+    const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_DIST, maxJobs);
 
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
@@ -183,39 +222,28 @@ std::vector<MeshJob> Simulation::findMeshJobs(){
     return res;
 }
 
-std::size_t Simulation::enqueueMeshingJobs(){
-    auto jobsForMeshing = findMeshJobs();
+std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
+    auto jobsForMeshing = findMeshJobs(maxJobs);
 
-    std::size_t res = 0;
-    for (auto& job: jobsForMeshing){
-        const auto& entry = world.chunkMap.get_entry(job.chunkCoord);
+    std::size_t count = 0;
+    for (std::size_t attempts = 0; attempts<maxJobs; attempts++){
         auto& q = rend.mesher.meshJobQueue;
-
-        const bool queueIsFull = !q.try_enqueue(std::move(job));
-        if (queueIsFull){
-            break;
-        } else{
-            entry->status.beginMeshing();
-            res++;
-        }
-
-        //NOTE:
-        // its possible that using an emplace method could be faster,
-        // since we avoid constructing the object in case of lock contention.
-        // Either way, we have to make the chunk entry lookup, so im unsure of the benefit here.
-        // Cant be that bad, since they released unordered_map::emplace() which emplaces regardless
-        // of insertion, and it took them until c++17 to fix that with try_emplace.
+        count = q.try_batch_enqueue(jobsForMeshing);
+        if (count >= 0) break; // we have successfully enqueued the batch
     }
-    LOG_DEBUG("enqueued_for_meshing this frame:{}/{}",res,jobsForMeshing.size());
-    return res;
+
+    for (std::size_t i =0; i < count; i++){
+        const auto& entry = world.chunkMap.get_entry(jobsForMeshing[i].chunkCoord);
+        entry->status.beginMeshing();
+    }
+    return count;
 }
 
 
-std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
-    constexpr std::size_t MaxGenUploadsPerFrame = 12;
-    std::vector<GenResult> output; output.reserve(MaxGenUploadsPerFrame);
+std::vector<GenResult> drainGenResults(Queue<GenResult>& queue, std::size_t maxUploads){
+    std::vector<GenResult> output; output.reserve(maxUploads);
 
-    for (std::size_t mesh_count = 0; mesh_count < MaxGenUploadsPerFrame; mesh_count++){
+    for (std::size_t mesh_count = 0; mesh_count < maxUploads; mesh_count++){
         std::optional<GenResult> result = queue.try_dequeue();
         bool queueIsEmpty = !result.has_value();
         if (queueIsEmpty){
@@ -226,44 +254,40 @@ std::vector<GenResult> drainGenResults(Queue<GenResult>& queue){
     return output;
 }
 
-std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue){
-    constexpr std::size_t MaxMeshUploadsPerFrame = 128;
-    std::vector<MeshResult> output;
-    output.reserve(MaxMeshUploadsPerFrame);
-    constexpr i32 meshDequeueAttempts = 8;
-    for (std::size_t mesh_count = 0; mesh_count < MaxMeshUploadsPerFrame; mesh_count++){
-        for (i32 i =0; i<meshDequeueAttempts; i++){
-            std::optional<MeshResult> meshData = queue.try_dequeue();
-            if (!meshData){
-                continue;
-            }
-            output.emplace_back(std::move(*meshData));
+std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_t maxUploads){
+    for (std::size_t mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
+        std::optional<std::vector<MeshResult>> res = queue.try_batch_dequeue(maxUploads);
+        if (res){
+            return *res;
         }
+        if (!res){
+            continue;
+        } 
     }
 
-    return output;
+    return {};
 }
-std::size_t Simulation::drainAndUploadMeshResults(){
-    std::size_t res = 0;
-    auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue);
+std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
+    std::size_t count = 0;
+    auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue,maxUploads);
     for (const auto& [candidateGen, chunkCoord, vertices, indices] : candidateMeshes){
         if (vertices.size()>0){
             rend.uploadMesh(chunkCoord, vertices, indices);
-            res++;
+            count++;
             this->chunksMeshed++;
         } 
         world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
     }
-    return res;
+    return count;
 }
 
-std::size_t Simulation::drainAndUploadGenResults(){
-    auto drainedMeshes = drainGenResults(world.chunkMap.generator.genResultQueue);
-    auto res = drainedMeshes.size();
+std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
+    auto drainedMeshes = drainGenResults(world.chunkMap.generator.genResultQueue,maxUploads);
+    auto count = drainedMeshes.size();
     for (const auto& newGen : drainedMeshes){
         world.chunkMap.uploadGeneratedChunk(newGen);
     }
-    return res;
+    return count;
 }
 
 void Simulation::pause(){

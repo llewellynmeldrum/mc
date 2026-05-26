@@ -86,6 +86,7 @@ constexpr inline const auto EachInRange(
     return cartesian_product(iota(x0,x1), iota(y0,y1), iota(z0,z1));
 }
 
+// Inclusive lo, exclusive hi
 constexpr inline const auto EachInRange(
     i64 x0, i64 x1,
     i64 z0, i64 z1) {
@@ -93,6 +94,15 @@ constexpr inline const auto EachInRange(
     using std::views::cartesian_product;
 
     return cartesian_product(iota(x0,x1), iota(z0,z1));
+}
+// both lo and hi are exclusive
+constexpr inline const auto EachInRangeEx(
+    i64 x0, i64 x1,
+    i64 z0, i64 z1) {
+    using std::views::iota;
+    using std::views::cartesian_product;
+
+    return cartesian_product(iota(x0+1,x1), iota(z0+1,z1));
 }
 
 constexpr inline const auto EachInRange(

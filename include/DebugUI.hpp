@@ -10,10 +10,11 @@ struct DebugUI{
     void destroyDebugUI();
     void render();
     void updateUI();
+
 private:
-    void ShowMainOverlay(Simulation* ctx);
-    void ShowChunkDebugger(Simulation* ctx);
-void ShowFullscreenOverlay(Simulation* ctx) ;
+    void drawMainOverlay(Simulation* ctx);
+    void drawChunkDebugger(Simulation* ctx);
+    void drawFullscreenOverlay(Simulation* ctx) ;
     void drawUI();
     GLFWwindow* win_ptr;
 };

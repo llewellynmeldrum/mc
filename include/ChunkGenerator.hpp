@@ -22,6 +22,6 @@ struct ChunkGenerator {
 
     Queue<GenJob> genJobQueue;
     Queue<GenResult> genResultQueue;
-    ThreadPool genThreads{4};
+    ThreadPool genThreads{1};
     static void genChunks(std::stop_token stopToken, Queue<GenJob>& input_queue, Queue<GenResult>& output_queue);
 };

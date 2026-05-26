@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <print>
 #include <queue>
 
@@ -34,6 +35,9 @@ struct ChunkMap {
     }
 
     inline ChunkEntry* get_entry(WorldChunkCoord coord){
+        return entries.at(coord).get();
+    }
+    inline const ChunkEntry* get_entry(WorldChunkCoord coord) const{
         return entries.at(coord).get();
     }
     inline bool has_entry(WorldChunkCoord coord){
