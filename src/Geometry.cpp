@@ -21,7 +21,7 @@ void Frustum::update(this auto& self, const Camera* cam) {
     //    tan(a) * adj          = opp
     //    tan(fov/2.0) * zfar   = 0.5 * farPlaneHeight
     //    (aka halfFarPlaneHeight)
-    const f32 halfFarPlaneHeight = zFar * std::tan(vFov / 2.0f);
+    const f32 halfFarPlaneHeight = zFar * std::tan(glm::radians(vFov) / 2.0f);
 
     //    aspect = w/h
     //    aspect * h = w
@@ -34,7 +34,7 @@ void Frustum::update(this auto& self, const Camera* cam) {
     self.far = Plane(pos + frontMulFar, -front);
 
     self.right = Plane(pos, cross(frontMulFar - right * halfFarPlaneWidth, up));
-    self.left = Plane(pos, cross(up, frontMulFar - right * halfFarPlaneWidth));
+    self.left = Plane(pos, cross(up, frontMulFar + right * halfFarPlaneWidth));
 
     self.top = Plane(pos, cross(right, frontMulFar - up * halfFarPlaneHeight));
     self.bot = Plane(pos, cross(frontMulFar + up * halfFarPlaneHeight, right));

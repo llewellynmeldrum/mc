@@ -39,7 +39,7 @@ struct AABB {
     AABB(A _min, B _max) {
         glm::vec3 min = _min.raw();
         glm::vec3 max = _max.raw();
-        center = min + max * 0.5f;
+        center = (min + max) * 0.5f;
         extents = max - center;
     }
 
