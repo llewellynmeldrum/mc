@@ -106,6 +106,9 @@ void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
         if (hasEntry){
             const auto& entry = world.chunkMap.get_entry(entryCoord);
             entryColor = ChunkDebugColor(entry->status);
+            if (entry->status.isCleanMeshed()){
+                continue;
+            }
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
     }

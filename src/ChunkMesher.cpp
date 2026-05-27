@@ -141,14 +141,14 @@ void ChunkMesher::meshChunks
 }
 // clang-format off
 // 
-static constexpr glm::vec3 NNN{-0.5,-0.5,-0.5};
-static constexpr glm::vec3 NPN{-0.5, 0.5,-0.5};
-static constexpr glm::vec3 NNP{-0.5,-0.5, 0.5};
-static constexpr glm::vec3 PNN{ 0.5,-0.5,-0.5};
-static constexpr glm::vec3 PPN{ 0.5, 0.5,-0.5};
-static constexpr glm::vec3 PNP{ 0.5,-0.5, 0.5};
-static constexpr glm::vec3 NPP{-0.5, 0.5, 0.5};
-static constexpr glm::vec3 PPP{ 0.5, 0.5, 0.5};
+static constexpr glm::vec3 NNN{0.0,0.0,0.0};
+static constexpr glm::vec3 NPN{0.0, 1.0,0.0};
+static constexpr glm::vec3 NNP{0.0,0.0, 1.0};
+static constexpr glm::vec3 PNN{ 1.0,0.0,0.0};
+static constexpr glm::vec3 PPN{ 1.0, 1.0,0.0};
+static constexpr glm::vec3 PNP{ 1.0,0.0, 1.0};
+static constexpr glm::vec3 NPP{0.0, 1.0, 1.0};
+static constexpr glm::vec3 PPP{ 1.0, 1.0, 1.0};
 using Face = std::array<Vertex,VTX_PER_FACE>;
 constexpr std::array<std::array<Vertex,VTX_PER_FACE>, FACES_PER_CUBE> defaultCubeFaces = {
     // Direction::forward

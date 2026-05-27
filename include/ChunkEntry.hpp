@@ -62,7 +62,7 @@ public:
     constexpr bool needsMeshing()const{return GetBit(flags,needs_meshing_offset);}
     constexpr bool isClean()const{return GetBit(flags,needs_meshing_offset)==0;}
 
-    u32 flags{};
+    u32 flags{}; 
 private:
     static constexpr u32 on_gen_job_queue_offset     = 1; // currently enqueued for generation 
     static constexpr u32 generated_offset            = 2; // Exited gen queue, has block data

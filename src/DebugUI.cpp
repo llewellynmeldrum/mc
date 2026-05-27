@@ -30,7 +30,7 @@ constexpr ScreenPos PAD = {5.0f, 25.0f};
 constexpr ScreenPos ALIGN_TOP_LEFT = {0.0f,0.0f};
 constexpr ScreenPos ALIGN_TOP_RIGHT = {1.0f,0.0f};
 constexpr ScreenPos ALIGN_MID_MID = {0.5f,0.5f};
-constexpr ImVec2 GRAPH_SIZE = {400,40};
+constexpr ImVec2 GRAPH_SIZE = {200,40};
 constexpr f32 UI_SCALE = 1.25;
 namespace IG = ImGui;  // namespace alias for convinience
 enum struct DrawMode{
@@ -449,7 +449,6 @@ void DebugUI::drawMainOverlay(Simulation* ctx) {
             }
             UI::SameLine();
             UI::Text(n_unique);
-            UI::SameLine();
             plotRingBuf(rb, max, name);
         };
 

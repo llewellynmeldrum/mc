@@ -35,7 +35,7 @@ void Renderer::clear(const vec4 clear_color) {
 
 void Renderer::draw_debugChunks(Camera& cam, World& world){
     dbg_rend.update(cam,world);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     dbg_rend.draw(cam);
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
 }

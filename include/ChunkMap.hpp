@@ -5,6 +5,7 @@
 #include "ChunkGenerator.hpp"
 #include "ChunkHelpers.hpp"
 #include "ChunkEntry.hpp"
+#include "DEBUG.hpp"
 #include "cppslop.hpp"
 
 #include <functional>
@@ -34,6 +35,22 @@ struct ChunkMap {
         generator.setupChunkGenerator();
     }
 
+    inline ChunkEntry* get_entry_safe(WorldChunkCoord coord){
+        if (entries.contains(coord)){
+            return entries.at(coord).get();
+        }else{
+            DEBUG_BREAKPOINT();
+            return {};
+        }
+    }
+
+    inline std::optional<ChunkEntry*> try_get_entry(WorldChunkCoord coord){
+        if (entries.contains(coord)){
+            return std::make_optional(entries.at(coord).get());
+        }else{
+            return std::nullopt;
+        }
+    }
     inline ChunkEntry* get_entry(WorldChunkCoord coord){
         return entries.at(coord).get();
     }

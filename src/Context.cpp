@@ -68,8 +68,10 @@ void Simulation::loop(){
     draw(); 
     time.bench_end("draw");
     ui.updateUI();
-    ui.drawDebugUI(); 
-    ui.render();
+    if (rend.debug.showDebugUI){
+        ui.drawDebugUI(); 
+        ui.render();
+    }
 
     time.bench_start("render");
     win.swapBuffers();
@@ -105,6 +107,7 @@ enum struct IterationSignal{
     CONTINUE,
     BREAK,
 };
+
 std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t maxJobs){
     std::vector<WorldChunkCoord> candidates;
     const auto chunkCoord = toWorldChunkCoord(cam.pos);
@@ -174,20 +177,19 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     const auto candidates = findChunksForGeneration(maxJobs);
 //    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
     std::size_t count = 0;
+    auto& genQ = world.chunkMap.generator.genJobQueue;
     for (const auto& chunkWorldPos: candidates){
-
         const auto& entry = world.chunkMap.get_entry(chunkWorldPos);
-        if (entry->status.qualifiesForGeneration() == false){
-            continue; 
-        }
-        bool success = world.chunkMap.generator.genJobQueue.try_emplace(
-            chunkWorldPos, 
-            WORLD_SEED,
-            world.genConfig
-        );
-        if (success){
-            count++;
-            entry->status.beginGeneration();
+        if (entry->status.qualifiesForGeneration()){
+            bool success = genQ.try_emplace(
+                chunkWorldPos, 
+                WORLD_SEED,
+                world.genConfig
+            );
+            if (success){
+                count++;
+                entry->status.beginGeneration();
+            }
         }
     }
     return count;
@@ -245,11 +247,11 @@ std::vector<GenResult> drainGenResults(Queue<GenResult>& queue, std::size_t maxU
 
     for (std::size_t mesh_count = 0; mesh_count < maxUploads; mesh_count++){
         std::optional<GenResult> result = queue.try_dequeue();
-        bool queueIsEmpty = !result.has_value();
-        if (queueIsEmpty){
+        if (result.has_value()){
+            output.emplace_back(*result);
+        } else{
             break; // give up this frame?
         }
-        output.emplace_back(*result);
     }
     return output;
 }
@@ -310,7 +312,9 @@ void Simulation::draw() {
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
     rend.draw(cam);
-    rend.draw_debugChunks(cam,world);
+    if(rend.debug.showChunkBoundaries){
+        rend.draw_debugChunks(cam,world);
+    }
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");
@@ -348,6 +352,12 @@ void Simulation::handleInputs() {
 
     input.mapToggleKey(KEY_T, [this]{
         rend.debug.wireframe = !rend.debug.wireframe;
+    });
+    input.mapToggleKey(KEY_H, [this]{
+        rend.debug.showDebugUI = !rend.debug.showDebugUI;
+    });
+    input.mapToggleKey(KEY_C, [this]{
+        rend.debug.showChunkBoundaries = !rend.debug.showChunkBoundaries;
     });
     input.mapToggleKey(KEY_R,[this]{
         for (const auto& [worldCoord, entry]: world.chunkMap.entries){

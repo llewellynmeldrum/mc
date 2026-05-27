@@ -64,9 +64,11 @@ struct World {
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            const ChunkEntry* entry = chunkMap.make_or_getEntry(key);
-            if (entry->status.qualifiesForMeshing()){
-                candidates.emplace_back(key);
+            auto entry = chunkMap.try_get_entry(key);
+            if (entry.has_value()){
+                if ((*entry)->status.qualifiesForMeshing()){
+                    candidates.emplace_back(key);
+                }
             }
         };
 
