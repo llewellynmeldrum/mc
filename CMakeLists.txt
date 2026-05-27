@@ -36,8 +36,9 @@ target_compile_options(mc PRIVATE
     -Werror
     -Wimplicit-fallthrough
     -Wno-unused
+    -Wfatal-errors
     -fdiagnostics-color=always
-    -fmax-errors=5
+    -fmax-errors=1
     -ftemplate-backtrace-limit=5
     -fdiagnostics-show-template-tree
 )
