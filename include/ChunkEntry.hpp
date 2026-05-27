@@ -33,6 +33,7 @@ public:
     void beginMeshing(){
         SetBit(flags,on_mesh_job_queue_offset);
     }
+
     void endMeshing(){
         UnsetBit(flags,needs_meshing_offset);
         UnsetBit(flags,on_mesh_job_queue_offset);
@@ -43,6 +44,7 @@ public:
         SetBit(flags,needs_meshing_offset);
     }
 
+    constexpr bool isCleanMeshed()const{return isMeshed() && isClean();}
     bool isDirty()const{return GetBit(flags,meshed_offset) && GetBit(flags,needs_meshing_offset);}
 
     static constexpr ChunkEntryStatus Dirty(){ return       {0b110000}; }
@@ -58,8 +60,9 @@ public:
     constexpr bool isMeshing()const{return GetBit(flags,on_mesh_job_queue_offset);}
     constexpr bool isMeshed()const{return GetBit(flags,meshed_offset);}
     constexpr bool needsMeshing()const{return GetBit(flags,needs_meshing_offset);}
+    constexpr bool isClean()const{return GetBit(flags,needs_meshing_offset)==0;}
 
-    u32 flags;
+    u32 flags{};
 private:
     static constexpr u32 on_gen_job_queue_offset     = 1; // currently enqueued for generation 
     static constexpr u32 generated_offset            = 2; // Exited gen queue, has block data
