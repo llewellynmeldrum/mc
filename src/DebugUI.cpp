@@ -158,16 +158,16 @@ struct MinimapCell{
     MinimapCell(): state(CellState::empty()){}
     MinimapCell(ChunkEntryStatus status){
         state=CellState::empty();
-        if (status.isGenerating()){
+        if (status.generating){
             state=CellState::generating();
         }
-        if (status.isGenerated()){
+        if (status.generated){
             state=CellState::generated();
-        } 
-        if (status.isMeshing()){
+        }
+        if (status.meshing){
             state=CellState::meshing();
-        } 
-        if (status.isMeshed()){
+        }
+        if (status.meshed){
             state=CellState::meshed();
         }
     }

@@ -212,16 +212,16 @@ struct ChunkMinimap{
             const auto& status = at(ix,iz)->status;
             d.fill(defaultColor);
             if (at(ix,iz)){
-                if (status.isGenerating()){
+                if (status.generating){
                     d.fill(generatingColor);
                 }
-                if (status.isGenerated()){
+                if (status.generated){
                     d.fill(generatedColor);
-                } 
-                if (status.isMeshing()){
+                }
+                if (status.meshing){
                     d.fill(meshingColor);
-                } 
-                if (status.isMeshed()){
+                }
+                if (status.meshed){
                     d.fill(meshedColor);
                 }
             }

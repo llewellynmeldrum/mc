@@ -5,68 +5,35 @@
 #include "Geometry.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
-#include "Bitwise.hpp"
 
 
+// Tracks where a chunk sits in the generation -> meshing pipeline.
+// Everything defaults to false, so a fresh entry is ungenerated and unmeshed.
 struct ChunkEntryStatus{
-public:
-    ChunkEntryStatus()=default;
-    ~ChunkEntryStatus()=default;
-    constexpr ChunkEntryStatus(u32 _flags):flags(_flags){}
-    bool qualifiesForGeneration()const {
-        return !isGenerated() && !isGenerating();
-    }
-    bool qualifiesForMeshing()const {
-        return isGenerated() && needsMeshing() && !isMeshing();
-    }
+    bool generating   = false; // enqueued for generation
+    bool generated    = false; // generation finished, block data is present
+    bool meshing      = false; // enqueued for meshing
+    bool meshed       = false; // meshed at least once
+    bool needsMeshing = false; // mesh is stale and wants (re)building
 
-    void beginGeneration(){
-        SetBit(flags,on_gen_job_queue_offset);
-    }
+    bool qualifiesForGeneration() const { return !generated && !generating; }
+    bool qualifiesForMeshing()    const { return generated && needsMeshing && !meshing; }
 
-    void endGeneration(){
-        UnsetBit(flags, on_gen_job_queue_offset);  // removed from job queue 
-        SetBit(flags,generated_offset);          // marked as generated (never unmarked)
-        SetBit(flags,needs_meshing_offset);// marked as needs_meshing (unmarked on mesh finish, marked again by the 
-    }
+    void beginGeneration() { generating = true; }
+    void endGeneration()   { generating = false; generated = true; needsMeshing = true; }
 
-    void beginMeshing(){
-        SetBit(flags,on_mesh_job_queue_offset);
-    }
-    void endMeshing(){
-        UnsetBit(flags,needs_meshing_offset);
-        UnsetBit(flags,on_mesh_job_queue_offset);
-        SetBit(flags,meshed_offset);
-    }
+    void beginMeshing()    { meshing = true; }
+    void endMeshing()      { meshing = false; meshed = true; needsMeshing = false; }
 
-    void makeDirty(){
-        SetBit(flags,needs_meshing_offset);
-    }
+    void makeDirty()       { needsMeshing = true; }
+    bool isDirty() const   { return meshed && needsMeshing; }
 
-    bool isDirty()const{return GetBit(flags,meshed_offset) && GetBit(flags,needs_meshing_offset);}
-
-    static constexpr ChunkEntryStatus Dirty(){ return       {0b110000}; }
-    static constexpr ChunkEntryStatus Meshed(){ return      {0b010000}; }
-    static constexpr ChunkEntryStatus Meshing(){ return     {0b001000}; }
-    static constexpr ChunkEntryStatus Generated(){ return   {0b000100}; }
-    static constexpr ChunkEntryStatus Generating(){ return  {0b000010}; }
-    static constexpr ChunkEntryStatus Ungenerated(){ return {0b000001}; }
-
-
-    constexpr bool isGenerating()const{return GetBit(flags,on_gen_job_queue_offset);}
-    constexpr bool isGenerated()const{return GetBit(flags,generated_offset);}
-    constexpr bool isMeshing()const{return GetBit(flags,on_mesh_job_queue_offset);}
-    constexpr bool isMeshed()const{return GetBit(flags,meshed_offset);}
-    constexpr bool needsMeshing()const{return GetBit(flags,needs_meshing_offset);}
-
-    u32 flags;
-private:
-    static constexpr u32 on_gen_job_queue_offset     = 1; // currently enqueued for generation 
-    static constexpr u32 generated_offset            = 2; // Exited gen queue, has block data
-    static constexpr u32 on_mesh_job_queue_offset    = 3; // Currently enqueued for meshing
-    static constexpr u32 meshed_offset               = 4; // finished meshing
-    static constexpr u32 needs_meshing_offset        = 5; // mesh is finished but dirty
-    
+    static constexpr ChunkEntryStatus Ungenerated() { return {}; }
+    static constexpr ChunkEntryStatus Generating()  { return {.generating = true}; }
+    static constexpr ChunkEntryStatus Generated()   { return {.generated = true}; }
+    static constexpr ChunkEntryStatus Meshing()     { return {.meshing = true}; }
+    static constexpr ChunkEntryStatus Meshed()      { return {.meshed = true}; }
+    static constexpr ChunkEntryStatus Dirty()       { return {.meshed = true, .needsMeshing = true}; }
 };
 // @Brief:
 // represents the in memory store of a chunks data.
