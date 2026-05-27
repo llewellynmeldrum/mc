@@ -82,16 +82,16 @@ struct MeshResult{
 
 
 STD_HASH_SPECIALIZATION(MeshJob, job, 
-    return std::hash<glm::ivec3>{}(job.chunkCoord);
+    return std::hash<glm::ivec3>{}(job.chunkCoord.raw());
 )
 STD_HASH_SPECIALIZATION(MeshResult, res, 
-    return std::hash<glm::ivec3>{}(res.chunkCoord);
+    return std::hash<glm::ivec3>{}(res.chunkCoord.raw());
 )
 STD_HASH_SPECIALIZATION(GenJob, job, 
-    return std::hash<glm::ivec3>{}(job.chunkCoord);
+    return std::hash<glm::ivec3>{}(job.chunkCoord.raw());
 )
 STD_HASH_SPECIALIZATION(GenResult, res, 
-    return std::hash<glm::ivec3>{}(res.chunkCoord);
+    return std::hash<glm::ivec3>{}(res.chunkCoord.raw());
 )
 
 inline bool operator==(const MeshJob& a, const MeshJob& b) noexcept {

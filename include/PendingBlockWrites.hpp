@@ -8,7 +8,7 @@
 
 struct PendingBlockWrite{
     BlockType block;
-    WorldBlockPos blockPos;
+    WorldBlockPos targetWorldBlockPos;
     u8 priority;
     WorldChunkCoord sourceChunkCoord;
     PendingBlockWrite(const WorldChunkCoord _sourceChunkCoord, const WorldBlockPos& _blockPos, BlockType bt);

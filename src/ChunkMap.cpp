@@ -27,7 +27,7 @@ using namespace glm;
         // 2. Apply any NEW pending writes TO OTHER chunks from pwl
         for (const auto& write: newWriteList){
             // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
-            const auto& targetChunkCoord = toWorldChunkCoord(write.blockPos);
+            const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
             if (entries.contains(targetChunkCoord)){
                 auto& entry = entries.at(targetChunkCoord);
                 pendingWritesSuccessful += entry->block_data.tryWrite(write);
@@ -43,22 +43,26 @@ using namespace glm;
             }
         }
     }
-// TODO: 
-// mid refactor splicing in the new chunkentry system
-// Also made those spiral algorithms
 const AABB*   ChunkMap::getBoundingBox(WorldChunkCoord chunkCoord) const{
     return &entries.at(chunkCoord)->bounding_box;
 }
 
+// TODO: Continue plugging in the new strong coord types
+// then do world gen
+
+
+
 // assign our neighbours if they exist in the chunkmap,
 // also add ourselves  to our neighbours neighbourlist.
-void ChunkMap::updateNeighbourMap(ivec3 chunkCoord) {
+void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
+    //NOTE: this might be a good spot to invalidate neighbours meshes after generation, 
+    //if they are older than us by some amount.
     auto* self_ptr = &entries[chunkCoord]->block_data;
 
     std::array<const Chunk*, N_NEIGHBOURS> my_neighbours{};
     for (const auto& [dir,offset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(dir);
-        const ivec3 neighbourChunkCoord = chunkCoord + offset;
+        const auto neighbourChunkCoord = chunkCoord + ChunkOffset{offset};
         if (entries.contains(neighbourChunkCoord)) {
             // assign NEIGHBOUR to OUR NeighbourList @dir
             const auto* neighbourChunk = &entries[neighbourChunkCoord]->block_data;
@@ -72,12 +76,14 @@ void ChunkMap::updateNeighbourMap(ivec3 chunkCoord) {
             entries[neighbourChunkCoord]->neighbours[inverseDir_idx] = self_ptr;
         }
     }
+    // what the fuck am i looking at 
     entries.at(chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
+
 }
 
 void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
-    const WorldBlockPos min = toWorldBlockPos(chunkCoord);
-    const WorldBlockPos max = min + Chunk::Extents;
+    const auto min = toChunkOrigin(chunkCoord);
+    const auto max = min + BlockOffset{Chunk::Extents};
     entries.at(chunkCoord)->bounding_box = {min, max};
 }
 

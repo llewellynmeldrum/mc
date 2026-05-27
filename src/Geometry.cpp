@@ -6,7 +6,7 @@ void Frustum::update(this auto& self, const Camera* cam) {
     const f32& vFov = cam->vertical_fov;
     const f32& zNear = cam->near_clip_z;
     const f32& zFar = cam->far_clip_z;
-    const auto pos = cam->pos;
+    const auto pos = cam->pos.raw();
     const auto front = cam->getFront();
     const auto right = cam->getRight();
     const auto up = cam->getUp();

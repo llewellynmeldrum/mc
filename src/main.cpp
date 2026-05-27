@@ -4,7 +4,7 @@
 
 
 void App::setup() {
-    glm::ivec3 spawn_pos = { -61, +130, -83 };
+    auto spawn_pos = WorldFloatPos{ -61, +130, -83 };
     sim.cam.pos = spawn_pos;
     sim.cam.pitch = -23.4;
     sim.cam.yaw = 56.3;

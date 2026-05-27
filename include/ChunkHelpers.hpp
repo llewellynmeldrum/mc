@@ -10,12 +10,6 @@ using ChunkView = std::pair<glm::ivec3, const Chunk*>;
 
 
 
-STD_HASH_SPECIALIZATION(glm::ivec3, obj,
-    return (std::hash<i32>{}(obj.x) << 1) ^  // NOLINT
-           (std::hash<i32>{}(obj.y) << 2) ^  // NOLINT
-           (std::hash<i32>{}(obj.z));
-)
-
 
 
 constexpr inline const auto EachBlockInChunk() {

@@ -55,18 +55,18 @@ void Renderer::draw(Camera& cam){
             auto sq = [](i32 v){ return v*v;};
             return sq(b.x-a.x) + sq(b.y-a.y) + sq(b.z-a.z);
         };
-        auto source = static_cast<WorldChunkCoord>(cam.pos);
+        auto source = toWorldChunkCoord(cam.pos);
         std::ranges::sort(visibleChunkMeshes, [sqdist, source](const auto& lhs, const auto& rhs){
             // sort ascending, i.e mesh closest first.
             // Will have to flip when i do transperancy
             return sqdist(source,lhs.chunkCoord) < sqdist(source,rhs.chunkCoord);
         });
         for (const auto& mesh : visibleChunkMeshes) {
-            const vec3 chunkWorldPos = toWorldBlockPos(mesh.chunkCoord);
+            const auto chunkFloatWorldPos = WorldFloatPos{toChunkOrigin(mesh.chunkCoord).raw()};
  //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
 //            std::println("{}",chunkDist);
-            mat4       model = mat4(1.0f);
-            model = translate(model, chunkWorldPos);
+            auto model = mat4(1.0f);
+            model = glm::translate(model, chunkFloatWorldPos.raw());
             prog.setUniform("model", model);
             mesh.draw();
             debug.vertex_count += mesh.offset_count;

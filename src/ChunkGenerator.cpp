@@ -10,7 +10,7 @@
 #include "Logger.hpp"
 #include "Types.h"
 
-#include "lmath.hpp"
+#include "LM.hpp"
 #include <queue>
 
 //          |?         swamp       jungle
@@ -61,7 +61,7 @@ void ChunkGenerator::genChunks(std::stop_token stopToken,
         Noise2D heightNoise(NoiseType::OpenSimplex2);
 
         auto& cfg = job.cfg;
-        const auto& worldBlockOffset = toWorldBlockPos(job.chunkCoord);
+        const auto& worldBlockOffset = toChunkOrigin(job.chunkCoord);
         struct Heightmap{
             std::array<u32, CHUNK_XWIDTH*CHUNK_ZWIDTH> buf;
             auto span(){

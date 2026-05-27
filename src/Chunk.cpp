@@ -1,5 +1,6 @@
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
+#include "CoordTypes.hpp"
 
 std::atomic<u32> id_counter{0};
 // Higher priority blocks are preferred to overwrite 
@@ -30,12 +31,13 @@ constexpr inline u8 BlockPriority(Block b){
 
 PendingBlockWrite::PendingBlockWrite(const WorldChunkCoord _sourceChunkCoord, const WorldBlockPos& _blockPos, BlockType bt) :
     block(bt),
-    blockPos(_blockPos),
+    targetWorldBlockPos(_blockPos),
     priority(BlockPriority(bt)),
     sourceChunkCoord(_sourceChunkCoord){}
 
 bool Chunk::tryWrite(PendingBlockWrite write){
-    Block& curBlock = this->at(write.blockPos);
+    auto targetChunkLocal = toChunkBlockPos(write.targetWorldBlockPos);
+    Block& curBlock = this->at(targetChunkLocal);
     // the higher 'priority' block wins.
     const auto& newPrio = write.priority;
     const auto& curPrio = BlockPriority(curBlock);
@@ -47,7 +49,9 @@ bool Chunk::tryWrite(PendingBlockWrite write){
     return false;
 }
 bool ChunkSpan::tryWrite(PendingBlockWrite write){
-    Block& curBlock = this->at(write.blockPos);
+    // turn the targetChunkCoord and write.WorldBlockPos to targetChunkBlockPos
+    auto targetChunkLocal = toChunkBlockPos(write.targetWorldBlockPos);
+    Block& curBlock = this->at(targetChunkLocal);
     // the higher 'priority' block wins.
     const auto& newPrio = write.priority;
     const auto& curPrio = BlockPriority(curBlock);

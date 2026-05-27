@@ -15,9 +15,9 @@ Block World::getBlock(WorldBlockPos worldPos) const {
     auto  chunk_ptr =
         chunkMap.entries.contains(chunkCoord) ? &chunkMap.entries.at(chunkCoord) : nullptr;
     if (chunk_ptr) {
-        auto worldChunkOffset = chunkCoord * (int)CHUNK_ZWIDTH;
-        ChunkBlockPos chunkLocal = worldPos - worldChunkOffset;
-        return chunk_ptr->get()->block_data.at(chunkLocal);
+        auto worldChunkOffset = BlockOffset{toWorldBlockPos(chunkCoord,{0,0,0}).raw()};
+        auto chunkLocal = worldPos - worldChunkOffset;
+        return chunk_ptr->get()->block_data.at(ChunkBlockPos{chunkLocal.raw()});
     } else {
         return Block::Empty();
     }

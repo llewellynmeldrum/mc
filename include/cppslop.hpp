@@ -1,6 +1,8 @@
 #pragma once
 
+#include "NumericConcepts.hpp"
 #include "Types.h"
+
 // i refuse to pollute 5 different classes with this bullshit
 #define DECL_MOVE_ONLY(CLASS_NAME)                                                                 \
     CLASS_NAME(const CLASS_NAME&) = delete;                                                        \
@@ -111,19 +113,31 @@ constexpr inline const auto EachInRange(
 
     return iota(x0,x1);
 }
-
-constexpr inline const auto EachInRange(
-    glm::ivec3 min, glm::ivec3 max){
+template<typename IntVec3>
+requires IVec3<IntVec3>
+constexpr inline const auto EachInRange(IntVec3 min, IntVec3 max){
     using std::views::iota;
     using std::views::cartesian_product;
 
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y), iota(min.z,max.z));
 }
-constexpr inline const auto EachInRange(
-    glm::ivec2 min, glm::ivec2 max){
+template<typename IntVec2>
+requires IVec2<IntVec2>
+constexpr inline const auto EachInRange(IntVec2 min, IntVec2 max){
     using std::views::iota;
     using std::views::cartesian_product;
 
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y));
 }
+
+STD_HASH_SPECIALIZATION(glm::ivec3, obj,
+    return (std::hash<i32>{}(obj.x) << 1) ^  // NOLINT
+           (std::hash<i32>{}(obj.y) << 2) ^  // NOLINT
+           (std::hash<i32>{}(obj.z));
+)
+STD_HASH_SPECIALIZATION(glm::vec3, obj,
+    return (std::hash<f32>{}(obj.x) << 1) ^  // NOLINT
+           (std::hash<f32>{}(obj.y) << 2) ^  // NOLINT
+           (std::hash<f32>{}(obj.z));
+)
 

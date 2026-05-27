@@ -105,12 +105,12 @@ enum struct IterationSignal{
     CONTINUE,
     BREAK,
 };
-std::vector<ivec3> Simulation::findChunksForGeneration(std::size_t maxJobs){
-    std::vector<ivec3> candidates;
-    const ivec3 chunkCoord = toWorldChunkCoord(cam.pos);
+std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t maxJobs){
+    std::vector<WorldChunkCoord> candidates;
+    const auto chunkCoord = toWorldChunkCoord(cam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
     auto func = [this, &candidates, &maxJobs](i32 x, i32 y, i32 z) -> IterationSignal{
-        const ivec3 key = ivec3{x,y,z}; // dont you have to 
+        const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
         const ChunkEntry* entry = world.chunkMap.make_or_getEntry(key);
         if (entry->status.qualifiesForGeneration()){
             candidates.emplace_back(key);
@@ -174,7 +174,7 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     const auto candidates = findChunksForGeneration(maxJobs);
 //    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
     std::size_t count = 0;
-    for (const ivec3& chunkWorldPos: candidates){
+    for (const auto& chunkWorldPos: candidates){
 
         const auto& entry = world.chunkMap.get_entry(chunkWorldPos);
         if (entry->status.qualifiesForGeneration() == false){

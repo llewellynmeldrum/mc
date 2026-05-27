@@ -11,7 +11,7 @@
 #include "glmWrapper.hpp"
 #include "Context.hpp"
 #include "Profiler.hpp"
-#include "lmath.hpp"
+#include "LM.hpp"
 #include <ranges>
 #include <tuple>
 #include "Concurrency.hpp"
@@ -53,17 +53,17 @@ getNeighbourBlocks(MeshJob& job, ChunkBlockPos chunkLocal) {
     constexpr glm::ivec3 hi = Chunk::Extents;
     for (const auto& [faceDirection, neighbourOffset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(faceDirection);
-        ChunkBlockPos neighbourBlockPos = chunkLocal + neighbourOffset;
+        ChunkBlockPos neighbourBlockPos = chunkLocal + BlockOffset{neighbourOffset};
         const auto neighbourChunk = job.surroundingChunks[dir_idx];
 
-        const bool neighbourInBounds = lmath::isVecInBounds(neighbourBlockPos, lo, hi);
+        const bool neighbourInBounds = LM::isVecInBounds(neighbourBlockPos, lo, hi);
 
         if (neighbourInBounds) [[likely]] {
             const auto& p = neighbourBlockPos;
             res[dir_idx] = job.blocks[neighbourBlockPos];
         } else [[unlikely]] {
-            neighbourBlockPos = euclid_mod(neighbourBlockPos, Chunk::Extents);
-            assert(lmath::isVecInBounds(neighbourBlockPos, lo, hi));
+            neighbourBlockPos = LM::euclid_mod(neighbourBlockPos, Chunk::Extents);
+            assert(LM::isVecInBounds(neighbourBlockPos, lo, hi));
             res[dir_idx] = neighbourChunk.at(neighbourBlockPos);
         }
     }
@@ -86,7 +86,7 @@ void ChunkMesher::meshChunks
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const WorldBlockPos world_pos = toWorldBlockPos(job.chunkCoord);
+        const WorldBlockPos world_pos = toChunkOrigin(job.chunkCoord);
         auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;
@@ -123,7 +123,7 @@ void ChunkMesher::meshChunks
                     decltype(Vertex::pos) chunk_offsetted_vtx_pos =
                         static_cast<decltype(Vertex::pos)>(vtx.pos)
                         +
-                        static_cast<decltype(Vertex::pos)>(chunkLocal);
+                        static_cast<decltype(Vertex::pos)>(chunkLocal.raw());
                     glm::vec2 texture_coords = uv_tex_coords[vertex_idx];
                     res.vertices.emplace_back(
                         chunk_offsetted_vtx_pos,

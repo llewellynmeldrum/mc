@@ -78,9 +78,10 @@ struct ChunkEntry{
         status.makeDirty();
     };
     ChunkEntry(WorldChunkCoord chunkCoord):
-    bounding_box(toWorldBlockPos(chunkCoord),                   // [0,0,0]
-                (toWorldBlockPos(chunkCoord)+Chunk::Extents))   // [cxwidth,cheight,czwidth]
-    {}
+    bounding_box(
+                WorldFloatPos{toChunkOrigin(chunkCoord).raw()},                  
+                WorldFloatPos{toChunkOrigin(chunkCoord).raw()+Chunk::Extents}
+    ) {}
     ChunkEntryStatus status;
     MeshRevisionID latest_mesh_revision{0};
     AABB bounding_box; 

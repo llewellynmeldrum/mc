@@ -3,6 +3,7 @@
 #include "Types.h"
 #include "cppslop.hpp"
 #include "glmWrapper.hpp"
+#include "LM.hpp"
 
 FORWARD_DECL_STRUCT(Camera);
 
@@ -34,7 +35,10 @@ struct AABB {
     glm::vec3 center = glm::vec3(0);
     glm::vec3 extents = glm::vec3(0);
     // create an axis aligned bounding box from a min and a max world position
-    AABB(const glm::vec3& min, const glm::vec3& max) {
+    template<AnyVec3 A, AnyVec3 B>
+    AABB(A _min, B _max) {
+        glm::vec3 min = _min.raw();
+        glm::vec3 max = _max.raw();
         center = min + max * 0.5f;
         extents = max - center;
     }

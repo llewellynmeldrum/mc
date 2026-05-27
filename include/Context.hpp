@@ -61,7 +61,7 @@ struct Simulation {
     void togglePause();
 private:
     bool paused;
-    std::vector<glm::ivec3> findChunksForGeneration(std::size_t maxJobs);
+    std::vector<WorldChunkCoord> findChunksForGeneration(std::size_t maxJobs);
     std::vector<MeshJob> findMeshJobs(std::size_t maxJobs);
 
     std::size_t enqueueGenerationJobs(std::size_t maxJobs);

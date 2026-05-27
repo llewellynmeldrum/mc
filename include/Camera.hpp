@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CoordTypes.hpp"
 #include "Logger.hpp"
 #include "Types.h"
 #include "glm/geometric.hpp"
@@ -28,7 +29,7 @@ struct Camera {
     // Should probably only be those that are visible.
     inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
-    glm::vec3 pos{};       // world
+    WorldFloatPos pos{};       // world
     f32  aspectRatio{};
     glm::mat4 projection_matrix = glm::mat4(1.0f);
 
@@ -68,7 +69,7 @@ struct Camera {
     }
     inline const glm::mat4& getViewMatrix() { 
         return cached_viewMatrix.get([this](){
-            return lookAt(pos, pos + getFront(), WorldUp());
+            return glm::lookAt(pos.raw(), pos.raw() + getFront(), WorldUp());
         });
     }
 
@@ -94,7 +95,7 @@ struct Camera {
     static inline constexpr glm::vec3 WorldUp(){
         return WorldVector(Direction::UP);
     }
-    glm::ivec3 block_pos;  // read only var?
+    WorldBlockPos block_pos;  // read only var?
     void  moveUpward(f32 dt);
     void  moveDownward(f32 dt);
     void  moveForward(f32 dt);

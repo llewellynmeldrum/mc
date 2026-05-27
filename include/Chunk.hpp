@@ -93,8 +93,8 @@ struct Chunk{
     }
 
     inline void setBlocks(BlockType t, ChunkBlockPos pos1, ChunkBlockPos pos2) {
-        ChunkBlockPos min = glm::min(pos1,pos2);
-        ChunkBlockPos max = glm::max(pos1,pos2);
+        auto min = LM::min(pos1,pos2);
+        auto max = LM::max(pos1,pos2);
         for (auto [x,y,z] : EachInRange(min,max)){
             setBlock(t, x, y, z);
         }
@@ -115,7 +115,7 @@ struct Chunk{
         return self[x, y, z];
     }
 
-    inline decltype(auto) at(this auto& self, glm::vec3 pos) {
+    inline decltype(auto) at(this auto& self, ChunkBlockPos pos) {
         return self.at(pos.x, pos.y, pos.z); 
     }
 

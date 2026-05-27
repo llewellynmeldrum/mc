@@ -107,6 +107,6 @@ void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
             const auto& entry = world.chunkMap.get_entry(entryCoord);
             entryColor = ChunkDebugColor(entry->status);
         }
-        instances.emplace_back(toWorldBlockPos(entryCoord), entryColor);
+        instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
     }
 }

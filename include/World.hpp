@@ -34,7 +34,7 @@ struct World {
         candidates.reserve(nChunksInRadius);
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
-            const auto key = glm::ivec3{x,y,z}; // dont you have to 
+            const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
             candidates.emplace_back(chunkMap.has_entry(key),key);
         };
 
@@ -63,7 +63,7 @@ struct World {
         candidates.reserve(nChunks);
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
-            const auto key = glm::ivec3{x,y,z}; // dont you have to 
+            const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
             const ChunkEntry* entry = chunkMap.make_or_getEntry(key);
             if (entry->status.qualifiesForMeshing()){
                 candidates.emplace_back(key);

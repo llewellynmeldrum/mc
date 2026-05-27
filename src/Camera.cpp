@@ -8,7 +8,7 @@
 using namespace glm;
 void Camera::setupCamera() {
     pos = { 0, 0, 6 };
-    block_pos = pos;
+    block_pos = toWorldBlockPos(pos);
 }
 
 void Camera::move(Direction dir, f32 dt) {
@@ -42,7 +42,7 @@ void Camera::move(Direction dir, f32 dt) {
     }
     cached_viewMatrix.invalidate();
     cached_frustum.invalidate();
-    auto new_block_pos = ivec3{ pos };
+    WorldBlockPos new_block_pos =  toWorldBlockPos(pos);
     if (new_block_pos != block_pos) {
         requestMeshRegeneration();
         // LOG_DEBUG("{} != {}, regenerating mesh", dbg_fmt(new_block_pos), dbg_fmt(block_pos));
@@ -89,13 +89,13 @@ void Camera::rotate(Direction dir, f32 dt) {
     cached_frustum.invalidate();
 }
 inline void Camera::moveUpward(f32 dt) {
-    pos += dt * (moveSpeed * WorldUp());
+    pos += FloatOffset{dt * (moveSpeed * WorldUp())};
 }
 inline void Camera::moveDownward(f32 dt) {
-    pos -= dt * (moveSpeed * WorldUp());
+    pos -= FloatOffset{dt * (moveSpeed * WorldUp())};
 }
 inline void Camera::moveForward(f32 dt) {
-    pos += dt * (moveSpeed * getFront());
+    pos += FloatOffset{dt * (moveSpeed * getFront())};
 }
 inline void Camera::yawLeft(f32 dt) {
     yaw -= dt * keyboard_sensitivity;
@@ -110,11 +110,11 @@ inline void Camera::pitchUp(f32 dt) {
     pitch += dt * keyboard_sensitivity;
 }
 inline void Camera::moveBackward(f32 dt) {
-    pos -= dt * (moveSpeed * getFront());
+    pos -= FloatOffset{dt * (moveSpeed * getFront())};
 }
 inline void Camera::moveLeft(f32 dt) {
-    pos -= dt * (normalize(cross(getFront(), getUp())) * moveSpeed);
+    pos -= FloatOffset{dt * (normalize(cross(getFront(), getUp())) * moveSpeed)};
 }
 inline void Camera::moveRight(f32 dt) {
-    pos += dt * (normalize(cross(getFront(), getUp())) * moveSpeed);
+    pos += FloatOffset{dt * (normalize(cross(getFront(), getUp())) * moveSpeed)};
 }
