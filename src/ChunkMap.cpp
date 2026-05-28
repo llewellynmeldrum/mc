@@ -82,7 +82,7 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
 }
 
 void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
-    const auto min = toChunkOrigin(chunkCoord);
+    const auto min = toWorldOrigin(chunkCoord);
     const auto max = min + BlockOffset{Chunk::Extents};
     entries.at(chunkCoord)->bounding_box = {min, max};
 }

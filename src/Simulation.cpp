@@ -5,6 +5,7 @@
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
+#include "CoordIteration.hpp"
 
 #include "Simulation.hpp"
 
@@ -42,6 +43,11 @@ void Simulation::freeCursor(){
     cam.disableMousePanning();
 }
 
+void Simulation::unGenerateAllChunks(){
+    for (auto& [worldCoord, entry]: world.chunkMap.entries){
+        entry->requestWorldRegen();
+    }
+}
 void Simulation::unMeshAllChunks(){
     for (const auto& [worldCoord, entry]: world.chunkMap.entries){
         entry->requestMeshRegen();
@@ -113,10 +119,6 @@ void Simulation::update() {
 
 }
 
-enum struct IterationSignal{
-    CONTINUE,
-    BREAK,
-};
 
 std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t maxJobs){
     std::vector<WorldChunkCoord> candidates;
@@ -218,21 +220,21 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-        if(in_frustum(candidateCoord)){
-            entry->status.setSpecial();
-        }else{
-            entry->status.unsetSpecial();
-//            continue;
-            // BUG: 
-            // Frustum fails to identify chunks when facing a diagonal.
-            // All chunks on diagonals to the camera facing position are culled.
-            // Im not sure how to fix this issue without adding more debug visuals,
-            // of which i cannot possibly be fucked doing rn. 
-            // I will have to come back to this.
-            // For the time being,
-            // TERRAIN TIME!!!!!!!!!!!!!
-            // ^^^^^^^^^^^^^^^^
-        }
+//        if(in_frustum(candidateCoord)){
+//            entry->status.setSpecial();
+//        }else{
+//            entry->status.unsetSpecial();
+////            continue;
+//            // BUG: 
+//            // Frustum fails to identify chunks when facing a diagonal.
+//            // All chunks on diagonals to the camera facing position are culled.
+//            // Im not sure how to fix this issue without adding more debug visuals,
+//            // of which i cannot possibly be fucked doing rn. 
+//            // I will have to come back to this.
+//            // For the time being,
+//            // TERRAIN TIME!!!!!!!!!!!!!
+//            // ^^^^^^^^^^^^^^^^
+//        }
 
         // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
         // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
@@ -302,7 +304,11 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
             count++;
             this->chunksMeshed++;
         } 
-        world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
+        if (world.chunkMap.has_entry(chunkCoord)){
+            world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
+        } else{
+            LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was meshed.");
+        }
     }
     return count;
 }

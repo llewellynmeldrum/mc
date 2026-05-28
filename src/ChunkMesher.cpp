@@ -86,7 +86,7 @@ void ChunkMesher::meshChunks
         res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
         res.indices.reserve(MAX_INDICES_PER_CHUNK);
 
-        const WorldBlockPos world_pos = toChunkOrigin(job.chunkCoord);
+        const WorldBlockPos world_pos = toWorldOrigin(job.chunkCoord);
         auto chunk = job.blocks;
         const auto atlas= job.atlas;
         const auto& surrounding_chunks = job.surroundingChunks;
@@ -153,32 +153,32 @@ using Face = std::array<Vertex,VTX_PER_FACE>;
 constexpr std::array<std::array<Vertex,VTX_PER_FACE>, FACES_PER_CUBE> defaultCubeFaces = {
     // Direction::forward
     Face{
-        Vertex{PNN,glm::vec2(0,0),glm::vec3(1.0f),0},
-        Vertex{NNN,glm::vec2(1,0),glm::vec3(1.0f),0},
-        Vertex{NPN,glm::vec2(1,1),glm::vec3(1.0f),0},
-        Vertex{PPN,glm::vec2(0,1),glm::vec3(1.0f),0},
+        Vertex{PNN,glm::vec2(0,1),glm::vec3(1.0f),0},
+        Vertex{NNN,glm::vec2(1,1),glm::vec3(1.0f),0},
+        Vertex{NPN,glm::vec2(1,0),glm::vec3(1.0f),0},
+        Vertex{PPN,glm::vec2(0,0),glm::vec3(1.0f),0},
     },
     // Direction::Backward
     Face{
-        Vertex{NNP,glm::vec2(0,0),glm::vec3(1.0f),1},
-        Vertex{PNP,glm::vec2(1,0),glm::vec3(1.0f),1},
-        Vertex{PPP,glm::vec2(1,1),glm::vec3(1.0f),1},
-        Vertex{NPP,glm::vec2(0,1),glm::vec3(1.0f),1},
+        Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),1},
+        Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
+        Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
+        Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),1},
     },
     // Direction:: Left
     Face{
-        Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),2},
-        Vertex{NNP,glm::vec2(1,0),glm::vec3(1.0f),2},
-        Vertex{NPP,glm::vec2(1,1),glm::vec3(1.0f),2},
-        Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),2},
+        Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),2},
+        Vertex{NNP,glm::vec2(1,1),glm::vec3(1.0f),2},
+        Vertex{NPP,glm::vec2(1,0),glm::vec3(1.0f),2},
+        Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),2},
     },
 
     // Direction::Right
     Face{
-        Vertex{PNP,glm::vec2(0,0),glm::vec3(1.0f),3},
-        Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),3},
-        Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),3},
-        Vertex{PPP,glm::vec2(0,1),glm::vec3(1.0f),3},
+        Vertex{PNP,glm::vec2(0,1),glm::vec3(1.0f),3},
+        Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),3},
+        Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),3},
+        Vertex{PPP,glm::vec2(0,0),glm::vec3(1.0f),3},
     },
     // Direction::Down
     Face{

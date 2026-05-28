@@ -5,16 +5,13 @@
 #include <unordered_map>
 #include <array>
 #include "glmWrapper.hpp"
+#include "CoordIteration.hpp"
 struct GLFWwindow;
 // src/Input.cpp
 enum struct InputSignal{
     CONTINUE=0,
     RETURN=1,
 };
-template <typename T, typename Fn, typename ...Args>
-concept Returns =  
-    std::invocable<Fn, Args...> &&
-    std::same_as<std::invoke_result_t<Fn, Args...>, T>;
 
 
 struct Input {
@@ -53,14 +50,14 @@ struct Input {
 
 
     template <typename Fn, typename ...Args>
-        requires Returns<InputSignal, Fn&&,Args&&...>
+        requires return_type_is<InputSignal, Fn&&,Args&&...>
     [[nodiscard]] 
     inline InputSignal mapToggleKey(KeyCode k, f32 s_cooldown, Fn&& callable, Args&&... vargs){
         return mapToggleKeyImpl<InputSignal>( k, s_cooldown, std::forward<Fn>(callable), std::forward<Args>(vargs)...);
     }
 
     template <typename Fn, typename ...Args>
-        requires Returns<void,Fn&&,Args&&...>
+        requires return_type_is<void,Fn&&,Args&&...>
     inline void mapToggleKey(KeyCode k, f32 s_cooldown, Fn&& callable, Args&&... vargs){
         mapToggleKeyImpl<void>( k, s_cooldown, std::forward<Fn>(callable), std::forward<Args>(vargs)...
         );
@@ -68,7 +65,7 @@ struct Input {
 
     // DEFAULTED COOLDOWN VERSION 
     template <typename Fn, typename ...Args>
-        requires Returns<void,Fn&&,Args&&...>
+        requires return_type_is<void,Fn&&,Args&&...>
     inline void mapToggleKey(KeyCode k, Fn&& callable, Args&&... vargs){
         mapToggleKeyImpl<void>( k, default_key_CD_s, std::forward<Fn>(callable), std::forward<Args>(vargs)...
         );
@@ -76,14 +73,14 @@ struct Input {
 
     // DEFAULTED COOLDOWN VERSION (signal returning)
     template <typename Fn, typename ...Args>
-        requires Returns<InputSignal, Fn&&,Args...>
+        requires return_type_is<InputSignal, Fn&&,Args...>
     [[nodiscard]] 
     inline InputSignal mapToggleKey(KeyCode k, Fn&& callable, Args&&... vargs){
         return mapToggleKeyImpl<InputSignal>(k, default_key_CD_s, std::forward<Fn>(callable),std::forward<Args>(vargs)...);
     }
 
     template <typename Fn, typename ...Args>
-        requires Returns<void, Fn&&,Args&&...>
+        requires return_type_is<void, Fn&&,Args&&...>
     inline void mapHeldKey(KeyCode key, Fn&& callable, Args&&... vargs){
         assert(KEY_MAX>=key && key>KEY_MIN);
         bool held = getKey(key)==KeyState::Held;
@@ -92,7 +89,7 @@ struct Input {
         }
     }
     template <typename Fn, typename ...Args>
-        requires Returns<void, Fn&&, bool>
+        requires return_type_is<void, Fn&&, bool>
     inline void mapHeldKey(KeyCode key, Fn&& callable){
         assert(KEY_MAX>=key && key>KEY_MIN);
         bool held = getKey(key)==KeyState::Held;
@@ -103,7 +100,7 @@ struct Input {
     glm::vec2 prevmousepos = { 0.0, 0.0 };
 private:
     template <typename ReturnT, typename Fn, typename ...Args>
-        requires Returns<void, Fn&&,Args&&...> || Returns<InputSignal,Fn&&,Args&&...>
+        requires return_type_is<void, Fn&&,Args&&...> || return_type_is<InputSignal,Fn&&,Args&&...>
     inline ReturnT mapToggleKeyImpl(Key key, f32 s_cooldown, Fn&& callable, Args&&... vargs){
         assert(KEY_MAX>=key && key>KEY_MIN);
         std::size_t idx= key - KEY_MIN;

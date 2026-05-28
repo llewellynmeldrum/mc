@@ -23,7 +23,7 @@ struct ThreadPool{
 
 template<typename T>
 struct Queue{
-    std::size_t capacity = 256;
+    std::size_t capacity = 512;
     std::mutex mtx;
     std::deque<T> q;
     std::condition_variable not_empty;

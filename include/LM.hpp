@@ -11,6 +11,7 @@ constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
     i32 r = a % b;
     return r<0 ? r+b : r;
 }
+
 template<typename T>
 requires Numeric<T>
 constexpr inline T min(T a, T b) noexcept{
@@ -22,6 +23,11 @@ constexpr inline T max(T a, T b) noexcept{
     return a>b ? a : b;
 }
 
+template<typename T>
+requires Numeric<T>
+constexpr inline T avg(T a, T b) noexcept{
+    return (a+b/static_cast<T>(2));
+}
 
 constexpr inline i32 ifloor_div(i32 a, i32 b) noexcept{
     i32 quotient = a/b;
@@ -35,6 +41,11 @@ template<typename A, typename B>
 requires FloatingPoint<A> && Numeric<B>
 constexpr inline A ffloor_div(A a, B b) noexcept{
     return std::floor(a/b);
+}
+template<typename T>
+requires Numeric<T>
+constexpr inline T constrain(T lo, T hi, T val) noexcept{
+    return std::min(std::max(val,lo),hi);
 }
 
 template <typename Float>

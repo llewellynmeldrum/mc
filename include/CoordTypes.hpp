@@ -131,14 +131,14 @@ DECL_ADD_SUB_OPER(WorldChunkCoord, ChunkOffset)
 
 // worldChunkCoord -> worldBlockPos 
 // Returns the world pos of the block at [0,0,0] in the chunk identified by wChunkCoord
-inline auto toChunkOrigin(WorldChunkCoord chunk) -> WorldBlockPos{
+inline auto toWorldOrigin(WorldChunkCoord chunk) -> WorldBlockPos{
     return WorldBlockPos{chunk.raw() * Chunk_Extents};
 }
 
 // chunkBlockPos->worldBlockPos
 // Returns the world pos of the block at [cBlockPos] in the chunk identified by wChunkCoord
 inline auto toWorldBlockPos(WorldChunkCoord chunk, BlockOffset local) -> WorldBlockPos{
-    return WorldBlockPos{toChunkOrigin(chunk) + local};
+    return WorldBlockPos{toWorldOrigin(chunk) + local};
 }
 
 inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos{

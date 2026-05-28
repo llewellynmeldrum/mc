@@ -35,7 +35,7 @@ public:
         return state == ungenerated;
     }
     bool qualifiesForMeshing()const {
-        return state == generationFinished; 
+        return state == generationFinished || state == dirtyMeshed; 
     }
 
     bool isMeshing()const{
@@ -47,7 +47,7 @@ public:
     }
 
     bool isCleanMeshed()const{
-        return state.finishedMeshing && state.meshIsDirty;
+        return state.finishedMeshing && !state.meshIsDirty;
     }
 
     bool isDirtyMeshed()const{
@@ -87,6 +87,9 @@ public:
 
     void makeDirty(){
         state = dirtyMeshed;
+    }
+    void reset(){
+        state = ungenerated;
     }
 
 
@@ -156,10 +159,13 @@ struct ChunkEntry{
     inline void requestMeshRegen(){
         status.makeDirty();
     };
+    inline void requestWorldRegen(){
+        status.reset();
+    };
     ChunkEntry(WorldChunkCoord chunkCoord):
     bounding_box(
-                WorldFloatPos{toChunkOrigin(chunkCoord).raw()},                  
-                WorldFloatPos{toChunkOrigin(chunkCoord).raw()+Chunk::Extents}
+                WorldFloatPos{toWorldOrigin(chunkCoord).raw()},                  
+                WorldFloatPos{toWorldOrigin(chunkCoord).raw()+Chunk::Extents}
     ) {}
     ChunkEntryStatus status;
     MeshRevisionID latest_mesh_revision{0};

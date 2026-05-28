@@ -47,6 +47,7 @@ struct Simulation {
     
 
     void unMeshAllChunks();
+void unGenerateAllChunks();
     void captureCursor();
     void freeCursor();
     void loop();

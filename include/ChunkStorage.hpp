@@ -2,6 +2,7 @@
 
 #include "Block.hpp"
 
+#include "CoordIteration.hpp"
 #include "PendingBlockWrites.hpp"
 #include "cppslop.hpp"
 #include <mdspan>
@@ -49,6 +50,7 @@ public:
         return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
     }
 
+    // TODO: consider moving these into an i3D_Array
     inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {
         return self.span()[x, y, z];
     }
@@ -61,6 +63,16 @@ public:
     }
     inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
         return self.span()[p.x, p.y, p.z];
+    }
+
+    inline void set(this auto& self, i16 x, i16 y, i16 z, BlockType bt) {
+        self.span()[x, y, z] = {bt};
+    }
+    constexpr void setColumn(glm::ivec3 min, i32 ymax, BlockType bt){
+        static_assert(std::same_as<int,int32_t>);
+        ForEachInRangeEx(min.y, ymax, [&](i32 y){
+            set(min.x, y, min.z, bt);
+        });
     }
 
     inline auto begin(this auto& self){

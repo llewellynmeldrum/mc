@@ -25,9 +25,6 @@ struct ChunkMap {
     ChunkMap(ChunkMap&&) = delete;
     ChunkMap& operator=(ChunkMap&&) = delete;
 
-    inline void ungenerateAllChunks(){
-        entries.clear();
-    }
 
     ChunkGenerator generator;
     std::unordered_map<WorldChunkCoord, std::unique_ptr<ChunkEntry>> entries;
@@ -36,6 +33,7 @@ struct ChunkMap {
     std::unordered_map<WorldChunkCoord, PendingWriteQueue> pendingWritesMap;
 
     inline void setup_chunk_map(){
+        
         generator.setupChunkGenerator();
     }
 

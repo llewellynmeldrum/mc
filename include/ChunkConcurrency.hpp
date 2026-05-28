@@ -17,7 +17,14 @@
 
 
 struct GenConfig{
-    constexpr static u32 SEA_LEVEL = 64;
+    u32 SEA_LEVEL = 128;
+    f32 cave_air_threshold = -0.25;
+    i32 cave_y_threshold = 72;
+
+
+
+    i32 MAX_ELEVATION_DELTA = 32;
+    i32 MIN_HEIGHT = 0;
 };
 
 

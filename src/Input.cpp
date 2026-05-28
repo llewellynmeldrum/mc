@@ -42,14 +42,12 @@ void Simulation::handleInputs() {
         rend.debug.showChunkBoundaries = !rend.debug.showChunkBoundaries;
     });
     input.mapToggleKey(KEY_R,[this]{
-        world.chunkMap.ungenerateAllChunks();
+        unGenerateAllChunks();
         unMeshAllChunks();
-        rend.visibleChunkMeshes.clear();
     });
 
     input.mapToggleKey(KEY_M,[this]{
         unMeshAllChunks();
-        rend.visibleChunkMeshes.clear();
     });
 
     static_assert(KEY_MAX>=KEY_LEFT_SHIFT && KEY_LEFT_SHIFT>KEY_MIN);

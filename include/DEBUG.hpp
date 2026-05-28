@@ -8,11 +8,12 @@
     #error "Unsupported compiler. Use gcc or clang noob"
 #endif
 
-#define DEBUG_BREAKPOINT()                                                                         \
+#define DEBUG_BREAKPOINT(msg)                                                                         \
     do {                                                                                           \
         std::println(                                                                              \
-            stderr, "\e[31;1;4mTriggered BREAKPOINT in {}:{} !\n\e[0m\e[31;1mFunction -> {}\e[0m", \
-            __FILE_NAME__, __LINE__, __PRETTY_FUNCTION__);                                         \
+            stderr, "\e[31;1;4m" msg " -> Triggered BREAKPOINT in {}:{} !\n\e[0m\e[31;1mFunction -> {}\e[0m", \
+                     __FILE_NAME__, __LINE__, __PRETTY_FUNCTION__);                                         \
         DEBUG_BREAKPOINT_QUIET();                                                                  \
     } while (0)
 
+#define BRK_ASSERT(invariant) if (!invariant){ DEBUG_BREAKPOINT("FAILED ASSERTION: [" #invariant "]");}

@@ -62,7 +62,7 @@ void Renderer::draw(Camera& cam){
             return sqdist(source,lhs.chunkCoord) < sqdist(source,rhs.chunkCoord);
         });
         for (const auto& mesh : visibleChunkMeshes) {
-            const auto chunkFloatWorldPos = WorldFloatPos{toChunkOrigin(mesh.chunkCoord).raw()};
+            const auto chunkFloatWorldPos = WorldFloatPos{toWorldOrigin(mesh.chunkCoord).raw()};
  //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
 //            std::println("{}",chunkDist);
             auto model = mat4(1.0f);

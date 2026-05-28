@@ -22,6 +22,10 @@ inline BlockAttribArray<f32> blockOpacity = {
 };
 static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
 struct Block {
+    Block (): type(BlockType::AIR){} //NOLINT
+    Block (BlockType bt): type(bt){}
+    Block (const Block& rhs) = default;
+    Block (Block&& rhs) = default;
     BlockType            type{ BlockType::AIR };
     constexpr inline u64 idx() const noexcept { return static_cast<i64>(type); }
     constexpr inline i64 texture_id() const noexcept {
@@ -32,10 +36,6 @@ struct Block {
 
     constexpr auto operator<=>(const Block& other) const = default;
 
-    Block (): type(BlockType::AIR){} //NOLINT
-    Block (BlockType bt): type(bt){}
-    Block (const Block& rhs) = default;
-    Block (Block&& rhs) = default;
     Block& operator=(const Block& rhs)= default;
     Block& operator=(Block&& rhs){
         if (this->type==rhs.type) {
