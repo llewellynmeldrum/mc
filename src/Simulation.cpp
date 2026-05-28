@@ -6,7 +6,7 @@
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
 
-#include "Context.hpp"
+#include "Simulation.hpp"
 
 #include "Profiler.hpp"
 #include "Logger.hpp"
@@ -41,6 +41,14 @@ void Simulation::freeCursor(){
     win.freeCursor();
     cam.disableMousePanning();
 }
+
+void Simulation::unMeshAllChunks(){
+    for (const auto& [worldCoord, entry]: world.chunkMap.entries){
+        entry->requestMeshRegen();
+    }
+    rend.visibleChunkMeshes.clear();
+}
+
 void Simulation::captureCursor(){
     win.captureCursor();
     cam.enableMousePanning();
@@ -101,6 +109,8 @@ void Simulation::update() {
     meshResultsThisFrame = drainAndUploadMeshResults(maxMeshUploadsPerFrame);
     time.bench_end("drainMesh");
     rb_meshResultsAdded.write(meshResultsThisFrame);
+
+
 }
 
 enum struct IterationSignal{
@@ -197,10 +207,8 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
 
 std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 
-    auto in_frustum = [](const Frustum& frustum, const World& world) {
-        return [frustum, &world](const WorldChunkCoord& chunk_coord) {
-            return frustum.isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
-        };
+    auto in_frustum = [this](const WorldChunkCoord& chunk_coord) {
+        return cam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
     };
 
     
@@ -209,10 +217,26 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
+        auto entry = world.chunkMap.get_entry(candidateCoord);
+        if(in_frustum(candidateCoord)){
+            entry->status.setSpecial();
+        }else{
+            entry->status.unsetSpecial();
+//            continue;
+            // BUG: 
+            // Frustum fails to identify chunks when facing a diagonal.
+            // All chunks on diagonals to the camera facing position are culled.
+            // Im not sure how to fix this issue without adding more debug visuals,
+            // of which i cannot possibly be fucked doing rn. 
+            // I will have to come back to this.
+            // For the time being,
+            // TERRAIN TIME!!!!!!!!!!!!!
+            // ^^^^^^^^^^^^^^^^
+        }
+
         // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
         // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
         // i.e the ones bordering the actual chunk in question.
-        auto entry = world.chunkMap.get_entry(candidateCoord);
         // make this construct based on the entry by const reference or something
         res.emplace_back(
             candidateCoord,
@@ -322,91 +346,3 @@ void Simulation::draw() {
     }
 }
 
-void Simulation::handleInputs() {
-    auto signal = 
-    input.mapToggleKey(KEY_ESCAPE, [this]{
-        if (isPaused()){
-            unpause();
-            return InputSignal::CONTINUE;
-        } else{
-            win.scheduleClose();
-            return InputSignal::RETURN;
-        }
-    });
-    if (signal == InputSignal::RETURN){ return; }
-
-    input.updateCooldowns(time.dt_s);
-    const f32 scaled_dt = time.dt_s * 60;
-
-    input.mapToggleKey(KEY_P, [this]{
-        togglePause();
-    });
-
-    if (isPaused()) return;
-    // WARNING: Anything below here is ignored during paused frames
-
-    if (input.mousepos != input.prevmousepos) {
-        const vec2 diff = input.prevmousepos - input.mousepos;
-        cam.rotateByMouse(diff, scaled_dt);
-    }
-
-    input.mapToggleKey(KEY_T, [this]{
-        rend.debug.wireframe = !rend.debug.wireframe;
-    });
-    input.mapToggleKey(KEY_H, [this]{
-        rend.debug.showDebugUI = !rend.debug.showDebugUI;
-    });
-    input.mapToggleKey(KEY_C, [this]{
-        rend.debug.showChunkBoundaries = !rend.debug.showChunkBoundaries;
-    });
-    input.mapToggleKey(KEY_R,[this]{
-        for (const auto& [worldCoord, entry]: world.chunkMap.entries){
-            entry->requestMeshRegen();
-        }
-        rend.visibleChunkMeshes.clear();
-    });
-
-    static_assert(KEY_MAX>=KEY_LEFT_SHIFT && KEY_LEFT_SHIFT>KEY_MIN);
-    input.mapHeldKey(KEY_LEFT_SHIFT,[this](bool isHeld){
-        if (isHeld){
-            cam.moveSpeed = Camera::SPRINT_MOVESPEED;
-        }else{
-            cam.moveSpeed = Camera::BASE_MOVESPEED;
-        }
-    });
-    input.mapHeldKey(KEY_W,[this]{
-		cam.move(Direction::FORWARD, time.dt_s);
-	});
-    input.mapHeldKey(KEY_S,[this]{
-		cam.move(Direction::BACKWARD, time.dt_s);
-	});
-    input.mapHeldKey(KEY_A,[this]{
-		cam.move(Direction::LEFT, time.dt_s);
-	});
-    input.mapHeldKey(KEY_D,[this]{
-		cam.move(Direction::RIGHT, time.dt_s);
-	});
-    input.mapHeldKey(KEY_SPACE,[this]{
-		cam.move(Direction::UP, time.dt_s);
-	});
-    input.mapHeldKey(KEY_E,[this]{
-		cam.move(Direction::UP, time.dt_s);
-	});
-    input.mapHeldKey(KEY_Q,[this]{
-		cam.move(Direction::DOWN, time.dt_s);
-	});
-
-    input.mapHeldKey(KEY_LEFT,[this]{
-		cam.rotate(Direction::LEFT, time.dt_s);
-	});
-    input.mapHeldKey(KEY_RIGHT,[this]{
-		cam.rotate(Direction::RIGHT, time.dt_s);
-	});
-    input.mapHeldKey(KEY_UP,[this]{
-		cam.rotate(Direction::UP, time.dt_s);
-	});
-    input.mapHeldKey(KEY_DOWN,[this]{
-		cam.rotate(Direction::DOWN, time.dt_s);
-	});
-    input.prevmousepos = input.mousepos;
-}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoordTypes.hpp"
+#include "DEBUG.hpp"
 #include "Logger.hpp"
 #include "Types.h"
 #include "glm/geometric.hpp"
@@ -45,9 +46,10 @@ struct Camera {
 
     inline const Frustum& getFrustum() const {
         return cached_frustum.get(
-                [this](){
-                    return Frustum(this);  // NOLINT
-                }
+            [this](){
+                std::println(stderr,"Updated frustum.");
+                return Frustum(this);  // NOLINT
+            }
         );
     }
     inline glm::vec3 getFacing() const{
@@ -73,13 +75,9 @@ struct Camera {
         });
     }
 
-    inline glm::vec3 getRight() {
-        const auto& v = getViewMatrix();
-        return { v[0][0], v[1][0], v[2][0] };
-    }
     f32 yaw = -90;
     f32 pitch = 0;
-    f32 mouse_sensitivity = 100;
+    f32 mouse_sensitivity = 6000;
     f32 keyboard_sensitivity = 1.5;
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 

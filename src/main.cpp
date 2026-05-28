@@ -1,39 +1,32 @@
 #include "App.hpp"
-#include "Profiler.hpp"
+#include <print>
 #define _DEBUG
 
+//#define TESTING_SOMETHING
 
-void App::setup() {
-    auto spawn_pos = WorldFloatPos{ -61, +130, -83 };
-    sim.cam.pos = spawn_pos;
-    sim.cam.pitch = -23.4;
-    sim.cam.yaw = 56.3;
+#if defined(TESTING_SOMETHING)
+    #define MAIN __fake_entry_point__
+    #define TEST_MAIN main
+#else 
+    #define MAIN main
+    #define TEST_MAIN __fake_entry_point__
+#endif
+
+
+int TEST_MAIN(){
+    std::println("NOTICE!!!! CURRENTLY IN TESTING MODE!!!");
+    std::exit(EXIT_SUCCESS);
+    return EXIT_SUCCESS;
 }
 
-void App::loop() {
-    sim.loop();
-}
 
-bool App::shouldClose() {
-    return sim.win.shouldClose();
-}
-
-int main(int argc, char** argv) {
-
-    App app;
-    app.sim.setupContext();
+int MAIN(int argc, char** argv) {
+    App app{};
     app.setup();
     while (!app.shouldClose()) {
         app.loop();
-        app.frameCount++;
     }
-    app.exit(EXIT_SUCCESS);
+    return app.exit(EXIT_SUCCESS);
 }
 
 
-void App::exit(i32 exit_code) {
-    sim.ui.destroyDebugUI();
-    sim.win.terminate();
-    std::println("{}", ScopeTimer::summary());
-    std::exit(exit_code);
-}

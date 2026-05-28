@@ -1,6 +1,6 @@
 #pragma once 
 
-#include "Context.hpp"
+#include "Simulation.hpp"
 #include "Types.h"
 #include <memory>
 
@@ -10,12 +10,37 @@ struct App{
     App()=default;
     ~App()=default;
 public:
-    i64 frameCount = 0;
     void setup();
     void loop();
-    void exit(i32 exit_code);
 
-    Simulation sim;
+    Simulation sim{};
+    i64 loop_count{};
+    i32 exit(i32 exit_code);
+
     bool shouldClose();
 private:
 };
+
+inline void App::setup() {
+    sim.setupContext();
+    auto spawn_pos = WorldFloatPos{ -61, +130, -83 };
+    sim.cam.pos = spawn_pos;
+    sim.cam.pitch = -23.4;
+    sim.cam.yaw = 56.3;
+}
+
+inline void App::loop() {
+    sim.loop();
+    loop_count++;
+}
+
+inline bool App::shouldClose() {
+    return sim.win.shouldClose();
+}
+inline i32 App::exit(i32 exit_code) {
+    sim.ui.destroyDebugUI();
+    sim.win.terminate();
+    std::println("{}", ScopeTimer::summary());
+    std::exit(exit_code);
+    return exit_code;
+}

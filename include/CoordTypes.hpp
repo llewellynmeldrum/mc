@@ -34,6 +34,8 @@ using Vector3Type_t = Vector3Type<T>::type;
 template<typename Tag, typename ScalarType>
 struct Coord3{
     using VecType = Vector3Type_t<ScalarType>;
+    using value_type = ScalarType;
+    using type = Coord3<Tag,ScalarType>;
     ScalarType x{}, y{}, z{};
     constexpr Coord3()=default;
     constexpr ~Coord3()=default;
@@ -155,15 +157,20 @@ inline auto toChunkBlockPos(WorldBlockPos block) -> ChunkBlockPos{
     return ChunkBlockPos{LM::euclid_mod(block.raw(), Chunk_Extents)};
 }
 
-inline auto toBlockOffset(WorldBlockPos coord){
-    auto r = coord.raw();
+inline auto toBlockOffset(glm::ivec3 vec){
+    auto r = vec;
     return BlockOffset{r};
 }
+
+inline auto toBlockOffset(WorldBlockPos coord){
+    return toBlockOffset(coord.raw());
+}
+
 // should simple casts like this use a different templated function maybe? 
 // They arent really active transformations or anyhting.
-inline auto toBlockOffset(ChunkOffset coffset){
-    auto r =coffset.raw();
-    return BlockOffset{r};
+// Also this function itself is suspicious. investigate callsites
+inline auto toBlockOffset(ChunkOffset chunkOffset){
+    return toBlockOffset(chunkOffset.raw());
 }
 
 inline auto toChunkOffset(BlockOffset boffset){

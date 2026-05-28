@@ -1,9 +1,7 @@
 #include "ChunkConstants.hpp"
-#include "ChunkDebugColors.hpp"
 #include "ChunkEntry.hpp"
 #include "Renderer.hpp"
 #include "World.hpp"
-constexpr glm::vec4 NotGeneratedColor{1,0,0,1};
 using namespace gl;
 
 
@@ -102,12 +100,12 @@ void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
     const auto& inRadius = world.chunksInRadius(toWorldChunkCoord(cam.pos),cam.DebugChunkRenderDistance);
     instances.clear();
     for (const auto& [hasEntry, entryCoord]: inRadius){
-        auto entryColor = NotGeneratedColor;
+        auto entryColor = ChunkEntryStatus::UnGeneratedColor;
         if (hasEntry){
             const auto& entry = world.chunkMap.get_entry(entryCoord);
-            entryColor = ChunkDebugColor(entry->status);
+            entryColor = entry->status.dbg_color();
             if (entry->status.isCleanMeshed()){
-                continue;
+                continue; // skip, else visual clutter is too bad
             }
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);

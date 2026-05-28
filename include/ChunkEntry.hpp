@@ -6,71 +6,147 @@
 #include "Types.h"
 #include "cppslop.hpp"
 #include "Bitwise.hpp"
+#include "glm/vec4.hpp"
 
 
+struct ChunkState{
+    bool ungenerated        {false}; // currently enqueued for generation 
+    bool isGenerating       {false};
+    bool finishedGenerating {false};
+    bool isMeshing          {false};
+    bool finishedMeshing    {false};
+    bool meshIsDirty        {false};
+
+
+    bool special            {false};
+    glm::vec4 dbg_color{};
+    constexpr bool operator==(const ChunkState& rhs) const noexcept = default;
+};
 struct ChunkEntryStatus{
 public:
     ChunkEntryStatus()=default;
     ~ChunkEntryStatus()=default;
-    constexpr ChunkEntryStatus(u32 _flags):flags(_flags){}
-    bool qualifiesForGeneration()const {
-        return !isGenerated() && !isGenerating();
+
+    ChunkState state{ungenerated};
+
+    // for debugging
+
+    bool qualifiesForGeneration() const {
+        return state == ungenerated;
     }
     bool qualifiesForMeshing()const {
-        return isGenerated() && needsMeshing() && !isMeshing();
+        return state == generationFinished; 
+    }
+
+    bool isMeshing()const{
+        return state.isMeshing;
+    }
+
+    bool isGenerating()const{
+        return state.isGenerating;
+    }
+
+    bool isCleanMeshed()const{
+        return state.finishedMeshing && state.meshIsDirty;
+    }
+
+    bool isDirtyMeshed()const{
+        return state.finishedMeshing && state.meshIsDirty;
+    }
+
+    bool isSpecial()const {
+        return state.special;
+    }
+
+    bool isGenerated()const {
+        return state.isGenerating;
+    }
+
+    void setSpecial(){
+        state.special=true;
+    }
+    void unsetSpecial(){
+         state.special=false;
     }
 
     void beginGeneration(){
-        SetBit(flags,on_gen_job_queue_offset);
+        state = generationInProgress;
     }
 
     void endGeneration(){
-        UnsetBit(flags, on_gen_job_queue_offset);  // removed from job queue 
-        SetBit(flags,generated_offset);          // marked as generated (never unmarked)
-        SetBit(flags,needs_meshing_offset);// marked as needs_meshing (unmarked on mesh finish, marked again by the 
+        state = generationFinished;
     }
 
     void beginMeshing(){
-        SetBit(flags,on_mesh_job_queue_offset);
+        state = meshingInProgress;
     }
 
     void endMeshing(){
-        UnsetBit(flags,needs_meshing_offset);
-        UnsetBit(flags,on_mesh_job_queue_offset);
-        SetBit(flags,meshed_offset);
+        state = cleanMeshed;
     }
 
     void makeDirty(){
-        SetBit(flags,needs_meshing_offset);
+        state = dirtyMeshed;
     }
 
-    constexpr bool isCleanMeshed()const{return isMeshed() && isClean();}
-    bool isDirty()const{return GetBit(flags,meshed_offset) && GetBit(flags,needs_meshing_offset);}
 
-    static constexpr ChunkEntryStatus Dirty(){ return       {0b110000}; }
-    static constexpr ChunkEntryStatus Meshed(){ return      {0b010000}; }
-    static constexpr ChunkEntryStatus Meshing(){ return     {0b001000}; }
-    static constexpr ChunkEntryStatus Generated(){ return   {0b000100}; }
-    static constexpr ChunkEntryStatus Generating(){ return  {0b000010}; }
-    static constexpr ChunkEntryStatus Ungenerated(){ return {0b000001}; }
+    const glm::vec4& dbg_color()const{
+        if (isSpecial()){
+            return SpecialColor;
+        }
+        return state.dbg_color;
+    }
 
+    static constexpr glm::vec4 SpecialColor{1, 0,1,1};
+    static constexpr glm::vec4 UnGeneratedColor{1, 1,1,1};
+    static constexpr ChunkState ungenerated{
+            .ungenerated        = true,
 
-    constexpr bool isGenerating()const{return GetBit(flags,on_gen_job_queue_offset);}
-    constexpr bool isGenerated()const{return GetBit(flags,generated_offset);}
-    constexpr bool isMeshing()const{return GetBit(flags,on_mesh_job_queue_offset);}
-    constexpr bool isMeshed()const{return GetBit(flags,meshed_offset);}
-    constexpr bool needsMeshing()const{return GetBit(flags,needs_meshing_offset);}
-    constexpr bool isClean()const{return GetBit(flags,needs_meshing_offset)==0;}
+            .dbg_color={1.0,0.0,0.0,1.0},
+    };
+    static constexpr ChunkState generationInProgress={
+            .ungenerated        = false,
+            .isGenerating       = true,
 
-    u32 flags{}; 
-private:
-    static constexpr u32 on_gen_job_queue_offset     = 1; // currently enqueued for generation 
-    static constexpr u32 generated_offset            = 2; // Exited gen queue, has block data
-    static constexpr u32 on_mesh_job_queue_offset    = 3; // Currently enqueued for meshing
-    static constexpr u32 meshed_offset               = 4; // finished meshing
-    static constexpr u32 needs_meshing_offset        = 5; // mesh is finished but dirty
-    
+            .dbg_color={1.0,0.5,0.0,1.0}, // orange
+    };
+    static constexpr ChunkState generationFinished{
+            .ungenerated		= false,
+            .isGenerating		= false,
+            .finishedGenerating	= true,
+
+            .dbg_color = {0.4,.15,0.0,1.0}, // BROWN
+    }; 
+    static constexpr ChunkState meshingInProgress{
+            .ungenerated		= false,
+            .isGenerating		= false,
+            .finishedGenerating	= true,
+            .isMeshing		    = true,
+
+            .dbg_color={1.0,1.0,0.0,1.0}, // YELLOW
+    };
+    static constexpr ChunkState cleanMeshed{
+            .ungenerated		= false,
+            .isGenerating		= false,
+            .finishedGenerating	= true,
+            .isMeshing		    = false,
+            .finishedMeshing	= true,
+            .meshIsDirty		= false,
+
+            .dbg_color={0.0,1.0,0.0,1.0}, // GREEN
+    }; 
+    static constexpr ChunkState dirtyMeshed{
+            .ungenerated		= false,
+            .isGenerating		= false,
+            .finishedGenerating	= true,
+            .isMeshing		    = false,
+            .finishedMeshing	= true,
+            .meshIsDirty		= true,
+            
+            .dbg_color={0.0,0.0,1.0,1.0}, // BLUE
+    }; 
 };
+
 // @Brief:
 // represents the in memory store of a chunks data.
 // A ChunkEntry is created upon request for chunk generation.

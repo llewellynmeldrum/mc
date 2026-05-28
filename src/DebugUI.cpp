@@ -2,8 +2,7 @@
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkConstants.hpp"
-#include "ChunkDebugColors.hpp"
-#include "Context.hpp"
+#include "Simulation.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
 #include "GLFW/glfw3.h"
@@ -30,170 +29,18 @@ constexpr ScreenPos PAD = {5.0f, 25.0f};
 constexpr ScreenPos ALIGN_TOP_LEFT = {0.0f,0.0f};
 constexpr ScreenPos ALIGN_TOP_RIGHT = {1.0f,0.0f};
 constexpr ScreenPos ALIGN_MID_MID = {0.5f,0.5f};
-constexpr ImVec2 GRAPH_SIZE = {200,40};
+constexpr ImVec2 GRAPH_SIZE = {400,40};
 constexpr f32 UI_SCALE = 1.25;
 namespace IG = ImGui;  // namespace alias for convinience
 enum struct DrawMode{
     Center=0,
 };
-struct DebugDraw{
-    DrawMode drawMode = DrawMode::Center;
-    ImDrawList* d = nullptr;
-    ScreenPos transform={};
-    Color fillColor{};
-    Color strokeColor{};
-    void selectWindow(){
-        d= ImGui::GetWindowDrawList();
-    }
-    bool fillEnabled = false;
-    void fill(Color col){
-        fillEnabled = true;
-        fillColor = col;
-    }
-    void noFill(Color col){
-        fillEnabled = false;
-    }
-
-    bool strokeEnabled = false;
-    void stroke(Color col){
-        strokeEnabled = true;
-        strokeColor = col;
-    }
-    void noStroke(Color col){
-        strokeEnabled = false;
-    }
-    void validate_context(){
-        ASSERT_NEQ(d,nullptr);
-    }
-
-    // NOTE: ImGui expects CLOCKWISE winding order 
-    void pushWindowTransform(){
-        transform = ImGui::GetCursorScreenPos();
-    }
-    void popWindowTransform(){
-        transform={};
-    }
-    void rect(ScreenPos pos, ScreenPos extents, f32 thick=1.0f){
-        validate_context();
-        ScreenPos half = {
-            extents.x*0.5f,
-            extents.y*0.5f
-        };
-        ScreenPos tl = {
-            pos.x-half.x,
-            pos.y-half.y,
-        };
-        ScreenPos br = {
-            pos.x+half.x,
-            pos.y+half.y,
-        };
-        tl+=transform; br+=transform;
-        if (fillEnabled){
-            d->AddRectFilled(tl,br,fillColor);
-        }
-        if (strokeEnabled){
-            d->AddRect(tl,br,strokeColor,0.0f,0,thick);
-        }
-    }
-    void circle(ScreenPos center, f32 r, f32 thick=1.0f){
-        validate_context();
-        ScreenPos tl = {
-            center.x-r,
-            center.y-r,
-        };
-        ScreenPos br = {
-            center.x+r,
-            center.y+r,
-        };
-        center.x+=transform.x; 
-        center.y+=transform.y; 
-        if (fillEnabled){
-            d->AddCircleFilled({center.x,center.y},r,fillColor);
-        }
-        if (strokeEnabled){
-            d->AddCircle({center.x,center.y},r,fillColor,0,thick);
-        }
-    }
-    void text(const std::string& str, vec2 ic, f32 fontSize=16.0f){
-        validate_context();
-        ScreenPos c = {ic.x,ic.y};
-        c+=transform;
-        ScreenPos he = ImGui::CalcTextSize(str.c_str())*0.5f;
-        ScreenPos tm = {c.x,c.y};
-        if (fillEnabled){
-            d->AddText(tm,fillColor,str.c_str());
-        }
-    }
-};
-struct CellState{
-    std::string name{};
-    Color color{};
-    
-    static CellState empty        (){return {"empty ", Color(92, 89, 85)};}
-    static CellState generating   (){return {"generating", Color(184, 165, 140)};}
-    static CellState generated    (){return {"generated", Color(133, 81, 12)};}
-    static CellState meshing      (){return {"meshing", Color(255, 162, 0)};}
-    static CellState meshed       (){return {"meshed", Color(50, 255, 25)};}
-
-    static void drawLegend(ScreenPos pos, DebugDraw& d, UI::vec2 contentSize){
-        empty        ().drawAsLegend(contentSize.x * 0.02, pos, d);
-        generating   ().drawAsLegend(contentSize.x * 0.02, pos, d);
-        generated    ().drawAsLegend(contentSize.x * 0.02, pos, d);
-        meshing      ().drawAsLegend(contentSize.x * 0.02, pos, d);
-        meshed       ().drawAsLegend(contentSize.x * 0.02, pos, d);
-        
-    }
-    void drawAsLegend(f32 size, ScreenPos& pos, DebugDraw& d){
-        auto gap = size *.4;
-        d.fill(color);
-        d.rect(pos,{size,size});
-        d.fill(Color{255,255,255,255});
-        d.text(name, {pos.x+size, pos.y-size*.5}, 12.0f);
-        pos.y+=size + gap;
-    }
-};
-
-struct MinimapCell{
-    CellState state;
-    MinimapCell(): state(CellState::empty()){}
-    MinimapCell(ChunkEntryStatus status){
-        state=CellState::empty();
-        if (status.isGenerating()){
-            state=CellState::generating();
-        }
-        if (status.isGenerated()){
-            state=CellState::generated();
-        } 
-        if (status.isMeshing()){
-            state=CellState::meshing();
-        } 
-        if (status.isMeshed()){
-            state=CellState::meshed();
-        }
-    }
-};
-struct ChunkMinimap{
-    DebugDraw& d;
-    bool cameraLock=true;
-    WorldChunkCoord centerChunk;
-    static constexpr i32 MinimapRange = 32;
-    static constexpr i32 CellCount = MinimapRange*MinimapRange*MinimapRange;
-    static constexpr auto halfRange = ivec3(MinimapRange*.5f);
-    std::array<MinimapCell, CellCount> cells;
-
-    static constexpr f32 chunkW = 20;
-    static constexpr f32 chunkGap = 2;
-
-};
 void DebugUI::drawUI() {
     auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
     drawFullscreenOverlay(ctx);
     drawMainOverlay(ctx);
-    drawChunkDebugger(ctx);
 }
 
-DebugDraw draw;
-ChunkMinimap minimap{draw};
 
 void DebugUI::setupDebugUI(GLFWwindow* _win_ptr) {
     this->win_ptr = _win_ptr;
@@ -257,67 +104,6 @@ void DebugUI::drawFullscreenOverlay(Simulation* ctx) {
         d->AddText(text_pos, IM_COL32_WHITE, text);
     }
 }
-void DebugUI::drawChunkDebugger(Simulation* ctx) {
-
-    constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
-
-
-    auto&         io = ImGui::GetIO();
-    const auto* viewport = ImGui::GetMainViewport();
-    ScreenPos pos = viewport->WorkPos;
-    ScreenPos size = viewport->WorkSize;
-    auto win_sz = size * ScreenPos{.4f,.5f};
-    ImGui::SetNextWindowSize(win_sz,ImGuiCond_Always);
-
-    ImGui::SetNextWindowPos( ScreenPos{size.x -win_sz.x-PAD.x,PAD.y}, ImGuiCond_Always, ALIGN_TOP_LEFT);
-
-    if (ImGui::Begin("ChunkDebugger", nullptr, window_flags)) {
-        ScreenPos avail = ImGui::GetContentRegionAvail();
-
-        float spacing = ImGui::GetStyle().ItemSpacing.x;
-
-        // Child windows relative to parent content size.
-        float left_w  = avail.x * 0.25f;
-        float right_w = avail.x - left_w - spacing;
-        float child_h = avail.y;
-
-        {
-            ImGui::BeginChild(
-                "chunk-debug-left-panel",
-                ScreenPos{ left_w, child_h },
-                true // border
-            );
-            ImGui::Text("OPTIONS:");
-            // TODO: REDO MINIMAP FROM THE GROUND UP, 
-            // DO SOME MORE PLANNING BEFORE TRYING AGAIN.
-            if (ImGui::Checkbox("Lock map chunkY to cam pos?", &minimap.cameraLock)) {
-                std::println("Checkbox state: {}", minimap.cameraLock ? "true" : "false");
-            }
-            ImGui::BeginDisabled(minimap.cameraLock);
-            ImGui::SliderInt("chunkY",&minimap.centerChunk.y,-16, +16);
-            ImGui::EndDisabled();
-            // minimap.drawLegend();
-
-
-            ImGui::EndChild();
-        }
-
-        ImGui::SameLine();
-        {
-            ImGui::BeginChild(
-                "chunk-debug-minimap-panel",
-                ScreenPos{right_w, child_h},
-                true // border
-            );
-            ImGui::Text("minimap panel");
-            //minimap.drawChunkMinimap();
-            
-            draw.popWindowTransform();
-        }
-        ImGui::EndChild();
-    }
-    ImGui::End();
-}
 
 void DebugUI::drawMainOverlay(Simulation* ctx) {
     ImGuiIO&         io = ImGui::GetIO();
@@ -365,12 +151,12 @@ void DebugUI::drawMainOverlay(Simulation* ctx) {
     auto ch_pos = toWorldChunkCoord(ctx->cam.pos);
     if (UI::StartWindow("DebugOverlay",window_flags)) {
         ImGui::Text("DEBUG OVERLAY");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Dirty()), "Dirty");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Meshed()), "Meshed");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Meshing()), "Meshing");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Generated()), "Generated");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Generating()), "Generating");
-        UI::ColoredText(ChunkDebugColor(ChunkEntryStatus::Ungenerated()), "Ungenerated");
+        UI::ColoredText(ChunkEntryStatus::dirtyMeshed.dbg_color, "Dirty Meshed");
+        UI::ColoredText(ChunkEntryStatus::cleanMeshed.dbg_color, "Clean Meshed");
+        UI::ColoredText(ChunkEntryStatus::meshingInProgress.dbg_color, "Meshing in progress");
+        UI::ColoredText(ChunkEntryStatus::generationFinished.dbg_color, "Generated");
+        UI::ColoredText(ChunkEntryStatus::generationInProgress.dbg_color, "Generation in progress");
+        UI::ColoredText(ChunkEntryStatus::ungenerated.dbg_color, "Ungenerated");
 
 
         ImGui::Separator();
@@ -401,10 +187,10 @@ void DebugUI::drawMainOverlay(Simulation* ctx) {
             std::string id = "##"+key;
 //void ImGui::PlotLines(const char* label, const float* values, int values_count, int values_offset, const char* overlay_text, float scale_min, float scale_max, ImVec2 graph_size, int stride)
             if (!max) max=FLT_MAX;
-            ImGui::PlotLines(id.c_str(), rb.data(), rb.size(), 0, "", FLT_MAX, max, GRAPH_SIZE);
+            ImGui::PlotLines(id.c_str(), rb.data(), rb.size(), 0, "", FLT_MAX, max);
         };
         for (const auto& [key, val]: ctx->time.ringbufs){
-            plotRingBuf(ctx->time.ringbufs.at(key), std::size_t(0), std::string(key), "2.2lfms", true);
+            plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
         }
 
         ImGui::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");

@@ -3,6 +3,11 @@
 #include "NumericConcepts.hpp"
 #include "Types.h"
 
+// NOTE:
+// I dont like how similar `default` and `delete` look when glazing over classes.
+// I think an uppercase delete might help to remedy this.
+#define DELETE delete
+
 // i refuse to pollute 5 different classes with this bullshit
 #define DECL_MOVE_ONLY(CLASS_NAME)                                                                 \
     CLASS_NAME(const CLASS_NAME&) = delete;                                                        \

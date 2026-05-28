@@ -7,19 +7,28 @@
 #include "Input.hpp"
 #include "DebugUI.hpp"
 #include "Renderer.hpp"
+#include "cppslop.hpp"
+#include "Profiler.hpp"
 
 #include "World.hpp"
 
 #include "Concurrency.hpp"
-// src/Context.cpp
+// src/Simulation.cpp
 struct Simulation {
   public:
+    Simulation() =default;
+    ~Simulation() = default;
+    Window   win;
+    Timer    time;
+    Input    input;
+    Camera   cam;
+    Renderer rend;
+    DebugUI  ui;
+    World    world;
     static constexpr std::size_t maxGenUploadsPerFrame= 32;
     static constexpr std::size_t maxGenJobsPerFrame = 32;
     static constexpr std::size_t maxMeshUploadsPerFrame= 16;
     static constexpr std::size_t maxMeshJobsPerFrame = 128;
-    Simulation() = default;
-    ~Simulation() = default;
 
     std::size_t chunksMeshed{0};
 
@@ -36,14 +45,8 @@ struct Simulation {
     std::size_t meshJobsThisFrame = 0;
     std::size_t meshResultsThisFrame = 0;
     
-    Window   win;
-    Timer    time;
-    Input    input;
-    Camera   cam;
-    Renderer rend;
-    DebugUI  ui;
-    World    world;
 
+    void unMeshAllChunks();
     void captureCursor();
     void freeCursor();
     void loop();

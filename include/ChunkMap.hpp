@@ -25,6 +25,10 @@ struct ChunkMap {
     ChunkMap(ChunkMap&&) = delete;
     ChunkMap& operator=(ChunkMap&&) = delete;
 
+    inline void ungenerateAllChunks(){
+        entries.clear();
+    }
+
     ChunkGenerator generator;
     std::unordered_map<WorldChunkCoord, std::unique_ptr<ChunkEntry>> entries;
     // NOTE: This map should be separate to the main chunkEntries map, as neighbouring chunks 
