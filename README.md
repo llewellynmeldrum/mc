@@ -23,6 +23,11 @@ Began working on terrain gen<br>
 <br>
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/6bdb2aae-762c-4afb-a83d-4f35f510a54b" />
 
+Implemented cave generation after a ~1 month concurrency nightmare
+<img width="700" alt="Pasted image 20260528194646" src="https://github.com/user-attachments/assets/e8e08448-c3a9-4a53-b608-7f1ac8893579" />
+<br>
+<img width="700" alt="image" src="https://github.com/user-attachments/assets/53b66b90-2416-45fa-895d-d841188fbaa4" />
+<br>
 
 # Tools used
 - gnu make
