@@ -19,10 +19,14 @@
 - World generation and chunk meshing happens off main thread
 - Chunks are culled ocasionally if they become `render_distance+2` far away from the camera.
 - All the opengl backface culling and whatnot is enabled (where possible)
+- EBO index buffer for slightly less vertex data per face
   
 ## optimizations (planned)
 - Frustum culling (mostly done, but my implementation has some bugs probably in the math somewhere.)
 - !!!! Oclussion culling
+- Chunk neighbours uploaded to meshJobs should only get single slice of neighbours blocks
+- Pack vertex data, could massively save on gpu memory
+- Implement instanced renderer (could do the entire scene in a couple draw calls)
 - chunk mesh decimation/ LOD at further distances (like Distant Horizons mod in minecraft)
 - greedy meshing coplanar faces of same textured faces
 - switch mesh sorting algorithm to a partial sort with a 'budget'
