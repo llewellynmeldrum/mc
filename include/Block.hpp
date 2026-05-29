@@ -22,9 +22,9 @@ inline BlockAttribArray<f32> blockOpacity = {
     1.0,
     1.0,
     1.0,
-    0.70, 
+    0.60, 
     1.0,
-    0.70, 
+    0.90, 
 };
 static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
 

@@ -73,6 +73,7 @@ struct Noise2D{
 public:
     i64 seed{};
     f32 scale{1.0f};
+    f32 amplitude{1.0f};
     NoiseType noiseType{};
 
     Noise2D(NoiseType _noiseType): 
@@ -113,6 +114,9 @@ public:
     inline void setFreq(f32 f){ 
         obj.SetFrequency(f); 
     }
+    inline void setAmplitude(f32 f){ 
+        amplitude = f;
+    }
     inline void setFractalType(FractalType ft){
         obj.SetFractalType(to_FractalType(ft)); 
     }
@@ -121,10 +125,10 @@ public:
     }
     // by default, FastNoiseLite maps values between -1 and 1.
     inline f32 sample(f32 x, f32 y)const{
-        return obj.GetNoise(x,y) * scale;
+        return obj.GetNoise(x* scale,y * scale) *amplitude ;
     }
     inline f32 sample(glm::vec2 v)const{
-        return obj.GetNoise(v.x,v.y) * scale;
+        return obj.GetNoise(v.x * scale,v.y * scale) * amplitude;
     }
 
  private:

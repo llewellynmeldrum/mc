@@ -34,6 +34,8 @@ struct BlockPalette {
     BlockType crust = BlockType::STONE_BLOCK;       // i.e stone for plains, sandstone for desert.
     BlockType deep_crust = BlockType::STONE_BLOCK;  // i.e stone for plains, stone for desert.
     BlockType river_bed = BlockType::DIRT_BLOCK;  // i.e stone for plains, stone for desert.
+    BlockType wood_log = BlockType::OAK_LOG;
+    BlockType leaves = BlockType::OAK_LEAF;
 } palette;
 
 
@@ -95,11 +97,11 @@ public:
             }
         }
     }
-    i32 at_chunk(i32 cx, i32 wz)const {
-        return chunk_buf[cx,wz];
+    i32 at_chunk(i32 cx, i32 cz)const {
+        return chunk_buf[cx,cz];
     }
-    i32 at_world(i32 cx, i32 wz)const {
-        return world_buf[cx,wz];
+    i32 at_world(i32 wx, i32 wz)const {
+        return world_buf[wx,wz];
     }
 };
 // 1. make a lambda function which allows for faster iteration of coordinate ranges
@@ -108,12 +110,6 @@ public:
 // Ideally, i would like to adjust generation params and get reloads of all chunks.
 //
 
-// i would like some sort of region view struct, which gives me access to blcoks within a 3x3 chunk radius, around a center chunk.
-//
-
-// Represents a non owning view of a (potentially?) 3x3 array of blocks.
-struct ChunkRegionView{
-};
 
 static GenResult generateChunk(GenJob job){
     GenResult res{
@@ -122,12 +118,12 @@ static GenResult generateChunk(GenJob job){
         .meta = {},
         .deferredWrites = {},
     };
-    auto& [chunkCoord, blocks, meta, pendingWrites] = res;
+    auto& [chunkCoord, chunk, meta, pendingWrites] = res;
 
     constexpr glm::ivec2 chunkLocalMin2 = {0,0};
     constexpr  glm::ivec2 chunkLocalMax2 =ivec2{Chunk::Extents.x, Chunk::Extents.z};
     //GenConfig;
-    const auto& gen_cfg = job.cfg;
+    const GenConfig& gen_cfg = job.cfg;
 
     Noise2D heightNoise1{NoiseType::Perlin};
     heightNoise1.setFractalType(FractalType::FBm);
@@ -156,7 +152,7 @@ static GenResult generateChunk(GenJob job){
     const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{Chunk::Extents};
 
     // BUG: This is broken, pending writes dont apply properly.
-    auto tryBlockWrite = [&blocks, world_block_lo, world_block_hi, chunkCoord, &pendingWrites]
+    auto tryBlockWrite = [&chunk, world_block_lo, world_block_hi, chunkCoord, &pendingWrites]
         (OverwritePolicy policy, WorldBlockPos wpos, BlockType bt){
         bool writeIsWithinChunkBounds = LM::isVecInBounds(wpos, world_block_lo, world_block_hi);
         if (writeIsWithinChunkBounds){
@@ -164,11 +160,11 @@ static GenResult generateChunk(GenJob job){
             i32 cx = wpos.x - world_block_lo.x;
             i32 cy = wpos.y - world_block_lo.y;
             i32 cz = wpos.z - world_block_lo.z;
-            if (canMakeWrite(policy, blocks.at(cx,cy,cz))){
-                blocks.set(cx,cy,cz, bt);
+            if (canMakeWrite(policy, chunk.at(cx,cy,cz))){
+                chunk.set(cx,cy,cz, bt);
             }
         }else{
-            pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
+         pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
         }
     };
 
@@ -185,7 +181,7 @@ static GenResult generateChunk(GenJob job){
         const glm::ivec2 chunkLocalMin = {0,0};
         const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
         ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
-            blocks.setColumn({cx,0,cz},chunk_heightmap.at_chunk(cx,cz), palette.crust);
+            chunk.setColumn({cx,0,cz},chunk_heightmap.at_chunk(cx,cz), palette.crust);
         });
     }
 
@@ -204,8 +200,8 @@ static GenResult generateChunk(GenJob job){
 
             if (dist_to_top_block<0){ // we are above the top block
                 if (wy < gen_cfg.SEA_LEVEL){
-                    if(blocks.at(cx,cy,cz)==BlockType::AIR){
-                        blocks.set(cx,cy,cz,BlockType::WATER_BLOCK);
+                    if(chunk.at(cx,cy,cz)==BlockType::AIR){
+                        chunk.set(cx,cy,cz,BlockType::WATER_BLOCK);
                         auto wpos_below = WorldBlockPos{wx,wy-1,wz};
                         tryBlockWrite(
                             OverwritePolicy::OnlyGrass, 
@@ -215,14 +211,14 @@ static GenResult generateChunk(GenJob job){
                     }
                 }
             } else if (dist_to_top_block <= 1){
-                blocks.set(cx,cy,cz,palette.topsoil);
+                chunk.set(cx,cy,cz,palette.topsoil);
             } else if (dist_to_top_block <= 5){
-                blocks.set(cx,cy,cz,palette.soil);
+                chunk.set(cx,cy,cz,palette.soil);
             }
         });
     }
 
-    {
+    
     // 3. generate 3d noise  for caves, threshhold out low vals
     const glm::ivec3 chunkLocalMin = {0,0,0};
     const glm::ivec3 chunkLocalMax = ivec3{Chunk::Extents.x, Chunk::Extents.y, Chunk::Extents.z};
@@ -236,10 +232,10 @@ static GenResult generateChunk(GenJob job){
             noise_val/=height_factor;
             // at -150 blocks, 2
             // at 150 blocks, 0.5
-            if (blocks.at(cx,cy,cz) == BlockType::STONE_BLOCK){
+            if (chunk.at(cx,cy,cz) == BlockType::STONE_BLOCK){
                 if (noise_val < gen_cfg.cave_air_threshold){
                     // only replace stone blocks with caves
-                    blocks.set(cx,cy,cz, BlockType::AIR);
+                    chunk.set(cx,cy,cz, BlockType::AIR);
                 }else{
                     // TODO: If we reach here, the block has not been nuked by cave noise
                     // therefore put some ore here with some very low threshold, high octave 3d noise
@@ -247,7 +243,82 @@ static GenResult generateChunk(GenJob job){
             }
         }
     });
-    }
+
+    
+    // NOTE: 
+    // PLACE TREES
+    auto tree_height = [&job](i32 cx, i32 cz){
+        srand(job.worldSeed+cx+cz);
+        return static_cast<i32>(std::round(randf(4,6)));
+    };
+    Noise2D treeDensityNoise(NoiseType::Perlin,job.worldSeed);
+    auto placeTree =[chunkCoord, &chunk, tryBlockWrite, tree_height](i32 cx, i32 cy, i32 cz){
+        const auto wpos = WorldBlockPos{chunkCoord.raw()*Chunk::Extents} +BlockOffset{cx,cy,cz};
+        WorldBlockPos iwpos = wpos;
+        for (i32 dy = 0; dy<tree_height(cx,cz); dy++){
+            iwpos.y = wpos.y + dy;
+            tryBlockWrite(
+                OverwritePolicy::OnlyAir, 
+                iwpos, 
+                palette.wood_log
+            );
+        }
+        ForEachInRangeEx(ivec3{-1,0,-1},ivec3{2,2,2},[&](i32 ix, i32 iy, i32 iz){
+            tryBlockWrite(
+                OverwritePolicy::OnlyAir, 
+                WorldBlockPos{iwpos.raw()+ivec3{ix,iy,iz}},
+                palette.leaves
+            );
+
+        });
+        tryBlockWrite(
+            OverwritePolicy::OnlyAir, 
+            WorldBlockPos{iwpos.raw()+ivec3{-1,2,0}},
+            palette.leaves
+        );
+        tryBlockWrite(
+            OverwritePolicy::OnlyAir, 
+            WorldBlockPos{iwpos.raw()+ivec3{1,2,0}},
+            palette.leaves
+        );
+        tryBlockWrite(
+            OverwritePolicy::OnlyAir, 
+            WorldBlockPos{iwpos.raw()+ivec3{0,2,1}},
+            palette.leaves
+        );
+        tryBlockWrite(
+            OverwritePolicy::OnlyAir, 
+            WorldBlockPos{iwpos.raw()+ivec3{0,2,-1}},
+            palette.leaves
+        );
+        tryBlockWrite(
+            OverwritePolicy::OnlyAir, 
+            WorldBlockPos{iwpos.raw()+ivec3{0,2,0}},
+            palette.leaves
+        );
+    };
+
+    treeDensityNoise.setScale(1.5);
+
+    ForEachInRangeEx(chunkLocalMin2,chunkLocalMax2,[&](i32 cx, i32 cz){
+        i32 cy = chunk_heightmap.at_chunk(cx,cz);
+        i32 wx{chunkCoord.x*Chunk::Extents.x + cx};
+        i32 wz{chunkCoord.z*Chunk::Extents.z + cz};
+        i32 w_top_block_y = chunk_heightmap.at_world(cx,cz);
+        i32 wy = chunkCoord.y*Chunk::Extents.y;
+        srand(job.worldSeed+wx+wz);
+        i32 dist_to_top_block = w_top_block_y - wy;
+        if (cy>=1 && chunk.at(cx,cy-1,cz)==BlockType::GRASS_BLOCK){
+            auto r = randf(0,1);
+            if (r <= gen_cfg.tree_place_threshold){
+                placeTree(cx,cy+1,cz);
+            }
+
+        }
+
+    });
+
+
     
 
 

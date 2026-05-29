@@ -52,7 +52,7 @@ struct Simulation {
     void captureCursor();
     void freeCursor();
     void loop();
-    static constexpr i32 RENDER_DIST = 6;
+    static constexpr i32 RENDER_DIST = 8;
     static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
     static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;

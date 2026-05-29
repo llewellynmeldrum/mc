@@ -80,7 +80,7 @@ void ForEachInRangeEx(IntVec3 min, IntVec3 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
     for (ScalarType x = min.x; x<max.x; x++){
     for (ScalarType y = min.y; y<max.y; y++){
-    for (ScalarType z = min.y; z<max.y; z++){
+    for (ScalarType z = min.z; z<max.z; z++){
         if constexpr(return_type_is<IterationSignal, Fn, IntVec3>){
             switch(std::invoke(std::forward<Fn>(task),{x,y,z})){
                 case IterationSignal::CONTINUE: continue; break;
@@ -101,7 +101,7 @@ void ForEachInRangeEx(IntVec3 min, IntVec3 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
     for (ScalarType x = min.x; x<max.x; x++){
     for (ScalarType y = min.y; y<max.y; y++){
-    for (ScalarType z = min.y; z<max.y; z++){
+    for (ScalarType z = min.z; z<max.z; z++){
         if constexpr(return_type_is<IterationSignal, Fn,val_t<IntVec3>,val_t<IntVec3>,val_t<IntVec3>>){
             switch(std::invoke(std::forward<Fn>(task),x,y,z)){
                 case IterationSignal::CONTINUE: continue; break;
