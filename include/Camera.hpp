@@ -81,7 +81,7 @@ struct Camera {
     f32 keyboard_sensitivity = 1.5;
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 
-    f32 vertical_fov = 90.0f;
+    f32 vertical_fov = 40.0f;
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
 

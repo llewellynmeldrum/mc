@@ -82,6 +82,7 @@ struct TransparentMeshData{
     std::vector<Vertex> vertices{};
     std::vector<u32> indices{};
 };
+
 // QUEUE: MeshResultQueue
 // PRODUCER: Mesher Thread
 // CONSUMER: Main thread.

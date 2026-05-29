@@ -17,15 +17,17 @@ struct Vertex {
     glm::vec2 txCoords;
     glm::vec3 overlayColor{ 1.0f };
     i32  face_direction;
+    float faceOpacity;
 
     static constexpr auto layout() {
-        return VertexLayout<4>{ 
+        return VertexLayout<5>{ 
             .stride = sizeof(Vertex),
             .attrs = {
                make_attr<glm::vec3>(0, offsetof(Vertex, pos)),
                make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),
                make_attr<glm::vec3>(2, offsetof(Vertex, overlayColor)),
-               make_attr<i32>(3, offsetof(Vertex, face_direction)),
+               make_attr<i32>      (3, offsetof(Vertex, face_direction)),
+               make_attr<f32>      (4, offsetof(Vertex, faceOpacity)),
             }, 
         };
     }

@@ -88,7 +88,7 @@ getNeighbourBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
 //  5. 
 
 template<typename MeshDataType>
-auto lambdaThing(ChunkStore& chunk){
+auto meshTypePredicate(ChunkStore& chunk){
     if constexpr(same_as_nocvref<OpaqueMeshData,MeshDataType>){
         return [&chunk](auto xyz){
             auto [x,y,z]=xyz;
@@ -116,11 +116,8 @@ MeshDataType meshChunk(const MeshJob& job){
     const auto atlas= job.atlas;
     const auto& surrounding_chunks = job.surroundingChunks;
 
-
-
-
     u32 vtx_count = 0;
-    for (const auto& [x, y, z] : EachBlockInChunk(lambdaThing<MeshDataType>(chunk))) {
+    for (const auto& [x, y, z] : EachBlockInChunk(meshTypePredicate<MeshDataType>(chunk))) {
         const ChunkBlockPos chunkLocal = { x, y, z };
         // TODO: UNUSED ATM
         const glm::vec3 overlayRBG = {0,0,0}; 
@@ -129,6 +126,8 @@ MeshDataType meshChunk(const MeshJob& job){
         if (block.isAir()) {
             continue;
         }
+
+        const f32 block_opacity = block.getOpacity();
         auto neighbour_blocks = getNeighbourBlocks(job,chunkLocal);
 
         for (const auto& [face_idx, adjacentBlock] : enumerate(neighbour_blocks)) {
@@ -136,6 +135,11 @@ MeshDataType meshChunk(const MeshJob& job){
             if constexpr (same_as_nocvref<OpaqueMeshData,MeshDataType>){
                 // skip opaque blocks in the opaque meshing function
                 if (adjacentBlock.isOpaque()) {
+                    continue;
+                }
+            }else {
+                // for transparent blocks, skip meshing faces which touch identical neighbours
+                if (adjacentBlock.type==block.type){
                     continue;
                 }
             }
@@ -159,7 +163,8 @@ MeshDataType meshChunk(const MeshJob& job){
                     chunk_offsetted_vtx_pos,
                     texture_coords, 
                     overlayRBG, 
-                    static_cast<i32>(faceDir)
+                    static_cast<i32>(faceDir),
+                    block_opacity
                 );
                 vtx_count++;
             }

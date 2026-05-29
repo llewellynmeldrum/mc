@@ -22,9 +22,9 @@ inline BlockAttribArray<f32> blockOpacity = {
     1.0,
     1.0,
     1.0,
-    1.00, 
+    0.70, 
     1.0,
-    1.00, 
+    0.70, 
 };
 static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
 
@@ -38,6 +38,7 @@ struct Block {
     constexpr inline i64 texture_id() const noexcept {
         return idx() - 1;  // this is hacky idk why i have to do this
     }
+    constexpr inline float getOpacity() const noexcept { return blockOpacity[idx()]; }
     constexpr inline bool isOpaque() const noexcept { return blockOpacity[idx()] >= 1.0; }
     constexpr inline bool isTransparent() const noexcept { return blockOpacity[idx()] < 1.0; }
     constexpr inline bool isAir() const noexcept { return type == BlockType::AIR; }

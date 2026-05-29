@@ -53,6 +53,7 @@ void Simulation::unMeshAllChunks(){
         entry->requestMeshRegen();
     }
     rend.opaqueChunkMeshes.clear();
+    rend.transparentChunkMeshes.clear();
 }
 
 void Simulation::captureCursor(){
@@ -345,9 +346,9 @@ void Simulation::draw() {
     rend.clear({ 0.25, 0.5, 0.85, 1.0 });
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-    rend.draw(cam);
+    rend.drawChunks(cam);
     if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(cam,world);
+//        rend.draw_debugChunks(cam,world);
     }
     static bool first_draw = true;
     if (first_draw) {

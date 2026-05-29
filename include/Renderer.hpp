@@ -60,7 +60,9 @@ struct Renderer {
     DebugChunkRenderer dbg_rend;
 
     void setup();
-    void draw(Camera& cam);
+    void drawChunks(Camera& cam);
+    void drawOpaque(Camera& cam);
+    void drawTransparent(Camera& cam);
     void draw_debugChunks(Camera& cam, World& world);
     void clear(const glm::vec4 clear_color);
 
