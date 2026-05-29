@@ -1,3 +1,4 @@
+#include "ChunkConstants.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormatSpecializations.hpp"
@@ -15,7 +16,7 @@ using namespace glm;
             while (!writesForMe.empty()){
                 const auto write = writesForMe.top(); writesForMe.pop();
                 pendingWritesSuccessful += srcBlocks.tryWrite(write);
-                pendingWritesAttempted++;
+                //pendingWritesAttempted++;
             }
             if (pendingWritesMap.at(chunkCoord).empty()){
                 // remove the queue if it no longer has anything remaining
@@ -28,15 +29,15 @@ using namespace glm;
         for (const auto& write: newWriteList){
             // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
             const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
-            if (entries.contains(targetChunkCoord)){
+            if (has_entry(targetChunkCoord)){
                 auto& entry = entries.at(targetChunkCoord);
                 pendingWritesSuccessful += entry->block_data.tryWrite(write);
                 pendingWritesAttempted++;
             }else{
                 // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
                 // and then enqueue the write.
-                bool mapEntryExists = pendingWritesMap.contains(targetChunkCoord);
-                if (!mapEntryExists){
+                bool pendingWritesEntryExists = pendingWritesMap.contains(targetChunkCoord);
+                if (!pendingWritesEntryExists){
                     pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
                 }
                 pendingWritesMap.at(targetChunkCoord).push(write);
@@ -65,17 +66,20 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
         const auto neighbourChunkCoord = chunkCoord + ChunkOffset{offset};
         if (entries.contains(neighbourChunkCoord)) {
             // assign NEIGHBOUR to OUR NeighbourList @dir
-            const auto* neighbourChunk = &entries[neighbourChunkCoord]->block_data;
-            if (!neighbourChunk){
-                continue;
-            }
-            my_neighbours[dir_idx] = neighbourChunk;
+            auto* neighbourEntry = get_entry(neighbourChunkCoord);
+            my_neighbours[dir_idx] = &neighbourEntry->block_data;
+            // also INVALIDATE THEIR MESH
+            neighbourEntry->requestMeshRegen();
+            // NOTE: This is an optmisation for opaque chunks, 
+            // but necessary for transparent chunks. 
 
             // assign OURSELVES to NEIGHBOUR.dir @inverseDir
             const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
             entries[neighbourChunkCoord]->neighbours[inverseDir_idx] = self_ptr;
         }
     }
+    // ALSO!!! invalidate all neighbours mesh as invalid here
+    
     // what the fuck am i looking at 
     entries.at(chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
 

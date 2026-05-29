@@ -2,31 +2,59 @@
 
 
 #include "Block.hpp"
+#include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "glmWrapper.hpp"
 #include <queue>
+#include <type_traits>
+
+enum class OverwritePolicy: u8{
+    OnlyAir,
+    OnlyGrass,
+};
 
 struct PendingBlockWrite{
-    BlockType block;
-    WorldBlockPos targetWorldBlockPos;
-    u8 priority;
+    OverwritePolicy overwritePolicy;
     WorldChunkCoord sourceChunkCoord;
-    PendingBlockWrite(const WorldChunkCoord _sourceChunkCoord, const WorldBlockPos& _blockPos, BlockType bt);
-
-    PendingBlockWrite() = delete;
-    ~PendingBlockWrite() = default;
-
-    inline bool operator==(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
-        if (lhs.priority==rhs.priority) return true;
-        else return lhs.sourceChunkCoord == rhs.sourceChunkCoord;
-    }
-    inline auto operator<=>(this const PendingBlockWrite& lhs, const PendingBlockWrite& rhs){
-        auto cmp1 = lhs.priority<=>rhs.priority;
-        if ( cmp1 != 0) return cmp1; //NOLINT
-        // TIE BREAK DETERMINISTICALLY BASED ON SOURCE CHUNK
-        else return lhs.sourceChunkCoord <=> rhs.sourceChunkCoord;
-    }
+    WorldBlockPos targetWorldBlockPos;
+    BlockType source_block;
 };
+inline auto operator<=>(PendingBlockWrite lhs, PendingBlockWrite rhs){
+    return lhs.sourceChunkCoord<=>rhs.sourceChunkCoord;
+}
+inline auto operator==(PendingBlockWrite lhs, PendingBlockWrite rhs){
+    return lhs.sourceChunkCoord==rhs.sourceChunkCoord;
+}
+
+inline PendingBlockWrite makePendingWrite(OverwritePolicy pol, WorldChunkCoord src_coord, BlockType src_type, WorldBlockPos dst_pos){
+    return PendingBlockWrite{
+        .overwritePolicy = pol,
+        .sourceChunkCoord = src_coord,
+        .targetWorldBlockPos = dst_pos,
+        .source_block = src_type,
+
+    };
+}
+
+inline bool canMakeWrite(const OverwritePolicy& policy, const Block& target){
+    switch(policy){
+        case OverwritePolicy::OnlyAir:
+            return target.type==BlockType::AIR; 
+        break;
+
+        case OverwritePolicy::OnlyGrass:
+            return target.type==BlockType::GRASS_BLOCK;
+        break;
+
+        default:
+        break;
+    }
+    return false;
+}
+inline bool canMakeWrite(const PendingBlockWrite& pending, const Block& target){
+    return canMakeWrite(pending.overwritePolicy,target);
+}
+
 
 // chunkBlockPos->      worldChunkCoord = deleted
 // worldChunkCoord->    chunkBlockPos = deleted

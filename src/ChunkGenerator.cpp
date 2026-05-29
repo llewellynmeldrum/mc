@@ -10,6 +10,7 @@
 #include "LM.hpp"
 
 #include "NoiseSystem.hpp"
+#include "PendingBlockWrites.hpp"
 #include "World.hpp"
 #include "Logger.hpp"
 #include "Types.h"
@@ -32,6 +33,7 @@ struct BlockPalette {
     BlockType soil = BlockType::DIRT_BLOCK;         // i.e dirt for plains, sand for desert.
     BlockType crust = BlockType::STONE_BLOCK;       // i.e stone for plains, sandstone for desert.
     BlockType deep_crust = BlockType::STONE_BLOCK;  // i.e stone for plains, stone for desert.
+    BlockType river_bed = BlockType::DIRT_BLOCK;  // i.e stone for plains, stone for desert.
 } palette;
 
 
@@ -106,6 +108,12 @@ public:
 // Ideally, i would like to adjust generation params and get reloads of all chunks.
 //
 
+// i would like some sort of region view struct, which gives me access to blcoks within a 3x3 chunk radius, around a center chunk.
+//
+
+// Represents a non owning view of a (potentially?) 3x3 array of blocks.
+struct ChunkRegionView{
+};
 
 static GenResult generateChunk(GenJob job){
     GenResult res{
@@ -114,8 +122,10 @@ static GenResult generateChunk(GenJob job){
         .meta = {},
         .deferredWrites = {},
     };
-    auto& [chunkCoord, blocks, meta, deferredWrites] = res;
+    auto& [chunkCoord, blocks, meta, pendingWrites] = res;
 
+    constexpr glm::ivec2 chunkLocalMin2 = {0,0};
+    constexpr  glm::ivec2 chunkLocalMax2 =ivec2{Chunk::Extents.x, Chunk::Extents.z};
     //GenConfig;
     const auto& gen_cfg = job.cfg;
 
@@ -137,11 +147,36 @@ static GenResult generateChunk(GenJob job){
     caveNoise.setFractalOctaves(3);
 
 
+    //PendingBlockWrite
+    auto queueDeferredWrite = [chunkCoord, &pendingWrites](OverwritePolicy pol, WorldBlockPos wpos, BlockType bt){
+    };
+
+    const auto world_block_origin = toWorldOrigin(job.chunkCoord);
+    const auto& world_block_lo = world_block_origin;
+    const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{Chunk::Extents};
+
+    // BUG: This is broken, pending writes dont apply properly.
+    auto tryBlockWrite = [&blocks, world_block_lo, world_block_hi, chunkCoord, &pendingWrites]
+        (OverwritePolicy policy, WorldBlockPos wpos, BlockType bt){
+        bool writeIsWithinChunkBounds = LM::isVecInBounds(wpos, world_block_lo, world_block_hi);
+        if (writeIsWithinChunkBounds){
+            // do it immediately
+            i32 cx = wpos.x - world_block_lo.x;
+            i32 cy = wpos.y - world_block_lo.y;
+            i32 cz = wpos.z - world_block_lo.z;
+            if (canMakeWrite(policy, blocks.at(cx,cy,cz))){
+                blocks.set(cx,cy,cz, bt);
+            }
+        }else{
+            pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
+        }
+    };
+
+
 
 
     const HeightMap chunk_heightmap{heightNoise1, heightNoise2, gen_cfg, chunkCoord, job.worldSeed};
 
-    const auto world_block_origin = toWorldOrigin(job.chunkCoord);
 
 
     // 1. Generate heightmap and set max height per xz column.
@@ -149,71 +184,75 @@ static GenResult generateChunk(GenJob job){
         i2D_Array<Chunk::Extents.x, Chunk::Extents.y> heightAt;
         const glm::ivec2 chunkLocalMin = {0,0};
         const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
-        // 1. Apply heightmap to do something icant rememebr
         ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
             blocks.setColumn({cx,0,cz},chunk_heightmap.at_chunk(cx,cz), palette.crust);
         });
     }
 
+    // 2. paint blocks based on their position
     {
-        // paint blocks based on their position
-        const glm::ivec2 chunkLocalMin = {0,0};
-        const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
-        ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
-            // lakes can only begin generating ABOVE the grass blocks (top block)
+        const glm::ivec3 chunkLocalMin = {0,0,0};
+        const glm::ivec3 chunkLocalMax = ivec3{Chunk::Extents};
+        ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cy, i32 cz){
+            i32 wx = cx+world_block_origin.x;
+            i32 wz = cz+world_block_origin.z;
             i32 w_top_block_y = chunk_heightmap.at_world(cx,cz);
             i32 c_top_block_y = chunk_heightmap.at_chunk(cx,cz);
-            ForEachInRangeEx(0,Chunk::Extents.y,[&](i32 cy){
-                i32 wy = cy+world_block_origin.y;
-                if (wy > w_top_block_y-1){ // we are above the top block
-                    if (wy < gen_cfg.SEA_LEVEL&&
-                    blocks.at(cx,cy,cz)==BlockType::AIR){
+            i32 wy = cy+world_block_origin.y;
+
+            i32 dist_to_top_block = w_top_block_y - wy;
+
+            if (dist_to_top_block<0){ // we are above the top block
+                if (wy < gen_cfg.SEA_LEVEL){
+                    if(blocks.at(cx,cy,cz)==BlockType::AIR){
                         blocks.set(cx,cy,cz,BlockType::WATER_BLOCK);
-                    }
-                } else {
-                    i32 dist_to_top_block = w_top_block_y - wy;
-                    if (dist_to_top_block == 1){
-                        blocks.set(cx,cy,cz,palette.topsoil);
-                    } else if (dist_to_top_block <= 5){
-                        blocks.set(cx,cy,cz,palette.soil);
+                        auto wpos_below = WorldBlockPos{wx,wy-1,wz};
+                        tryBlockWrite(
+                            OverwritePolicy::OnlyGrass, 
+                            wpos_below, 
+                            palette.river_bed
+                        );
                     }
                 }
-            });
-        });
-    }
-    {
-        // 2. generate 3d noise  for caves, threshhold out low vals
-        const glm::ivec3 chunkLocalMin = {0,0,0};
-        const glm::ivec3 chunkLocalMax = ivec3{Chunk::Extents.x, Chunk::Extents.y, Chunk::Extents.z};
-        ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cy, i32 cz){
-            i32 wx = world_block_origin.x+cx;
-            i32 wy = world_block_origin.y+cy;
-            i32 wz = world_block_origin.z+cz;
-            if (wy<gen_cfg.cave_y_threshold){ 
-                f32 noise_val = caveNoise.sample(wx,wy,wz);
-                f32 height_factor = wy / -150.0f;
-                noise_val/=height_factor;
-                // at -150 blocks, 2
-                // at 150 blocks, 0.5
-                if (noise_val < gen_cfg.cave_air_threshold
-                    && blocks.at(cx,cy,cz) == BlockType::STONE_BLOCK){
-                    // only replace stone blocks with caves
-                    blocks.set(cx,cy,cz, BlockType::AIR);
-                }
+            } else if (dist_to_top_block <= 1){
+                blocks.set(cx,cy,cz,palette.topsoil);
+            } else if (dist_to_top_block <= 5){
+                blocks.set(cx,cy,cz,palette.soil);
             }
         });
     }
 
-    // 3. paint blocks
+    {
+    // 3. generate 3d noise  for caves, threshhold out low vals
+    const glm::ivec3 chunkLocalMin = {0,0,0};
+    const glm::ivec3 chunkLocalMax = ivec3{Chunk::Extents.x, Chunk::Extents.y, Chunk::Extents.z};
+    ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cy, i32 cz){
+        i32 wx = world_block_origin.x+cx;
+        i32 wy = world_block_origin.y+cy;
+        i32 wz = world_block_origin.z+cz;
+        if (wy<gen_cfg.cave_y_threshold){ 
+            f32 noise_val = caveNoise.sample(wx,wy,wz);
+            f32 height_factor = wy / -150.0f;
+            noise_val/=height_factor;
+            // at -150 blocks, 2
+            // at 150 blocks, 0.5
+            if (blocks.at(cx,cy,cz) == BlockType::STONE_BLOCK){
+                if (noise_val < gen_cfg.cave_air_threshold){
+                    // only replace stone blocks with caves
+                    blocks.set(cx,cy,cz, BlockType::AIR);
+                }else{
+                    // TODO: If we reach here, the block has not been nuked by cave noise
+                    // therefore put some ore here with some very low threshold, high octave 3d noise
+                }
+            }
+        }
+    });
+    }
     
 
 
-    // 1. use 2d noise for heightmap, place Palette.crust from 0->height
-
 
     return res;
-    // 2. use 3d noise and thresholding to paint air blocks under certain Y (caves) 
-    // 3. Paint blocks (soil on top N blocks, grass on top 1 block.)
     // 4. Paint ores in stone blocks below certain point
     // 5. Create trees.
 }

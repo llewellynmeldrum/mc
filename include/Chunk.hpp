@@ -78,7 +78,7 @@ struct Chunk{
     static constexpr glm::ivec3 Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 
 
-    inline auto span(this auto& self){
+    inline decltype(auto) span(this auto& self){
         return std::mdspan(self.data.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
     }
     inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {

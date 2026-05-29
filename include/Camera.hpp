@@ -78,12 +78,12 @@ struct Camera {
     f32 yaw = -90;
     f32 pitch = 0;
     f32 mouse_sensitivity = 6000;
-    f32 keyboard_sensitivity = 1.5;
-    f32 moveSpeed = Camera::BASE_MOVESPEED;
 
-    f32 vertical_fov = 40.0f;
+    f32 vertical_fov = 70.0f;
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
+    f32 keyboard_sensitivity = 1.5;
+    f32 moveSpeed = Camera::BASE_MOVESPEED;
 
     inline glm::mat4 getProjectionMatrix() const{
         return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);

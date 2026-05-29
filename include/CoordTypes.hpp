@@ -44,7 +44,10 @@ struct Coord3{
     constexpr Coord3& operator=(const Coord3& rhs)=default;
     constexpr Coord3& operator=(Coord3&& rhs)=default;
 
+
+    constexpr Coord3(ScalarType all) noexcept :x(all),y(all), z(all) {}
     constexpr Coord3(ScalarType _x, ScalarType _y, ScalarType _z) noexcept :x(_x),y(_y), z(_z) {}
+
     explicit constexpr Coord3(VecType v) noexcept :x(v.x),y(v.y), z(v.z) {}
 
 

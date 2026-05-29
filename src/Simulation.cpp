@@ -9,6 +9,7 @@
 
 #include "Simulation.hpp"
 
+#include "LM.hpp"
 #include "Profiler.hpp"
 #include "Logger.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -96,6 +97,31 @@ void Simulation::loop(){
     time.end_frame();
 }
 
+void Simulation::cullMeshes(){
+    // if a mesh is outside of render dist, but still being meshed, cull it.
+    for (auto& mesh: rend.transparentChunkMeshes){
+
+    }
+    auto lo = toWorldChunkCoord(cam.pos) + ChunkOffset{-MESH_CULL_DIST};
+    auto hi = toWorldChunkCoord(cam.pos) + ChunkOffset{MESH_CULL_DIST};
+
+    auto predFactory = [](auto& chunkMap, auto lo, auto hi){
+        return [lo,hi, &chunkMap](const auto& mesh){
+            bool shouldRemove = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
+            if (shouldRemove){
+                chunkMap.get_entry(mesh.chunkCoord)->requestMeshRegen();
+            }else{
+
+            }
+            return shouldRemove;
+        };
+    };
+    // erase all elements which are out of bounds, no?
+    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, predFactory(world.chunkMap,lo,hi));
+    auto n_erased= std::erase_if(rend.transparentChunkMeshes, predFactory(world.chunkMap,lo,hi));
+
+}
+
 void Simulation::update() {
     time.bench_start("enqueueGen");
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
@@ -107,6 +133,7 @@ void Simulation::update() {
     time.bench_end("drainGen");
     rb_genResultsAdded.write(genResultsThisFrame);
 
+    cullMeshes();
     time.bench_start("enqueueMesh");
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
     time.bench_end("enqueueMesh");
@@ -348,7 +375,7 @@ void Simulation::draw() {
 
     rend.drawChunks(cam);
     if(rend.debug.showChunkBoundaries){
-//        rend.draw_debugChunks(cam,world);
+        rend.draw_debugChunks(cam,world);
     }
     static bool first_draw = true;
     if (first_draw) {
