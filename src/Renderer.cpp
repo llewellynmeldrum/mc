@@ -56,12 +56,12 @@ void Renderer::draw(Camera& cam){
             return sq(b.x-a.x) + sq(b.y-a.y) + sq(b.z-a.z);
         };
         auto source = toWorldChunkCoord(cam.pos);
-        std::ranges::sort(visibleChunkMeshes, [sqdist, source](const auto& lhs, const auto& rhs){
+        std::ranges::sort(opaqueChunkMeshes, [sqdist, source](const auto& lhs, const auto& rhs){
             // sort ascending, i.e mesh closest first.
             // Will have to flip when i do transperancy
             return sqdist(source,lhs.chunkCoord) < sqdist(source,rhs.chunkCoord);
         });
-        for (const auto& mesh : visibleChunkMeshes) {
+        for (const auto& mesh : opaqueChunkMeshes) {
             const auto chunkFloatWorldPos = WorldFloatPos{toWorldOrigin(mesh.chunkCoord).raw()};
  //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
 //            std::println("{}",chunkDist);

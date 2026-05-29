@@ -9,6 +9,9 @@ enum class BlockType : u8 {
     DIRT_BLOCK,
     GRASS_BLOCK,
     STONE_BLOCK,
+    WATER_BLOCK,
+    OAK_LOG,
+    OAK_LEAF,
     COUNT,
 };
 template <typename Attr_t>
@@ -19,8 +22,12 @@ inline BlockAttribArray<f32> blockOpacity = {
     1.0,
     1.0,
     1.0,
+    1.00, 
+    1.0,
+    1.00, 
 };
 static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
+
 struct Block {
     Block (): type(BlockType::AIR){} //NOLINT
     Block (BlockType bt): type(bt){}
@@ -32,6 +39,7 @@ struct Block {
         return idx() - 1;  // this is hacky idk why i have to do this
     }
     constexpr inline bool isOpaque() const noexcept { return blockOpacity[idx()] >= 1.0; }
+    constexpr inline bool isTransparent() const noexcept { return blockOpacity[idx()] < 1.0; }
     constexpr inline bool isAir() const noexcept { return type == BlockType::AIR; }
 
     constexpr auto operator<=>(const Block& other) const = default;

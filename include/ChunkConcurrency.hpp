@@ -17,14 +17,11 @@
 
 
 struct GenConfig{
-    u32 SEA_LEVEL = 128;
-    f32 cave_air_threshold = -0.25;
-    i32 cave_y_threshold = 72;
-
-
-
+    i32 SEA_LEVEL = 140;
+    f32 cave_air_threshold = -0.55;
+    i32 cave_y_threshold = 150;
     i32 MAX_ELEVATION_DELTA = 32;
-    i32 MIN_HEIGHT = 0;
+    i32 TERRAIN_HEIGHT(){return SEA_LEVEL+16;}
 };
 
 
@@ -76,14 +73,23 @@ struct MeshJob{
     }
 };
 
+struct OpaqueMeshData{
+    std::vector<Vertex> vertices{};
+    std::vector<u32> indices{};
+};
+
+struct TransparentMeshData{
+    std::vector<Vertex> vertices{};
+    std::vector<u32> indices{};
+};
 // QUEUE: MeshResultQueue
 // PRODUCER: Mesher Thread
 // CONSUMER: Main thread.
 struct MeshResult{
     std::size_t meshGeneration;
     WorldChunkCoord chunkCoord;
-    std::vector<Vertex> vertices{};
-    std::vector<u32> indices{};
+    OpaqueMeshData opaque;
+    TransparentMeshData transparent;
 };
 
 

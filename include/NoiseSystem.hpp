@@ -72,6 +72,7 @@ FNL_ENUM_WRAPPER(DomainWarpType)
 struct Noise2D{
 public:
     i64 seed{};
+    f32 scale{1.0f};
     NoiseType noiseType{};
 
     Noise2D(NoiseType _noiseType): 
@@ -106,6 +107,9 @@ public:
     inline void setNoiseType(NoiseType nt){ 
         obj.SetNoiseType(to_NoiseType(nt)); 
     }
+    inline void setScale(f32 f){ 
+        scale=f;
+    }
     inline void setFreq(f32 f){ 
         obj.SetFrequency(f); 
     }
@@ -114,14 +118,13 @@ public:
     }
     inline void setFractalOctaves(u32 n_octaves){
         obj.SetFractalOctaves(n_octaves); 
-
     }
     // by default, FastNoiseLite maps values between -1 and 1.
     inline f32 sample(f32 x, f32 y)const{
-        return obj.GetNoise(x,y);
+        return obj.GetNoise(x,y) * scale;
     }
     inline f32 sample(glm::vec2 v)const{
-        return obj.GetNoise(v.x,v.y);
+        return obj.GetNoise(v.x,v.y) * scale;
     }
 
  private:

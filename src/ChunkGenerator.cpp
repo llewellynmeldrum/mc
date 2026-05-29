@@ -24,7 +24,6 @@
 //          |--------------------------->
 //          temperature
 
-constexpr i32 WORLD_SEED = 1337;
 
 using namespace glm;
 
@@ -65,8 +64,8 @@ public:
     ~HeightMap()=default;
     Noise2D& heightNoise1;
     Noise2D& heightNoise2;
-    const f32 layer1_influence = 1.0f;
-    const f32 layer2_influence = 0.5f;
+    const f32 layer1_influence = heightNoise1.scale;
+    const f32 layer2_influence = heightNoise2.scale;
 
     inline void loadNoiseValues(GenConfig cfg, WorldChunkCoord chunkCoord){
         WorldBlockPos worldChunkOffset = toWorldOrigin(chunkCoord);
@@ -81,8 +80,8 @@ public:
                 const f32 sample1 = heightNoise1.sample(wx,wz);
                 const f32 sample2 = heightNoise2.sample(wx,wz);
                 const f32 norm = sample1*layer1_influence + sample2*layer2_influence;
-                i32 signed_elevation_delta = std::abs(cfg.MAX_ELEVATION_DELTA*norm);
-                i32 raw_world_height = (cfg.MIN_HEIGHT + cfg.SEA_LEVEL + signed_elevation_delta);
+                i32 signed_elevation_delta =cfg.MAX_ELEVATION_DELTA*norm;
+                i32 raw_world_height = (cfg.TERRAIN_HEIGHT() + signed_elevation_delta);
 
                 // constrain to world space chunk bounds
                 i32 world_height = LM::constrain(chunk_wy_min, chunk_wy_max, raw_world_height); 
@@ -123,16 +122,19 @@ static GenResult generateChunk(GenJob job){
     Noise2D heightNoise1{NoiseType::Perlin};
     heightNoise1.setFractalType(FractalType::FBm);
     heightNoise1.setFreq(0.001);
+    heightNoise1.setScale(1.2f);
     heightNoise1.setFractalOctaves(2);
 
     Noise2D heightNoise2{NoiseType::Perlin};
     heightNoise2.setFractalType(FractalType::FBm);
-    heightNoise2.setFreq(0.01);
+    heightNoise2.setFreq(0.005);
+    heightNoise2.setScale(0.8f);
     heightNoise2.setFractalOctaves(3);
 
     Noise3D caveNoise{NoiseType::Perlin};
+    caveNoise.setSeed(job.worldSeed+1000);
     caveNoise.setFractalType(FractalType::FBm);
-    caveNoise.setFractalOctaves(4);
+    caveNoise.setFractalOctaves(3);
 
 
 
@@ -154,6 +156,32 @@ static GenResult generateChunk(GenJob job){
     }
 
     {
+        // paint blocks based on their position
+        const glm::ivec2 chunkLocalMin = {0,0};
+        const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
+        ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
+            // lakes can only begin generating ABOVE the grass blocks (top block)
+            i32 w_top_block_y = chunk_heightmap.at_world(cx,cz);
+            i32 c_top_block_y = chunk_heightmap.at_chunk(cx,cz);
+            ForEachInRangeEx(0,Chunk::Extents.y,[&](i32 cy){
+                i32 wy = cy+world_block_origin.y;
+                if (wy > w_top_block_y-1){ // we are above the top block
+                    if (wy < gen_cfg.SEA_LEVEL&&
+                    blocks.at(cx,cy,cz)==BlockType::AIR){
+                        blocks.set(cx,cy,cz,BlockType::WATER_BLOCK);
+                    }
+                } else {
+                    i32 dist_to_top_block = w_top_block_y - wy;
+                    if (dist_to_top_block == 1){
+                        blocks.set(cx,cy,cz,palette.topsoil);
+                    } else if (dist_to_top_block <= 5){
+                        blocks.set(cx,cy,cz,palette.soil);
+                    }
+                }
+            });
+        });
+    }
+    {
         // 2. generate 3d noise  for caves, threshhold out low vals
         const glm::ivec3 chunkLocalMin = {0,0,0};
         const glm::ivec3 chunkLocalMax = ivec3{Chunk::Extents.x, Chunk::Extents.y, Chunk::Extents.z};
@@ -163,7 +191,13 @@ static GenResult generateChunk(GenJob job){
             i32 wz = world_block_origin.z+cz;
             if (wy<gen_cfg.cave_y_threshold){ 
                 f32 noise_val = caveNoise.sample(wx,wy,wz);
-                if (noise_val < gen_cfg.cave_air_threshold){
+                f32 height_factor = wy / -150.0f;
+                noise_val/=height_factor;
+                // at -150 blocks, 2
+                // at 150 blocks, 0.5
+                if (noise_val < gen_cfg.cave_air_threshold
+                    && blocks.at(cx,cy,cz) == BlockType::STONE_BLOCK){
+                    // only replace stone blocks with caves
                     blocks.set(cx,cy,cz, BlockType::AIR);
                 }
             }
@@ -171,23 +205,6 @@ static GenResult generateChunk(GenJob job){
     }
 
     // 3. paint blocks
-    {
-        const glm::ivec2 chunkLocalMin = {0,0};
-        const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
-        ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
-            i32 w_maxy = chunk_heightmap.at_world(cx,cz);
-            i32 c_maxy = chunk_heightmap.at_chunk(cx,cz);
-            ForEachInRangeEx(0,c_maxy,[&](i32 cy){
-                i32 wy = cy+world_block_origin.y;
-                i32 dist_to_top_block = w_maxy - wy;
-                if (dist_to_top_block==1){
-                    blocks.set(cx,cy,cz,palette.topsoil);
-                }else if (dist_to_top_block < 5){
-                    blocks.set(cx,cy,cz,palette.soil);
-                }
-            });
-        });
-    }
     
 
 

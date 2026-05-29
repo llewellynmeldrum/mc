@@ -52,7 +52,7 @@ void Simulation::unMeshAllChunks(){
     for (const auto& [worldCoord, entry]: world.chunkMap.entries){
         entry->requestMeshRegen();
     }
-    rend.visibleChunkMeshes.clear();
+    rend.opaqueChunkMeshes.clear();
 }
 
 void Simulation::captureCursor(){
@@ -298,15 +298,19 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_
 std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
     std::size_t count = 0;
     auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue,maxUploads);
-    for (const auto& [candidateGen, chunkCoord, vertices, indices] : candidateMeshes){
-        if (vertices.size()>0){
-            rend.uploadMesh(chunkCoord, vertices, indices);
-            count++;
-            this->chunksMeshed++;
+    for (const auto& [candidateGen, chunkCoord, opaque, transparent] : candidateMeshes){
+        if (opaque.vertices.size()>0){
+            rend.uploadMesh(chunkCoord, std::move(opaque));
         } 
+        if (transparent.vertices.size()>0){
+            rend.uploadMesh(chunkCoord, std::move(transparent));
+        } 
+
         if (world.chunkMap.has_entry(chunkCoord)){
             world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
-        } else{
+            count++;
+            this->chunksMeshed++;
+        } else {
             LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was meshed.");
         }
     }

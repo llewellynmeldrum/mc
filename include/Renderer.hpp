@@ -64,13 +64,17 @@ struct Renderer {
     void draw_debugChunks(Camera& cam, World& world);
     void clear(const glm::vec4 clear_color);
 
-    template <typename ...Args>
-    inline void uploadMesh(Args&&... args) {
-        visibleChunkMeshes.emplace_back(std::forward<Args>(args)...);
+    inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
+        opaqueChunkMeshes.emplace_back(coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+    }
+
+    inline void uploadMesh(WorldChunkCoord coord, TransparentMeshData mesh_data) {
+        transparentChunkMeshes.emplace_back(coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
     }
 
 
-    std::vector<Mesh> visibleChunkMeshes;
+    std::vector<Mesh> opaqueChunkMeshes;
+    std::vector<Mesh> transparentChunkMeshes;
 
     struct {
         bool        wireframe{ false };

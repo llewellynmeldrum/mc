@@ -53,7 +53,7 @@ void unGenerateAllChunks();
     void loop();
     static constexpr i32 RENDER_DIST = 6;
     static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
-    static constexpr u64 WORLD_SEED = 1337;
+    static constexpr u64 WORLD_SEED = 1237;
 
     void setupContext();
     void handleInputs();

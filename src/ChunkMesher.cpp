@@ -1,4 +1,5 @@
 #include "Chunk.hpp"
+#include "CoordIteration.hpp"
 #include "DEBUG.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "ChunkMesher.hpp"
@@ -46,7 +47,7 @@ glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
 
 
 std::array<Block, DirectionCount> 
-getNeighbourBlocks(MeshJob& job, ChunkBlockPos chunkLocal) {
+getNeighbourBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
     std::array<Block, DirectionCount> res{};
 
     constexpr glm::ivec3 lo = glm::ivec3(0);
@@ -73,68 +74,113 @@ getNeighbourBlocks(MeshJob& job, ChunkBlockPos chunkLocal) {
 
 
 
+// TODO: Implement transperant meshing.
+// Correct transperancy requires that the transparent meshes are 
+// rendered furthest to closest.
+// But not only does this have to happen in chunk order, it also has to happen in block order.
+//
+// TODO: 
+// The draw order must be:
+//  1. Enable depth mask, disable blending, enable backface culling
+//  2. Draw opaque meshes 
+//  3. Disable depth mask, enable blending, disable backface culling
+//  4. draw transperant meshes in sorted order (furthest first)
+//  5. 
+
+template<typename MeshDataType>
+auto lambdaThing(ChunkStore& chunk){
+    if constexpr(same_as_nocvref<OpaqueMeshData,MeshDataType>){
+        return [&chunk](auto xyz){
+            auto [x,y,z]=xyz;
+            return chunk.at(x,y,z).isOpaque();
+        };
+    }else{
+        return[&chunk](auto xyz){
+            auto [x,y,z]=xyz;
+            return chunk.at(x,y,z).isTransparent();
+        };
+    }
+}
+template<typename MeshDataType>
+MeshDataType meshChunk(const MeshJob& job){
+    MeshDataType mesh_data{};
+    auto& out_indices = mesh_data.indices;
+    auto& out_vertices = mesh_data.vertices;
+
+    // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
+    out_vertices.reserve(MAX_VERTICES_PER_CHUNK);
+    out_indices.reserve(MAX_INDICES_PER_CHUNK);
+
+    const WorldBlockPos world_pos = toWorldOrigin(job.chunkCoord);
+    auto chunk = job.blocks;
+    const auto atlas= job.atlas;
+    const auto& surrounding_chunks = job.surroundingChunks;
+
+
+
+
+    u32 vtx_count = 0;
+    for (const auto& [x, y, z] : EachBlockInChunk(lambdaThing<MeshDataType>(chunk))) {
+        const ChunkBlockPos chunkLocal = { x, y, z };
+        // TODO: UNUSED ATM
+        const glm::vec3 overlayRBG = {0,0,0}; 
+
+        Block block = chunk[x, y, z];
+        if (block.isAir()) {
+            continue;
+        }
+        auto neighbour_blocks = getNeighbourBlocks(job,chunkLocal);
+
+        for (const auto& [face_idx, adjacentBlock] : enumerate(neighbour_blocks)) {
+            const auto faceDir = static_cast<Direction>(face_idx);
+            if constexpr (same_as_nocvref<OpaqueMeshData,MeshDataType>){
+                // skip opaque blocks in the opaque meshing function
+                if (adjacentBlock.isOpaque()) {
+                    continue;
+                }
+            }
+
+
+            const auto& vtx_data = getDefaultFaceVertexData(faceDir);
+            const auto& uv_tex_coords = atlas->remapUVs(block.texture_id(), faceDir, vtx_data);
+
+            for (std::size_t i = 0; i < INDICES_PER_FACE; i++) {
+                i32 mapped_index = vtx_count + defaultCubeIndices[i];
+                out_indices.push_back(mapped_index);
+            }
+
+            for (const auto& [vertex_idx, vtx] : enumerate(vtx_data)) {
+                decltype(Vertex::pos) chunk_offsetted_vtx_pos =
+                    static_cast<decltype(Vertex::pos)>(vtx.pos)
+                    +
+                    static_cast<decltype(Vertex::pos)>(chunkLocal.raw());
+                glm::vec2 texture_coords = uv_tex_coords[vertex_idx];
+                out_vertices.emplace_back(
+                    chunk_offsetted_vtx_pos,
+                    texture_coords, 
+                    overlayRBG, 
+                    static_cast<i32>(faceDir)
+                );
+                vtx_count++;
+            }
+        }
+    }
+    return {out_vertices,out_indices};
+}
+
 std::atomic<std::size_t> thread_id;
 void ChunkMesher::meshChunks
 (std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue){
     const std::size_t id = thread_id.fetch_add(1);
     while (!stopToken.stop_requested()){
         
-       auto job = input_queue.wait_dequeue();
+        auto job = input_queue.wait_dequeue();
+
 
         MeshResult res{job.meshGeneration, job.chunkCoord};
-       // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
-        res.vertices.reserve(MAX_VERTICES_PER_CHUNK);
-        res.indices.reserve(MAX_INDICES_PER_CHUNK);
+        res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
+        res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
 
-        const WorldBlockPos world_pos = toWorldOrigin(job.chunkCoord);
-        auto chunk = job.blocks;
-        const auto atlas= job.atlas;
-        const auto& surrounding_chunks = job.surroundingChunks;
-
-
-
-        u32 vtx_count = 0;
-        for (const auto& [x, y, z] : EachBlockInChunk()) {
-            const ChunkBlockPos chunkLocal = { x, y, z };
-            // TODO: UNUSED ATM
-            const glm::vec3 overlayRBG = {0,0,0}; 
-
-            Block block = chunk[x, y, z];
-            if (block.isAir()) {
-                continue;
-            }
-            auto neighbour_blocks = getNeighbourBlocks(job,chunkLocal);
-
-            for (const auto& [face_idx, adjacentBlock] : enumerate(neighbour_blocks)) {
-                const auto faceDir = static_cast<Direction>(face_idx);
-                if (adjacentBlock.isOpaque()) {
-                    continue;
-                }
-
-
-                const auto& vtx_data = getDefaultFaceVertexData(faceDir);
-                const auto& uv_tex_coords = atlas->remapUVs(block.texture_id(), faceDir, vtx_data);
-
-                for (int i = 0; i < 6; i++) {
-                    i32 mapped_index = vtx_count + defaultCubeIndices[i];
-                    res.indices.push_back(mapped_index);
-                }
-                for (const auto& [vertex_idx, vtx] : enumerate(vtx_data)) {
-                    decltype(Vertex::pos) chunk_offsetted_vtx_pos =
-                        static_cast<decltype(Vertex::pos)>(vtx.pos)
-                        +
-                        static_cast<decltype(Vertex::pos)>(chunkLocal.raw());
-                    glm::vec2 texture_coords = uv_tex_coords[vertex_idx];
-                    res.vertices.emplace_back(
-                        chunk_offsetted_vtx_pos,
-                        texture_coords, 
-                        overlayRBG, 
-                        static_cast<i32>(faceDir)
-                    );
-                    vtx_count++;
-                }
-            }
-       }
        output_queue.wait_emplace(res);
     }
 
