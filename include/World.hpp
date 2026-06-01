@@ -9,8 +9,7 @@
 #include <print>
 
 #include "Camera.hpp"
-    inline std::size_t distcount{0};
-    inline f32 dist_sum{0};
+
 struct World {
     World() = default;
     ~World() = default;
@@ -19,14 +18,13 @@ struct World {
     World(World&&) = delete;
     World& operator=(World&&) = delete;
 
-    inline void setupWorld(){
+    ChunkMap chunkMap;
+    GenConfig genConfig;
+    inline void setup(){
         chunkMap.setup_chunk_map();
     }
 
-    ChunkMap chunkMap;
-    GenConfig genConfig;
 
-    static constexpr i64 NUM_VERTICAL_CHUNKS = 16;
 
     inline std::vector<std::pair<bool, WorldChunkCoord>> chunksInRadius(WorldChunkCoord chunkCoord, i32 dist) {
         const size_t nChunksInRadius = std::pow(2*dist+1,3);
@@ -56,9 +54,10 @@ struct World {
         }
         return candidates;
     }
+
     inline std::vector<WorldChunkCoord> 
     meshReadyChunksInRad(WorldChunkCoord chunkCoord, i32 dist, i32 maxChunks=0) {
-        const size_t nChunks= maxChunks==0 ? std::pow(2*dist+1,3) : maxChunks;
+        const size_t nChunks = maxChunks == 0 ? std::pow(2*dist+1,3) : maxChunks;
         std::vector<WorldChunkCoord> candidates;
         candidates.reserve(nChunks);
 
@@ -68,33 +67,12 @@ struct World {
             if (entry.has_value()){
                 if ((*entry)->status.qualifiesForMeshing()){
                     candidates.emplace_back(key);
+                    return true;
                 }
             }
+            return false;
         };
-
-        const i32& oy = chunkCoord.y;
-
-        // TODO: refactor, pull this out into an iota like function maybe?
-        i32 minY = oy-dist;
-        i32 maxY = oy+dist;
-        // this genuinely took like 2 hours to make, holy christ man i hate geometric shit
-        // Anyways this iterates in 'expanding spirals', per horizontal slice, such that we get 
-        // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
-        for (i32 y = maxY; y>=minY; y--){
-            i32 x{chunkCoord.x}, z{chunkCoord.z};
-            add(x,y,z); // center point
-            for (i32 r = 1; r<= dist; r++){
-                const i32 r2 = 2*r;
-                add(--x,y,z); // move out of the centre point
-                for (int j = 0; j<r2 - 1;j++)    add(x,y,++z); // traverse the remaining (-X) edge
-                for (int j = 0; j<r2 ; j++)     add(++x,y,z);  // traverse the whole     (Z+) edge
-                for (int j = 0; j<r2 ; j++)     add(x,y,--z);  // traverse the whole     (+X) edge
-                for (int j = 0; j<r2 ; j++)     add(--x,y,z);  // traverse the whole     (+X) edge
-            }
-            if (candidates.size() >= nChunks){
-                return candidates;
-            }
-        }
+        SpiralIterateRange(maxChunks, chunkCoord,dist, add);
         return candidates;
     }
 

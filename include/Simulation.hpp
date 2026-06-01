@@ -19,7 +19,7 @@ struct Simulation {
     Simulation() =default;
     ~Simulation() = default;
     Window   win;
-    Timer    time;
+    Profiler    profiler;
     Input    input;
     Camera   cam;
     Renderer rend;
@@ -57,7 +57,7 @@ struct Simulation {
     static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;
 
-    void setupContext();
+    void setupSimulation();
     void handleInputs();
     void update();
     void draw();

@@ -60,7 +60,7 @@ void DebugChunkRenderer::setup(){
     cube_ebo.make();
     instance_vbo.make();
 
-    prog.setupShaderProgram("shaders/debug_chunks_vs.glsl", "shaders/debug_chunks_fs.glsl");
+    prog.setup("shaders/debug_chunks_vs.glsl", "shaders/debug_chunks_fs.glsl");
 
     vao.bind();
 

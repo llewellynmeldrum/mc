@@ -56,7 +56,7 @@ struct Renderer {
     ~Renderer() = default;
 
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
-    ChunkMesher  mesher;
+    ChunkMesher  meshers;
     DebugChunkRenderer dbg_rend;
 
     void setup();
@@ -81,7 +81,7 @@ struct Renderer {
     struct {
         bool        wireframe{ false };
         bool        showChunkBoundaries{ false};  
-        bool        showDebugUI{ false};  
+        bool        showDebugUI{ true};  
         i64         vertex_count{ 0 };
         i64         draw_calls{ 0 };
         i64         mesh_count{ 0 };

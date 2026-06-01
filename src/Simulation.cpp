@@ -16,13 +16,16 @@
 #include <algorithm>
 
 using namespace glm;
-glm::mat4 h;
-void Simulation::setupContext() {
+void Simulation::setupSimulation() {
     program_epoch_ns = get_current_ns();
-    LOG_EXPR(this);
-    win.setupWindow(static_cast<void*>(this));
-    input.setupInput(win.ptr);
-    time.setupTimer(
+
+    win.setup(static_cast<void*>(this));
+    LOG_DEBUG("Finished Window setup.");
+
+    input.setup(win.ptr);
+    LOG_DEBUG("Finished Input setup.");
+
+    profiler.setup(
         "frame",
         "input",
         "update",
@@ -33,10 +36,19 @@ void Simulation::setupContext() {
         "draw",
         "render"
     );
-    cam.setupCamera();
+    LOG_DEBUG("Finished Profiler setup.");
+
+    cam.setup();
+    LOG_DEBUG("Finished Camera setup.");
+
     rend.setup();
-    ui.setupDebugUI(win.ptr);
-    world.setupWorld();
+    LOG_DEBUG("Finished Renderer setup.");
+
+    ui.setup(win.ptr);
+    LOG_DEBUG("Finished UI setup.");
+
+    world.setup();
+    LOG_DEBUG("Finished World setup.");
 }
 
 void Simulation::freeCursor(){
@@ -63,38 +75,38 @@ void Simulation::captureCursor(){
 }
 
 void Simulation::loop(){
-    time.start_frame();
-    time.bench_start("frame");
+    profiler.start_frame();
+    profiler.bench_start("frame");
 
     // INPUT
-    time.bench_start("input");
+    profiler.bench_start("input");
     input.poll();
     handleInputs(); 
-    time.bench_end("input");
+    profiler.bench_end("input");
 
     if (isPaused() == false){
         // UPDATE:
-        time.bench_start("update");
+        profiler.bench_start("update");
         update();
-        time.bench_end("update");
+        profiler.bench_end("update");
 
     }
     // DRAWING
-    time.bench_start("draw");
+    profiler.bench_start("draw");
     draw(); 
-    time.bench_end("draw");
+    profiler.bench_end("draw");
     ui.updateUI();
     if (rend.debug.showDebugUI){
         ui.drawDebugUI(); 
         ui.render();
     }
 
-    time.bench_start("render");
+    profiler.bench_start("render");
     win.swapBuffers();
-    time.bench_end("render");
+    profiler.bench_end("render");
 
-    time.bench_end("frame");
-    time.end_frame();
+    profiler.bench_end("frame");
+    profiler.end_frame();
 }
 
 void Simulation::cullMeshes(){
@@ -123,25 +135,25 @@ void Simulation::cullMeshes(){
 }
 
 void Simulation::update() {
-    time.bench_start("enqueueGen");
+    profiler.bench_start("enqueueGen");
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
-    time.bench_end("enqueueGen");
+    profiler.bench_end("enqueueGen");
     rb_genJobsAdded.write(genJobsThisFrame);
 
-    time.bench_start("drainGen");
+    profiler.bench_start("drainGen");
     genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
-    time.bench_end("drainGen");
+    profiler.bench_end("drainGen");
     rb_genResultsAdded.write(genResultsThisFrame);
 
     cullMeshes();
-    time.bench_start("enqueueMesh");
+    profiler.bench_start("enqueueMesh");
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
-    time.bench_end("enqueueMesh");
+    profiler.bench_end("enqueueMesh");
     rb_meshJobsAdded.write(meshJobsThisFrame);
 
-    time.bench_start("drainMesh");
+    profiler.bench_start("drainMesh");
     meshResultsThisFrame = drainAndUploadMeshResults(maxMeshUploadsPerFrame);
-    time.bench_end("drainMesh");
+    profiler.bench_end("drainMesh");
     rb_meshResultsAdded.write(meshResultsThisFrame);
 
 
@@ -283,7 +295,7 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
 
     std::size_t count = 0;
     for (std::size_t attempts = 0; attempts<maxJobs; attempts++){
-        auto& q = rend.mesher.meshJobQueue;
+        auto& q = rend.meshers.meshJobQueue;
         count = q.try_batch_enqueue(jobsForMeshing);
         if (count >= 0) break; // we have successfully enqueued the batch
     }
@@ -325,7 +337,7 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_
 }
 std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
     std::size_t count = 0;
-    auto candidateMeshes = drainMeshResultQueue(rend.mesher.meshResultQueue,maxUploads);
+    auto candidateMeshes = drainMeshResultQueue(rend.meshers.meshResultQueue,maxUploads);
     for (const auto& [candidateGen, chunkCoord, opaque, transparent] : candidateMeshes){
         if (opaque.vertices.size()>0){
             rend.uploadMesh(chunkCoord, std::move(opaque));

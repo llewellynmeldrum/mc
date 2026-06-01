@@ -151,7 +151,7 @@ inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos{
 // Floatpos->worldBlockPos
 // Rounds to the correct block
 inline auto toWorldBlockPos(WorldFloatPos pos) -> WorldBlockPos{
-    return WorldBlockPos{LM::floor(pos.raw())};
+    return WorldBlockPos{glm::floor(pos.raw())};
 }
 
 // worldBlockPos->      chunkBlockPos

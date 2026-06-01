@@ -16,13 +16,18 @@ void Renderer::updateViewport(int x, int y, int w, int h) {
 }
 void Renderer::setup() {
     atlas.setupTextureAtlas();
-    prog.setupShaderProgram("shaders/vs.glsl", "shaders/fs.glsl");
+    prog.setup("shaders/vs.glsl", "shaders/fs.glsl");
     prog.use();
     prog.setUniform("texture1", (int)0);
     prog.stop();
-    mesher.launchChunkMeshers();
+    meshers.launch();
 
     dbg_rend.setup();
+    glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
+                              // vertex further away to overwrite a closer one
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 }
 
 void Renderer::clear(const vec4 clear_color) {

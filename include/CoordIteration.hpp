@@ -1,36 +1,13 @@
 #pragma once 
+#include "CommonUtils.hpp"
 #include "NumericConcepts.hpp"
+#include <print>
 #include <type_traits>
-#include <concepts>
+#include <functional>
 #include "DEBUG.hpp"
 #include "Types.h"
+#include "CommonConcepts.hpp"
 
-template <typename T, typename Fn, typename ...Args>
-concept return_type_is =  
-    std::invocable<Fn, Args...> &&
-    std::same_as<std::invoke_result_t<Fn, Args...>, T>;
-
-template<typename T1, typename T2>
-concept same_as_nocvref = std::same_as<std::remove_cvref_t<T1>, std::remove_cvref_t<T2>>;
-
-template<typename T1>
-using val_t = T1::value_type;
-
-
-template<typename Fn, typename Vec>
-concept has_3_scalar_params = std::invocable<Fn,val_t<Vec>,val_t<Vec>,val_t<Vec>>;
-
-template<typename Fn, typename Vec>
-concept has_2_scalar_params = std::invocable<Fn,val_t<Vec>,val_t<Vec>>;
-
-template<typename Fn, typename ...Args>
-concept callable_by = std::invocable<Fn, Args...>;
-
-
-enum struct IterationSignal{
-    CONTINUE,
-    BREAK,
-};
 
 template<typename IntVec2, typename Fn>
     requires IVec2<IntVec2> && callable_by<Fn,IntVec2>
@@ -121,5 +98,72 @@ template<typename Integer, typename Fn>
 void ForEachInRangeEx(Integer min, Integer max, Fn&& task){
     for (Integer x = min; x < max; x++){
         std::invoke(std::forward<Fn>(task),x);
+    }
+}
+
+// Overload for the function below it, with 
+// -> Each spiral begins at `center`, and continues outwards in a clockwise pattern, which approximates nearest to farthest ordering. 
+//    NOTE: (clockwise when viewed from above, assuming y is the vertical axis)
+// -> The iteration begins at the top slice (center.y+radius), and continues downwards by 1 after each spiral.
+// -> It is guaranteed to reach every coordinate (if `MAX_COUNT` permits), in the range:
+//   [C.x-R, C.x+R]
+//   [C.y-R, C.y+R]
+//   [C.z-R, C.z+R]
+template<typename IntVec3, typename Integer, typename Fn>
+    requires IVec3Like<IntVec3>
+void SpiralIterateRange(IntVec3 center, Integer radius, Fn&& task){
+    SpiralIterateRange(numeric_max<std::size_t>(), center, radius, std::forward<Fn>(task));
+}
+// runs task(x,y,z) in a particular order: a series of horizontal spirals.
+// -> Each spiral begins at `center`, and continues outwards in a clockwise pattern, which approximates nearest to farthest ordering. 
+//    NOTE: (clockwise when viewed from above, assuming y is the vertical axis)
+// -> The iteration begins at the top slice (center.y+radius), and continues downwards by 1 after each spiral.
+// -> It is guaranteed to reach every coordinate (if `MAX_COUNT` permits), in the range:
+//   [C.x-R, C.x+R]
+//   [C.y-R, C.y+R]
+//   [C.z-R, C.z+R]
+template<typename IntVec3, typename Integer, typename Fn>
+    requires IVec3Like<IntVec3> && Integral<Integer>
+void SpiralIterateRange(std::size_t MAX_COUNT, IntVec3 center, Integer radius, Fn&& task){
+    using namespace std;
+    size_t count = {0};
+
+    if (MAX_COUNT == 0){
+        return;
+    }
+    auto should_continue = [&count, &task, MAX_COUNT](i32 x, i32 y, i32 z) {
+        if (count >= MAX_COUNT){
+            return false; // shouldnt continue
+        }
+        auto res = invoke(task, x,y,z);
+        if (res){
+            count++;
+        }
+
+        return count < MAX_COUNT;
+    };
+    const Integer& R = radius;
+    const IntVec3& C = center;
+    i32 minY = C.y-static_cast<i32>(R);
+    i32 maxY = C.y+static_cast<i32>(R);
+    for (i32 y = maxY; y>=minY; y--){
+        Integer x{C.x}, z{C.z};
+		if(!should_continue(x,y,z)) return;
+        for (i32 r = 1; r <= R; r++){
+            const i32 extent = 2*r;
+			if(!should_continue(--x,y,z)) return;
+            for (int j = 0; j<extent - 1;j++)    {
+				if(!should_continue(x,y,++z)) return;
+			} // traverse the remaining (-X) edge
+            for (int j = 0; j<extent ; j++)     {
+				if(!should_continue(++x,y,z)) return;
+			}  // traverse the whole     (Z+) edge
+            for (int j = 0; j<extent ; j++)     {
+				if(!should_continue(x,y,--z)) return;
+			}  // traverse the whole     (+X) edge
+            for (int j = 0; j<extent ; j++)     {
+				if(!should_continue(--x,y,z)) return;
+			}  // traverse the whole     (+X) edge
+        }
     }
 }

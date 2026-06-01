@@ -47,7 +47,7 @@ struct ShaderProgram{
     u32 id;
 
     // compiles and links a vertex and fragment shader from the path of their source files.
-    void setupShaderProgram(const char* vtx_src, const char* frag_src);
+    void setup(const char* vtx_src, const char* frag_src);
 
     void use();
     void                                 stop();

@@ -20,9 +20,7 @@ void        Window::swapBuffers() {
     glfwSwapBuffers(ptr);
 }
 
-void Window::setupWindow(void* ctx_ptr) {
-    LOG_DEBUG("setting up window", __PRETTY_FUNCTION__);
-    LOG_EXPR(this);
+void Window::setup(void* ctx_ptr) {
     stbi_set_flip_vertically_on_load(true);
 
     glfwSetErrorCallback(glfw_ErrorCallback);
@@ -87,11 +85,6 @@ void Window::setupWindow(void* ctx_ptr) {
     glViewport(x, y, px_w, px_h);
     glfwSwapInterval(enable_vsync);
 
-    glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
-                              // vertex further away to overwrite a closer one
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
 }
 
 bool Window::shouldClose() {

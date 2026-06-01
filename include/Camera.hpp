@@ -20,7 +20,7 @@ struct Camera {
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
     static constexpr i32 DebugChunkRenderDistance = 8;
 
-    void setupCamera();
+    void setup();
     void move(Direction dir, f32 dt);
     void rotate(Direction dir, f32 dt);
     void rotateByMouse(glm::vec2 offset, f32 dt);

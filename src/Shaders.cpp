@@ -71,7 +71,7 @@ FragmentShader::FragmentShader(const char* src)
     : Shader(static_cast<i32>(GL_FRAGMENT_SHADER), src) {
 }
 
-void ShaderProgram::setupShaderProgram(const char* vtx_src, const char* frag_src) {
+void ShaderProgram::setup(const char* vtx_src, const char* frag_src) {
     this->id = glCreateProgram();
     VertexShader   vtx(vtx_src);
     FragmentShader frag(frag_src);

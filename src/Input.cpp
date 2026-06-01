@@ -18,7 +18,7 @@ void Simulation::handleInputs() {
     });
     if (signal == InputSignal::RETURN){ return; }
 
-    input.updateCooldowns(time.dt_s);
+    input.updateCooldowns(profiler.dt_s);
 
     input.mapToggleKey(KEY_P, [this]{
         togglePause();
@@ -29,7 +29,7 @@ void Simulation::handleInputs() {
 
     if (input.mousepos != input.prevmousepos) {
         const vec2 diff = input.prevmousepos - input.mousepos;
-        cam.rotateByMouse(diff, time.dt_s);
+        cam.rotateByMouse(diff, profiler.dt_s);
     }
 
     input.mapToggleKey(KEY_T, [this]{
@@ -59,45 +59,45 @@ void Simulation::handleInputs() {
         }
     });
     input.mapHeldKey(KEY_W,[this]{
-		cam.move(Direction::FORWARD, time.dt_s);
+		cam.move(Direction::FORWARD, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_S,[this]{
-		cam.move(Direction::BACKWARD, time.dt_s);
+		cam.move(Direction::BACKWARD, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_A,[this]{
-		cam.move(Direction::LEFT, time.dt_s);
+		cam.move(Direction::LEFT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_D,[this]{
-		cam.move(Direction::RIGHT, time.dt_s);
+		cam.move(Direction::RIGHT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_SPACE,[this]{
-		cam.move(Direction::UP, time.dt_s);
+		cam.move(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_E,[this]{
-		cam.move(Direction::UP, time.dt_s);
+		cam.move(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_Q,[this]{
-		cam.move(Direction::DOWN, time.dt_s);
+		cam.move(Direction::DOWN, profiler.dt_s);
 	});
 
     input.mapHeldKey(KEY_LEFT,[this]{
-		cam.rotate(Direction::LEFT, time.dt_s);
+		cam.rotate(Direction::LEFT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_RIGHT,[this]{
-		cam.rotate(Direction::RIGHT, time.dt_s);
+		cam.rotate(Direction::RIGHT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_UP,[this]{
-		cam.rotate(Direction::UP, time.dt_s);
+		cam.rotate(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_DOWN,[this]{
-		cam.rotate(Direction::DOWN, time.dt_s);
+		cam.rotate(Direction::DOWN, profiler.dt_s);
 	});
     input.prevmousepos = input.mousepos;
 }
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
 // TODO: implement mouse lookaround input
 
-void Input::setupInput(GLFWwindow* ptr) {
+void Input::setup(GLFWwindow* ptr) {
     glfwSetKeyCallback(ptr, glfw_key_callback);
 }
 

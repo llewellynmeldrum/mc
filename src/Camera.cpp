@@ -6,9 +6,7 @@
 #include "glmWrapper.hpp"
 
 using namespace glm;
-void Camera::setupCamera() {
-    pos = { 0, 0, 6 };
-    block_pos = toWorldBlockPos(pos);
+void Camera::setup() {
 }
 
 void Camera::move(Direction dir, f32 dt) {

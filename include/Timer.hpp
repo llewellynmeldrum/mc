@@ -3,14 +3,14 @@
 #include "MirroredRingBuf.hpp"
 #include <map>
 // src/Timer.cpp
-struct Timer {
+struct Profiler {
 public:
-    Timer() = default;
-    ~Timer() = default;
+    Profiler() = default;
+    ~Profiler() = default;
 
     u64 framecount = 0;
     template<typename ...Args>
-    void setupTimer(Args... vargs) {
+    void setup(Args... vargs) {
         (ringbufs.try_emplace(vargs), ...); 
         setupTimer_impl();
     }

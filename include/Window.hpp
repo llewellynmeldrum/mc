@@ -5,7 +5,7 @@ struct GLFWwindow;
 struct Window {
     Window() = default;
     ~Window() = default;
-    void setupWindow(void* ctx_ptr);
+    void setup(void* ctx_ptr);
     // context is passes itself to setupWindow so that it can be assigned to the glfwUserPointer,
     // and thus accessed by glfw callback functions.
 

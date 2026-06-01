@@ -5,7 +5,7 @@ FORWARD_DECL_STRUCT(GLFWwindow)
 struct DebugUI{
      DebugUI() = default;
     ~DebugUI() = default;
-    void setupDebugUI(GLFWwindow* win_ptr);
+    void setup(GLFWwindow* win_ptr);
     void drawDebugUI();
     void destroyDebugUI();
     void render();

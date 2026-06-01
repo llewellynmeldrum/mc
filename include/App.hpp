@@ -22,9 +22,8 @@ private:
 };
 
 inline void App::setup() {
-    sim.setupContext();
-    auto spawn_pos = WorldFloatPos{ -61, +130, -83 };
-    sim.cam.pos = spawn_pos;
+    sim.setupSimulation();
+    sim.cam.pos = {0, 168, 0};
     sim.cam.pitch = -23.4;
     sim.cam.yaw = 56.3;
 }
