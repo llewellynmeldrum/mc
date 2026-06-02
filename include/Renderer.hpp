@@ -8,59 +8,87 @@
 #include <map>
 #include <optional>
 #include <unordered_map>
+#include "DebugChunkRenderer.hpp"
 
 #include "Chunk.hpp"
-struct DebugChunkVertex{
-    glm::ivec3 pos; // Chunk local vertex position
-    static constexpr auto layout() {
-        return VertexLayout<1>{ 
-            .stride = sizeof(DebugChunkVertex),
-            .attrs = {
-               make_attr<glm::ivec3>(0, offsetof(DebugChunkVertex, pos)),
-            }, 
-        };
-    }
-};
-struct DebugChunkInstance{
-    glm::ivec3 origin; // world pos of the chunk (i.e instance origin)
-    glm::vec4 color; // the color of the debug overlay (i.e instance color )
-    static constexpr auto layout() {
-        return VertexLayout<2>{ 
-            .stride = sizeof(DebugChunkInstance),
-            .attrs = {
-               make_attr<glm::ivec3>(1, offsetof(DebugChunkInstance, origin), 1),
-               make_attr<glm::vec4>(2, offsetof(DebugChunkInstance, color), 1),
-            }, 
-        };
-    }
-};
-FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
-struct DebugChunkRenderer{
-    static gl::GLenum PrimitiveType();
-    void setup();
-    void draw(Camera& cam);
-    void update(Camera& cam, World& world);
-    std::vector<DebugChunkInstance> instances;
+struct DepthBuffer{
+    u32 id;
+    DepthBuffer()=delete;
 
+    DepthBuffer(glm::vec2 size);
+    ~DepthBuffer();
+    void bind();
+    void unbind();
+
+};
+struct FrameBuffer{
+    u32 id;
+
+    void attach_depth_buffer(DepthBuffer& depth_buffer);
+    void attach_texture2d(Texture2D& texture2d,i32 idx=0);
+    FrameBuffer();
+    ~FrameBuffer();
+    void bind();
+    void unbind();
+
+};
+enum struct RenderTargetType{
+    Default,
+    Texture,
+};
+struct RenderTargetView{
+    glm::ivec2 pos;
+    glm::ivec2 size;
+    u32 framebuffer_id{0}; // 0 = screen
+    bool isOverlay{false};
+    void use();
+    void stop();
 private:
-    void updateInstances(Camera& cam, World& world);
-    VertexArray   vao{std::nullopt};
-    VertexBuffer  cube_vbo{std::nullopt};
-    ElementBuffer cube_ebo{std::nullopt};
+    void bind();
+    void unbind();
+};
 
-    VertexBuffer  instance_vbo{std::nullopt};
-    ShaderProgram prog{};
+struct ScreenTarget{
+    glm::ivec2 pos;
+    glm::ivec2 size;
+    inline RenderTargetView view(){
+        return {
+            .pos = pos,
+            .size = size,
+            .framebuffer_id=0,
+            .isOverlay=true,
+        };
+    }
+};
+struct TextureTarget{
+    TextureTarget(glm::vec2 size, glm::vec2 pos);
+    TextureTarget();
+    ~TextureTarget()=default;
+
+    Texture2D texture;
+    FrameBuffer framebuffer;
+    DepthBuffer depthbuffer;
+    glm::vec2 pos;
+    glm::vec2 size;
+
+    inline RenderTargetView view(){
+        return {
+            .pos = pos,
+            .size = size,
+            .framebuffer_id=framebuffer.id,
+        };
+    }
 };
 struct Renderer {
-    Renderer() = default;
+    Renderer();
     ~Renderer() = default;
 
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  meshers;
     DebugChunkRenderer dbg_rend;
+    glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};
 
-    void setup();
-    void drawChunks(Camera& cam);
+    void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
     void draw_debugChunks(Camera& cam, World& world);
