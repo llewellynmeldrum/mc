@@ -13,6 +13,7 @@ namespace IG =ImGui;
 using ScreenPos = ImVec2;
 // UV positions range between [0.0,1.0] on x and y, with a top left origin 
 using UVPos = glm::vec2;
+using UVSize= glm::vec2;
 using Color = ImColor;
 struct WinAlign{
     inline static auto TopLeft()    {return ImVec2{0.0f,0.0f};}
@@ -157,6 +158,9 @@ struct WindowConfig{
         const ImGuiViewport* viewport = IG::GetMainViewport();
         work_pos = viewport->WorkPos;  
         work_size = viewport->WorkSize;
+    }
+    inline void setSize(UVSize size){
+        IG::SetNextWindowSize(toScreen(size), ImGuiCond_Always);
     }
 
     template <typename Fn>

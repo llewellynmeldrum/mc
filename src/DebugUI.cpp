@@ -95,7 +95,7 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlign(WinAlign::TopMid());
     self.start_at(true, UVPos{0.5,0},[&self, ctx]{
         auto& window = self;
-        window.section("Secondary View:",[]{
+        window.section("Noise sliders:",[]{
             UI::Text("Noise preview hahahaha");
         });
         window.dropdown.show();
@@ -104,11 +104,14 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
 void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
     self.setup();
+    self.setSize(UVSize{0.3,0.3});
     self.setAlign(WinAlign::TopMid());
-    self.start_at(true, UVPos{0.5,0},[&self, ctx]{
+    self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
         auto& window = self;
-        window.section("Secondary View:",[]{
+        window.section("Secondary View:",[&ctx]{
             UI::Text("hildiafhjsl;dkfgjadslkjlksjflksjflkjfdjslk");
+            UI::DrawTexture(ctx->fixedCamTarget);
+
         });
     });
 

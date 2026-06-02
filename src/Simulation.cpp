@@ -392,7 +392,6 @@ RenderTargetView Simulation::secondaryView() {
 void Simulation::draw() {
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-    rend.clear(rend.clear_color);
     rend.draw_to(playerCam, screenView());
 
     // draw to the texture
@@ -400,10 +399,9 @@ void Simulation::draw() {
     LOG_EXPR(screenView().framebuffer_id);
     LOG_EXPR(secondaryView().framebuffer_id);
     
-    //NOTE:
-    // Second camera is now drawing, depth buffer is cooking it a  bit.
     // TODO: 
-    // Create the imgui texture and stuff, with the working 
+    // Create the imgui texture thing to draw the texture/frambuffer we have created
+    //
     if(rend.debug.showChunkBoundaries){
         rend.draw_debugChunks(playerCam,world);
     }

@@ -164,6 +164,7 @@ void Renderer::draw_debugChunks(Camera& cam, World& world){
 
 void Renderer::draw_to(Camera& cam, RenderTargetView target){
     target.use();
+    clear(clear_color);
 
     debug.reset_per_frame();
     auto& view = cam.getViewMatrix();

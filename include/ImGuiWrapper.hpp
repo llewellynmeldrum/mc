@@ -1,4 +1,5 @@
 #pragma once 
+#include "Renderer.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include <format>
 #include <functional>
@@ -57,6 +58,17 @@ namespace UI{
     }
     inline void SetTextColor(glm::vec4 c){
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r,c.g,c.b,c.a));
+    }
+    inline void DrawTexture(const TextureTarget& target){
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImVec2 size =  ImGui::GetContentRegionAvail();
+        ImGui::GetWindowDrawList()->AddImage(
+            reinterpret_cast<void*>(target.texture.id), 
+            ImVec2(pos.x, pos.y), 
+            ImVec2(pos.x + size.x, pos.y + size.y), 
+            ImVec2(0, 1), 
+            ImVec2(1, 0)
+        );
     }
     inline void SetTextColor(Color c){
         ImGui::PushStyleColor(ImGuiCol_Text, c);
