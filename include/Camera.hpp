@@ -15,12 +15,13 @@ struct Camera {
 
   public:
     Camera() = default;
+    Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     ~Camera() = default;
     static constexpr f32 BASE_MOVESPEED = 12.0f;
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
     static constexpr i32 DebugChunkRenderDistance = 8;
 
-    void setup();
+    void set_pos_ori(WorldFloatPos pos, f32 pitch, f32 yaw);
     void move(Direction dir, f32 dt);
     void rotate(Direction dir, f32 dt);
     void rotateByMouse(glm::vec2 offset, f32 dt);

@@ -9,7 +9,8 @@ void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height) {
     ctx->rend.updateViewport(0, 0, width, height);
     ctx->win.px_w = width;
     ctx->win.px_h = height;
-    ctx->cam.aspectRatio = ctx->win.aspect();
+    ctx->playerCam.aspectRatio = ctx->win.aspect();
+    ctx->fixedCam.aspectRatio = ctx->win.aspect();
 }
 void glfw_MoveCallback(GLFWwindow* win_ptr, int xpos, int ypos) {
     auto* ctx = (Simulation*)glfwGetWindowUserPointer(win_ptr);

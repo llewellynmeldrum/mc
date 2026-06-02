@@ -1,6 +1,7 @@
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "Renderer.hpp"
+#include "DebugChunkRenderer.hpp"
 #include "World.hpp"
 using namespace gl;
 

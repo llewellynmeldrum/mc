@@ -3,9 +3,9 @@
 struct GLFWwindow;
 // src/Window.cpp
 struct Window {
-    Window() = default;
+    Window(){setup();}
     ~Window() = default;
-    void setup(void* ctx_ptr);
+    void set_callbacks(void* ctx_ptr);
     // context is passes itself to setupWindow so that it can be assigned to the glfwUserPointer,
     // and thus accessed by glfw callback functions.
 
@@ -30,4 +30,6 @@ struct Window {
     i32        tw;  // `true` (logical) pixel width, px_w = 2*tw on retina displays
     i32        th;  // `true` (logical) pixel height, px_h = 2*th on retina displays
     inline f32 aspect() { return (f32)px_w / (f32)px_h; }
+private:
+    void setup();
 };

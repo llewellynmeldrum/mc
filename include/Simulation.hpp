@@ -16,15 +16,20 @@
 // src/Simulation.cpp
 struct Simulation {
   public:
-    Simulation() =default;
+    void setupSimulation();
+    Simulation() = default;
     ~Simulation() = default;
+
     Window   win;
-    Profiler    profiler;
+    Profiler profiler;
     Input    input;
-    Camera   cam;
+    Camera   playerCam;
+    Camera   fixedCam;
+    TextureTarget fixedCamTarget{{0,0},{1280,720}};
     Renderer rend;
     DebugUI  ui;
     World    world;
+
     static constexpr std::size_t maxGenUploadsPerFrame= 32;
     static constexpr std::size_t maxGenJobsPerFrame = 32;
     static constexpr std::size_t maxMeshUploadsPerFrame= 16;
@@ -46,6 +51,8 @@ struct Simulation {
     std::size_t meshResultsThisFrame = 0;
     
 
+    RenderTargetView screenView();
+    RenderTargetView secondaryView();
     void cullMeshes();
     void unMeshAllChunks();
     void unGenerateAllChunks();
@@ -57,7 +64,6 @@ struct Simulation {
     static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;
 
-    void setupSimulation();
     void handleInputs();
     void update();
     void draw();

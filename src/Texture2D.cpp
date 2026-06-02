@@ -7,30 +7,28 @@ using namespace gl;
 i64 texture_count = 0;
 
 using namespace glm;
-Texture2D::Texture2D(const char* tex_dir, i32 image_fmt = to_i32(GL_RGB),
-                     vec4 border_color = { 1, 0, 1, 1 })
-    : texturePath(tex_dir), imageFormat(image_fmt), borderColor(border_color) {
-}
 
-void Texture2D::setup() {
-    u8* tex_pixels = stbi_load(texturePath.c_str(), &pxwidth, &pxheight, &nchannels, 0);
+Texture2D::Texture2D(const char* tex_path, 
+                          i32 image_fmt = to_i32(GL_RGB),
+                          vec4 border_color = { 1, 0, 1, 1 }) {
+    u8* tex_pixels = stbi_load(tex_path, &pxwidth, &pxheight, &nchannels, 0);
     if (!tex_pixels) {
-        LOG_ERROR("Failed to load texture file '{}'.", texturePath);
+        LOG_ERROR("Failed to load texture file '{}'.", tex_path);
         LOG_EXIT(EXIT_FAILURE);
         return;
     }
-    LOG_EXPR(pxwidth);
-    LOG_EXPR(pxheight);
-    LOG_EXPR(nchannels);
-    LOG_EXPR(tex_pixels);
+//    LOG_EXPR(pxwidth);
+//    LOG_EXPR(pxheight);
+//    LOG_EXPR(nchannels);
+//    LOG_EXPR(tex_pixels);
     Texture2D::init();
     Texture2D::bind();
     Texture2D::setMinifyMode(to_i32(GL_NEAREST));
     Texture2D::setMagnifyMode(to_i32(GL_NEAREST));
     Texture2D::setWrapMode(to_i32(GL_CLAMP_TO_BORDER));
-    Texture2D::setBorderColor(borderColor);
+    Texture2D::setBorderColor(border_color);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(imageFormat),
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(image_fmt),
                  GL_UNSIGNED_BYTE, (const void*)tex_pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
     Texture2D::unbind();
@@ -39,12 +37,18 @@ void Texture2D::setup() {
     idx = texture_count++;
     LOG_EXPR(idx);
 }
+void Texture2D::load_empty(i32 w, i32 h) {
+    glTexImage2D(GL_TEXTURE_2D,0, GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,0 );
+}
 void Texture2D::bind() {
     glActiveTexture(GL_TEXTURE0 + idx);
     glBindTexture(GL_TEXTURE_2D, id);
 }
 void Texture2D::init() {
     glGenTextures(1, &id);
+}
+void Texture2D::destroy() {
+    glDeleteTextures(1, &id);
 }
 void Texture2D::unbind() {
     glBindTexture(GL_TEXTURE_2D, 0);

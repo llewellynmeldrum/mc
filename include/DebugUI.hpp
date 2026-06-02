@@ -3,18 +3,16 @@
 FORWARD_DECL_STRUCT(Simulation)
 FORWARD_DECL_STRUCT(GLFWwindow)
 struct DebugUI{
-     DebugUI() = default;
-    ~DebugUI() = default;
-    void setup(GLFWwindow* win_ptr);
-    void drawDebugUI();
-    void destroyDebugUI();
-    void render();
-    void updateUI();
+     DebugUI();
+    ~DebugUI();
+    void init(GLFWwindow* win_ptr);
+    void destroy();
 
+    void draw();
+    void update();
+
+    f32 UI_SCALE = 1.25;
 private:
-    void drawMainOverlay(Simulation* ctx);
-    void drawChunkDebugger(Simulation* ctx);
-    void drawFullscreenOverlay(Simulation* ctx) ;
-    void drawUI();
     GLFWwindow* win_ptr;
+    static void StartFrame();
 };

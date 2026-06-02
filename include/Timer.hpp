@@ -10,7 +10,7 @@ public:
 
     u64 framecount = 0;
     template<typename ...Args>
-    void setup(Args... vargs) {
+    void init(Args... vargs) {
         (ringbufs.try_emplace(vargs), ...); 
         setupTimer_impl();
     }

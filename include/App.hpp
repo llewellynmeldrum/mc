@@ -23,9 +23,6 @@ private:
 
 inline void App::setup() {
     sim.setupSimulation();
-    sim.cam.pos = {0, 168, 0};
-    sim.cam.pitch = -23.4;
-    sim.cam.yaw = 56.3;
 }
 
 inline void App::loop() {
@@ -37,7 +34,7 @@ inline bool App::shouldClose() {
     return sim.win.shouldClose();
 }
 inline i32 App::exit(i32 exit_code) {
-    sim.ui.destroyDebugUI();
+    sim.ui.destroy();
     sim.win.terminate();
     std::println("{}", ScopeTimer::summary());
     std::exit(exit_code);

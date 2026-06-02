@@ -20,7 +20,13 @@ void        Window::swapBuffers() {
     glfwSwapBuffers(ptr);
 }
 
-void Window::setup(void* ctx_ptr) {
+void Window::set_callbacks(void* ctx_ptr){
+    glfwSetWindowUserPointer(ptr, ctx_ptr);
+    glfwSetCursorPosCallback(ptr, glfw_MouseMoveCallback);
+    glfwSetFramebufferSizeCallback(ptr, glfw_ResizeCallback);
+    glfw_ResizeCallback(ptr, px_w, px_h);
+}
+void Window::setup() {
     stbi_set_flip_vertically_on_load(true);
 
     glfwSetErrorCallback(glfw_ErrorCallback);
@@ -53,13 +59,11 @@ void Window::setup(void* ctx_ptr) {
         LOG_EXIT(EXIT_FAILURE);
     }
 
-    glfwSetWindowUserPointer(ptr, ctx_ptr);
     // WARNING: Doing any OpenGL calls before makeContextCurrent will fk shit up
     glfwMakeContextCurrent(ptr);
     // WARNING:  ^^^^^^^
 
     //    glfwSetWindowPosCallback(win,glfw_MoveCallback);
-    glfwSetCursorPosCallback(ptr, glfw_MouseMoveCallback);
     glfwSetWindowPos(ptr, x, y);
 
     float xscale, yscale;
@@ -80,8 +84,6 @@ void Window::setup(void* ctx_ptr) {
 
     // WARNING: Only set/call these once glbinding has been setup, as they make gl calls.
     assert(ptr);
-    glfwSetFramebufferSizeCallback(ptr, glfw_ResizeCallback);
-    glfw_ResizeCallback(ptr, px_w, px_h);
     glViewport(x, y, px_w, px_h);
     glfwSwapInterval(enable_vsync);
 

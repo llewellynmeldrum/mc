@@ -21,7 +21,7 @@ struct World {
     ChunkMap chunkMap;
     GenConfig genConfig;
     inline void setup(){
-        chunkMap.setup_chunk_map();
+        chunkMap.launchGenerator();
     }
 
 

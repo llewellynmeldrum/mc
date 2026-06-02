@@ -7,17 +7,14 @@
 #include <unordered_map>
 
 using namespace glm;
-void TextureAtlas::setupTextureAtlas() {
-    texture = Texture2D(textureImagePath.c_str(), to_i32(gl::GL_RGBA), { 0, 1, 0, 1 });
-    texture.setup();
+TextureAtlas::TextureAtlas(const char* tex_img_path):
+    texture(tex_img_path, to_i32(gl::GL_RGBA), { 0, 1, 0, 1 })
+{
     LOG_DEBUG("Set up texture atlas");
     spriteCols = texture.pxwidth / this->spriteSize;
     spriteRows = texture.pxheight / this->spriteSize;
     abs_sprite_w = spriteSize / (f32)texture.pxwidth;
     abs_sprite_h = spriteSize / (f32)texture.pxheight;
-    LOG_DEBUG("init texture atlas");
-}
-TextureAtlas::TextureAtlas(const char* tex_img_path) : textureImagePath(tex_img_path) {
 }
 static std::unordered_map<Direction, size_t> directionTexOffset = {
     // clang-format off

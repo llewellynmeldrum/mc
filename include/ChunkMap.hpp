@@ -32,9 +32,9 @@ struct ChunkMap {
     // can produce `PendingWrite`s for chunks that havent generated (and thus been added as an entry) yet
     std::unordered_map<WorldChunkCoord, PendingWriteQueue> pendingWritesMap;
 
-    inline void setup_chunk_map(){
+    inline void launchGenerator(){
         
-        generator.setupChunkGenerator();
+        generator.launchGenThreads();
     }
 
     inline ChunkEntry* get_entry_safe(WorldChunkCoord coord){

@@ -18,7 +18,7 @@ struct Input {
 
     Input() = default;
     ~Input() = default;
-    void setup(GLFWwindow* ptr);
+    void set_callbacks(GLFWwindow* ptr);
     void poll();
 
     f32 default_key_CD_s= 0.15f;

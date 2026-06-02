@@ -44,7 +44,8 @@ struct IndexedMesh {
     void setupMesh(std::vector<Vertex> vertices, std::vector<u32> offsets);
     void draw() const;
 
-    i64           offset_count{ 0 };  // if EBO, index count.
+    i64           offset_count{ 0 };  
+    i64           vertex_count{ 0 };  
     VertexArray   vao;
     VertexBuffer  vbo;
     ElementBuffer ebo;

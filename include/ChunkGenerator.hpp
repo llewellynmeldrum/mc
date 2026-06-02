@@ -12,7 +12,7 @@ struct ChunkGenerator {
     // has noise maps, etc
 
 
-    inline void setupChunkGenerator(){
+    inline void launchGenThreads(){
         genThreads.launch(
             genChunks,
             std::ref(genJobQueue),

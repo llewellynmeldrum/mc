@@ -29,7 +29,7 @@ void Simulation::handleInputs() {
 
     if (input.mousepos != input.prevmousepos) {
         const vec2 diff = input.prevmousepos - input.mousepos;
-        cam.rotateByMouse(diff, profiler.dt_s);
+        playerCam.rotateByMouse(diff, profiler.dt_s);
     }
 
     input.mapToggleKey(KEY_T, [this]{
@@ -53,51 +53,51 @@ void Simulation::handleInputs() {
     static_assert(KEY_MAX>=KEY_LEFT_SHIFT && KEY_LEFT_SHIFT>KEY_MIN);
     input.mapHeldKey(KEY_LEFT_SHIFT,[this](bool isHeld){
         if (isHeld){
-            cam.moveSpeed = Camera::SPRINT_MOVESPEED;
+            playerCam.moveSpeed = Camera::SPRINT_MOVESPEED;
         }else{
-            cam.moveSpeed = Camera::BASE_MOVESPEED;
+            playerCam.moveSpeed = Camera::BASE_MOVESPEED;
         }
     });
     input.mapHeldKey(KEY_W,[this]{
-		cam.move(Direction::FORWARD, profiler.dt_s);
+		playerCam.move(Direction::FORWARD, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_S,[this]{
-		cam.move(Direction::BACKWARD, profiler.dt_s);
+		playerCam.move(Direction::BACKWARD, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_A,[this]{
-		cam.move(Direction::LEFT, profiler.dt_s);
+		playerCam.move(Direction::LEFT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_D,[this]{
-		cam.move(Direction::RIGHT, profiler.dt_s);
+		playerCam.move(Direction::RIGHT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_SPACE,[this]{
-		cam.move(Direction::UP, profiler.dt_s);
+		playerCam.move(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_E,[this]{
-		cam.move(Direction::UP, profiler.dt_s);
+		playerCam.move(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_Q,[this]{
-		cam.move(Direction::DOWN, profiler.dt_s);
+		playerCam.move(Direction::DOWN, profiler.dt_s);
 	});
 
     input.mapHeldKey(KEY_LEFT,[this]{
-		cam.rotate(Direction::LEFT, profiler.dt_s);
+		playerCam.rotate(Direction::LEFT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_RIGHT,[this]{
-		cam.rotate(Direction::RIGHT, profiler.dt_s);
+		playerCam.rotate(Direction::RIGHT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_UP,[this]{
-		cam.rotate(Direction::UP, profiler.dt_s);
+		playerCam.rotate(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_DOWN,[this]{
-		cam.rotate(Direction::DOWN, profiler.dt_s);
+		playerCam.rotate(Direction::DOWN, profiler.dt_s);
 	});
     input.prevmousepos = input.mousepos;
 }
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
 // TODO: implement mouse lookaround input
 
-void Input::setup(GLFWwindow* ptr) {
+void Input::set_callbacks(GLFWwindow* ptr) {
     glfwSetKeyCallback(ptr, glfw_key_callback);
 }
 

@@ -7,6 +7,7 @@
 #include "cppslop.hpp"
 #include "Bitwise.hpp"
 #include "glm/vec4.hpp"
+#include "Colors01.hpp"
 
 
 struct ChunkState{
@@ -100,25 +101,25 @@ public:
         return state.dbg_color;
     }
 
-    static constexpr glm::vec4 SpecialColor{1, 0,1,1};
-    static constexpr glm::vec4 UnGeneratedColor{1, 1,1,1};
+    static constexpr glm::vec4 SpecialColor = Color01::PURPLE;
+    static constexpr glm::vec4 UnGeneratedColor = Color01::WHITE;
     static constexpr ChunkState ungenerated{
             .ungenerated        = true,
 
-            .dbg_color={1.0,0.0,0.0,1.0},
+            .dbg_color=Color01::RED,
     };
     static constexpr ChunkState generationInProgress={
             .ungenerated        = false,
             .isGenerating       = true,
 
-            .dbg_color={1.0,0.5,0.0,1.0}, // orange
+            .dbg_color=Color01::ORANGE,
     };
     static constexpr ChunkState generationFinished{
             .ungenerated		= false,
             .isGenerating		= false,
             .finishedGenerating	= true,
 
-            .dbg_color = {0.4,.15,0.0,1.0}, // BROWN
+            .dbg_color = Color01::BROWN,
     }; 
     static constexpr ChunkState meshingInProgress{
             .ungenerated		= false,
@@ -126,7 +127,7 @@ public:
             .finishedGenerating	= true,
             .isMeshing		    = true,
 
-            .dbg_color={1.0,1.0,0.0,1.0}, // YELLOW
+            .dbg_color=Color01::YELLOW,
     };
     static constexpr ChunkState cleanMeshed{
             .ungenerated		= false,
@@ -136,7 +137,7 @@ public:
             .finishedMeshing	= true,
             .meshIsDirty		= false,
 
-            .dbg_color={0.0,1.0,0.0,1.0}, // GREEN
+            .dbg_color=Color01::GREEN,
     }; 
     static constexpr ChunkState dirtyMeshed{
             .ungenerated		= false,
@@ -146,7 +147,7 @@ public:
             .finishedMeshing	= true,
             .meshIsDirty		= true,
             
-            .dbg_color={0.0,0.0,1.0,1.0}, // BLUE
+            .dbg_color=Color01::BLUE,
     }; 
 };
 

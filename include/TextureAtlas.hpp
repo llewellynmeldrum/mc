@@ -10,7 +10,6 @@ struct TextureAtlas {
     ~TextureAtlas() = default;
     std::string textureImagePath{};
 
-    void                     setupTextureAtlas();
     Texture2D                texture;
     u64                      spriteCols;
     u64                      spriteRows;

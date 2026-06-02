@@ -23,6 +23,7 @@ constexpr GLenum IndexedMesh::PrimitiveType() {
 
 void IndexedMesh::setupMesh(std::vector<Vertex> vertices, std::vector<u32> indices) {
     offset_count = indices.size();
+    vertex_count=vertices.size();
     vao.bind();
     assert((indices.size() / 6) * 4 == vertices.size());
     vbo.load<Vertex>(vertices);

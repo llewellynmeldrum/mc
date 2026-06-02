@@ -7,6 +7,7 @@
 #include "DebugFormatSpecializations.hpp"
 #include "CoordIteration.hpp"
 
+
 #include "Simulation.hpp"
 
 #include "LM.hpp"
@@ -19,13 +20,13 @@ using namespace glm;
 void Simulation::setupSimulation() {
     program_epoch_ns = get_current_ns();
 
-    win.setup(static_cast<void*>(this));
-    LOG_DEBUG("Finished Window setup.");
+    win.set_callbacks(static_cast<void*>(this));
+    LOG_DEBUG("Finished setting window callbacks.");
 
-    input.setup(win.ptr);
+    input.set_callbacks(win.ptr);
     LOG_DEBUG("Finished Input setup.");
 
-    profiler.setup(
+    profiler.init(
         "frame",
         "input",
         "update",
@@ -38,13 +39,12 @@ void Simulation::setupSimulation() {
     );
     LOG_DEBUG("Finished Profiler setup.");
 
-    cam.setup();
+    playerCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
+    fixedCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
     LOG_DEBUG("Finished Camera setup.");
 
-    rend.setup();
-    LOG_DEBUG("Finished Renderer setup.");
 
-    ui.setup(win.ptr);
+    ui.init(win.ptr);
     LOG_DEBUG("Finished UI setup.");
 
     world.setup();
@@ -53,7 +53,7 @@ void Simulation::setupSimulation() {
 
 void Simulation::freeCursor(){
     win.freeCursor();
-    cam.disableMousePanning();
+    playerCam.disableMousePanning();
 }
 
 void Simulation::unGenerateAllChunks(){
@@ -71,7 +71,7 @@ void Simulation::unMeshAllChunks(){
 
 void Simulation::captureCursor(){
     win.captureCursor();
-    cam.enableMousePanning();
+    playerCam.enableMousePanning();
 }
 
 void Simulation::loop(){
@@ -95,10 +95,9 @@ void Simulation::loop(){
     profiler.bench_start("draw");
     draw(); 
     profiler.bench_end("draw");
-    ui.updateUI();
+    ui.update();
     if (rend.debug.showDebugUI){
-        ui.drawDebugUI(); 
-        ui.render();
+        ui.draw(); 
     }
 
     profiler.bench_start("render");
@@ -114,8 +113,8 @@ void Simulation::cullMeshes(){
     for (auto& mesh: rend.transparentChunkMeshes){
 
     }
-    auto lo = toWorldChunkCoord(cam.pos) + ChunkOffset{-MESH_CULL_DIST};
-    auto hi = toWorldChunkCoord(cam.pos) + ChunkOffset{MESH_CULL_DIST};
+    auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
+    auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
 
     auto predFactory = [](auto& chunkMap, auto lo, auto hi){
         return [lo,hi, &chunkMap](const auto& mesh){
@@ -162,7 +161,7 @@ void Simulation::update() {
 
 std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t maxJobs){
     std::vector<WorldChunkCoord> candidates;
-    const auto chunkCoord = toWorldChunkCoord(cam.pos);
+    const auto chunkCoord = toWorldChunkCoord(playerCam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
     auto func = [this, &candidates, &maxJobs](i32 x, i32 y, i32 z) -> IterationSignal{
         const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
@@ -250,11 +249,11 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
 std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 
     auto in_frustum = [this](const WorldChunkCoord& chunk_coord) {
-        return cam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
+        return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
     };
 
     
-    const auto camChunkCoord = toWorldChunkCoord(cam.pos);
+    const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
     const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_DIST, maxJobs);
 
     std::vector<MeshJob> res;
@@ -381,13 +380,32 @@ void Simulation::togglePause(){
     if (paused) unpause();
     else pause();
 }
+RenderTargetView Simulation::screenView() {
+    return {
+        .pos = {win.x,win.y},
+        .size = {win.px_w, win.px_h},
+    };
+}
+RenderTargetView Simulation::secondaryView() {
+    return fixedCamTarget.view();
+}
 void Simulation::draw() {
-    rend.clear({ 0.25, 0.5, 0.85, 1.0 });
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
 
-    rend.drawChunks(cam);
+    rend.clear(rend.clear_color);
+    rend.draw_to(playerCam, screenView());
+
+    // draw to the texture
+    rend.draw_to(fixedCam, secondaryView());
+    LOG_EXPR(screenView().framebuffer_id);
+    LOG_EXPR(secondaryView().framebuffer_id);
+    
+    //NOTE:
+    // Second camera is now drawing, depth buffer is cooking it a  bit.
+    // TODO: 
+    // Create the imgui texture and stuff, with the working 
     if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(cam,world);
+        rend.draw_debugChunks(playerCam,world);
     }
     static bool first_draw = true;
     if (first_draw) {
