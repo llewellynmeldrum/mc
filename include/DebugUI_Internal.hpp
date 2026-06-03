@@ -132,6 +132,9 @@ struct WindowConfig{
     inline void setAlpha(f32 alpha){
         IG::SetNextWindowBgAlpha(alpha);  // Transparent background
     }
+    inline void setFlags(i32 flags){
+        this->flags=flags;
+    }
     template<typename Fn>
     inline void start_at(bool allowMovement, UVPos pos, Fn&& work){
         setup();

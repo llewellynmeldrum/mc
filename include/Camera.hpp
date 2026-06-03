@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Colors01.hpp"
 #include "CoordTypes.hpp"
 #include "DEBUG.hpp"
 #include "Logger.hpp"
@@ -14,9 +15,11 @@ struct Frustum;
 struct Camera {
 
   public:
+    bool isPlayer=false;
+    glm::vec4 lineColor=Color01::BLUE;
     Camera() = default;
-    Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     ~Camera() = default;
+    Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     static constexpr f32 BASE_MOVESPEED = 12.0f;
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
     static constexpr i32 DebugChunkRenderDistance = 8;
@@ -54,10 +57,11 @@ struct Camera {
         );
     }
     inline glm::vec3 getFacing() const{
-        return glm::vec3{
-            cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
-            sin(glm::radians(pitch)),
-            sin(glm::radians(yaw)) * cos(glm::radians(pitch)),
+        using namespace glm;
+        return vec3{
+            cos(radians(yaw)) * cos(radians(pitch)),
+            sin(radians(pitch)),
+            sin(radians(yaw)) * cos(radians(pitch)),
         };
     };
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "Camera.hpp"
 #include "CoordTypes.hpp"
+#include "Line3DRenderer.hpp"
 #include "Shaders.hpp"
 #include "Mesh.hpp"
 #include "TextureAtlas.hpp"
@@ -61,7 +62,7 @@ struct ScreenTarget{
     }
 };
 struct TextureTarget{
-    TextureTarget(glm::vec2 size, glm::vec2 pos);
+    TextureTarget(glm::vec2 _pos, glm::vec2 _size);
     TextureTarget();
     ~TextureTarget()=default;
 
@@ -86,12 +87,14 @@ struct Renderer {
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  meshers;
     DebugChunkRenderer dbg_rend;
+    Line3DRenderer line3d_rend;
     glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};
 
     void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
-    void draw_debugChunks(Camera& cam, World& world);
+    void draw_debugChunks(Camera& cam, World& world, RenderTargetView target);
+    void draw_3DLines(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
 
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {

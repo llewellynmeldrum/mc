@@ -20,6 +20,7 @@ struct Simulation {
     Simulation() = default;
     ~Simulation() = default;
 
+    std::vector<Line3D> lines3d;
     Window   win;
     Profiler profiler;
     Input    input;

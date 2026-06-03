@@ -13,8 +13,13 @@
 #endif
 
 
+#include "glbindingWrapper.hpp"
+using namespace gl;
 int TEST_MAIN(){
     std::println("NOTICE!!!! CURRENTLY IN TESTING MODE!!!");
+    App app{};
+    app.setup();
+
     std::exit(EXIT_SUCCESS);
     return EXIT_SUCCESS;
 }

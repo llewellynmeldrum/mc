@@ -138,6 +138,7 @@ Renderer::Renderer() {
     meshers.launch();
 
     dbg_rend.setup();
+    line3d_rend.setup();
     glEnable(GL_DEPTH_TEST);  // perform depth testing, i.e refuse draw calls which would cause a
                               // vertex further away to overwrite a closer one
     glEnable(GL_CULL_FACE);
@@ -154,11 +155,21 @@ void Renderer::clear(const vec4 clear_color) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::draw_debugChunks(Camera& cam, World& world){
+void Renderer::draw_debugChunks(Camera& cam, World& world, RenderTargetView target){
+    target.use();
     dbg_rend.update(cam,world);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     dbg_rend.draw(cam);
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
+    target.stop();
+}
+void Renderer::draw_3DLines(Camera& cam, std::span<Line3D> lines, RenderTargetView target){
+    target.use();
+    line3d_rend.update(cam,lines);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    line3d_rend.draw(cam);
+    glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
+    target.stop();
 }
 // TODO: we need to resort chunk meshes/ update cam pos to get transparency 100% correct
 

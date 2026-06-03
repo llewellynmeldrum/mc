@@ -11,6 +11,7 @@
 #include "Simulation.hpp"
 
 #include "LM.hpp"
+#include "Line3D.hpp"
 #include "Profiler.hpp"
 #include "Logger.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -19,6 +20,8 @@
 using namespace glm;
 void Simulation::setupSimulation() {
     program_epoch_ns = get_current_ns();
+    playerCam.isPlayer=true;
+    playerCam.lineColor = Color01::WHITE;
 
     win.set_callbacks(static_cast<void*>(this));
     LOG_DEBUG("Finished setting window callbacks.");
@@ -155,6 +158,19 @@ void Simulation::update() {
     profiler.bench_end("drainMesh");
     rb_meshResultsAdded.write(meshResultsThisFrame);
 
+
+    // build camera debug lines
+    Line3D_thickness = 0.3f;
+
+    lines3d.clear();
+    auto makeCamFrustumLines = [this](Camera& cam){
+        // 1. Direction cam is facing
+        vec3 near_to_far = cam.pos.raw()+glm::normalize(cam.getFacing()) * cam.far_clip_z;;
+        vec3 cam_pos = cam.pos.raw();
+        lines3d.emplace_back(cam_pos, near_to_far);
+    };
+    makeCamFrustumLines(playerCam);
+    makeCamFrustumLines(fixedCam);
 
 }
 
@@ -391,19 +407,16 @@ RenderTargetView Simulation::secondaryView() {
 }
 void Simulation::draw() {
     ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
+    playerCam.aspectRatio = win.aspect();
 
     rend.draw_to(playerCam, screenView());
-
-    // draw to the texture
     rend.draw_to(fixedCam, secondaryView());
-    LOG_EXPR(screenView().framebuffer_id);
-    LOG_EXPR(secondaryView().framebuffer_id);
     
-    // TODO: 
-    // Create the imgui texture thing to draw the texture/frambuffer we have created
-    //
+    rend.draw_3DLines(playerCam,lines3d,screenView());
+    rend.draw_3DLines(fixedCam,lines3d,secondaryView());
     if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(playerCam,world);
+        rend.draw_debugChunks(playerCam,world,screenView());
+        rend.draw_debugChunks(fixedCam,world,secondaryView());
     }
     static bool first_draw = true;
     if (first_draw) {

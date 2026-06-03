@@ -4,6 +4,12 @@
 #include <concepts>
 #include <string>
 
+#include "DebugFormat.hpp"
+
+#define DISABLE_STYLE
+#include "DebugFormatSpecializations.hpp"
+#undef DISABLE_STYLE
+
 #include "DebugUI.hpp"
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
@@ -11,7 +17,6 @@
 #include "ChunkConstants.hpp"
 #include "Simulation.hpp"
 #include "CoordTypes.hpp"
-#include "DebugFormat.hpp"
 #include "CommonConcepts.hpp"
 #include "ImGuiWrapper.hpp"
 #include "glmWrapper.hpp"
@@ -104,12 +109,14 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
 void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
     self.setup();
-    self.setSize(UVSize{0.3,0.3});
+    f32 aspect  = ctx->fixedCamTarget.size.x / ctx->fixedCamTarget.size.y;
+    self.setSize(UVSize{0.4,0.4*aspect});
     self.setAlign(WinAlign::TopMid());
+    self.setFlags(UI::WinFlags::NoResize);
     self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
         auto& window = self;
         window.section("Secondary View:",[&ctx]{
-            UI::Text("hildiafhjsl;dkfgjadslkjlksjflksjflkjfdjslk");
+            UI::Text("{}, {}",dbg_fmt(ctx->fixedCamTarget.pos), dbg_fmt(ctx->fixedCamTarget.size));
             UI::DrawTexture(ctx->fixedCamTarget);
 
         });

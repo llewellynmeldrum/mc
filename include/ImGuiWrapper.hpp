@@ -59,9 +59,10 @@ namespace UI{
     inline void SetTextColor(glm::vec4 c){
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r,c.g,c.b,c.a));
     }
-    inline void DrawTexture(const TextureTarget& target){
+    inline void DrawTexture(TextureTarget& target){
         ImVec2 pos = ImGui::GetCursorScreenPos();
         ImVec2 size =  ImGui::GetContentRegionAvail();
+
         ImGui::GetWindowDrawList()->AddImage(
             reinterpret_cast<void*>(target.texture.id), 
             ImVec2(pos.x, pos.y), 
