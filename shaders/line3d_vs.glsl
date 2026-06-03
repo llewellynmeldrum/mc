@@ -6,6 +6,8 @@ layout (location = 3)       in vec4 color;
 layout (location = 4)       in float thickness;  // world space thickness
 
 out vec4 frag_color;
+out float t;
+out float perp;
 
 uniform mat4 view;
 uniform mat4 proj;
@@ -16,8 +18,8 @@ void main(){
     // corner.x encodes t 
     // corner.y encodes 
 
-    float t = corner.x; // how far along the line we are, from 0 (start) -> 1 (end)
-    float perp_scale = corner.y; // the perpendicular to line offset scale each quad takes on.
+    t = corner.x; // how far along the line we are, from 0 (start) -> 1 (end)
+    perp = corner.y; // the perpendicular to line offset scale each quad takes on.
     float half_thick = thickness * 0.5;
 
 
@@ -35,8 +37,8 @@ void main(){
     vec3 v_perpDir = normalize(cross(v_dirTowardsCamera, v_lineDir));
 
 
-    // the final pos is the perpDir * half thickness * perp_scale from vtx data
-    vec3 v_finalOffset = v_perpDir * half_thick * perp_scale;
+    // the final pos is the perpDir * half thickness * perp from vtx data
+    vec3 v_finalOffset = v_perpDir * half_thick * perp;
     vec3 v_finalPos = v_pointPos + v_finalOffset;
 
     // project 

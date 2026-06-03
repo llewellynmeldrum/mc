@@ -87,15 +87,14 @@ decltype(auto) makeLine3DInstance(const Line3D& val){
     return Line3DInstance{
         .w_start=val.p0,
         .w_end=val.p1,
-        .thickness=Line3D_thickness,
+        .thickness=val.thickness,
         .color=val.color,
     };
 }
 void Line3DRenderer::updateInstances(Camera& cam, std::span<Line3D> lines){
-    using namespace glm;
     instances.clear();
     for (auto& line: lines){
-        line.color=cam.lineColor;
+//        line.color=cam.lineColor;
         instances.emplace_back(makeLine3DInstance(line));
     }
 

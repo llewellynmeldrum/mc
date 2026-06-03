@@ -35,6 +35,7 @@ struct Camera {
     inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
     WorldFloatPos pos{};       // world
+    // height * aspectRatio = width
     f32  aspectRatio{};
     glm::mat4 projection_matrix = glm::mat4(1.0f);
 
@@ -86,7 +87,7 @@ struct Camera {
 
     f32 vertical_fov = 70.0f;
     f32 near_clip_z = 0.1f;
-    f32 far_clip_z = 1000.0f;
+    f32 far_clip_z = 10.0f;
     f32 keyboard_sensitivity = 1.5;
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 

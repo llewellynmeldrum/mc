@@ -21,7 +21,14 @@ struct ChunkState{
 
     bool special            {false};
     glm::vec4 dbg_color{};
-    constexpr bool operator==(const ChunkState& rhs) const noexcept = default;
+    inline constexpr bool operator==(const ChunkState& rhs) const noexcept{
+        return  ungenerated        ==rhs.ungenerated        &&
+                isGenerating       ==rhs.isGenerating       &&
+                finishedGenerating ==rhs.finishedGenerating &&
+                isMeshing          ==rhs.isMeshing          &&
+                finishedMeshing    ==rhs.finishedMeshing    &&
+                meshIsDirty        ==rhs.meshIsDirty        ;
+    }
 };
 struct ChunkEntryStatus{
 public:

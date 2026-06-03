@@ -29,6 +29,7 @@ struct Window {
     // use these for mouse input and whatnot
     i32        tw;  // `true` (logical) pixel width, px_w = 2*tw on retina displays
     i32        th;  // `true` (logical) pixel height, px_h = 2*th on retina displays
+    // height * aspect() = width
     inline f32 aspect() { return (f32)px_w / (f32)px_h; }
 private:
     void setup();

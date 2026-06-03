@@ -22,6 +22,7 @@ void Simulation::setupSimulation() {
     program_epoch_ns = get_current_ns();
     playerCam.isPlayer=true;
     playerCam.lineColor = Color01::WHITE;
+    playerCam.far_clip_z = 1000.0f;
 
     win.set_callbacks(static_cast<void*>(this));
     LOG_DEBUG("Finished setting window callbacks.");
@@ -119,8 +120,8 @@ void Simulation::cullMeshes(){
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
     auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
 
-    auto predFactory = [](auto& chunkMap, auto lo, auto hi){
-        return [lo,hi, &chunkMap](const auto& mesh){
+    auto predFactory = [](auto* ptr, auto& chunkMap, auto lo, auto hi){
+        return [lo,hi, &chunkMap, ptr](const auto& mesh){
             bool shouldRemove = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
             if (shouldRemove){
                 chunkMap.get_entry(mesh.chunkCoord)->requestMeshRegen();
@@ -131,8 +132,8 @@ void Simulation::cullMeshes(){
         };
     };
     // erase all elements which are out of bounds, no?
-    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, predFactory(world.chunkMap,lo,hi));
-    auto n_erased= std::erase_if(rend.transparentChunkMeshes, predFactory(world.chunkMap,lo,hi));
+    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, predFactory(this, world.chunkMap,lo,hi));
+    auto n_erased= std::erase_if(rend.transparentChunkMeshes, predFactory(this, world.chunkMap,lo,hi));
 
 }
 
@@ -164,10 +165,18 @@ void Simulation::update() {
 
     lines3d.clear();
     auto makeCamFrustumLines = [this](Camera& cam){
-        // 1. Direction cam is facing
-        vec3 near_to_far = cam.pos.raw()+glm::normalize(cam.getFacing()) * cam.far_clip_z;;
-        vec3 cam_pos = cam.pos.raw();
-        lines3d.emplace_back(cam_pos, near_to_far);
+        auto frustum = cam.getFrustum();
+        frustum.path.publish(lines3d);
+//        lines3d.append_range(frustum.extra_lines);
+        lines3d.push_back(frustum.bot.getNormalLine(cam.pos.raw(),Color01::RED));
+        lines3d.push_back(frustum.top.getNormalLine(cam.pos.raw(),Color01::YELLOW));
+        lines3d.push_back(frustum.left.getNormalLine(cam.pos.raw(),Color01::GREEN));
+        lines3d.push_back(frustum.right.getNormalLine(cam.pos.raw(),Color01::BLUE));
+        lines3d.push_back(frustum.near.getNormalLine(cam.pos.raw(),Color01::PURPLE));
+        lines3d.push_back(frustum.far.getNormalLine(cam.pos.raw(),Color01::ORANGE));
+        for(const auto& [key,entry] : this->world.chunkMap.entries){
+//            lines3d.append_range(entry->bounding_box.getLines(entry->status.dbg_color()));
+        }
     };
     makeCamFrustumLines(playerCam);
     makeCamFrustumLines(fixedCam);
@@ -275,31 +284,20 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-//        if(in_frustum(candidateCoord)){
-//            entry->status.setSpecial();
-//        }else{
-//            entry->status.unsetSpecial();
-////            continue;
-//            // BUG: 
-//            // Frustum fails to identify chunks when facing a diagonal.
-//            // All chunks on diagonals to the camera facing position are culled.
-//            // Im not sure how to fix this issue without adding more debug visuals,
-//            // of which i cannot possibly be fucked doing rn. 
-//            // I will have to come back to this.
-//            // For the time being,
-//            // TERRAIN TIME!!!!!!!!!!!!!
-//            // ^^^^^^^^^^^^^^^^
-//        }
-
-        // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
-        // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
-        // i.e the ones bordering the actual chunk in question.
-        // make this construct based on the entry by const reference or something
-        res.emplace_back(
-            candidateCoord,
-            &rend.atlas,
-            entry
-        );
+        if(in_frustum(candidateCoord)){
+            entry->status.setSpecial();
+        }else{
+            entry->status.unsetSpecial();
+        }
+            // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
+            // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
+            // i.e the ones bordering the actual chunk in question.
+            // make this construct based on the entry by const reference or something
+            res.emplace_back(
+                candidateCoord,
+                &rend.atlas,
+                entry
+            );
 
     }
     return res;
