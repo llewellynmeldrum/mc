@@ -18,6 +18,7 @@
 <img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
 
 <br>
+
 - Faces touching opaque faces are culled from meshes (chunk generation makes surrounding chunks trigger remesh, so this applies to almost all cases where it can, including on chunk boundaries)
 - Translucent faces of the same material which touch each other are culled
 - World generation and chunk meshing happens off main thread
@@ -34,8 +35,11 @@
 - greedy meshing coplanar faces of same textured faces
 - switch mesh sorting algorithm to a partial sort with a 'budget'
 
-
 # Progress:
+
+> [!NOTE]
+>  TODO: add commit links to each progress point
+
 _This is my first time messing with 3d graphics, so I documented the process of following along with [learnopengl.com](https://learnopengl.com/Introduction)._
 
 First cube, first textured cube:<br>
@@ -67,7 +71,9 @@ Implemented cave generation after a ~1 month concurrency nightmare
 <br>
 Added trees<br>
 <img width="500" alt="image" src="https://github.com/user-attachments/assets/f83296e1-f64c-497b-8004-4b817cf4b9aa" />
-
+<br>
+Added frustum culling <br>
+<img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
 
 # Tools used
 - gnu make+ Cmake
