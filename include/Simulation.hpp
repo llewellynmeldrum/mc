@@ -54,7 +54,7 @@ struct Simulation {
 
     RenderTargetView screenView();
     RenderTargetView secondaryView();
-    void cullMeshes();
+    void cullMeshes(bool enableFrustumCulling);
     void unMeshAllChunks();
     void unGenerateAllChunks();
     void captureCursor();

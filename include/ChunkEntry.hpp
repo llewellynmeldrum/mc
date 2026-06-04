@@ -18,9 +18,18 @@ struct ChunkState{
     bool finishedMeshing    {false};
     bool meshIsDirty        {false};
 
+    // TODO:
+    // FIX THE PREVIEW COLORS
 
+    static constexpr glm::vec4 SpecialColor = Color01::PURPLE;
     bool special            {false};
     glm::vec4 dbg_color{};
+    const glm::vec4& DebugColor()const{
+        if (special){
+            return SpecialColor;
+        }
+        return dbg_color;
+    }
     inline constexpr bool operator==(const ChunkState& rhs) const noexcept{
         return  ungenerated        ==rhs.ungenerated        &&
                 isGenerating       ==rhs.isGenerating       &&
@@ -101,19 +110,13 @@ public:
     }
 
 
-    const glm::vec4& dbg_color()const{
-        if (isSpecial()){
-            return SpecialColor;
-        }
-        return state.dbg_color;
-    }
+    const glm::vec4& DebugColor()const{ return state.DebugColor(); }
 
-    static constexpr glm::vec4 SpecialColor = Color01::PURPLE;
     static constexpr glm::vec4 UnGeneratedColor = Color01::WHITE;
     static constexpr ChunkState ungenerated{
             .ungenerated        = true,
 
-            .dbg_color=Color01::RED,
+            .dbg_color=UnGeneratedColor,
     };
     static constexpr ChunkState generationInProgress={
             .ungenerated        = false,

@@ -215,8 +215,11 @@ void Renderer::drawTransparent(Camera& cam){
         // Will have to flip when i do transperancy
         return sqdist(source,lhs.chunkCoord) > sqdist(source,rhs.chunkCoord);
     });
+    auto loadedTransparent= std::views::filter(transparentChunkMeshes,[](const auto& mesh){
+        return mesh.isLoaded();
+    });
 
-    for (const auto& mesh : transparentChunkMeshes) {
+    for (const auto& mesh : loadedTransparent) {
         const auto chunkFloatWorldPos = WorldFloatPos{toWorldOrigin(mesh.chunkCoord).raw()};
 //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
 //            std::println("{}",chunkDist);
@@ -243,7 +246,10 @@ void Renderer::drawOpaque(Camera& cam){
     std::ranges::sort(opaqueChunkMeshes, [sqdist, source](const auto& lhs, const auto& rhs){
         return sqdist(source,lhs.chunkCoord) < sqdist(source,rhs.chunkCoord);
     });
-    for (const auto& mesh : opaqueChunkMeshes) {
+    auto loadedOpaque = std::views::filter(opaqueChunkMeshes,[](const auto& mesh){
+        return mesh.isLoaded();
+    });
+    for (const auto& mesh : loadedOpaque) {
         const auto chunkFloatWorldPos = WorldFloatPos{toWorldOrigin(mesh.chunkCoord).raw()};
 //           const auto chunkDist = glm::distance(chunkWorldPos,cam.pos);
 //            std::println("{}",chunkDist);

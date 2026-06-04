@@ -22,6 +22,9 @@ struct Camera {
     Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     static constexpr f32 BASE_MOVESPEED = 12.0f;
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
+    static constexpr f32 SPRINT_KEYBOARD_SENSITVITY= 10.5f;
+    static constexpr f32 BASE_KEYBOARD_SENSITIVITY = 1.5f;
+
     static constexpr i32 DebugChunkRenderDistance = 8;
 
     void set_pos_ori(WorldFloatPos pos, f32 pitch, f32 yaw);
@@ -84,11 +87,11 @@ struct Camera {
     f32 yaw = -90;
     f32 pitch = 0;
     f32 mouse_sensitivity = 6000;
+    f32 keyboard_sensitivity = BASE_KEYBOARD_SENSITIVITY;
 
     f32 vertical_fov = 70.0f;
     f32 near_clip_z = 0.1f;
-    f32 far_clip_z = 10.0f;
-    f32 keyboard_sensitivity = 1.5;
+    f32 far_clip_z = 1000.0f;
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 
     inline glm::mat4 getProjectionMatrix() const{

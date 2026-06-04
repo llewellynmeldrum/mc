@@ -104,7 +104,7 @@ void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
         auto entryColor = ChunkEntryStatus::UnGeneratedColor;
         if (hasEntry){
             const auto& entry = world.chunkMap.get_entry(entryCoord);
-            entryColor = entry->status.dbg_color();
+            entryColor = entry->status.DebugColor();
             if (entry->status.isCleanMeshed()){
                 continue; // skip, else visual clutter is too bad
             }

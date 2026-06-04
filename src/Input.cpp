@@ -54,8 +54,10 @@ void Simulation::handleInputs() {
     input.mapHeldKey(KEY_LEFT_SHIFT,[this](bool isHeld){
         if (isHeld){
             playerCam.moveSpeed = Camera::SPRINT_MOVESPEED;
+            playerCam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
         }else{
             playerCam.moveSpeed = Camera::BASE_MOVESPEED;
+            playerCam.keyboard_sensitivity= Camera::BASE_KEYBOARD_SENSITIVITY;
         }
     });
     input.mapHeldKey(KEY_W,[this]{

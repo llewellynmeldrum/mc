@@ -24,6 +24,8 @@ void Simulation::setupSimulation() {
     playerCam.lineColor = Color01::WHITE;
     playerCam.far_clip_z = 1000.0f;
 
+    fixedCam.vertical_fov=50.0f;
+
     win.set_callbacks(static_cast<void*>(this));
     LOG_DEBUG("Finished setting window callbacks.");
 
@@ -44,7 +46,7 @@ void Simulation::setupSimulation() {
     LOG_DEBUG("Finished Profiler setup.");
 
     playerCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
-    fixedCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
+    fixedCam.set_pos_ori({0, 300, 0}, -89.0, 0.0);
     LOG_DEBUG("Finished Camera setup.");
 
 
@@ -112,28 +114,34 @@ void Simulation::loop(){
     profiler.end_frame();
 }
 
-void Simulation::cullMeshes(){
+void Simulation::cullMeshes(bool enableFrustumCulling){
     // if a mesh is outside of render dist, but still being meshed, cull it.
-    for (auto& mesh: rend.transparentChunkMeshes){
-
-    }
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
     auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
+    auto in_frustum = [this](const WorldChunkCoord& chunk_coord) {
+        return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
+    };
 
-    auto predFactory = [](auto* ptr, auto& chunkMap, auto lo, auto hi){
-        return [lo,hi, &chunkMap, ptr](const auto& mesh){
+    auto pred = [in_frustum](auto* ptr, auto& chunkMap, auto lo, auto hi){
+        return [lo,hi, &chunkMap, ptr, in_frustum](IndexedMesh& mesh){
             bool shouldRemove = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
+            bool outsideFrustum = !in_frustum(mesh.chunkCoord);
+            // should a mesh be 'unloaded' instead of removed from the list?
+            // i.e its not uploaded to the gpu but can be 'reloaded'?
             if (shouldRemove){
                 chunkMap.get_entry(mesh.chunkCoord)->requestMeshRegen();
+            }
+            if (outsideFrustum){
+                mesh.unload();
             }else{
-
+                mesh.load();
             }
             return shouldRemove;
         };
     };
     // erase all elements which are out of bounds, no?
-    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, predFactory(this, world.chunkMap,lo,hi));
-    auto n_erased= std::erase_if(rend.transparentChunkMeshes, predFactory(this, world.chunkMap,lo,hi));
+    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, pred(this, world.chunkMap,lo,hi));
+    auto n_erased= std::erase_if(rend.transparentChunkMeshes, pred(this, world.chunkMap,lo,hi));
 
 }
 
@@ -148,7 +156,7 @@ void Simulation::update() {
     profiler.bench_end("drainGen");
     rb_genResultsAdded.write(genResultsThisFrame);
 
-    cullMeshes();
+    cullMeshes(true);
     profiler.bench_start("enqueueMesh");
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
     profiler.bench_end("enqueueMesh");
@@ -167,16 +175,7 @@ void Simulation::update() {
     auto makeCamFrustumLines = [this](Camera& cam){
         auto frustum = cam.getFrustum();
         frustum.path.publish(lines3d);
-//        lines3d.append_range(frustum.extra_lines);
-        lines3d.push_back(frustum.bot.getNormalLine(cam.pos.raw(),Color01::RED));
-        lines3d.push_back(frustum.top.getNormalLine(cam.pos.raw(),Color01::YELLOW));
-        lines3d.push_back(frustum.left.getNormalLine(cam.pos.raw(),Color01::GREEN));
-        lines3d.push_back(frustum.right.getNormalLine(cam.pos.raw(),Color01::BLUE));
-        lines3d.push_back(frustum.near.getNormalLine(cam.pos.raw(),Color01::PURPLE));
-        lines3d.push_back(frustum.far.getNormalLine(cam.pos.raw(),Color01::ORANGE));
-        for(const auto& [key,entry] : this->world.chunkMap.entries){
-//            lines3d.append_range(entry->bounding_box.getLines(entry->status.dbg_color()));
-        }
+        lines3d.append_range(frustum.extra_lines);
     };
     makeCamFrustumLines(playerCam);
     makeCamFrustumLines(fixedCam);
@@ -284,20 +283,20 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-        if(in_frustum(candidateCoord)){
+        if(playerCam.getFrustum().isAABBInside(entry->bounding_box)){
             entry->status.setSpecial();
-        }else{
-            entry->status.unsetSpecial();
-        }
             // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
             // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
             // i.e the ones bordering the actual chunk in question.
             // make this construct based on the entry by const reference or something
+        }else{
+            entry->status.unsetSpecial();
             res.emplace_back(
                 candidateCoord,
                 &rend.atlas,
                 entry
             );
+        }
 
     }
     return res;
@@ -410,12 +409,15 @@ void Simulation::draw() {
     rend.draw_to(playerCam, screenView());
     rend.draw_to(fixedCam, secondaryView());
     
-    rend.draw_3DLines(playerCam,lines3d,screenView());
-    rend.draw_3DLines(fixedCam,lines3d,secondaryView());
     if(rend.debug.showChunkBoundaries){
         rend.draw_debugChunks(playerCam,world,screenView());
         rend.draw_debugChunks(fixedCam,world,secondaryView());
+        for(const auto& [key,entry] : this->world.chunkMap.entries){
+            lines3d.append_range(entry->bounding_box.getLines(entry->status.DebugColor()));
+        }
     }
+    rend.draw_3DLines(playerCam,lines3d,screenView());
+    rend.draw_3DLines(fixedCam,lines3d,secondaryView());
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");

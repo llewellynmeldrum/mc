@@ -23,7 +23,7 @@ struct MeshBase {
     void setupMesh(std::vector<Vertex> vertices);
     void draw() const;
 
-    i64          vertex_count{ 0 };  // if EBO, index count.
+    i64          vertex_count{ 0 };  
     VertexBuffer vbo;
     VertexArray  vao;
 
@@ -43,6 +43,9 @@ struct IndexedMesh {
 
     void setupMesh(std::vector<Vertex> vertices, std::vector<u32> offsets);
     void draw() const;
+    inline void unload() noexcept{loaded=false; }
+    inline void load() noexcept{loaded=true; }
+    inline bool isLoaded()const noexcept{return loaded; }
 
     i64           offset_count{ 0 };  
     i64           vertex_count{ 0 };  
@@ -51,6 +54,9 @@ struct IndexedMesh {
     ElementBuffer ebo;
 
   private:
+    bool loaded=true; // whether or not it will be uploaded to the gpu this frame
+    // meshes are 'unloaded' if they are outside the frustum (or later obscured by other meshes)
+    // Meaning that they still exist, and are potentially clean, but dont need to be uploaded to gpu
     constexpr static gl::GLenum PrimitiveType();
 };
 

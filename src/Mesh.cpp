@@ -31,6 +31,7 @@ void IndexedMesh::setupMesh(std::vector<Vertex> vertices, std::vector<u32> indic
     vao.apply_layout(Vertex::layout());
     vao.unbind();
 }
+
 void IndexedMesh::draw() const {
     assert(offset_count != 0);
     vao.bind();
@@ -50,13 +51,3 @@ void MeshBase::draw() const {
     vao.drawArrays(vertex_count, PrimitiveType(), 0);
     vao.unbind();
 }
-
-//
-//
-//
-//
-//
-//
-// |||||||||||||||||||||||||||||||||||
-//  below are all 1 line wrappers
-// |||||||||||||||||||||||||||||||||||

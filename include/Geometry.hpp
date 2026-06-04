@@ -23,10 +23,11 @@ constexpr glm::vec3 WorldVector(Direction dir){
 struct Plane {
     Plane() = default;
     ~Plane() = default;
-    Plane(glm::vec3 origin, glm::vec3 norm) : normal(glm::normalize(norm)), distance(glm::dot(norm, origin)) {};
+    Plane(glm::vec3 origin, glm::vec3 _normal, std::string_view name = ""):
+        normal(glm::normalize(_normal)), distance(glm::dot(normal, origin)) {
+    };
     glm::vec3 normal{ 0, 1, 0 };
     f32  distance{};
-    Line3D getNormalLine(glm::vec3 origin, glm::vec4 color={1,1,1,1});
 
 };
 

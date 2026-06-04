@@ -131,12 +131,12 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
         window.section("Chunk Debug Colors:",[]{
-            UI::ColoredText(ChunkEntryStatus::dirtyMeshed.dbg_color, "Dirty Meshed");
-            UI::ColoredText(ChunkEntryStatus::cleanMeshed.dbg_color, "Clean Meshed");
-            UI::ColoredText(ChunkEntryStatus::meshingInProgress.dbg_color, "Meshing in progress");
-            UI::ColoredText(ChunkEntryStatus::generationFinished.dbg_color, "Generated");
-            UI::ColoredText(ChunkEntryStatus::generationInProgress.dbg_color, "Generation in progress");
-            UI::ColoredText(ChunkEntryStatus::ungenerated.dbg_color, "Ungenerated");
+            UI::ColoredText(ChunkEntryStatus::dirtyMeshed.DebugColor(), "Dirty Meshed");
+            UI::ColoredText(ChunkEntryStatus::cleanMeshed.DebugColor(), "Clean Meshed");
+            UI::ColoredText(ChunkEntryStatus::meshingInProgress.DebugColor(), "Meshing in progress");
+            UI::ColoredText(ChunkEntryStatus::generationFinished.DebugColor(), "Generated");
+            UI::ColoredText(ChunkEntryStatus::generationInProgress.DebugColor(), "Generation in progress");
+            UI::ColoredText(ChunkEntryStatus::ungenerated.DebugColor(), "Ungenerated");
         });
         window.dropdown.show();
 
