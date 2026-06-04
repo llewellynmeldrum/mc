@@ -14,6 +14,10 @@
 - Shitty caves, trees, and hills/lakes. 
 
 ## optimizations (implemented)
+- frustum culling:<br>
+<img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
+
+<br>
 - Faces touching opaque faces are culled from meshes (chunk generation makes surrounding chunks trigger remesh, so this applies to almost all cases where it can, including on chunk boundaries)
 - Translucent faces of the same material which touch each other are culled
 - World generation and chunk meshing happens off main thread
@@ -22,7 +26,6 @@
 - EBO index buffer for slightly less vertex data per face
   
 ## optimizations (planned)
-- Frustum culling (mostly done, but my implementation has some bugs probably in the math somewhere.)
 - !!!! Oclussion culling
 - Chunk neighbours uploaded to meshJobs should only get single slice of neighbours blocks
 - Pack vertex data, could massively save on gpu memory
