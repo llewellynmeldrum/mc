@@ -56,10 +56,8 @@ struct World {
     }
 
     inline std::vector<WorldChunkCoord> 
-    meshReadyChunksInRad(WorldChunkCoord chunkCoord, i32 dist, i32 maxChunks=0) {
-        const size_t nChunks = maxChunks == 0 ? std::pow(2*dist+1,3) : maxChunks;
+    meshReadyChunksInRad(WorldChunkCoord chunkCoord, glm::ivec3 extents, i32 maxChunks=0) {
         std::vector<WorldChunkCoord> candidates;
-        candidates.reserve(nChunks);
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
@@ -72,7 +70,7 @@ struct World {
             }
             return false;
         };
-        SpiralIterateRange(maxChunks, chunkCoord,dist, add);
+        SpiralIterateRange(maxChunks, chunkCoord,extents.y, extents.x, add);
         return candidates;
     }
 

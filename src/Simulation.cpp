@@ -16,6 +16,7 @@
 #include "Logger.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include <algorithm>
+#include <print>
 
 using namespace glm;
 void Simulation::setupSimulation() {
@@ -24,7 +25,7 @@ void Simulation::setupSimulation() {
     playerCam.lineColor = Color01::WHITE;
     playerCam.far_clip_z = 1000.0f;
 
-    fixedCam.vertical_fov=50.0f;
+    droneCam.vertical_fov=50.0f;
 
     win.set_callbacks(static_cast<void*>(this));
     LOG_DEBUG("Finished setting window callbacks.");
@@ -46,7 +47,7 @@ void Simulation::setupSimulation() {
     LOG_DEBUG("Finished Profiler setup.");
 
     playerCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
-    fixedCam.set_pos_ori({0, 300, 0}, -89.0, 0.0);
+    droneCam.set_pos_ori({0, 300, 0}, -89.0, 0.0);
     LOG_DEBUG("Finished Camera setup.");
 
 
@@ -69,7 +70,9 @@ void Simulation::unGenerateAllChunks(){
 }
 void Simulation::unMeshAllChunks(){
     for (const auto& [worldCoord, entry]: world.chunkMap.entries){
-        entry->requestMeshRegen();
+        if (entry->status.isCleanMeshed()){
+            entry->makeDirty();
+        }
     }
     rend.opaqueChunkMeshes.clear();
     rend.transparentChunkMeshes.clear();
@@ -113,30 +116,38 @@ void Simulation::loop(){
     profiler.bench_end("frame");
     profiler.end_frame();
 }
+bool Simulation::inPlayerFrustum(WorldChunkCoord coord){
+    return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(coord));
+}
 
+void Simulation::markInsideFrustum(){
+    for (const auto& [coord, entry]: world.chunkMap.entries){
+        if (inPlayerFrustum(coord)){
+            entry->status.markInFrustum();
+        }else{
+            entry->status.markOutsideFrustum();
+        }
+    }
+}
 void Simulation::cullMeshes(bool enableFrustumCulling){
     // if a mesh is outside of render dist, but still being meshed, cull it.
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
     auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
-    auto in_frustum = [this](const WorldChunkCoord& chunk_coord) {
-        return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
-    };
 
-    auto pred = [in_frustum](auto* ptr, auto& chunkMap, auto lo, auto hi){
-        return [lo,hi, &chunkMap, ptr, in_frustum](IndexedMesh& mesh){
-            bool shouldRemove = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
-            bool outsideFrustum = !in_frustum(mesh.chunkCoord);
+    // this shit is smelly
+    auto pred = [this](auto* ptr, auto& chunkMap, auto lo, auto hi){
+        return [lo,hi, &chunkMap, ptr, this](IndexedMesh& mesh){
+            auto* entry = world.chunkMap.get_entry_safe(mesh.chunkCoord);
+            bool outsidePaddedRenderDist = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
+            bool outsideFrustum = !inPlayerFrustum(mesh.chunkCoord);
             // should a mesh be 'unloaded' instead of removed from the list?
             // i.e its not uploaded to the gpu but can be 'reloaded'?
-            if (shouldRemove){
-                chunkMap.get_entry(mesh.chunkCoord)->requestMeshRegen();
-            }
             if (outsideFrustum){
                 mesh.unload();
             }else{
                 mesh.load();
             }
-            return shouldRemove;
+            return outsidePaddedRenderDist;
         };
     };
     // erase all elements which are out of bounds, no?
@@ -146,30 +157,24 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
 }
 
 void Simulation::update() {
-    profiler.bench_start("enqueueGen");
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
-    profiler.bench_end("enqueueGen");
     rb_genJobsAdded.write(genJobsThisFrame);
 
-    profiler.bench_start("drainGen");
     genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
-    profiler.bench_end("drainGen");
     rb_genResultsAdded.write(genResultsThisFrame);
 
+    markInsideFrustum();
     cullMeshes(true);
-    profiler.bench_start("enqueueMesh");
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
-    profiler.bench_end("enqueueMesh");
     rb_meshJobsAdded.write(meshJobsThisFrame);
 
-    profiler.bench_start("drainMesh");
     meshResultsThisFrame = drainAndUploadMeshResults(maxMeshUploadsPerFrame);
-    profiler.bench_end("drainMesh");
     rb_meshResultsAdded.write(meshResultsThisFrame);
 
 
-    // build camera debug lines
-    Line3D_thickness = 0.3f;
+    droneCam.pos = WorldFloatPos{playerCam.pos.raw()+glm::vec3{0,100,0}};
+    droneCam.cached_viewMatrix.invalidate();
+    droneCam.cached_frustum.invalidate();
 
     lines3d.clear();
     auto makeCamFrustumLines = [this](Camera& cam){
@@ -178,7 +183,7 @@ void Simulation::update() {
         lines3d.append_range(frustum.extra_lines);
     };
     makeCamFrustumLines(playerCam);
-    makeCamFrustumLines(fixedCam);
+//    makeCamFrustumLines(droneCam);
 
 }
 
@@ -187,16 +192,15 @@ std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t max
     std::vector<WorldChunkCoord> candidates;
     const auto chunkCoord = toWorldChunkCoord(playerCam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
-    auto func = [this, &candidates, &maxJobs](i32 x, i32 y, i32 z) -> IterationSignal{
+    auto add = [this, &candidates](i32 x, i32 y, i32 z) ->bool {
         const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
         const ChunkEntry* entry = world.chunkMap.make_or_getEntry(key);
         if (entry->status.qualifiesForGeneration()){
             candidates.emplace_back(key);
+            return true;
+        }else{
+            return false;
         }
-        if (candidates.size()>=maxJobs){
-            return IterationSignal::BREAK;
-        }
-        return IterationSignal::CONTINUE;
     };
 
     const i32& dist = SIMULATION_DIST;
@@ -207,50 +211,14 @@ std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t max
     // this genuinely took like 2 hours to make, holy christ man i hate geometric shit
     // Anyways this iterates in 'expanding spirals', per horizontal slice, such that we get 
     // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
-    for (i32 y = maxY; y>=minY; y--){
-        i32 x{chunkCoord.x}, z{chunkCoord.z};
-        // center point
-        if(func(x,y,z)==IterationSignal::BREAK){
-            goto EXIT_LOOP;
-        }
-        for (int r = 1; r<= dist; r++){
-            const int r2 = 2*r;
-            // move out of the centre point
-            if(func(--x,y,z)==IterationSignal::BREAK){
-                goto EXIT_LOOP;
-            }
-            for (int j = 0; j<r2 -1;j++)    {
-                // traverse the remaining (-X) edge
-                if(func(x,y,++z)==IterationSignal::BREAK){
-                    goto EXIT_LOOP;
-                }
-            }
-            for (int j = 0; j<r2 ; j++){
-                // traverse the whole     (Z+) edge
-                if(func(++x,y,z)==IterationSignal::BREAK){ 
-                    goto EXIT_LOOP;
-                }
-            }
-            for (int j = 0; j<r2 ; j++){
-                if(func(x,y,--z)==IterationSignal::BREAK){ // traverse the whole     (+X) edge
-                    goto EXIT_LOOP;
-                }
-            }
-            for (int j = 0; j<r2 ; j++){
-                if(func(--x,y,z)==IterationSignal::BREAK){ // traverse the whole     (+X) edge
-                    goto EXIT_LOOP;
-                }
-            }
-        }
-    }
-EXIT_LOOP:
+    SpiralIterateRange(chunkCoord,SIMULATION_DIST*2, SIMULATION_DIST,add);
     return candidates;
 }
 
 std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
-    // BUG: we are enqueing the duplicate jobs.
+    profiler.bench_start("enqueueGen");
     const auto candidates = findChunksForGeneration(maxJobs);
-//    LOG_DEBUG("Chunks in range found:{}",chunkWorldPosForGen.size());
+      LOG_DEBUG("Chunks in range found:{}",candidates.size());
     std::size_t count = 0;
     auto& genQ = world.chunkMap.generator.genJobQueue;
     for (const auto& chunkWorldPos: candidates){
@@ -267,30 +235,26 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
             }
         }
     }
+    profiler.bench_end("enqueueGen");
     return count;
 }
 
 std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 
-    auto in_frustum = [this](const WorldChunkCoord& chunk_coord) {
-        return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(chunk_coord));
-    };
 
     
     const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
-    const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_DIST, maxJobs);
+    const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS, maxJobs);
 
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-        if(playerCam.getFrustum().isAABBInside(entry->bounding_box)){
-            entry->status.setSpecial();
+        if(inPlayerFrustum(candidateCoord)){
             // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
             // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
             // i.e the ones bordering the actual chunk in question.
             // make this construct based on the entry by const reference or something
         }else{
-            entry->status.unsetSpecial();
             res.emplace_back(
                 candidateCoord,
                 &rend.atlas,
@@ -303,6 +267,7 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
 }
 
 std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
+    profiler.bench_start("enqueueMesh");
     auto jobsForMeshing = findMeshJobs(maxJobs);
 
     std::size_t count = 0;
@@ -316,6 +281,7 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
         const auto& entry = world.chunkMap.get_entry(jobsForMeshing[i].chunkCoord);
         entry->status.beginMeshing();
     }
+    profiler.bench_end("enqueueMesh");
     return count;
 }
 
@@ -348,6 +314,7 @@ std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_
     return {};
 }
 std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
+    profiler.bench_start("drainMesh");
     std::size_t count = 0;
     auto candidateMeshes = drainMeshResultQueue(rend.meshers.meshResultQueue,maxUploads);
     for (const auto& [candidateGen, chunkCoord, opaque, transparent] : candidateMeshes){
@@ -366,15 +333,18 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
             LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was meshed.");
         }
     }
+    profiler.bench_end("drainMesh");
     return count;
 }
 
 std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
+    profiler.bench_start("drainGen");
     auto drainedMeshes = drainGenResults(world.chunkMap.generator.genResultQueue,maxUploads);
     auto count = drainedMeshes.size();
     for (const auto& newGen : drainedMeshes){
         world.chunkMap.uploadGeneratedChunk(newGen);
     }
+    profiler.bench_end("drainGen");
     return count;
 }
 
@@ -403,21 +373,41 @@ RenderTargetView Simulation::secondaryView() {
     return fixedCamTarget.view();
 }
 void Simulation::draw() {
-    ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
-    playerCam.aspectRatio = win.aspect();
+    chunkOutlines.clear();
 
-    rend.draw_to(playerCam, screenView());
-    rend.draw_to(fixedCam, secondaryView());
-    
-    if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(playerCam,world,screenView());
-        rend.draw_debugChunks(fixedCam,world,secondaryView());
-        for(const auto& [key,entry] : this->world.chunkMap.entries){
-            lines3d.append_range(entry->bounding_box.getLines(entry->status.DebugColor()));
+    for(const auto& [key,entry] : this->world.chunkMap.entries){
+        if (entry->status.inFrustum() && !entry->block_data.isAllAir()){
+            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry->status.isCleanMeshed()){
+                continue; 
+            }
+            if (DebugChunkRenderer::HIDE_AIR_CHUNKS && entry->block_data.isAllAir()){
+                continue; 
+            }
+            chunkOutlines.append_range(entry->bounding_box.getLines(entry->status.DebugOutlineColor()));
         }
     }
-    rend.draw_3DLines(playerCam,lines3d,screenView());
-    rend.draw_3DLines(fixedCam,lines3d,secondaryView());
+
+    ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
+    playerCam.aspectRatio = win.aspect();
+    rend.debug.reset_per_frame();
+    rend.clear_to(screenView());
+    rend.clear_to(secondaryView());
+
+    rend.draw_to(playerCam, screenView());
+    rend.draw_to(droneCam, secondaryView());
+
+    rend.draw_3DLines_to(playerCam,lines3d,screenView());
+    rend.draw_3DLines_to(droneCam,lines3d,secondaryView());
+    
+    if(rend.debug.showChunkBoundaries){
+        rend.draw_debugChunks(playerCam, playerCam,world,screenView());
+        rend.draw_debugChunks(playerCam,droneCam,world,secondaryView());
+        rend.draw_3DLines_to(playerCam,chunkOutlines,screenView());
+        rend.draw_3DLines_to(droneCam,chunkOutlines,secondaryView());
+    }
+
+
+
     static bool first_draw = true;
     if (first_draw) {
         LOG_DEBUG("Finished first draw");

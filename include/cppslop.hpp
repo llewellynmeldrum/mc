@@ -134,15 +134,3 @@ constexpr inline const auto EachInRange(IntVec2 min, IntVec2 max){
 
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y));
 }
-
-STD_HASH_SPECIALIZATION(glm::ivec3, obj,
-    return (std::hash<i32>{}(obj.x) << 1) ^  // NOLINT
-           (std::hash<i32>{}(obj.y) << 2) ^  // NOLINT
-           (std::hash<i32>{}(obj.z));
-)
-STD_HASH_SPECIALIZATION(glm::vec3, obj,
-    return (std::hash<f32>{}(obj.x) << 1) ^  // NOLINT
-           (std::hash<f32>{}(obj.y) << 2) ^  // NOLINT
-           (std::hash<f32>{}(obj.z));
-)
-

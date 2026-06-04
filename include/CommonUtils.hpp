@@ -1,7 +1,80 @@
 #pragma once
+#include "NumericConcepts.hpp"
 #include "Types.h"
+#include <algorithm>
 #include <cstdlib>
 #include <string_view>
+
+template<typename T>
+requires Numeric<T>
+struct Bounded{
+    const T base;
+    const T min;
+    const T max;
+    T val{base};
+    constexpr inline operator T() const noexcept{
+        return val;
+    }
+    inline Bounded& operator=(T rhs)& noexcept{
+        val=rhs;
+        clamp();
+        return *this;
+    }
+    constexpr inline Bounded& operator+=(T rhs)& noexcept{
+        val+=rhs;
+        return *this;
+    }
+    constexpr inline Bounded& operator-=(T rhs)& noexcept{
+        val-=rhs;
+        return *this;
+    }
+    constexpr inline Bounded& operator*=(T rhs)& noexcept{
+        val*=rhs;
+        return *this;
+    }
+    constexpr inline Bounded& operator/=(T rhs)& noexcept{
+        val/=rhs;
+        return *this;
+    }
+
+    // postincrement
+    constexpr inline T operator++() & noexcept{
+        ++val;
+        clamp();
+        return *this;
+    }
+
+    // preincrement
+    constexpr inline T operator++(int _)& noexcept{
+        T before = val;
+        ++(*this);
+        return before;
+    }
+    constexpr inline T operator--() & noexcept{
+        --val;
+        clamp();
+        return *this;
+    }
+
+    // preincrement
+    constexpr inline T operator--(int _)& noexcept{
+        T before = val;
+        --(*this);
+        return before;
+    }
+
+    inline Bounded& clamp()& noexcept{
+        val = std::clamp(val,min,max);
+        return *this;
+    }
+
+    inline Bounded& reset()& noexcept{
+        val = base;
+        return *this;
+    }
+
+
+};
 
 // clang-format off
 #define DECL_SMART_ENUM(NAME, UNDERLYING_T, ...) \

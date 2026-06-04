@@ -136,3 +136,7 @@ inline std::string dbg_fmt(const Direction& val) {
 inline std::string dbg_fmt(const gl::GLenum& val) {
     return glbinding::aux::Meta::getString(val);
 }
+template<typename T>
+inline std::string dbg_fmt(const Bounded<T>& bounded){
+    return dbg_fmt<T>(bounded.val);
+}

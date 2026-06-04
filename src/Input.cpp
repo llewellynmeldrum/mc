@@ -31,6 +31,10 @@ void Simulation::handleInputs() {
         const vec2 diff = input.prevmousepos - input.mousepos;
         playerCam.rotateByMouse(diff, profiler.dt_s);
     }
+    if (input.scroll.y != input.prevscroll.y){
+        
+        droneCam.ortho_zoom *= pow(1.1f,-input.scroll.y*droneCam.zoom_sens*profiler.dt_s);
+    }
 
     input.mapToggleKey(KEY_T, [this]{
         rend.debug.wireframe = !rend.debug.wireframe;
@@ -42,15 +46,14 @@ void Simulation::handleInputs() {
         rend.debug.showChunkBoundaries = !rend.debug.showChunkBoundaries;
     });
     input.mapToggleKey(KEY_R,[this]{
-        unGenerateAllChunks();
         unMeshAllChunks();
+        unGenerateAllChunks();
     });
 
     input.mapToggleKey(KEY_M,[this]{
         unMeshAllChunks();
     });
 
-    static_assert(KEY_MAX>=KEY_LEFT_SHIFT && KEY_LEFT_SHIFT>KEY_MIN);
     input.mapHeldKey(KEY_LEFT_SHIFT,[this](bool isHeld){
         if (isHeld){
             playerCam.moveSpeed = Camera::SPRINT_MOVESPEED;
@@ -60,6 +63,7 @@ void Simulation::handleInputs() {
             playerCam.keyboard_sensitivity= Camera::BASE_KEYBOARD_SENSITIVITY;
         }
     });
+
     input.mapHeldKey(KEY_W,[this]{
 		playerCam.move(Direction::FORWARD, profiler.dt_s);
 	});
@@ -74,6 +78,7 @@ void Simulation::handleInputs() {
 	});
     input.mapHeldKey(KEY_SPACE,[this]{
 		playerCam.move(Direction::UP, profiler.dt_s);
+	    droneCam.move(Direction::UP, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_E,[this]{
 		playerCam.move(Direction::UP, profiler.dt_s);
@@ -95,6 +100,7 @@ void Simulation::handleInputs() {
 		playerCam.rotate(Direction::DOWN, profiler.dt_s);
 	});
     input.prevmousepos = input.mousepos;
+    input.prevscroll = input.scroll;
 }
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods);
 // TODO: implement mouse lookaround input

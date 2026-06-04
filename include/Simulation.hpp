@@ -21,11 +21,12 @@ struct Simulation {
     ~Simulation() = default;
 
     std::vector<Line3D> lines3d;
+    std::vector<Line3D> chunkOutlines;
     Window   win;
     Profiler profiler;
     Input    input;
     Camera   playerCam;
-    Camera   fixedCam;
+    Camera   droneCam;
     TextureTarget fixedCamTarget{{0,0},{1280,720}};
     Renderer rend;
     DebugUI  ui;
@@ -54,13 +55,16 @@ struct Simulation {
 
     RenderTargetView screenView();
     RenderTargetView secondaryView();
+    bool inPlayerFrustum(WorldChunkCoord coord);
     void cullMeshes(bool enableFrustumCulling);
+    void markInsideFrustum();
     void unMeshAllChunks();
     void unGenerateAllChunks();
     void captureCursor();
     void freeCursor();
     void loop();
     static constexpr i32 RENDER_DIST = 8;
+    static constexpr glm::ivec3 RENDER_EXTENTS = {RENDER_DIST,4, RENDER_DIST};
     static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
     static constexpr i32 SIMULATION_DIST = 8; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;

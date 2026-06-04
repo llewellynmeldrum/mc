@@ -1,14 +1,17 @@
-#include "Window.hpp"
-#include "stb_image.hpp"
-#include "GLFWCallbacks.hpp"
-#include <cassert>
-#include <iostream>
 
 // WARNING: Always do glfw->glbinding
 #include "GLFWWrapper.hpp"
 #include "glbindingWrapper.hpp"
 #include "glbinding-aux/Meta.h"
 #include "glbinding-aux/logging.h"
+
+#include "Window.hpp"
+#include "GLFW/glfw3.h"
+#include "stb_image.hpp"
+#include "GLFWCallbacks.hpp"
+#include <cassert>
+#include <iostream>
+
 
 #include "Logger.hpp"
 #include "DEBUG.hpp"
@@ -23,6 +26,7 @@ void        Window::swapBuffers() {
 void Window::set_callbacks(void* ctx_ptr){
     glfwSetWindowUserPointer(ptr, ctx_ptr);
     glfwSetCursorPosCallback(ptr, glfw_MouseMoveCallback);
+    glfwSetScrollCallback(ptr, glfw_MouseScrollCallback);
     glfwSetFramebufferSizeCallback(ptr, glfw_ResizeCallback);
     glfw_ResizeCallback(ptr, px_w, px_h);
 }

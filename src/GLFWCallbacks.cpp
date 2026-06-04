@@ -10,7 +10,7 @@ void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height) {
     ctx->win.px_w = width;
     ctx->win.px_h = height;
     ctx->playerCam.aspectRatio = ctx->win.aspect();
-    ctx->fixedCam.aspectRatio = ctx->win.aspect();
+    ctx->droneCam.aspectRatio = ctx->win.aspect();
 }
 void glfw_MoveCallback(GLFWwindow* win_ptr, int xpos, int ypos) {
     auto* ctx = (Simulation*)glfwGetWindowUserPointer(win_ptr);
@@ -25,4 +25,9 @@ void glfw_MouseMoveCallback(GLFWwindow* win_ptr, double x, double y) {
 }
 void glfw_ErrorCallback(int error, const char* description) {
     LOG_ERROR("GLFW({}): {}", error, description);
+}
+void glfw_MouseScrollCallback(GLFWwindow* win_ptr, double x, double y){
+    auto* ctx = (Simulation*)glfwGetWindowUserPointer(win_ptr);
+    ctx->input.scroll.x = x;
+    ctx->input.scroll.y = y;
 }

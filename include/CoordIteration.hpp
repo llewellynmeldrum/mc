@@ -1,9 +1,12 @@
 #pragma once 
+
+#include "glmWrapper.hpp"
 #include "CommonUtils.hpp"
 #include "NumericConcepts.hpp"
 #include <print>
 #include <type_traits>
 #include <functional>
+#include <unordered_set>
 #include "DEBUG.hpp"
 #include "Types.h"
 #include "CommonConcepts.hpp"
@@ -111,8 +114,8 @@ void ForEachInRangeEx(Integer min, Integer max, Fn&& task){
 //   [C.z-R, C.z+R]
 template<typename IntVec3, typename Integer, typename Fn>
     requires IVec3Like<IntVec3>
-void SpiralIterateRange(IntVec3 center, Integer radius, Fn&& task){
-    SpiralIterateRange(numeric_max<std::size_t>(), center, radius, std::forward<Fn>(task));
+void SpiralIterateRange(IntVec3 center, Integer vertRadius, Integer hozRadius, Fn&& task){
+    SpiralIterateRange(numeric_max<std::size_t>(), center, vertRadius,hozRadius, std::forward<Fn>(task));
 }
 // runs task(x,y,z) in a particular order: a series of horizontal spirals.
 // -> Each spiral begins at `center`, and continues outwards in a clockwise pattern, which approximates nearest to farthest ordering. 
@@ -124,46 +127,62 @@ void SpiralIterateRange(IntVec3 center, Integer radius, Fn&& task){
 //   [C.z-R, C.z+R]
 template<typename IntVec3, typename Integer, typename Fn>
     requires IVec3Like<IntVec3> && Integral<Integer>
-void SpiralIterateRange(std::size_t MAX_COUNT, IntVec3 center, Integer radius, Fn&& task){
+void SpiralIterateRange(std::size_t MAX_COUNT, IntVec3 center, Integer vertRadius, Integer hozRadius, Fn&& task){
     using namespace std;
+    using namespace glm;
     size_t count = {0};
 
     if (MAX_COUNT == 0){
         return;
     }
-    auto should_continue = [&count, &task, MAX_COUNT](i32 x, i32 y, i32 z) {
+    const Integer& R = hozRadius;
+    const IntVec3& C = center;
+    i32 minY = C.y-static_cast<i32>(vertRadius);
+    i32 maxY = C.y+static_cast<i32>(vertRadius);
+    std::unordered_set<ivec3> expected;
+    std::unordered_set<ivec3> unique;
+
+
+    for (i32 y = maxY; y>=minY; y--){
+        for (i32 x = C.x-hozRadius; x<=C.x+hozRadius; x++){
+            for (i32 z = C.x-hozRadius; z<=C.x+hozRadius; z++){
+                expected.emplace(x,y,z);
+            }
+        }
+    }
+
+    auto should_continue = [&count, &task, MAX_COUNT, &unique](i32 x, i32 y, i32 z) {
         if (count >= MAX_COUNT){
             return false; // shouldnt continue
         }
-        auto res = invoke(task, x,y,z);
-        if (res){
+        auto shouldAdd = invoke(task, x,y,z);
+        if (shouldAdd){
             count++;
+            unique.emplace(x,y,z);
         }
-
+        assert(unique.size()==count);
         return count < MAX_COUNT;
     };
-    const Integer& R = radius;
-    const IntVec3& C = center;
-    i32 minY = C.y-static_cast<i32>(R);
-    i32 maxY = C.y+static_cast<i32>(R);
+
     for (i32 y = maxY; y>=minY; y--){
         Integer x{C.x}, z{C.z};
 		if(!should_continue(x,y,z)) return;
         for (i32 r = 1; r <= R; r++){
             const i32 extent = 2*r;
-			if(!should_continue(--x,y,z)) return;
+            // break out of the prior spiral  (off to the 'left')
+			if(!should_continue(--x,y,z)) return; 
             for (int j = 0; j<extent - 1;j++)    {
 				if(!should_continue(x,y,++z)) return;
-			} // traverse the remaining (-X) edge
+			} // traverse the remaining (-X) edge 'upwards'
             for (int j = 0; j<extent ; j++)     {
 				if(!should_continue(++x,y,z)) return;
-			}  // traverse the whole     (Z+) edge
+			}  // traverse the whole     (Z+) edge 'right'
             for (int j = 0; j<extent ; j++)     {
 				if(!should_continue(x,y,--z)) return;
-			}  // traverse the whole     (+X) edge
+			}  // traverse the whole     (+X) edge 'down'
             for (int j = 0; j<extent ; j++)     {
 				if(!should_continue(--x,y,z)) return;
-			}  // traverse the whole     (+X) edge
+			}  // traverse the whole     (+X) edge 'left'
         }
     }
 }

@@ -69,7 +69,9 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
             auto* neighbourEntry = get_entry(neighbourChunkCoord);
             my_neighbours[dir_idx] = &neighbourEntry->block_data;
             // also INVALIDATE THEIR MESH
-            neighbourEntry->requestMeshRegen();
+            if (neighbourEntry->status.isCleanMeshed()){
+                neighbourEntry->makeDirty();
+            }
             // NOTE: This is an optmisation for opaque chunks, 
             // but necessary for transparent chunks. 
 

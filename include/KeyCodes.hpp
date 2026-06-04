@@ -144,6 +144,20 @@ struct Key {
     Key(i32 c) : code(static_cast<i32>(c)) {}  // implicit ctor cast FROM uchar
     operator i32() const noexcept { return code; }       // implicit operator cast TO i32
 };
+struct KeyCombo {
+    std::vector<i32> code{};
+    inline auto& add(Key key)&{
+        code.emplace_back(key);
+        return *this;
+    }
+    inline auto operator|(this auto& self, const Key& other)noexcept{
+        return self.add(other);
+    }
+    inline auto& operator|=(this KeyCombo& self, const Key& other)noexcept{
+        self = self|other;
+        return self;
+    }
+};
 
 inline bool operator==(const Key& a, const Key& b) noexcept {
     return a.code == b.code;

@@ -12,6 +12,8 @@ template <class T>
 const auto data(T obj) {
     return glm::value_ptr(obj);
 }
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 inline auto operator<=>(const glm::ivec3& lhs, const glm::ivec3& rhs){
     auto cmp_x = lhs.x<=>rhs.x;

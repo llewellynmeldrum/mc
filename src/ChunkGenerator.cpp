@@ -318,11 +318,6 @@ static GenResult generateChunk(GenJob job){
 
     });
 
-
-    
-
-
-
     return res;
     // 4. Paint ores in stone blocks below certain point
     // 5. Create trees.
@@ -330,10 +325,6 @@ static GenResult generateChunk(GenJob job){
 
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
-    
-
-    // 0. configure everything
-
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
         GenResult res = generateChunk(job);

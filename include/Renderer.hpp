@@ -10,76 +10,9 @@
 #include <optional>
 #include <unordered_map>
 #include "DebugChunkRenderer.hpp"
+#include "RenderTargets.hpp"
 
 #include "Chunk.hpp"
-struct DepthBuffer{
-    u32 id;
-    DepthBuffer()=delete;
-
-    DepthBuffer(glm::vec2 size);
-    ~DepthBuffer();
-    void bind();
-    void unbind();
-
-};
-struct FrameBuffer{
-    u32 id;
-
-    void attach_depth_buffer(DepthBuffer& depth_buffer);
-    void attach_texture2d(Texture2D& texture2d,i32 idx=0);
-    FrameBuffer();
-    ~FrameBuffer();
-    void bind();
-    void unbind();
-
-};
-enum struct RenderTargetType{
-    Default,
-    Texture,
-};
-struct RenderTargetView{
-    glm::ivec2 pos;
-    glm::ivec2 size;
-    u32 framebuffer_id{0}; // 0 = screen
-    bool isOverlay{false};
-    void use();
-    void stop();
-private:
-    void bind();
-    void unbind();
-};
-
-struct ScreenTarget{
-    glm::ivec2 pos;
-    glm::ivec2 size;
-    inline RenderTargetView view(){
-        return {
-            .pos = pos,
-            .size = size,
-            .framebuffer_id=0,
-            .isOverlay=true,
-        };
-    }
-};
-struct TextureTarget{
-    TextureTarget(glm::vec2 _pos, glm::vec2 _size);
-    TextureTarget();
-    ~TextureTarget()=default;
-
-    Texture2D texture;
-    FrameBuffer framebuffer;
-    DepthBuffer depthbuffer;
-    glm::vec2 pos;
-    glm::vec2 size;
-
-    inline RenderTargetView view(){
-        return {
-            .pos = pos,
-            .size = size,
-            .framebuffer_id=framebuffer.id,
-        };
-    }
-};
 struct Renderer {
     Renderer();
     ~Renderer() = default;
@@ -93,9 +26,10 @@ struct Renderer {
     void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
-    void draw_debugChunks(Camera& cam, World& world, RenderTargetView target);
-    void draw_3DLines(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
+    void draw_debugChunks(Camera& playerCam, Camera& cam, World& world, RenderTargetView target);
+    void draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
+    void clear_to(RenderTargetView target);
 
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
         opaqueChunkMeshes.emplace_back(coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
@@ -126,5 +60,11 @@ struct Renderer {
 
     void updateViewport(int x, int y, int w, int h);
   private:
+    void beginTransparentPass();
+    void beginOpaquePass();
+    void enableBackfaceCulling();
+    void disableBackfaceCulling();
+    void enableDepthTesting();
+    void disableDepthTesting();
     ShaderProgram prog{};
 };

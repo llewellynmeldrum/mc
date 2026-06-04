@@ -1,6 +1,7 @@
 #pragma once 
 #include "LM.hpp"
 #include "ChunkConstants.hpp"
+#include "glmWrapper.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "cppslop.hpp"
 #include "ChunkHelpers.hpp"

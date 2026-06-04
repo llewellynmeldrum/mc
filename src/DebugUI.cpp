@@ -116,7 +116,8 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
         auto& window = self;
         window.section("Secondary View:",[&ctx]{
-            UI::Text("{}, {}",dbg_fmt(ctx->fixedCamTarget.pos), dbg_fmt(ctx->fixedCamTarget.size));
+            UI::Text("scr: {}, {}",dbg_fmt(ctx->fixedCamTarget.pos), dbg_fmt(ctx->fixedCamTarget.size));
+            UI::Text("  w: {}, {}",dbg_fmt(ctx->droneCam.pos.raw()), dbg_fmt(ctx->droneCam.ortho_zoom));
             UI::DrawTexture(ctx->fixedCamTarget);
 
         });
@@ -131,21 +132,53 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
         window.section("Chunk Debug Colors:",[]{
-            UI::ColoredText(ChunkEntryStatus::dirtyMeshed.DebugColor(), "Dirty Meshed");
-            UI::ColoredText(ChunkEntryStatus::cleanMeshed.DebugColor(), "Clean Meshed");
-            UI::ColoredText(ChunkEntryStatus::meshingInProgress.DebugColor(), "Meshing in progress");
-            UI::ColoredText(ChunkEntryStatus::generationFinished.DebugColor(), "Generated");
-            UI::ColoredText(ChunkEntryStatus::generationInProgress.DebugColor(), "Generation in progress");
-            UI::ColoredText(ChunkEntryStatus::ungenerated.DebugColor(), "Ungenerated");
+            UI::ColoredText(ChunkEntryStatus::dirtyMeshed.DebugOutlineColor(), "Dirty Meshed");
+            UI::ColoredText(ChunkEntryStatus::cleanMeshed.DebugOutlineColor(), "Clean Meshed");
+            UI::ColoredText(ChunkEntryStatus::meshingInProgress.DebugOutlineColor(), "Meshing in progress");
+            UI::ColoredText(ChunkEntryStatus::generationFinished.DebugOutlineColor(), "Generated");
+            UI::ColoredText(ChunkEntryStatus::generationInProgress.DebugOutlineColor(), "Generation in progress");
+            UI::ColoredText(ChunkEntryStatus::ungenerated.DebugOutlineColor(), "Ungenerated");
         });
         window.dropdown.show();
 
 
         window.section("Positions",[ctx]{
             auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
+            auto entryColor01 = ChunkEntryStatus::ungenerated.DebugOutlineColor();
+            ChunkEntry* entry= nullptr;
+            std::string status_str = "";
+            std::string suffix = ", unloaded.";
+            if (ctx->world.chunkMap.has_entry(ch_pos)){
+                entry = ctx->world.chunkMap.get_entry(ch_pos);
+                entryColor01 = entry->status.DebugOutlineColor();
+                if (entry->status.state.finishedMeshing){
+                    auto it= std::ranges::find_if(ctx->rend.opaqueChunkMeshes,[ch_pos](const Mesh& mesh)->bool{
+                        return mesh.chunkCoord==ch_pos;
+                    });
+                    if (it != ctx->rend.opaqueChunkMeshes.end()){
+                        if (it->isLoaded()){
+                            suffix = "LOADED.";
+                        }else {
+                            suffix = "unloaded.";
+                        }
+                    }else{
+                        suffix = "Finished meshing, no opaqueMesh.";
+                    }
+                }else{
+                        suffix = "not finished meshing.";
+                    // TODO: refine/distinguish debug colors better. i think im being lied to
+                    // ALSO: 
+                    // Perhaps manually slow queues / add a delay to certain operations
+                    // so i can better see whats happening in real time
+                }
+            }
+            status_str = entry->status.str() + ", "+ suffix;
+
             std::string facing_str = get_facing_str(ctx->playerCam.getFront());
             IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
             IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
+            UI::SameLine();
+            UI::ColoredText01(entryColor01, status_str);
             IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->playerCam.pitch, ctx->playerCam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });

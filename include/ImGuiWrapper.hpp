@@ -59,6 +59,9 @@ namespace UI{
     inline void SetTextColor(glm::vec4 c){
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r,c.g,c.b,c.a));
     }
+    inline void SetTextColor01(glm::vec4 c){
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r*255,c.g*255,c.b*255,c.a*255));
+    }
     inline void DrawTexture(TextureTarget& target){
         ImVec2 pos = ImGui::GetCursorScreenPos();
         ImVec2 size =  ImGui::GetContentRegionAvail();
@@ -84,6 +87,18 @@ namespace UI{
     inline void Text(std::format_string<Args...> fmt, Args&&... args){
         std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
         ImGui::TextUnformatted(out.c_str());
+    }
+
+    template<typename... Args>
+    inline void ColoredText01(glm::vec4 color, std::format_string<Args...> fmt, Args&&... args){
+        SetTextColor01(color);
+        Text(fmt,args...);
+        ResetTextColor();
+    }
+    inline void ColoredText01(glm::vec4 color, std::string str){
+        SetTextColor01(color);
+        ImGui::TextUnformatted(str.c_str());
+        ResetTextColor();
     }
 
     template<typename... Args>

@@ -104,10 +104,13 @@ void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
         auto entryColor = ChunkEntryStatus::UnGeneratedColor;
         if (hasEntry){
             const auto& entry = world.chunkMap.get_entry(entryCoord);
-            entryColor = entry->status.DebugColor();
-            if (entry->status.isCleanMeshed()){
+            if (HIDE_CLEAN_CHUNKS && entry->status.isCleanMeshed()){
                 continue; // skip, else visual clutter is too bad
             }
+            if (HIDE_AIR_CHUNKS && entry->block_data.isAllAir()){
+                continue; // skip, else visual clutter is too bad
+            }
+            entryColor = entry->status.DebugColor();
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
     }

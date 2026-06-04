@@ -61,6 +61,12 @@ struct Chunk{
             data[i] = std::move(val);
         }
     }
+    constexpr inline bool isAllAir()const noexcept{
+        for (const auto& block: data){
+            if (!block.isAir()) return false;
+        }
+        return true;
+    }
     bool tryWrite(PendingBlockWrite write);
     struct{
         u32 finishedGeneration  : 1 = 0;

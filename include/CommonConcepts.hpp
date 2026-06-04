@@ -1,6 +1,7 @@
 #pragma once
 #include <format>
 #include <concepts>
+#include <type_traits>
 #include <string>
 #include "Macros.hpp"
 // NOTE: We use numeric_limits<T>::lowest(), because on floating points types, ::min() returns the minimum possible POSITIVE value, which is not what most would expect.
@@ -16,6 +17,9 @@ template <typename T, typename Fn, typename ...Args>
 concept return_type_is =  
     std::invocable<Fn, Args...> &&
     std::same_as<std::invoke_result_t<Fn, Args...>, T>;
+
+template <typename Fn, typename ...Args>
+using return_type = std::invoke_result_t<Fn, Args...>;
 
 template<typename T1, typename T2>
 concept same_as_nocvref = std::same_as<std::remove_cvref_t<T1>, std::remove_cvref_t<T2>>;

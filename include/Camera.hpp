@@ -22,7 +22,7 @@ struct Camera {
     Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     static constexpr f32 BASE_MOVESPEED = 12.0f;
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
-    static constexpr f32 SPRINT_KEYBOARD_SENSITVITY= 10.5f;
+    static constexpr f32 SPRINT_KEYBOARD_SENSITVITY= 50.5f;
     static constexpr f32 BASE_KEYBOARD_SENSITIVITY = 1.5f;
 
     static constexpr i32 DebugChunkRenderDistance = 8;
@@ -40,6 +40,18 @@ struct Camera {
     WorldFloatPos pos{};       // world
     // height * aspectRatio = width
     f32  aspectRatio{};
+
+    //static constexpr f32 ORTHO_ZOOM_MIN{0.1f};
+    //static constexpr f32 ORTHO_ZOOM_MAX{10.0f};
+
+    //f32 ortho_zoom{1.0f};
+    Bounded<f32> ortho_zoom{
+        .base = 1.0f,
+        .min = 0.1f,
+        .max = 10.f,
+    };
+
+    f32 zoom_sens{2.0f};
     glm::mat4 projection_matrix = glm::mat4(1.0f);
 
     CachedValue<glm::mat4>    cached_viewMatrix{};
@@ -78,6 +90,9 @@ struct Camera {
     inline glm::vec3 getRight() const{
         return normalize(cross(getFront(), WorldUp()));
     }
+    inline glm::vec3 getLeft() const{
+        return normalize(cross(WorldUp(),getFront()));
+    }
     inline const glm::mat4& getViewMatrix() { 
         return cached_viewMatrix.get([this](){
             return glm::lookAt(pos.raw(), pos.raw() + getFront(), WorldUp());
@@ -95,7 +110,14 @@ struct Camera {
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 
     inline glm::mat4 getProjectionMatrix() const{
-        return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
+        if (isPlayer){
+            return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
+        }else{
+
+            f32 scale = 9.0f * ortho_zoom;
+            f32 xscale = scale*aspectRatio;
+            return glm::ortho(-xscale, xscale, -scale, scale, near_clip_z, far_clip_z);
+        }
     }
 
   private:

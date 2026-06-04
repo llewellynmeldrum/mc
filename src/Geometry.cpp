@@ -15,7 +15,7 @@ void Frustum::update(this auto& self, const Camera* cam) {
     const auto right = cam->getRight();
     const auto up = cam->getUp();
 
-    path.thickness=0.10f;
+    path.thickness=1.50f;
     const f32 halfNearPlaneHeight = zNear * std::tan(glm::radians(vFov) / 2.0f);
     const f32 halfNearPlaneWidth = halfNearPlaneHeight * aspect;
     vec3 zNearMid = pos+(front*zNear);

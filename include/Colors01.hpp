@@ -5,6 +5,7 @@
 using StorageType = glm::vec4;
 namespace Color01{
 
+constexpr inline StorageType TRANSPARENT {0.0f,0.0f,0.0f,0.0f};
 constexpr inline StorageType RED        {1.0f,0.0f,0.0f,1.0f};
 constexpr inline StorageType WHITE      {1.0f,1.0f,1.0f,1.0f};
 constexpr inline StorageType ORANGE     {1.0f,0.5f,0.0f,1.0f};

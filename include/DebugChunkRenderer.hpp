@@ -39,6 +39,8 @@ struct DebugChunkRenderer{
     void update(Camera& cam, World& world);
     std::vector<DebugChunkInstance> instances;
 
+    static constexpr bool HIDE_AIR_CHUNKS = true;
+    static constexpr bool HIDE_CLEAN_CHUNKS = true;
 private:
     void updateInstances(Camera& cam, World& world);
     VertexArray   vao{std::nullopt};

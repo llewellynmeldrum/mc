@@ -49,19 +49,6 @@ struct Input {
     }
 
 
-    template <typename Fn, typename ...Args>
-        requires return_type_is<InputSignal, Fn&&,Args&&...>
-    [[nodiscard]] 
-    inline InputSignal mapToggleKey(KeyCode k, f32 s_cooldown, Fn&& callable, Args&&... vargs){
-        return mapToggleKeyImpl<InputSignal>( k, s_cooldown, std::forward<Fn>(callable), std::forward<Args>(vargs)...);
-    }
-
-    template <typename Fn, typename ...Args>
-        requires return_type_is<void,Fn&&,Args&&...>
-    inline void mapToggleKey(KeyCode k, f32 s_cooldown, Fn&& callable, Args&&... vargs){
-        mapToggleKeyImpl<void>( k, s_cooldown, std::forward<Fn>(callable), std::forward<Args>(vargs)...
-        );
-    }
 
     // DEFAULTED COOLDOWN VERSION 
     template <typename Fn, typename ...Args>
@@ -79,25 +66,23 @@ struct Input {
         return mapToggleKeyImpl<InputSignal>(k, default_key_CD_s, std::forward<Fn>(callable),std::forward<Args>(vargs)...);
     }
 
-    template <typename Fn, typename ...Args>
-        requires return_type_is<void, Fn&&,Args&&...>
-    inline void mapHeldKey(KeyCode key, Fn&& callable, Args&&... vargs){
-        assert(KEY_MAX>=key && key>KEY_MIN);
-        bool held = getKey(key)==KeyState::Held;
-        if (held){
-            std::invoke(callable,std::forward<Args>(vargs)...);
-        }
-    }
-    template <typename Fn, typename ...Args>
-        requires return_type_is<void, Fn&&, bool>
+    template <typename Fn>
     inline void mapHeldKey(KeyCode key, Fn&& callable){
         assert(KEY_MAX>=key && key>KEY_MIN);
         bool held = getKey(key)==KeyState::Held;
-        std::invoke(callable,held);
+        if constexpr(std::is_invocable_v<decltype(callable), bool>){
+            std::invoke(std::forward<Fn>(callable),held); 
+        } else{
+            if (held){
+                std::invoke(std::forward<Fn>(callable)); 
+            }
+        }
     }
 
     glm::vec2 mousepos = { 0.0, 0.0 };  // mapped to ndc like coords
+    glm::vec2 scroll = { 0.0, 0.0 };  // mapped to ndc like coords
     glm::vec2 prevmousepos = { 0.0, 0.0 };
+    glm::vec2 prevscroll = { 0.0, 0.0 };
 private:
     template <typename ReturnT, typename Fn, typename ...Args>
         requires return_type_is<void, Fn&&,Args&&...> || return_type_is<InputSignal,Fn&&,Args&&...>

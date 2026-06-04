@@ -10,6 +10,8 @@
 #include "Colors01.hpp"
 
 
+static constexpr f32 ChunkDebugFillOpacity = 0.05f;
+static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
 struct ChunkState{
     bool ungenerated        {false}; // currently enqueued for generation 
     bool isGenerating       {false};
@@ -18,18 +20,21 @@ struct ChunkState{
     bool finishedMeshing    {false};
     bool meshIsDirty        {false};
 
-    // TODO:
-    // FIX THE PREVIEW COLORS
-
-    static constexpr glm::vec4 SpecialColor = Color01::PURPLE;
+    static constexpr glm::vec4 SpecialColor = Color01::PURPLE_a(ChunkDebugFillOpacity);
     bool special            {false};
     glm::vec4 dbg_color{};
-    const glm::vec4& DebugColor()const{
+    glm::vec4 DebugColor() const noexcept{
         if (special){
-            return SpecialColor;
+            return {dbg_color.r,dbg_color.g,dbg_color.b,ChunkDebugFillOpacitySpecial};
         }
+        //return Color01::TRANSPARENT;
         return dbg_color;
     }
+    glm::vec4 DebugOutlineColor()const{ 
+        glm::vec3 rgb = DebugColor();
+        return {rgb,0.9};
+    }
+    // comparator disregards `special`, so it doesnt influence decisions on adding to queues and such
     inline constexpr bool operator==(const ChunkState& rhs) const noexcept{
         return  ungenerated        ==rhs.ungenerated        &&
                 isGenerating       ==rhs.isGenerating       &&
@@ -52,7 +57,7 @@ public:
         return state == ungenerated;
     }
     bool qualifiesForMeshing()const {
-        return state == generationFinished || state == dirtyMeshed; 
+        return state.special || (state == generationFinished || state == dirtyMeshed); 
     }
 
     bool isMeshing()const{
@@ -64,14 +69,14 @@ public:
     }
 
     bool isCleanMeshed()const{
-        return state.finishedMeshing && !state.meshIsDirty;
+        return state==cleanMeshed;
     }
 
     bool isDirtyMeshed()const{
         return state.finishedMeshing && state.meshIsDirty;
     }
 
-    bool isSpecial()const {
+    bool inFrustum()const {
         return state.special;
     }
 
@@ -79,10 +84,10 @@ public:
         return state.isGenerating;
     }
 
-    void setSpecial(){
+    void markInFrustum(){
         state.special=true;
     }
-    void unsetSpecial(){
+    void markOutsideFrustum(){
          state.special=false;
     }
 
@@ -110,9 +115,23 @@ public:
     }
 
 
-    const glm::vec4& DebugColor()const{ return state.DebugColor(); }
+    glm::vec4 DebugColor()const{ return state.DebugColor(); }
+    glm::vec4 DebugOutlineColor()const{ return state.DebugOutlineColor(); }
 
-    static constexpr glm::vec4 UnGeneratedColor = Color01::WHITE;
+    constexpr std::string str(){
+        std::string s0{};
+        if (state==ChunkEntryStatus::dirtyMeshed){s0= "dirtyMeshed";}
+        else if (state==ChunkEntryStatus::cleanMeshed){s0= "cleanMeshed";}
+        else if (state==ChunkEntryStatus::meshingInProgress){s0= "meshingInProgress";}
+        else if (state==ChunkEntryStatus::generationFinished){s0= "generationFinished";}
+        else if (state==ChunkEntryStatus::generationInProgress){s0= "generationInProgress";}
+        else if (state==ChunkEntryStatus::ungenerated){s0= "ungenerated";}
+        if (state.special){
+            s0+=" (special) ";
+        }
+        return s0;
+    }
+    static constexpr glm::vec4 UnGeneratedColor = Color01::RED_a(ChunkDebugFillOpacity);
     static constexpr ChunkState ungenerated{
             .ungenerated        = true,
 
@@ -122,14 +141,14 @@ public:
             .ungenerated        = false,
             .isGenerating       = true,
 
-            .dbg_color=Color01::ORANGE,
+            .dbg_color=Color01::ORANGE_a(ChunkDebugFillOpacity),
     };
     static constexpr ChunkState generationFinished{
             .ungenerated		= false,
             .isGenerating		= false,
             .finishedGenerating	= true,
 
-            .dbg_color = Color01::BROWN,
+            .dbg_color = Color01::BROWN_a(ChunkDebugFillOpacity),
     }; 
     static constexpr ChunkState meshingInProgress{
             .ungenerated		= false,
@@ -137,7 +156,7 @@ public:
             .finishedGenerating	= true,
             .isMeshing		    = true,
 
-            .dbg_color=Color01::YELLOW,
+            .dbg_color=Color01::YELLOW_a(ChunkDebugFillOpacity),
     };
     static constexpr ChunkState cleanMeshed{
             .ungenerated		= false,
@@ -147,7 +166,8 @@ public:
             .finishedMeshing	= true,
             .meshIsDirty		= false,
 
-            .dbg_color=Color01::GREEN,
+            // NOTE: Clean chunks are invisible at the moment!
+            .dbg_color=Color01::GREEN_a(ChunkDebugFillOpacity),
     }; 
     static constexpr ChunkState dirtyMeshed{
             .ungenerated		= false,
@@ -157,7 +177,7 @@ public:
             .finishedMeshing	= true,
             .meshIsDirty		= true,
             
-            .dbg_color=Color01::BLUE,
+            .dbg_color=Color01::BLUE_a(ChunkDebugFillOpacity),
     }; 
 };
 
@@ -167,7 +187,7 @@ public:
 // It should be:
 // 1. default constructible, probably not movable or copyable. no reason to do either
 struct ChunkEntry{
-    inline void requestMeshRegen(){
+    inline void makeDirty(){
         status.makeDirty();
     };
     inline void requestWorldRegen(){
