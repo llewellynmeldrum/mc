@@ -1,5 +1,6 @@
 #pragma once
 #include "CommonConcepts.hpp"
+#include "DebugUI.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
 #include "glmWrapper.hpp"
@@ -117,6 +118,8 @@ struct WindowConfig{
     std::string title;
     i32 flags;
     std::function<void(WindowConfig&, Simulation*)> draw;
+
+    DebugUI* ui{nullptr};
     ImVec2 work_pos{};
     ImVec2 work_size{};
     UVPos PAD = {0.0f, 0.04f};

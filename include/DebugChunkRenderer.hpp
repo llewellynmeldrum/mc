@@ -31,18 +31,19 @@ struct DebugChunkInstance{
 
 FORWARD_DECL_STRUCT(Camera)
 FORWARD_DECL_STRUCT(World)
+FORWARD_DECL_STRUCT(Simulation)
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 struct DebugChunkRenderer{
     static gl::GLenum PrimitiveType();
     void setup();
     void draw(Camera& cam);
-    void update(Camera& cam, World& world);
+    void update(Camera& cam, Simulation* sim);
     std::vector<DebugChunkInstance> instances;
 
     static constexpr bool HIDE_AIR_CHUNKS = true;
     static constexpr bool HIDE_CLEAN_CHUNKS = true;
 private:
-    void updateInstances(Camera& cam, World& world);
+    void updateInstances(Camera& cam, Simulation* sim);
     VertexArray   vao{std::nullopt};
     VertexBuffer  cube_vbo{std::nullopt};
     ElementBuffer cube_ebo{std::nullopt};

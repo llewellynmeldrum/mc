@@ -11,175 +11,231 @@
 
 
 static constexpr f32 ChunkDebugFillOpacity = 0.05f;
+static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
 static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
+
+#define GEN_STATE_LIST \
+X(OnGenerationQueue)\
+X(FinishedGeneration)\
+X(DirtyGen)
+
+#define MESH_STATE_LIST \
+X(NoMesh)\
+X(OnMeshQueue)\
+X(CleanMeshed)\
+X(DirtyMeshed)\
+
+#define X(name)\
+    name,
+
+enum struct ChunkGenState{
+    GEN_STATE_LIST
+};
+enum struct ChunkMeshState{
+    MESH_STATE_LIST
+};
+
+#undef X
+
+#define state_color_match(Enum, name, col) case Enum :: name: return col(ChunkDebugFillOpacity); break;
+
+inline glm::vec4 MeshDebugColor(ChunkMeshState state){
+    using namespace Color01;
+    switch (state){
+        state_color_match(ChunkMeshState, NoMesh, GREY_50_a)
+        state_color_match(ChunkMeshState, OnMeshQueue, ORANGE_a)
+        state_color_match(ChunkMeshState, CleanMeshed, GREEN_a)
+        state_color_match(ChunkMeshState, DirtyMeshed, RED_a)
+    }
+    return {};
+}
+inline glm::vec4 GenDebugColor(std::nullopt_t nullopt){
+    using namespace Color01;
+    return GREY_50_a(ChunkDebugFillOpacity);
+}
+inline glm::vec4 GenDebugColor(ChunkGenState state){
+    using namespace Color01;
+    switch (state){
+        state_color_match(ChunkGenState, OnGenerationQueue, ORANGE_a)
+        state_color_match(ChunkGenState, FinishedGeneration, GREEN_a)
+        state_color_match(ChunkGenState, DirtyGen, RED_a)
+    }
+    return {};
+}
+#undef state_color_match
+
+inline glm::vec4 GenDebugOutlineColor(std::nullopt_t nullopt) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(GenDebugColor(nullopt));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+inline glm::vec4 GenDebugOutlineColor(ChunkGenState state) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(GenDebugColor(state));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+inline glm::vec4 MeshDebugOutlineColor(ChunkMeshState state) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(MeshDebugColor(state));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+
+#define state_set_str(Enum, str_identifier, name) case Enum :: name: str_identifier=#name; break;
+#define X(name) state_set_str(ChunkGenState, str, name)
+template<>
+struct std::formatter<ChunkGenState>{
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for Point.");
+        }
+        return it;
+    }
+    auto format(ChunkGenState s, std::format_context& ctx) const{
+        std::string_view str = "???ChunkDataState???";
+        switch (s){
+            GEN_STATE_LIST
+        }
+        return format_to(ctx.out(), "{}", str);
+    }
+};
+
+#undef X
+#define X(name) state_set_str(ChunkMeshState, str, name)
+template<>
+struct std::formatter<ChunkMeshState>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for Point.");
+        }
+        return it;
+    }
+    inline auto format(ChunkMeshState s, std::format_context& ctx) const{
+        std::string_view str = "???ChunkMeshState???";
+        switch (s){
+            MESH_STATE_LIST 
+        }
+        return format_to(ctx.out(), "{}", str);
+    }
+};
+#undef X
+#undef state_set_str
+
+// 
+// makeStateTransition(from,to)
+// makeStateTransition<ChunkMeshState::OnMeshQueue>()
+//
+// void makeStateTransition
+
+using GenStateTransition = std::pair<ChunkGenState,ChunkGenState>;
+inline constexpr std::array ValidGenStateTransitions{
+    GenStateTransition{ChunkGenState::OnGenerationQueue,ChunkGenState::FinishedGeneration},
+    GenStateTransition{ChunkGenState::FinishedGeneration,ChunkGenState::DirtyGen},
+    GenStateTransition{ChunkGenState::DirtyGen,ChunkGenState::OnGenerationQueue},
+};
+
+using MeshStateTransition = std::pair<ChunkMeshState,ChunkMeshState>;
+inline constexpr std::array ValidMeshStateTransitions{
+    MeshStateTransition{ChunkMeshState::NoMesh, ChunkMeshState::OnMeshQueue},
+    MeshStateTransition{ChunkMeshState::OnMeshQueue, ChunkMeshState::CleanMeshed},
+    MeshStateTransition{ChunkMeshState::CleanMeshed, ChunkMeshState::DirtyMeshed},
+    MeshStateTransition{ChunkMeshState::DirtyMeshed, ChunkMeshState::OnMeshQueue},
+};
+
+inline consteval bool isStateTransitionValid(ChunkMeshState from, ChunkMeshState to){
+    for (const auto& [valid_src,valid_dst]: ValidMeshStateTransitions){
+        if (from==valid_src&& to==valid_dst){
+            return true;
+        }
+    }
+    return false;
+}
+
+inline consteval bool isStateTransitionValid(ChunkGenState from, ChunkGenState to){
+    for (const auto& [valid_src,valid_dst]: ValidGenStateTransitions){
+        if (from==valid_src&& to==valid_dst){
+            return true;
+        }
+    }
+    return false;
+}
+
+template<auto from, auto to>
+    requires (isStateTransitionValid(from,to))
+inline void makeStateTransition(auto& cur){
+    assert(cur==from);
+    cur = to;
+}
+
+
 struct ChunkState{
-    bool ungenerated        {false}; // currently enqueued for generation 
-    bool isGenerating       {false};
-    bool finishedGenerating {false};
-    bool isMeshing          {false};
-    bool finishedMeshing    {false};
-    bool meshIsDirty        {false};
-
-    static constexpr glm::vec4 SpecialColor = Color01::PURPLE_a(ChunkDebugFillOpacity);
-    bool special            {false};
-    glm::vec4 dbg_color{};
-    glm::vec4 DebugColor() const noexcept{
-        if (special){
-            return {dbg_color.r,dbg_color.g,dbg_color.b,ChunkDebugFillOpacitySpecial};
-        }
-        //return Color01::TRANSPARENT;
-        return dbg_color;
-    }
-    glm::vec4 DebugOutlineColor()const{ 
-        glm::vec3 rgb = DebugColor();
-        return {rgb,0.9};
-    }
-    // comparator disregards `special`, so it doesnt influence decisions on adding to queues and such
-    inline constexpr bool operator==(const ChunkState& rhs) const noexcept{
-        return  ungenerated        ==rhs.ungenerated        &&
-                isGenerating       ==rhs.isGenerating       &&
-                finishedGenerating ==rhs.finishedGenerating &&
-                isMeshing          ==rhs.isMeshing          &&
-                finishedMeshing    ==rhs.finishedMeshing    &&
-                meshIsDirty        ==rhs.meshIsDirty        ;
-    }
-};
-struct ChunkEntryStatus{
+    // NOTE: 
+    // try to keep all of the state updates localized to Simulation.cpp, 
+    // so all the flow/lifecycle updates can be seen from there. This emphasizes that they all 
+    // happen synchronously, i.e on the render thread (worker threads cannot update state)
+    WorldChunkCoord key;
 public:
-    ChunkEntryStatus()=default;
-    ~ChunkEntryStatus()=default;
+    ChunkState()=default;
+    ~ChunkState()=default;
 
-    ChunkState state{ungenerated};
+    ChunkMeshState mesh{ChunkMeshState::NoMesh};
+    ChunkGenState gen{ChunkGenState::OnGenerationQueue};
 
-    // for debugging
-
-    bool qualifiesForGeneration() const {
-        return state == ungenerated;
-    }
-    bool qualifiesForMeshing()const {
-        return state.special || (state == generationFinished || state == dirtyMeshed); 
+    inline bool qualifiesForMeshing() const{
+        return gen == ChunkGenState::FinishedGeneration && 
+              (mesh == ChunkMeshState::NoMesh ||
+               mesh == ChunkMeshState::DirtyMeshed);
     }
 
-    bool isMeshing()const{
-        return state.isMeshing;
+    inline bool needsRegeneration() const{
+        return gen == ChunkGenState::DirtyGen;
     }
-
-    bool isGenerating()const{
-        return state.isGenerating;
-    }
-
-    bool isCleanMeshed()const{
-        return state==cleanMeshed;
-    }
-
-    bool isDirtyMeshed()const{
-        return state.finishedMeshing && state.meshIsDirty;
-    }
-
-    bool inFrustum()const {
-        return state.special;
-    }
-
-    bool isGenerated()const {
-        return state.isGenerating;
-    }
-
-    void markInFrustum(){
-        state.special=true;
-    }
-    void markOutsideFrustum(){
-         state.special=false;
-    }
-
-    void beginGeneration(){
-        state = generationInProgress;
-    }
-
-    void endGeneration(){
-        state = generationFinished;
-    }
-
-    void beginMeshing(){
-        state = meshingInProgress;
-    }
-
-    void endMeshing(){
-        state = cleanMeshed;
-    }
-
-    void makeDirty(){
-        state = dirtyMeshed;
-    }
-    void reset(){
-        state = ungenerated;
+    inline bool isCleanMeshed() const{
+        return mesh == ChunkMeshState::CleanMeshed;
     }
 
 
-    glm::vec4 DebugColor()const{ return state.DebugColor(); }
-    glm::vec4 DebugOutlineColor()const{ return state.DebugOutlineColor(); }
-
-    constexpr std::string str(){
-        std::string s0{};
-        if (state==ChunkEntryStatus::dirtyMeshed){s0= "dirtyMeshed";}
-        else if (state==ChunkEntryStatus::cleanMeshed){s0= "cleanMeshed";}
-        else if (state==ChunkEntryStatus::meshingInProgress){s0= "meshingInProgress";}
-        else if (state==ChunkEntryStatus::generationFinished){s0= "generationFinished";}
-        else if (state==ChunkEntryStatus::generationInProgress){s0= "generationInProgress";}
-        else if (state==ChunkEntryStatus::ungenerated){s0= "ungenerated";}
-        if (state.special){
-            s0+=" (special) ";
-        }
-        return s0;
+    inline void logDirtyGenEnqueue(){ 
+        // for generated chunks which we want to regenerate (for debug work on world gen)
+        makeStateTransition<ChunkGenState::DirtyGen, ChunkGenState::OnGenerationQueue>(gen);
     }
-    static constexpr glm::vec4 UnGeneratedColor = Color01::RED_a(ChunkDebugFillOpacity);
-    static constexpr ChunkState ungenerated{
-            .ungenerated        = true,
 
-            .dbg_color=UnGeneratedColor,
+    inline void logNewGenEnqueue()=delete;
+        // no state transition, since ChunkGenState is OnGenerationQueue by default. Just here for completeness
+
+    inline void logGenDequeue(){ 
+        makeStateTransition<ChunkGenState::OnGenerationQueue, ChunkGenState::FinishedGeneration>(gen);
+    }
+
+
+
+
+    inline void logNewMeshEnqueue(){
+        assert(gen==ChunkGenState::FinishedGeneration);
+        makeStateTransition<ChunkMeshState::NoMesh,ChunkMeshState::OnMeshQueue>(mesh);
+    }
+
+    inline void logDirtyMeshEnqueue(){
+        assert(gen==ChunkGenState::FinishedGeneration);
+        makeStateTransition<ChunkMeshState::DirtyMeshed,ChunkMeshState::OnMeshQueue>(mesh);
+    }
+
+    inline void logMeshDequeue(){ 
+        std::println("{}",mesh);
+        makeStateTransition<ChunkMeshState::OnMeshQueue,ChunkMeshState::CleanMeshed>(mesh);
+    }
+
+    inline void markMeshAsDirty(){
+        makeStateTransition<ChunkMeshState::CleanMeshed,ChunkMeshState::DirtyMeshed>(mesh);
     };
-    static constexpr ChunkState generationInProgress={
-            .ungenerated        = false,
-            .isGenerating       = true,
-
-            .dbg_color=Color01::ORANGE_a(ChunkDebugFillOpacity),
+    
+    inline void markDirtyGen(){
+        // TODO:
+        // Change the make_state_entry st. it inserts the current key, so that these functions can make
+        // debug logs on state change. This should help me verify that makeDirty is functioning properly 
+        // (I think it is not, as the transparent chunks are not remeshing upon neighbour generation).
+        makeStateTransition<ChunkGenState::FinishedGeneration, ChunkGenState::DirtyGen>(gen);
     };
-    static constexpr ChunkState generationFinished{
-            .ungenerated		= false,
-            .isGenerating		= false,
-            .finishedGenerating	= true,
-
-            .dbg_color = Color01::BROWN_a(ChunkDebugFillOpacity),
-    }; 
-    static constexpr ChunkState meshingInProgress{
-            .ungenerated		= false,
-            .isGenerating		= false,
-            .finishedGenerating	= true,
-            .isMeshing		    = true,
-
-            .dbg_color=Color01::YELLOW_a(ChunkDebugFillOpacity),
-    };
-    static constexpr ChunkState cleanMeshed{
-            .ungenerated		= false,
-            .isGenerating		= false,
-            .finishedGenerating	= true,
-            .isMeshing		    = false,
-            .finishedMeshing	= true,
-            .meshIsDirty		= false,
-
-            // NOTE: Clean chunks are invisible at the moment!
-            .dbg_color=Color01::GREEN_a(ChunkDebugFillOpacity),
-    }; 
-    static constexpr ChunkState dirtyMeshed{
-            .ungenerated		= false,
-            .isGenerating		= false,
-            .finishedGenerating	= true,
-            .isMeshing		    = false,
-            .finishedMeshing	= true,
-            .meshIsDirty		= true,
-            
-            .dbg_color=Color01::BLUE_a(ChunkDebugFillOpacity),
-    }; 
 };
+
 
 // @Brief:
 // represents the in memory store of a chunks data.
@@ -187,19 +243,13 @@ public:
 // It should be:
 // 1. default constructible, probably not movable or copyable. no reason to do either
 struct ChunkEntry{
-    inline void makeDirty(){
-        status.makeDirty();
-    };
-    inline void requestWorldRegen(){
-        status.reset();
-    };
+
     ChunkEntry(WorldChunkCoord chunkCoord):
     bounding_box(
-                WorldFloatPos{toWorldOrigin(chunkCoord).raw()},                  
-                WorldFloatPos{toWorldOrigin(chunkCoord).raw()+Chunk::Extents}
+                toWorldOrigin(chunkCoord).raw(),
+                toWorldOrigin(chunkCoord).raw()+Chunk::Extents
     ) {}
-    ChunkEntryStatus status;
-    MeshRevisionID latest_mesh_revision{0};
+    MeshRevisionID latest_mesh_revision{0}; // Unused for now.
     AABB bounding_box; 
     ChunkMetadata metadata;
     std::vector<const Chunk*> neighbours={6, nullptr};

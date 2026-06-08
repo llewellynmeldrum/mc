@@ -5,22 +5,19 @@
 using StorageType = glm::vec4;
 namespace Color01{
 
-constexpr inline StorageType TRANSPARENT {0.0f,0.0f,0.0f,0.0f};
-constexpr inline StorageType RED        {1.0f,0.0f,0.0f,1.0f};
-constexpr inline StorageType WHITE      {1.0f,1.0f,1.0f,1.0f};
-constexpr inline StorageType ORANGE     {1.0f,0.5f,0.0f,1.0f};
-constexpr inline StorageType BROWN      {0.4f,.15f,0.0f,1.0f};
-constexpr inline StorageType YELLOW     {1.0f,1.0f,0.0f,1.0f};
-constexpr inline StorageType GREEN      {0.0f,1.0f,0.0f,1.0f};
-constexpr inline StorageType BLUE       {0.0f,0.0f,1.0f,1.0f};
-constexpr inline StorageType PURPLE     {1.0f,0.0f,1.0f,1.0f};
+#define color(NAME, r,g,b)\
+constexpr inline StorageType NAME {r,g,b,1.0f};\
+constexpr inline StorageType CONCAT(NAME,_a) (f32 alpha) {return{r,g,b,alpha};};
 
-constexpr inline StorageType RED_a    (f32 alpha)    {return{1.0f,0.0f,0.0f,alpha};}
-constexpr inline StorageType WHITE_a (f32 alpha)    {return{1.0f,1.0f,1.0f,alpha};}
-constexpr inline StorageType ORANGE_a (f32 alpha)    {return{1.0f,0.5f,0.0f,alpha};}
-constexpr inline StorageType BROWN_a (f32 alpha)    {return{0.4f,.15f,0.0f,alpha};}
-constexpr inline StorageType YELLOW_a (f32 alpha)    {return{1.0f,1.0f,0.0f,alpha};}
-constexpr inline StorageType GREEN_a (f32 alpha)    {return{0.0f,1.0f,0.0f,alpha};}
-constexpr inline StorageType BLUE_a (f32 alpha)    {return{0.0f,0.0f,1.0f,alpha};}
-constexpr inline StorageType PURPLE_a (f32 alpha)    {return{1.0f,0.0f,1.0f,alpha};}
+color(RED,       1.0,0.0,0.0)
+color(WHITE,     1.0,1.0,1.0)
+color(ORANGE ,   1.0,0.5,0.0)
+color(BROWN  ,   0.4,.15,0.0)
+color(YELLOW ,   1.0,1.0,0.0)
+color(GREEN  ,   0.0,1.0,0.0)
+color(BLUE   ,   0.0,0.0,1.0)
+color(PURPLE ,   1.0,0.0,1.0)
+color(GREY_50,   0.5,0.5,0.5)
+
 }; // Namespace Color01
+#undef color

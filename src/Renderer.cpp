@@ -4,6 +4,7 @@
 #include "Renderer.hpp"
 
 #include "Profiler.hpp"
+#include "Simulation.hpp"
 #include "glbinding/gl/functions.h"
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
@@ -74,9 +75,9 @@ void Renderer::beginOpaquePass(){
     disableColorBlending();
 }
 
-void Renderer::draw_debugChunks(Camera& playerCam, Camera& cam, World& world, RenderTargetView target){
+void Renderer::draw_debugChunks(Camera& cam, Simulation* sim, RenderTargetView target){
     target.use();
-    dbg_rend.update(playerCam,world);
+    dbg_rend.update(sim->playerCam,sim);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     beginTransparentPass();

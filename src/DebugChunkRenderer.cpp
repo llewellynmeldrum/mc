@@ -1,8 +1,10 @@
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "Renderer.hpp"
+#include "Simulation.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "World.hpp"
+#include <optional>
 using namespace gl;
 
 
@@ -90,27 +92,33 @@ void DebugChunkRenderer::draw(Camera& cam){
     prog.stop();
 }
 
-void DebugChunkRenderer::update(Camera& cam, World& world){
-    updateInstances(cam,world);
+void DebugChunkRenderer::update(Camera& cam, Simulation* sim){
+    updateInstances(cam,sim);
 
     vao.bind();
     instance_vbo.load<DebugChunkInstance>(instances);
     vao.unbind();
 }
-void DebugChunkRenderer::updateInstances(Camera& cam, World& world){
-    const auto& inRadius = world.chunksInRadius(toWorldChunkCoord(cam.pos),cam.DebugChunkRenderDistance);
+void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
+    const auto& inRadius = sim->world.chunksStatesInRadius(toWorldChunkCoord(cam.pos),cam.DebugChunkRenderDistance);
     instances.clear();
-    for (const auto& [hasEntry, entryCoord]: inRadius){
-        auto entryColor = ChunkEntryStatus::UnGeneratedColor;
-        if (hasEntry){
-            const auto& entry = world.chunkMap.get_entry(entryCoord);
-            if (HIDE_CLEAN_CHUNKS && entry->status.isCleanMeshed()){
+    bool showGenState = sim->ui.dbg_view.showGenState;
+    for (const auto& [hasStateEntry, entryCoord]: inRadius){
+        auto entryColor = showGenState ? GenDebugColor(std::nullopt) :
+                                         MeshDebugColor(ChunkMeshState::NoMesh);
+        if (hasStateEntry){
+            const auto* state = sim->world.chunkMap.get_state(entryCoord);
+            const auto entry = sim->world.chunkMap.try_get_entry(entryCoord);
+            if (HIDE_CLEAN_CHUNKS && state->isCleanMeshed()){
                 continue; // skip, else visual clutter is too bad
             }
-            if (HIDE_AIR_CHUNKS && entry->block_data.isAllAir()){
-                continue; // skip, else visual clutter is too bad
+            if (entry.has_value()){
+                if (HIDE_AIR_CHUNKS && (*entry)->block_data.isAllAir()){
+                    continue; // skip, else visual clutter is too bad
+                }
             }
-            entryColor = entry->status.DebugColor();
+            entryColor = showGenState ? GenDebugColor(state->gen) :
+                                         MeshDebugColor(state->mesh);
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
     }

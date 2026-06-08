@@ -1,6 +1,7 @@
 
 #include "Chunk.hpp"
 #include "ChunkConcurrency.hpp"
+#include "ChunkEntry.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
@@ -64,15 +65,15 @@ void Simulation::freeCursor(){
 }
 
 void Simulation::unGenerateAllChunks(){
-    for (auto& [worldCoord, entry]: world.chunkMap.entries){
-        entry->requestWorldRegen();
+    for (auto& [worldCoord, state]: world.chunkMap.states){
+        // TODO:  implement
+        DEBUG_BREAKPOINT("unimplmented");
+        state.markDirtyGen();
     }
 }
 void Simulation::unMeshAllChunks(){
-    for (const auto& [worldCoord, entry]: world.chunkMap.entries){
-        if (entry->status.isCleanMeshed()){
-            entry->makeDirty();
-        }
+    for (auto& [worldCoord, state]: world.chunkMap.states){
+        state.mesh = ChunkMeshState::NoMesh;
     }
     rend.opaqueChunkMeshes.clear();
     rend.transparentChunkMeshes.clear();
@@ -94,10 +95,7 @@ void Simulation::loop(){
     profiler.bench_end("input");
 
     if (isPaused() == false){
-        // UPDATE:
-        profiler.bench_start("update");
         update();
-        profiler.bench_end("update");
 
     }
     // DRAWING
@@ -120,21 +118,15 @@ bool Simulation::inPlayerFrustum(WorldChunkCoord coord){
     return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(coord));
 }
 
-void Simulation::markInsideFrustum(){
-    for (const auto& [coord, entry]: world.chunkMap.entries){
-        if (inPlayerFrustum(coord)){
-            entry->status.markInFrustum();
-        }else{
-            entry->status.markOutsideFrustum();
-        }
-    }
+
+[[deprecated]]void Simulation::markInsideFrustum(){
 }
 void Simulation::cullMeshes(bool enableFrustumCulling){
     // if a mesh is outside of render dist, but still being meshed, cull it.
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
     auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
 
-    // this shit is smelly
+    // this shit is smelly. Needs a rewrite
     auto pred = [this](auto* ptr, auto& chunkMap, auto lo, auto hi){
         return [lo,hi, &chunkMap, ptr, this](IndexedMesh& mesh){
             auto* entry = world.chunkMap.get_entry_safe(mesh.chunkCoord);
@@ -157,13 +149,15 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
 }
 
 void Simulation::update() {
+    profiler.bench_start("update");
+
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
     rb_genJobsAdded.write(genJobsThisFrame);
 
     genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
     rb_genResultsAdded.write(genResultsThisFrame);
 
-    markInsideFrustum();
+    //markInsideFrustum();
     cullMeshes(true);
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
     rb_meshJobsAdded.write(meshJobsThisFrame);
@@ -184,7 +178,7 @@ void Simulation::update() {
     };
     makeCamFrustumLines(playerCam);
 //    makeCamFrustumLines(droneCam);
-
+    profiler.bench_end("update");
 }
 
 
@@ -192,47 +186,55 @@ std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t max
     std::vector<WorldChunkCoord> candidates;
     const auto chunkCoord = toWorldChunkCoord(playerCam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
-    auto add = [this, &candidates](i32 x, i32 y, i32 z) ->bool {
-        const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-        const ChunkEntry* entry = world.chunkMap.make_or_getEntry(key);
-        if (entry->status.qualifiesForGeneration()){
-            candidates.emplace_back(key);
-            return true;
-        }else{
-            return false;
-        }
-    };
 
     const i32& dist = SIMULATION_DIST;
     const i32& oy = chunkCoord.y;
 
     i32 minY = oy-dist;
     i32 maxY = oy+dist;
-    // this genuinely took like 2 hours to make, holy christ man i hate geometric shit
-    // Anyways this iterates in 'expanding spirals', per horizontal slice, such that we get 
-    // chunks for meshing in a reasonable-ish order, (close->far, +Y first)
-    SpiralIterateRange(chunkCoord,SIMULATION_DIST*2, SIMULATION_DIST,add);
+    SpiralIterateRange(chunkCoord, SIMULATION_DIST*2, SIMULATION_DIST, [this, &candidates](i32 x, i32 y, i32 z) -> bool {
+        // 1. if an state entry exists, check if it needs regeneration.
+        const auto key = WorldChunkCoord{x,y,z};
+        const auto state = world.chunkMap.try_get_state(key);
+        if(state.has_value()){
+            if ((*state)->needsRegeneration()){
+                candidates.emplace_back(key);
+                return true;
+            }else {
+                return false;
+            }
+        }
+
+        // 2. if no state entry exists; then the chunk hasnt been generated => it qualifies.
+        candidates.emplace_back(key);
+        return true;
+
+    });
     return candidates;
 }
 
 std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = findChunksForGeneration(maxJobs);
-      LOG_DEBUG("Chunks in range found:{}",candidates.size());
+    LOG_DEBUG("[GEN ENQUEUE]: Chunks in range found:{}",candidates.size());
     std::size_t count = 0;
     auto& genQ = world.chunkMap.generator.genJobQueue;
     for (const auto& chunkWorldPos: candidates){
-        const auto& entry = world.chunkMap.get_entry(chunkWorldPos);
-        if (entry->status.qualifiesForGeneration()){
-            bool success = genQ.try_emplace(
-                chunkWorldPos, 
-                WORLD_SEED,
-                world.genConfig
-            );
-            if (success){
-                count++;
-                entry->status.beginGeneration();
+
+        bool success = genQ.try_emplace(
+            chunkWorldPos, 
+            WORLD_SEED,
+            world.genConfig
+        );
+        if (success){
+            auto state = world.chunkMap.try_get_state(chunkWorldPos);
+            if (state.has_value()){
+                (*state)->logDirtyGenEnqueue();
+            } else{
+                bool inserted = world.chunkMap.make_state_entry(chunkWorldPos);
+                assert(inserted);
             }
+            count++;
         }
     }
     profiler.bench_end("enqueueGen");
@@ -240,8 +242,6 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
 }
 
 std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
-
-
     
     const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
     const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS, maxJobs);
@@ -249,19 +249,17 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-        if(inPlayerFrustum(candidateCoord)){
+//        if(inPlayerFrustum(candidateCoord)){
             // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
             // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
             // i.e the ones bordering the actual chunk in question.
             // make this construct based on the entry by const reference or something
-        }else{
             res.emplace_back(
                 candidateCoord,
                 &rend.atlas,
                 entry
             );
-        }
-
+//        }
     }
     return res;
 }
@@ -271,15 +269,19 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
     auto jobsForMeshing = findMeshJobs(maxJobs);
 
     std::size_t count = 0;
-    for (std::size_t attempts = 0; attempts<maxJobs; attempts++){
+    for (std::size_t attempts = 0; attempts<maxMeshDequeueAttempts; attempts++){
         auto& q = rend.meshers.meshJobQueue;
         count = q.try_batch_enqueue(jobsForMeshing);
         if (count >= 0) break; // we have successfully enqueued the batch
     }
 
     for (std::size_t i =0; i < count; i++){
-        const auto& entry = world.chunkMap.get_entry(jobsForMeshing[i].chunkCoord);
-        entry->status.beginMeshing();
+        const auto entry = world.chunkMap.get_entry(jobsForMeshing[i].chunkCoord);
+        const auto state = world.chunkMap.get_state(jobsForMeshing[i].chunkCoord);
+        if (state->mesh==ChunkMeshState::NoMesh)
+            state->logNewMeshEnqueue();
+        else if (state->mesh==ChunkMeshState::DirtyMeshed)
+            state->logDirtyMeshEnqueue();
     }
     profiler.bench_end("enqueueMesh");
     return count;
@@ -318,6 +320,8 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
     std::size_t count = 0;
     auto candidateMeshes = drainMeshResultQueue(rend.meshers.meshResultQueue,maxUploads);
     for (const auto& [candidateGen, chunkCoord, opaque, transparent] : candidateMeshes){
+        // We dont upload empty meshes. This might be a bit stupid, as we could just cull them later.
+        // i dont know if the performance savings outweigh the logical cost
         if (opaque.vertices.size()>0){
             rend.uploadMesh(chunkCoord, std::move(opaque));
         } 
@@ -325,12 +329,13 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
             rend.uploadMesh(chunkCoord, std::move(transparent));
         } 
 
-        if (world.chunkMap.has_entry(chunkCoord)){
-            world.chunkMap.get_entry(chunkCoord)->status.endMeshing();
+        auto state = world.chunkMap.try_get_state(chunkCoord);
+        if (state.has_value()){
+            (*state)->logMeshDequeue();
             count++;
             this->chunksMeshed++;
         } else {
-            LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was meshed.");
+            LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was being meshed.");
         }
     }
     profiler.bench_end("drainMesh");
@@ -339,13 +344,15 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
 
 std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
     profiler.bench_start("drainGen");
-    auto drainedMeshes = drainGenResults(world.chunkMap.generator.genResultQueue,maxUploads);
-    auto count = drainedMeshes.size();
-    for (const auto& newGen : drainedMeshes){
+    auto genResults = drainGenResults(world.chunkMap.generator.genResultQueue,maxUploads);
+    auto count = genResults.size();
+    for (const auto& newGen : genResults){
+        auto state = world.chunkMap.get_state(newGen.chunkCoord);
+        state->logGenDequeue();
         world.chunkMap.uploadGeneratedChunk(newGen);
     }
     profiler.bench_end("drainGen");
-    return count;
+    return genResults.size();
 }
 
 void Simulation::pause(){
@@ -376,14 +383,15 @@ void Simulation::draw() {
     chunkOutlines.clear();
 
     for(const auto& [key,entry] : this->world.chunkMap.entries){
-        if (entry->status.inFrustum() && !entry->block_data.isAllAir()){
-            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry->status.isCleanMeshed()){
+        const auto* state = world.chunkMap.get_state(key);
+        if (inPlayerFrustum(key)){
+            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && state->isCleanMeshed()){
                 continue; 
             }
             if (DebugChunkRenderer::HIDE_AIR_CHUNKS && entry->block_data.isAllAir()){
                 continue; 
             }
-            chunkOutlines.append_range(entry->bounding_box.getLines(entry->status.DebugOutlineColor()));
+            chunkOutlines.append_range(entry->bounding_box.getLines(MeshDebugOutlineColor(state->mesh)));
         }
     }
 
@@ -400,8 +408,8 @@ void Simulation::draw() {
     rend.draw_3DLines_to(droneCam,lines3d,secondaryView());
     
     if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(playerCam, playerCam,world,screenView());
-        rend.draw_debugChunks(playerCam,droneCam,world,secondaryView());
+        rend.draw_debugChunks(playerCam,this,screenView());
+        rend.draw_debugChunks(droneCam,this,secondaryView());
         rend.draw_3DLines_to(playerCam,chunkOutlines,screenView());
         rend.draw_3DLines_to(droneCam,chunkOutlines,secondaryView());
     }

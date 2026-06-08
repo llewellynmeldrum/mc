@@ -27,10 +27,34 @@ struct ChunkMap {
 
 
     ChunkGenerator generator;
+    // NOTE: A chunk entry is made right before generation enqueue.
     std::unordered_map<WorldChunkCoord, std::unique_ptr<ChunkEntry>> entries;
+
     // NOTE: This map should be separate to the main chunkEntries map, as neighbouring chunks 
     // can produce `PendingWrite`s for chunks that havent generated (and thus been added as an entry) yet
     std::unordered_map<WorldChunkCoord, PendingWriteQueue> pendingWritesMap;
+
+    // NOTE: An entry is made into this map right before generation enqueue, 
+    // and is **NEVER UNLOADED OR REMOVED**. It persists through mesh unloading
+    std::unordered_map<WorldChunkCoord, ChunkState> states;
+
+    inline std::optional<ChunkState*> try_get_state(WorldChunkCoord coord){
+        if (states.contains(coord)){
+            return std::make_optional(&states.at(coord));
+        }else{
+            return std::nullopt;
+        }
+    }
+    inline ChunkState* get_state(WorldChunkCoord coord){
+        assert(states.contains(coord));
+        return &states.at(coord);
+    }
+    inline bool has_state_entry(WorldChunkCoord coord){
+        return states.contains(coord);
+    }
+    inline bool make_state_entry(WorldChunkCoord coord){
+        return states.try_emplace(coord).second;
+    }
 
     inline void launchGenerator(){
         
@@ -70,9 +94,6 @@ struct ChunkMap {
         assert(inserted); // Entry was double created 
         return (*it).second.get();
     }
-    inline ChunkEntry* make_or_getEntry(WorldChunkCoord key){
-        return has_entry(key) ? get_entry(key) : make_entry(key);
-    }
 
 
     // temporary debugging 
@@ -85,9 +106,9 @@ struct ChunkMap {
         const auto& deferredWrites = gen_res.deferredWrites;
         const auto& chunkCoord = gen_res.chunkCoord;
 
-        const auto& entry = entries.at(chunkCoord);
+        auto* entry = make_entry(chunkCoord);
+        auto& state = states.at(chunkCoord);
         // update entry to reflect generation data
-        entry->status.endGeneration();
         handlePendingWrites(chunkCoord, static_cast<ChunkSpan>(generatedBlocks), deferredWrites);
         
         // why the fuck did they make it (src,dst) fucking AT&T propaganda

@@ -35,6 +35,7 @@ struct Simulation {
     static constexpr std::size_t maxGenUploadsPerFrame= 32;
     static constexpr std::size_t maxGenJobsPerFrame = 32;
     static constexpr std::size_t maxMeshUploadsPerFrame= 16;
+    static constexpr std::size_t maxMeshDequeueAttempts = 4;
     static constexpr std::size_t maxMeshJobsPerFrame = 128;
 
     std::size_t chunksMeshed{0};

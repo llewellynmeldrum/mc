@@ -13,6 +13,7 @@
 #include "RenderTargets.hpp"
 
 #include "Chunk.hpp"
+FORWARD_DECL_STRUCT(Simulation)
 struct Renderer {
     Renderer();
     ~Renderer() = default;
@@ -26,7 +27,7 @@ struct Renderer {
     void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
-    void draw_debugChunks(Camera& playerCam, Camera& cam, World& world, RenderTargetView target);
+    void draw_debugChunks(Camera&cam, Simulation* sim, RenderTargetView target);
     void draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
     void clear_to(RenderTargetView target);

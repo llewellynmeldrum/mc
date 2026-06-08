@@ -39,10 +39,7 @@ struct AABB {
     glm::vec3 center = glm::vec3(0);
     glm::vec3 halfExtents = glm::vec3(0);
     // create an axis aligned bounding box from a min and a max world position
-    template<AnyVec3 A, AnyVec3 B>
-    AABB(A _min, B _max) {
-        glm::vec3 min = _min.raw();
-        glm::vec3 max = _max.raw();
+    AABB(glm::vec3 min, glm::vec3 max) {
         center = (min + max) * 0.5f;
         halfExtents = max - center;
     }

@@ -67,10 +67,11 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
         if (entries.contains(neighbourChunkCoord)) {
             // assign NEIGHBOUR to OUR NeighbourList @dir
             auto* neighbourEntry = get_entry(neighbourChunkCoord);
+            auto* neighbourState = get_state(neighbourChunkCoord);
             my_neighbours[dir_idx] = &neighbourEntry->block_data;
             // also INVALIDATE THEIR MESH
-            if (neighbourEntry->status.isCleanMeshed()){
-                neighbourEntry->makeDirty();
+            if (neighbourState->isCleanMeshed()){
+                neighbourState->markMeshAsDirty();
             }
             // NOTE: This is an optmisation for opaque chunks, 
             // but necessary for transparent chunks. 
@@ -88,8 +89,8 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
 }
 
 void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
-    const auto min = toWorldOrigin(chunkCoord);
-    const auto max = min + BlockOffset{Chunk::Extents};
+    const auto min = toWorldOrigin(chunkCoord).raw();
+    const auto max = min + Chunk::Extents;
     entries.at(chunkCoord)->bounding_box = {min, max};
 }
 

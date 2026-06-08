@@ -1,3 +1,4 @@
+#pragma once 
 #include "Chunk.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkMap.hpp"
@@ -26,14 +27,15 @@ struct World {
 
 
 
-    inline std::vector<std::pair<bool, WorldChunkCoord>> chunksInRadius(WorldChunkCoord chunkCoord, i32 dist) {
+    inline std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist) {
         const size_t nChunksInRadius = std::pow(2*dist+1,3);
         std::vector<std::pair<bool,WorldChunkCoord>> candidates;
         candidates.reserve(nChunksInRadius);
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            candidates.emplace_back(chunkMap.has_entry(key),key);
+            const auto state = chunkMap.try_get_state(key);
+            candidates.emplace_back(state.has_value(),key);
         };
 
         const i32& oy = chunkCoord.y;
@@ -61,9 +63,9 @@ struct World {
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            auto entry = chunkMap.try_get_entry(key);
-            if (entry.has_value()){
-                if ((*entry)->status.qualifiesForMeshing()){
+            auto state = chunkMap.try_get_state(key);
+            if (state.has_value()){
+                if ((*state)->qualifiesForMeshing()){
                     candidates.emplace_back(key);
                     return true;
                 }

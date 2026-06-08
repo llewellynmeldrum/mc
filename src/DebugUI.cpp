@@ -4,6 +4,7 @@
 #include <concepts>
 #include <string>
 
+#include "ChunkEntry.hpp"
 #include "DebugFormat.hpp"
 
 #define DISABLE_STYLE
@@ -106,6 +107,23 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
         window.dropdown.show();
     });
 }
+
+void drawLogWindow(WindowConfig& self, Simulation* ctx){
+    self.setAlpha(0.65f);
+    self.setup();
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags(UI::WinFlags::NoResize);
+    self.start_at(true, UVPos{1.0,0.5},[&self, &ctx]{
+        auto& window = self;
+        window.section("Per chunk log:",[&self, &ctx]{
+            self.ui->log_write("test\n");
+            for (const auto& entry: self.ui->dbg_log){
+                UI::Text(DebugLog::entry_tostr(entry));
+            }
+        });
+    });
+}
+
 void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
     self.setup();
@@ -131,27 +149,35 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
     self.setup();
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
-        window.section("Chunk Debug Colors:",[]{
-            UI::ColoredText(ChunkEntryStatus::dirtyMeshed.DebugOutlineColor(), "Dirty Meshed");
-            UI::ColoredText(ChunkEntryStatus::cleanMeshed.DebugOutlineColor(), "Clean Meshed");
-            UI::ColoredText(ChunkEntryStatus::meshingInProgress.DebugOutlineColor(), "Meshing in progress");
-            UI::ColoredText(ChunkEntryStatus::generationFinished.DebugOutlineColor(), "Generated");
-            UI::ColoredText(ChunkEntryStatus::generationInProgress.DebugOutlineColor(), "Generation in progress");
-            UI::ColoredText(ChunkEntryStatus::ungenerated.DebugOutlineColor(), "Ungenerated");
+        window.section("Chunk Debug Colors:",[ctx]{
+            if (ctx->ui.dbg_view.showGenState){
+                #define X(name) UI::ColoredText(GenDebugOutlineColor(ChunkGenState :: name), #name);
+                GEN_STATE_LIST
+                #undef X
+            } else if (ctx->ui.dbg_view.showMeshState){
+                #define X(name) UI::ColoredText(MeshDebugOutlineColor(ChunkMeshState:: name), #name);
+                MESH_STATE_LIST
+                #undef X
+            }
         });
         window.dropdown.show();
 
 
         window.section("Positions",[ctx]{
             auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
-            auto entryColor01 = ChunkEntryStatus::ungenerated.DebugOutlineColor();
-            ChunkEntry* entry= nullptr;
+            bool showGenState = ctx->ui.dbg_view.showGenState;
+            auto entryColor01 = showGenState ? GenDebugOutlineColor(std::nullopt) : MeshDebugOutlineColor(ChunkMeshState::NoMesh) ;
+            ChunkEntry* entry = nullptr;
+            auto state = ctx->world.chunkMap.try_get_state(ch_pos);
             std::string status_str = "";
             std::string suffix = ", unloaded.";
-            if (ctx->world.chunkMap.has_entry(ch_pos)){
-                entry = ctx->world.chunkMap.get_entry(ch_pos);
-                entryColor01 = entry->status.DebugOutlineColor();
-                if (entry->status.state.finishedMeshing){
+            if (state.has_value()){
+                if (ctx->world.chunkMap.has_entry(ch_pos))
+                    entry = ctx->world.chunkMap.get_entry(ch_pos);
+                state = ctx->world.chunkMap.get_state(ch_pos);
+                entryColor01 = showGenState ? GenDebugOutlineColor((*state)->gen) :
+                                              MeshDebugOutlineColor((*state)->mesh);
+                if ((*state)->isCleanMeshed()){
                     auto it= std::ranges::find_if(ctx->rend.opaqueChunkMeshes,[ch_pos](const Mesh& mesh)->bool{
                         return mesh.chunkCoord==ch_pos;
                     });
@@ -170,9 +196,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     // ALSO: 
                     // Perhaps manually slow queues / add a delay to certain operations
                     // so i can better see whats happening in real time
+                    // I also dont think that enqueues are being reported. 
+                }
+                if (showGenState){
+                    status_str = std::format("{}",(*state)->gen) + ", "+ suffix;
+                }else{
+                    status_str = std::format("{}",(*state)->mesh) + ", "+ suffix;
                 }
             }
-            status_str = entry->status.str() + ", "+ suffix;
 
             std::string facing_str = get_facing_str(ctx->playerCam.getFront());
             IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
@@ -280,9 +311,10 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
     win_configs.insert_range(
         win_configs.begin(),std::vector<WindowConfig>{ 
             {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::Overlay, drawGeneralDebugOverlay},
-            {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow},
-            {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay},
-            {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow},
+            {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
+            {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
+            {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow,this},
+            {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
         }
     );
 }
