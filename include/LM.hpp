@@ -7,6 +7,39 @@
 #include <type_traits>
 namespace LM {
 
+struct variable{
+    std::string_view type_str;
+    std::string_view  val_str;
+    std::string_view  name_str;
+    const auto& val(){return val_str;}
+    const auto& type(){return type_str;}
+    const auto& name(){return name_str;}
+};
+struct source_location{
+    const char* _file;
+    const char* _function;
+    const char* _pretty_fn;
+    int _line;
+    int _col{0};
+    const auto& file_name(){return _file;}
+    const auto& function_name(){return _function;}
+    const auto& pretty_fn(){return _pretty_fn;}
+    const auto& line(){return _line;}
+    const auto& column(){return _col;}
+};
+#define SRC_LOC_CURRENT()\
+    LM::source_location{\
+        ._file=__FILE_NAME__,\
+        ._function=__FUNCTION__,\
+        ._pretty_fn=__PRETTY_FUNCTION__,\
+        ._line=__LINE__,\
+    }
+#define VAR_DBG(val)\
+    LM::variable{\
+        .type_str = pretty_type_name<decltype(val)>(),\
+        .val_str = std::format("{}",val),\
+        .name_str= #val,\
+    }
 constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
     i32 r = a % b;
     return r<0 ? r+b : r;

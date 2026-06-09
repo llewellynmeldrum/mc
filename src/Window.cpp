@@ -126,11 +126,11 @@ static void init_glFunctionLoader() {
             if (!call.function->isResolved()) {
                 std::cout << " (UNRESOLVED FUNCTION CALL!!):";
             }
-            std::cout << fmt::clear << std::endl << "\t";
+            std::cout << fmt::reset << std::endl << "\t";
 
-            std::cout << fmt::cyan;
+            std::cout << fmt::fg_cyan;
             std::cout << call.function->name();
-            std::cout << fmt::clear << "(";
+            std::cout << fmt::reset << "(";
             for (const auto& param : call.parameters) {
                 std::cout << param.get();
                 if (param != call.parameters.back()) {

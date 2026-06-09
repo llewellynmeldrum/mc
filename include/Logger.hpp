@@ -41,25 +41,25 @@ static inline i64 ms_since_start() {
 
 struct LogLevel {
     const char* prefix;
-    const char* color;
+    std::string color;
     i32         precedence;
 };
 
-inline LogLevel DEBUG{ "[DEBUG]", fmt::cyan, -1 };
-inline LogLevel INFO{ "[INFO]", fmt::yellow, 0 };
-inline LogLevel NOTICE{ "[NOTICE]", fmt::pink, 1 };
-inline LogLevel WARN{ "[WARN]", fmt::lired, 2 };
-inline LogLevel ERROR{ "[ERROR]", fmt::red, 3 };
-inline LogLevel FATAL{ "[FATAL]", fmt::green, 4 };
-inline LogLevel COUNT{ "[COUNT]", fmt::red, 5 };
+inline LogLevel DEBUG{ "[DEBUG]", fmt::fg_cyan, -1 };
+inline LogLevel INFO{ "[INFO]", fmt::fg_yellow, 0 };
+inline LogLevel NOTICE{ "[NOTICE]", fmt::fg_pink, 1 };
+inline LogLevel WARN{ "[WARN]", fmt::fg_br_red, 2 };
+inline LogLevel ERROR{ "[ERROR]", fmt::fg_red, 3 };
+inline LogLevel FATAL{ "[FATAL]", fmt::fg_green, 4 };
+inline LogLevel COUNT{ "[COUNT]", fmt::fg_red, 5 };
 
 extern std::mutex log_mut;
 #define LOG_LVL(lvl, file, ln, fmt_str, ...)                                                       \
     do {                                                                                           \
         std::unique_lock<std::mutex> lock(log_mut);                                                \
         std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::clear);                               \
-        std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::clear);                              \
+        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset);                               \
+        std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::reset);                              \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
     } while (0)
 
@@ -100,8 +100,8 @@ constexpr std::string fmt_expr(const char* identifier, T&& expr) {
     return std::format("{}{:>12}{} "
                        "{}{:<12}{} "
                        " = {:<12};",
-                       fmt::cyan, pretty_type_name<Arg>(), fmt::clear, fmt::red, identifier,
-                       fmt::clear, expr_str);
+                       fmt::fg_cyan, pretty_type_name<Arg>(), fmt::reset, fmt::fg_red, identifier,
+                       fmt::reset, expr_str);
 }
 
 // @brief returns a string containing the underlying type of the object expr represents. No value

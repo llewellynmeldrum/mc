@@ -1,5 +1,11 @@
+
+#include "DebugFormatSpecializations.hpp"
+
+#include "AnsiCodes.hpp"
 #include "App.hpp"
 #include <print>
+#include "Assertion.hpp"
+#include "CommonUtils.hpp"
 #define _DEBUG
 
 //#define TESTING_SOMETHING
@@ -13,12 +19,18 @@
 #endif
 
 
-#include "glbindingWrapper.hpp"
-using namespace gl;
+
+
 int TEST_MAIN(){
     std::println("NOTICE!!!! CURRENTLY IN TESTING MODE!!!");
-    App app{};
-    app.setup();
+    glm::ivec3 a{1,2,3};
+    glm::ivec3 b{2,2,2};
+    assert(1==1, "this is false");
+    assert_eq(a,a);
+    assert_eq(a,b);
+
+    assert(2==1, "this is false");
+
 
     std::exit(EXIT_SUCCESS);
     return EXIT_SUCCESS;
