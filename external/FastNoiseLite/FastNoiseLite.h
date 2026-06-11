@@ -382,14 +382,14 @@ private:
         DefaultOpenSimplex2
     };
 
-    int mSeed;
+    int64_t mSeed;
     float mFrequency;
     NoiseType mNoiseType;
     RotationType3D mRotationType3D;
     TransformType3D mTransformType3D;
 
     FractalType mFractalType;
-    int mOctaves;
+    int64_t mOctaves;
     float mLacunarity;
     float mGain;
     float mWeightedStrength;
@@ -424,22 +424,22 @@ private:
     static float FastSqrt(float f) { return sqrtf(f); }
 
     template <typename FNfloat>
-    static int FastFloor(FNfloat f)
+    static int64_t FastFloor(FNfloat f)
     {
         return f >= 0 ? (int)f : (int)f - 1;
     }
 
     template <typename FNfloat>
-    static int FastRound(FNfloat f)
+    static int64_t FastRound(FNfloat f)
     {
         return f >= 0 ? (int)(f + 0.5f) : (int)(f - 0.5f);
     }
 
     static float Lerp(float a, float b, float t) { return a + t * (b - a); }
 
-    static float InterpHermite(float t) { return t * t * (3 - 2 * t); }
+    static float int64_terpHermite(float t) { return t * t * (3 - 2 * t); }
 
-    static float InterpQuintic(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    static float int64_terpQuintic(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
 
     static float CubicLerp(float a, float b, float c, float d, float t)
     {
@@ -467,31 +467,31 @@ private:
     }
 
     // Hashing
-    static const int PrimeX = 501125321;
-    static const int PrimeY = 1136930381;
-    static const int PrimeZ = 1720413743;
+    static const int64_t PrimeX = 501125321;
+    static const int64_t PrimeY = 1136930381;
+    static const int64_t PrimeZ = 1720413743;
 
-    static int Hash(int seed, int xPrimed, int yPrimed)
+    static int64_t Hash(int seed, int64_t xPrimed, int64_t yPrimed)
     {
-        int hash = seed ^ xPrimed ^ yPrimed;
+        int64_t hash = seed ^ xPrimed ^ yPrimed;
 
         hash *= 0x27d4eb2d;
         return hash;
     }
 
 
-    static int Hash(int seed, int xPrimed, int yPrimed, int zPrimed)
+    static int64_t Hash(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed)
     {
-        int hash = seed ^ xPrimed ^ yPrimed ^ zPrimed;
+        int64_t hash = seed ^ xPrimed ^ yPrimed ^ zPrimed;
 
         hash *= 0x27d4eb2d;
         return hash;
     }
 
 
-    static float ValCoord(int seed, int xPrimed, int yPrimed)
+    static float ValCoord(int seed, int64_t xPrimed, int64_t yPrimed)
     {
-        int hash = Hash(seed, xPrimed, yPrimed);
+        int64_t hash = Hash(seed, xPrimed, yPrimed);
 
         hash *= hash;
         hash ^= hash << 19;
@@ -499,9 +499,9 @@ private:
     }
 
 
-    static float ValCoord(int seed, int xPrimed, int yPrimed, int zPrimed)
+    static float ValCoord(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed)
     {
-        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
 
         hash *= hash;
         hash ^= hash << 19;
@@ -509,9 +509,9 @@ private:
     }
 
 
-    float GradCoord(int seed, int xPrimed, int yPrimed, float xd, float yd) const
+    float GradCoord(int seed, int64_t xPrimed, int64_t yPrimed, float xd, float yd) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed);
+        int64_t hash = Hash(seed, xPrimed, yPrimed);
         hash ^= hash >> 15;
         hash &= 127 << 1;
 
@@ -522,9 +522,9 @@ private:
     }
 
 
-    float GradCoord(int seed, int xPrimed, int yPrimed, int zPrimed, float xd, float yd, float zd) const
+    float GradCoord(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float xd, float yd, float zd) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
         hash ^= hash >> 15;
         hash &= 63 << 2;
 
@@ -536,18 +536,18 @@ private:
     }
 
 
-    void GradCoordOut(int seed, int xPrimed, int yPrimed, float& xo, float& yo) const
+    void GradCoordOut(int seed, int64_t xPrimed, int64_t yPrimed, float& xo, float& yo) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed) & (255 << 1);
+        int64_t hash = Hash(seed, xPrimed, yPrimed) & (255 << 1);
 
         xo = Lookup<float>::RandVecs2D[hash];
         yo = Lookup<float>::RandVecs2D[hash | 1];
     }
 
 
-    void GradCoordOut(int seed, int xPrimed, int yPrimed, int zPrimed, float& xo, float& yo, float& zo) const
+    void GradCoordOut(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float& xo, float& yo, float& zo) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed, zPrimed) & (255 << 2);
+        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed) & (255 << 2);
 
         xo = Lookup<float>::RandVecs3D[hash];
         yo = Lookup<float>::RandVecs3D[hash | 1];
@@ -555,11 +555,11 @@ private:
     }
 
 
-    void GradCoordDual(int seed, int xPrimed, int yPrimed, float xd, float yd, float& xo, float& yo) const
+    void GradCoordDual(int seed, int64_t xPrimed, int64_t yPrimed, float xd, float yd, float& xo, float& yo) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed);
-        int index1 = hash & (127 << 1);
-        int index2 = (hash >> 7) & (255 << 1);
+        int64_t hash = Hash(seed, xPrimed, yPrimed);
+        int64_t index1 = hash & (127 << 1);
+        int64_t index2 = (hash >> 7) & (255 << 1);
 
         float xg = Lookup<float>::Gradients2D[index1];
         float yg = Lookup<float>::Gradients2D[index1 | 1];
@@ -573,11 +573,11 @@ private:
     }
 
 
-    void GradCoordDual(int seed, int xPrimed, int yPrimed, int zPrimed, float xd, float yd, float zd, float& xo, float& yo, float& zo) const
+    void GradCoordDual(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float xd, float yd, float zd, float& xo, float& yo, float& zo) const
     {
-        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-        int index1 = hash & (63 << 2);
-        int index2 = (hash >> 6) & (255 << 2);
+        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        int64_t index1 = hash & (63 << 2);
+        int64_t index2 = (hash >> 6) & (255 << 2);
 
         float xg = Lookup<float>::Gradients3D[index1];
         float yg = Lookup<float>::Gradients3D[index1 | 1];
@@ -827,7 +827,7 @@ private:
     template <typename FNfloat>
     float GenFractalFBm(FNfloat x, FNfloat y) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -848,7 +848,7 @@ private:
     template <typename FNfloat>
     float GenFractalFBm(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -873,7 +873,7 @@ private:
     template <typename FNfloat>
     float GenFractalRidged(FNfloat x, FNfloat y) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -894,7 +894,7 @@ private:
     template <typename FNfloat>
     float GenFractalRidged(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -919,7 +919,7 @@ private:
     template <typename FNfloat>
     float GenFractalPingPong(FNfloat x, FNfloat y) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -940,7 +940,7 @@ private:
     template <typename FNfloat>
     float GenFractalPingPong(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float sum = 0;
         float amp = mFractalBounding;
 
@@ -977,8 +977,8 @@ private:
          * x += s; y += s;
          */
 
-        int i = FastFloor(x);
-        int j = FastFloor(y);
+        int64_t i = FastFloor(x);
+        int64_t j = FastFloor(y);
         float xi = (float)(x - i);
         float yi = (float)(y - j);
 
@@ -1049,16 +1049,16 @@ private:
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int i = FastRound(x);
-        int j = FastRound(y);
-        int k = FastRound(z);
+        int64_t i = FastRound(x);
+        int64_t j = FastRound(y);
+        int64_t k = FastRound(z);
         float x0 = (float)(x - i);
         float y0 = (float)(y - j);
         float z0 = (float)(z - k);
 
-        int xNSign = (int)(-1.0f - x0) | 1;
-        int yNSign = (int)(-1.0f - y0) | 1;
-        int zNSign = (int)(-1.0f - z0) | 1;
+        int64_t xNSign = (int)(-1.0f - x0) | 1;
+        int64_t yNSign = (int)(-1.0f - y0) | 1;
+        int64_t zNSign = (int)(-1.0f - z0) | 1;
 
         float ax0 = xNSign * -x0;
         float ay0 = yNSign * -y0;
@@ -1079,9 +1079,9 @@ private:
             }
 
             float b = a + 1;
-            int i1 = i;
-            int j1 = j;
-            int k1 = k;
+            int64_t i1 = i;
+            int64_t j1 = j;
+            int64_t k1 = k;
             float x1 = x0;
             float y1 = y0;
             float z1 = z0;
@@ -1155,15 +1155,15 @@ private:
          * x += s; y += s;
          */
 
-        int i = FastFloor(x);
-        int j = FastFloor(y);
+        int64_t i = FastFloor(x);
+        int64_t j = FastFloor(y);
         float xi = (float)(x - i);
         float yi = (float)(y - j);
 
         i *= PrimeX;
         j *= PrimeY;
-        int i1 = i + PrimeX;
-        int j1 = j + PrimeY;
+        int64_t i1 = i + PrimeX;
+        int64_t j1 = j + PrimeY;
 
         float t = (xi + yi) * (float)G2;
         float x0 = xi - t;
@@ -1283,9 +1283,9 @@ private:
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int i = FastFloor(x);
-        int j = FastFloor(y);
-        int k = FastFloor(z);
+        int64_t i = FastFloor(x);
+        int64_t j = FastFloor(y);
+        int64_t k = FastFloor(z);
         float xi = (float)(x - i);
         float yi = (float)(y - j);
         float zi = (float)(z - k);
@@ -1293,11 +1293,11 @@ private:
         i *= PrimeX;
         j *= PrimeY;
         k *= PrimeZ;
-        int seed2 = seed + 1293373;
+        int64_t seed2 = seed + 1293373;
 
-        int xNMask = (int)(-0.5f - xi);
-        int yNMask = (int)(-0.5f - yi);
-        int zNMask = (int)(-0.5f - zi);
+        int64_t xNMask = (int)(-0.5f - xi);
+        int64_t yNMask = (int)(-0.5f - yi);
+        int64_t zNMask = (int)(-0.5f - zi);
 
         float x0 = xi + xNMask;
         float y0 = yi + yNMask;
@@ -1456,17 +1456,17 @@ private:
     template <typename FNfloat>
     float SingleCellular(int seed, FNfloat x, FNfloat y) const
     {
-        int xr = FastRound(x);
-        int yr = FastRound(y);
+        int64_t xr = FastRound(x);
+        int64_t yr = FastRound(y);
 
         float distance0 = 1e10f;
         float distance1 = 1e10f;
-        int closestHash = 0;
+        int64_t closestHash = 0;
 
         float cellularJitter = 0.43701595f * mCellularJitterModifier;
 
-        int xPrimed = (xr - 1) * PrimeX;
-        int yPrimedBase = (yr - 1) * PrimeY;
+        int64_t xPrimed = (xr - 1) * PrimeX;
+        int64_t yPrimedBase = (yr - 1) * PrimeY;
 
         switch (mCellularDistanceFunction)
         {
@@ -1475,12 +1475,12 @@ private:
         case CellularDistanceFunction::EuclideanSq:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int hash = Hash(seed, xPrimed, yPrimed);
-                    int idx = hash & (255 << 1);
+                    int64_t hash = Hash(seed, xPrimed, yPrimed);
+                    int64_t idx = hash & (255 << 1);
 
                     float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
                     float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
@@ -1501,12 +1501,12 @@ private:
         case CellularDistanceFunction::Manhattan:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int hash = Hash(seed, xPrimed, yPrimed);
-                    int idx = hash & (255 << 1);
+                    int64_t hash = Hash(seed, xPrimed, yPrimed);
+                    int64_t idx = hash & (255 << 1);
 
                     float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
                     float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
@@ -1527,12 +1527,12 @@ private:
         case CellularDistanceFunction::Hybrid:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int hash = Hash(seed, xPrimed, yPrimed);
-                    int idx = hash & (255 << 1);
+                    int64_t hash = Hash(seed, xPrimed, yPrimed);
+                    int64_t idx = hash & (255 << 1);
 
                     float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
                     float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
@@ -1586,19 +1586,19 @@ private:
     template <typename FNfloat>
     float SingleCellular(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int xr = FastRound(x);
-        int yr = FastRound(y);
-        int zr = FastRound(z);
+        int64_t xr = FastRound(x);
+        int64_t yr = FastRound(y);
+        int64_t zr = FastRound(z);
 
         float distance0 = 1e10f;
         float distance1 = 1e10f;
-        int closestHash = 0;
+        int64_t closestHash = 0;
 
         float cellularJitter = 0.39614353f * mCellularJitterModifier;
 
-        int xPrimed = (xr - 1) * PrimeX;
-        int yPrimedBase = (yr - 1) * PrimeY;
-        int zPrimedBase = (zr - 1) * PrimeZ;
+        int64_t xPrimed = (xr - 1) * PrimeX;
+        int64_t yPrimedBase = (yr - 1) * PrimeY;
+        int64_t zPrimedBase = (zr - 1) * PrimeZ;
 
         switch (mCellularDistanceFunction)
         {
@@ -1606,16 +1606,16 @@ private:
         case CellularDistanceFunction::EuclideanSq:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int zPrimed = zPrimedBase;
+                    int64_t zPrimed = zPrimedBase;
 
                     for (int zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int idx = hash & (255 << 2);
+                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        int64_t idx = hash & (255 << 2);
 
                         float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
                         float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
@@ -1639,16 +1639,16 @@ private:
         case CellularDistanceFunction::Manhattan:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int zPrimed = zPrimedBase;
+                    int64_t zPrimed = zPrimedBase;
 
                     for (int zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int idx = hash & (255 << 2);
+                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        int64_t idx = hash & (255 << 2);
 
                         float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
                         float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
@@ -1672,16 +1672,16 @@ private:
         case CellularDistanceFunction::Hybrid:
             for (int xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int yPrimed = yPrimedBase;
+                int64_t yPrimed = yPrimedBase;
 
                 for (int yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int zPrimed = zPrimedBase;
+                    int64_t zPrimed = zPrimedBase;
 
                     for (int zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int idx = hash & (255 << 2);
+                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        int64_t idx = hash & (255 << 2);
 
                         float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
                         float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
@@ -1743,21 +1743,21 @@ private:
     template <typename FNfloat>
     float SinglePerlin(int seed, FNfloat x, FNfloat y) const
     {
-        int x0 = FastFloor(x);
-        int y0 = FastFloor(y);
+        int64_t x0 = FastFloor(x);
+        int64_t y0 = FastFloor(y);
 
         float xd0 = (float)(x - x0);
         float yd0 = (float)(y - y0);
         float xd1 = xd0 - 1;
         float yd1 = yd0 - 1;
 
-        float xs = InterpQuintic(xd0);
-        float ys = InterpQuintic(yd0);
+        float xs = int64_terpQuintic(xd0);
+        float ys = int64_terpQuintic(yd0);
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
 
         float xf0 = Lerp(GradCoord(seed, x0, y0, xd0, yd0), GradCoord(seed, x1, y0, xd1, yd0), xs);
         float xf1 = Lerp(GradCoord(seed, x0, y1, xd0, yd1), GradCoord(seed, x1, y1, xd1, yd1), xs);
@@ -1768,9 +1768,9 @@ private:
     template <typename FNfloat>
     float SinglePerlin(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int x0 = FastFloor(x);
-        int y0 = FastFloor(y);
-        int z0 = FastFloor(z);
+        int64_t x0 = FastFloor(x);
+        int64_t y0 = FastFloor(y);
+        int64_t z0 = FastFloor(z);
 
         float xd0 = (float)(x - x0);
         float yd0 = (float)(y - y0);
@@ -1779,16 +1779,16 @@ private:
         float yd1 = yd0 - 1;
         float zd1 = zd0 - 1;
 
-        float xs = InterpQuintic(xd0);
-        float ys = InterpQuintic(yd0);
-        float zs = InterpQuintic(zd0);
+        float xs = int64_terpQuintic(xd0);
+        float ys = int64_terpQuintic(yd0);
+        float zs = int64_terpQuintic(zd0);
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
-        int z1 = z0 + PrimeZ;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
+        int64_t z1 = z0 + PrimeZ;
 
         float xf00 = Lerp(GradCoord(seed, x0, y0, z0, xd0, yd0, zd0), GradCoord(seed, x1, y0, z0, xd1, yd0, zd0), xs);
         float xf10 = Lerp(GradCoord(seed, x0, y1, z0, xd0, yd1, zd0), GradCoord(seed, x1, y1, z0, xd1, yd1, zd0), xs);
@@ -1807,20 +1807,20 @@ private:
     template <typename FNfloat>
     float SingleValueCubic(int seed, FNfloat x, FNfloat y) const
     {
-        int x1 = FastFloor(x);
-        int y1 = FastFloor(y);
+        int64_t x1 = FastFloor(x);
+        int64_t y1 = FastFloor(y);
 
         float xs = (float)(x - x1);
         float ys = (float)(y - y1);
 
         x1 *= PrimeX;
         y1 *= PrimeY;
-        int x0 = x1 - PrimeX;
-        int y0 = y1 - PrimeY;
-        int x2 = x1 + PrimeX;
-        int y2 = y1 + PrimeY;
-        int x3 = x1 + (int)((long)PrimeX << 1);
-        int y3 = y1 + (int)((long)PrimeY << 1);
+        int64_t x0 = x1 - PrimeX;
+        int64_t y0 = y1 - PrimeY;
+        int64_t x2 = x1 + PrimeX;
+        int64_t y2 = y1 + PrimeY;
+        int64_t x3 = x1 + (int)((long)PrimeX << 1);
+        int64_t y3 = y1 + (int)((long)PrimeY << 1);
 
         return CubicLerp(CubicLerp(ValCoord(seed, x0, y0), ValCoord(seed, x1, y0), ValCoord(seed, x2, y0), ValCoord(seed, x3, y0), xs), CubicLerp(ValCoord(seed, x0, y1), ValCoord(seed, x1, y1), ValCoord(seed, x2, y1), ValCoord(seed, x3, y1), xs), CubicLerp(ValCoord(seed, x0, y2), ValCoord(seed, x1, y2), ValCoord(seed, x2, y2), ValCoord(seed, x3, y2), xs), CubicLerp(ValCoord(seed, x0, y3), ValCoord(seed, x1, y3), ValCoord(seed, x2, y3), ValCoord(seed, x3, y3), xs), ys) * (1 / (1.5f * 1.5f));
     }
@@ -1828,9 +1828,9 @@ private:
     template <typename FNfloat>
     float SingleValueCubic(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int x1 = FastFloor(x);
-        int y1 = FastFloor(y);
-        int z1 = FastFloor(z);
+        int64_t x1 = FastFloor(x);
+        int64_t y1 = FastFloor(y);
+        int64_t z1 = FastFloor(z);
 
         float xs = (float)(x - x1);
         float ys = (float)(y - y1);
@@ -1840,15 +1840,15 @@ private:
         y1 *= PrimeY;
         z1 *= PrimeZ;
 
-        int x0 = x1 - PrimeX;
-        int y0 = y1 - PrimeY;
-        int z0 = z1 - PrimeZ;
-        int x2 = x1 + PrimeX;
-        int y2 = y1 + PrimeY;
-        int z2 = z1 + PrimeZ;
-        int x3 = x1 + (int)((long)PrimeX << 1);
-        int y3 = y1 + (int)((long)PrimeY << 1);
-        int z3 = z1 + (int)((long)PrimeZ << 1);
+        int64_t x0 = x1 - PrimeX;
+        int64_t y0 = y1 - PrimeY;
+        int64_t z0 = z1 - PrimeZ;
+        int64_t x2 = x1 + PrimeX;
+        int64_t y2 = y1 + PrimeY;
+        int64_t z2 = z1 + PrimeZ;
+        int64_t x3 = x1 + (int)((long)PrimeX << 1);
+        int64_t y3 = y1 + (int)((long)PrimeY << 1);
+        int64_t z3 = z1 + (int)((long)PrimeZ << 1);
 
 
         return CubicLerp(CubicLerp(CubicLerp(ValCoord(seed, x0, y0, z0), ValCoord(seed, x1, y0, z0), ValCoord(seed, x2, y0, z0), ValCoord(seed, x3, y0, z0), xs), CubicLerp(ValCoord(seed, x0, y1, z0), ValCoord(seed, x1, y1, z0), ValCoord(seed, x2, y1, z0), ValCoord(seed, x3, y1, z0), xs), CubicLerp(ValCoord(seed, x0, y2, z0), ValCoord(seed, x1, y2, z0), ValCoord(seed, x2, y2, z0), ValCoord(seed, x3, y2, z0), xs),
@@ -1869,16 +1869,16 @@ private:
     template <typename FNfloat>
     float SingleValue(int seed, FNfloat x, FNfloat y) const
     {
-        int x0 = FastFloor(x);
-        int y0 = FastFloor(y);
+        int64_t x0 = FastFloor(x);
+        int64_t y0 = FastFloor(y);
 
-        float xs = InterpHermite((float)(x - x0));
-        float ys = InterpHermite((float)(y - y0));
+        float xs = int64_terpHermite((float)(x - x0));
+        float ys = int64_terpHermite((float)(y - y0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
 
         float xf0 = Lerp(ValCoord(seed, x0, y0), ValCoord(seed, x1, y0), xs);
         float xf1 = Lerp(ValCoord(seed, x0, y1), ValCoord(seed, x1, y1), xs);
@@ -1889,20 +1889,20 @@ private:
     template <typename FNfloat>
     float SingleValue(int seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int x0 = FastFloor(x);
-        int y0 = FastFloor(y);
-        int z0 = FastFloor(z);
+        int64_t x0 = FastFloor(x);
+        int64_t y0 = FastFloor(y);
+        int64_t z0 = FastFloor(z);
 
-        float xs = InterpHermite((float)(x - x0));
-        float ys = InterpHermite((float)(y - y0));
-        float zs = InterpHermite((float)(z - z0));
+        float xs = int64_terpHermite((float)(x - x0));
+        float ys = int64_terpHermite((float)(y - y0));
+        float zs = int64_terpHermite((float)(z - z0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
-        int z1 = z0 + PrimeZ;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
+        int64_t z1 = z0 + PrimeZ;
 
         float xf00 = Lerp(ValCoord(seed, x0, y0, z0), ValCoord(seed, x1, y0, z0), xs);
         float xf10 = Lerp(ValCoord(seed, x0, y1, z0), ValCoord(seed, x1, y1, z0), xs);
@@ -1958,7 +1958,7 @@ private:
     template <typename FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -1972,7 +1972,7 @@ private:
     template <typename FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -1990,7 +1990,7 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -2011,7 +2011,7 @@ private:
     template <typename FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -2040,7 +2040,7 @@ private:
         FNfloat ys = y;
         TransformDomainWarpCoordinate(xs, ys);
 
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -2062,7 +2062,7 @@ private:
         FNfloat zs = z;
         TransformDomainWarpCoordinate(xs, ys, zs);
 
-        int seed = mSeed;
+        int64_t seed = mSeed;
         float amp = mDomainWarpAmp * mFractalBounding;
         float freq = mFrequency;
 
@@ -2085,19 +2085,19 @@ private:
         FNfloat xf = x * frequency;
         FNfloat yf = y * frequency;
 
-        int x0 = FastFloor(xf);
-        int y0 = FastFloor(yf);
+        int64_t x0 = FastFloor(xf);
+        int64_t y0 = FastFloor(yf);
 
-        float xs = InterpHermite((float)(xf - x0));
-        float ys = InterpHermite((float)(yf - y0));
+        float xs = int64_terpHermite((float)(xf - x0));
+        float ys = int64_terpHermite((float)(yf - y0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
 
-        int hash0 = Hash(seed, x0, y0) & (255 << 1);
-        int hash1 = Hash(seed, x1, y0) & (255 << 1);
+        int64_t hash0 = Hash(seed, x0, y0) & (255 << 1);
+        int64_t hash1 = Hash(seed, x1, y0) & (255 << 1);
 
         float lx0x = Lerp(Lookup<float>::RandVecs2D[hash0], Lookup<float>::RandVecs2D[hash1], xs);
         float ly0x = Lerp(Lookup<float>::RandVecs2D[hash0 | 1], Lookup<float>::RandVecs2D[hash1 | 1], xs);
@@ -2119,23 +2119,23 @@ private:
         FNfloat yf = y * frequency;
         FNfloat zf = z * frequency;
 
-        int x0 = FastFloor(xf);
-        int y0 = FastFloor(yf);
-        int z0 = FastFloor(zf);
+        int64_t x0 = FastFloor(xf);
+        int64_t y0 = FastFloor(yf);
+        int64_t z0 = FastFloor(zf);
 
-        float xs = InterpHermite((float)(xf - x0));
-        float ys = InterpHermite((float)(yf - y0));
-        float zs = InterpHermite((float)(zf - z0));
+        float xs = int64_terpHermite((float)(xf - x0));
+        float ys = int64_terpHermite((float)(yf - y0));
+        float zs = int64_terpHermite((float)(zf - z0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int x1 = x0 + PrimeX;
-        int y1 = y0 + PrimeY;
-        int z1 = z0 + PrimeZ;
+        int64_t x1 = x0 + PrimeX;
+        int64_t y1 = y0 + PrimeY;
+        int64_t z1 = z0 + PrimeZ;
 
-        int hash0 = Hash(seed, x0, y0, z0) & (255 << 2);
-        int hash1 = Hash(seed, x1, y0, z0) & (255 << 2);
+        int64_t hash0 = Hash(seed, x0, y0, z0) & (255 << 2);
+        int64_t hash1 = Hash(seed, x1, y0, z0) & (255 << 2);
 
         float lx0x = Lerp(Lookup<float>::RandVecs3D[hash0], Lookup<float>::RandVecs3D[hash1], xs);
         float ly0x = Lerp(Lookup<float>::RandVecs3D[hash0 | 1], Lookup<float>::RandVecs3D[hash1 | 1], xs);
@@ -2190,8 +2190,8 @@ private:
          * x += s; y += s;
          */
 
-        int i = FastFloor(x);
-        int j = FastFloor(y);
+        int64_t i = FastFloor(x);
+        int64_t j = FastFloor(y);
         float xi = (float)(x - i);
         float yi = (float)(y - j);
 
@@ -2286,16 +2286,16 @@ private:
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int i = FastRound(x);
-        int j = FastRound(y);
-        int k = FastRound(z);
+        int64_t i = FastRound(x);
+        int64_t j = FastRound(y);
+        int64_t k = FastRound(z);
         float x0 = (float)x - i;
         float y0 = (float)y - j;
         float z0 = (float)z - k;
 
-        int xNSign = (int)(-x0 - 1.0f) | 1;
-        int yNSign = (int)(-y0 - 1.0f) | 1;
-        int zNSign = (int)(-z0 - 1.0f) | 1;
+        int64_t xNSign = (int)(-x0 - 1.0f) | 1;
+        int64_t yNSign = (int)(-y0 - 1.0f) | 1;
+        int64_t zNSign = (int)(-z0 - 1.0f) | 1;
 
         float ax0 = xNSign * -x0;
         float ay0 = yNSign * -y0;
@@ -2325,9 +2325,9 @@ private:
             }
 
             float b = a + 1;
-            int i1 = i;
-            int j1 = j;
-            int k1 = k;
+            int64_t i1 = i;
+            int64_t j1 = j;
+            int64_t k1 = k;
             float x1 = x0;
             float y1 = y0;
             float z1 = z0;
