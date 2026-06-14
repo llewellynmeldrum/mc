@@ -69,7 +69,7 @@ public:
         return inserted;
     }
 
-    inline void contains(Key victim_key){
+    inline bool contains(Key victim_key){
         return sparse.contains(victim_key);
     }
     inline auto& at(this auto& self, Key victim_key){

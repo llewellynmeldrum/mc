@@ -165,7 +165,7 @@ std::vector<WorldChunkCoord> Renderer::sorted_opaque(Camera& cam){
     auto closer = [source_chunk](Mesh& lhs, Mesh& rhs){
         return sq_dist(source_chunk,lhs.chunkCoord) < sq_dist(source_chunk,rhs.chunkCoord);
     };
-    return transparentChunkMeshes.sorted_keys(closer);
+    return opaqueChunkMeshes.sorted_keys(closer);
 }
 
 std::vector<WorldChunkCoord> Renderer::sorted_transparent(Camera& cam){
