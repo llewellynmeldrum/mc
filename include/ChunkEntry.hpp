@@ -9,6 +9,7 @@
 #include "glm/vec4.hpp"
 #include "Colors01.hpp"
 
+#include "Assertion.hpp"
 
 static constexpr f32 ChunkDebugFillOpacity = 0.05f;
 static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
@@ -136,6 +137,8 @@ using MeshStateTransition = std::pair<ChunkMeshState,ChunkMeshState>;
 inline constexpr std::array ValidMeshStateTransitions{
     MeshStateTransition{ChunkMeshState::NoMesh, ChunkMeshState::OnMeshQueue},
     MeshStateTransition{ChunkMeshState::OnMeshQueue, ChunkMeshState::CleanMeshed},
+    MeshStateTransition{ChunkMeshState::OnMeshQueue, ChunkMeshState::DirtyMeshed},
+
     MeshStateTransition{ChunkMeshState::CleanMeshed, ChunkMeshState::DirtyMeshed},
     MeshStateTransition{ChunkMeshState::DirtyMeshed, ChunkMeshState::OnMeshQueue},
 };
@@ -161,20 +164,24 @@ inline consteval bool isStateTransitionValid(ChunkGenState from, ChunkGenState t
 template<auto from, auto to>
     requires (isStateTransitionValid(from,to))
 inline void makeStateTransition(auto& cur){
-    assert(cur==from);
+    assert_eq(cur,from);
     cur = to;
 }
 
 
 struct ChunkState{
+public:
     // NOTE: 
     // try to keep all of the state updates localized to Simulation.cpp, 
     // so all the flow/lifecycle updates can be seen from there. This emphasizes that they all 
     // happen synchronously, i.e on the render thread (worker threads cannot update state)
     WorldChunkCoord key;
-public:
+    MeshRevisionID goal_meshRevisionID{0};
+
     ChunkState()=default;
     ~ChunkState()=default;
+    // what if each mesh had a 'revisionID', which was set each time we generate the mesh.
+    // It was incremented each time we make the chunk dirty?
 
     ChunkMeshState mesh{ChunkMeshState::NoMesh};
     ChunkGenState gen{ChunkGenState::OnGenerationQueue};
@@ -191,6 +198,13 @@ public:
     inline bool isCleanMeshed() const{
         return mesh == ChunkMeshState::CleanMeshed;
     }
+    inline bool isOnGenQueue() const{
+        return gen == ChunkGenState::OnGenerationQueue;
+    }
+    inline bool isOnMeshQueue() const{
+        return mesh == ChunkMeshState::OnMeshQueue;
+    }
+
 
 
     inline void logDirtyGenEnqueue(){ 
@@ -218,24 +232,34 @@ public:
         makeStateTransition<ChunkMeshState::DirtyMeshed,ChunkMeshState::OnMeshQueue>(mesh);
     }
 
-    inline void logMeshDequeue(){ 
-        std::println("{}",mesh);
+
+    inline bool makeDirtyIfMeshed(){
+        if (mesh==ChunkMeshState::CleanMeshed){
+            markMeshAsDirty();
+            return true;
+        }
+        return false;
+    };
+    inline void logDirtyMeshDequeue(){ 
+        makeStateTransition<ChunkMeshState::OnMeshQueue,ChunkMeshState::DirtyMeshed>(mesh);
+    }
+    inline void logCleanMeshDequeue(){ 
         makeStateTransition<ChunkMeshState::OnMeshQueue,ChunkMeshState::CleanMeshed>(mesh);
     }
-
     inline void markMeshAsDirty(){
         makeStateTransition<ChunkMeshState::CleanMeshed,ChunkMeshState::DirtyMeshed>(mesh);
+        goal_meshRevisionID++;
     };
     
     inline void markDirtyGen(){
-        // TODO:
-        // Change the make_state_entry st. it inserts the current key, so that these functions can make
-        // debug logs on state change. This should help me verify that makeDirty is functioning properly 
-        // (I think it is not, as the transparent chunks are not remeshing upon neighbour generation).
         makeStateTransition<ChunkGenState::FinishedGeneration, ChunkGenState::DirtyGen>(gen);
     };
 };
 
+// An entry that contains information about the currently loaded mesh.
+struct MeshEntry{
+    std::size_t revisionID; // the mesh revision of the currently loaded mesh
+};
 
 // @Brief:
 // represents the in memory store of a chunks data.
@@ -249,7 +273,7 @@ struct ChunkEntry{
                 toWorldOrigin(chunkCoord).raw(),
                 toWorldOrigin(chunkCoord).raw()+Chunk::Extents
     ) {}
-    MeshRevisionID latest_mesh_revision{0}; // Unused for now.
+
     AABB bounding_box; 
     ChunkMetadata metadata;
     std::vector<const Chunk*> neighbours={6, nullptr};

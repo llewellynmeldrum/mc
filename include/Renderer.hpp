@@ -4,6 +4,7 @@
 #include "Line3DRenderer.hpp"
 #include "Shaders.hpp"
 #include "Mesh.hpp"
+#include "SlotMap.hpp"
 #include "TextureAtlas.hpp"
 #include "ChunkMesher.hpp"
 #include <map>
@@ -24,25 +25,29 @@ struct Renderer {
     Line3DRenderer line3d_rend;
     glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};
 
+    slot_map<WorldChunkCoord,Mesh> opaqueChunkMeshes;
+    slot_map<WorldChunkCoord, Mesh> transparentChunkMeshes;
+
+    std::vector<WorldChunkCoord> sorted_opaque(Camera& cam);
+    std::vector<WorldChunkCoord> sorted_transparent(Camera& cam);
     void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
-    void draw_debugChunks(Camera&cam, Simulation* sim, RenderTargetView target);
+    void draw_debugChunks_to(Camera&cam, Simulation* sim, RenderTargetView target);
     void draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
     void clear_to(RenderTargetView target);
 
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
-        opaqueChunkMeshes.emplace_back(coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        opaqueChunkMeshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
     }
 
     inline void uploadMesh(WorldChunkCoord coord, TransparentMeshData mesh_data) {
-        transparentChunkMeshes.emplace_back(coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        transparentChunkMeshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
     }
 
 
-    std::vector<Mesh> opaqueChunkMeshes;
-    std::vector<Mesh> transparentChunkMeshes;
+    void uploadMeshListToGpu(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
 
     struct {
         bool        wireframe{ false };

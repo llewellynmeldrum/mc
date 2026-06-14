@@ -10,6 +10,7 @@
 #include "DEBUG.hpp"
 #include "Types.h"
 #include "CommonConcepts.hpp"
+#include "Assertion.hpp"
 
 
 template<typename IntVec2, typename Fn>

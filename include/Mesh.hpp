@@ -28,7 +28,7 @@ struct MeshBase {
     VertexArray  vao;
 
   private:
-    constexpr static gl::GLenum PrimitiveType();
+    constexpr static auto PrimitiveType() -> gl::GLenum;
 };
 
 struct IndexedMesh {
@@ -47,17 +47,18 @@ struct IndexedMesh {
     inline void load() noexcept{loaded=true; }
     inline bool isLoaded()const noexcept{return loaded; }
 
-    i64           offset_count{ 0 };  
-    i64           vertex_count{ 0 };  
+    i32             offset_count{ 0 };
+    i32             vertex_count{ 0 };
     VertexArray   vao;
     VertexBuffer  vbo;
     ElementBuffer ebo;
 
   private:
-    bool loaded=true; // whether or not it will be uploaded to the gpu this frame
-    // meshes are 'unloaded' if they are outside the frustum (or later obscured by other meshes)
-    // Meaning that they still exist, and are potentially clean, but dont need to be uploaded to gpu
-    constexpr static gl::GLenum PrimitiveType();
+    constexpr static auto PrimitiveType() -> gl::GLenum;
+
+    bool loaded=true;   // whether or not it will be uploaded to the gpu this frame
+                        // meshes are 'unloaded' if they are outside the frustum (later obscured by other meshes)
+                        // Meaning that they exist, and are maybe clean, but dont need to be sent to gpu
 };
 
 // by default, im using indexed meshes

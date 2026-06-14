@@ -6,6 +6,7 @@
 #include "PendingBlockWrites.hpp"
 #include "cppslop.hpp"
 #include <mdspan>
+#include "Assertion.hpp"
 struct ChunkSpan{
     public:
     ChunkSpan(Block* _data):

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <format>
@@ -22,3 +21,4 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+//#include "Assertion.hpp"

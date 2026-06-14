@@ -18,6 +18,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include <algorithm>
 #include <print>
+#include "Assertion.hpp"
 
 using namespace glm;
 void Simulation::setupSimulation() {
@@ -65,12 +66,10 @@ void Simulation::freeCursor(){
 }
 
 void Simulation::unGenerateAllChunks(){
-    for (auto& [worldCoord, state]: world.chunkMap.states){
-        // TODO:  implement
-        DEBUG_BREAKPOINT("unimplmented");
-        state.markDirtyGen();
-    }
+    world.chunkMap.entries.clear();
+    world.chunkMap.states.clear();
 }
+
 void Simulation::unMeshAllChunks(){
     for (auto& [worldCoord, state]: world.chunkMap.states){
         state.mesh = ChunkMeshState::NoMesh;
@@ -129,7 +128,6 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
     // this shit is smelly. Needs a rewrite
     auto pred = [this](auto* ptr, auto& chunkMap, auto lo, auto hi){
         return [lo,hi, &chunkMap, ptr, this](IndexedMesh& mesh){
-            auto* entry = world.chunkMap.get_entry_safe(mesh.chunkCoord);
             bool outsidePaddedRenderDist = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
             bool outsideFrustum = !inPlayerFrustum(mesh.chunkCoord);
             // should a mesh be 'unloaded' instead of removed from the list?
@@ -143,8 +141,9 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
         };
     };
     // erase all elements which are out of bounds, no?
-    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, pred(this, world.chunkMap,lo,hi));
-    auto n_erased= std::erase_if(rend.transparentChunkMeshes, pred(this, world.chunkMap,lo,hi));
+    // TODO: Fix these 
+//    auto n_erased_op = std::erase_if(rend.opaqueChunkMeshes, pred(this, world.chunkMap,lo,hi));
+//    auto n_erased= std::erase_if(rend.transparentChunkMeshes, pred(this, world.chunkMap,lo,hi));
 
 }
 
@@ -249,17 +248,18 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto entry = world.chunkMap.get_entry(candidateCoord);
-//        if(inPlayerFrustum(candidateCoord)){
-            // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
-            // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
-            // i.e the ones bordering the actual chunk in question.
-            // make this construct based on the entry by const reference or something
-            res.emplace_back(
-                candidateCoord,
-                &rend.atlas,
-                entry
-            );
-//        }
+        auto state = world.chunkMap.get_state(candidateCoord);
+        // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
+        // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
+        // i.e the ones bordering the actual chunk in question.
+        // make this construct based on the entry by const reference or something
+        auto current_revision = world.chunkMap.get_current_mesh_revision(candidateCoord);
+        res.emplace_back(
+            current_revision,
+            candidateCoord,
+            &rend.atlas,
+            entry
+        );
     }
     return res;
 }
@@ -288,6 +288,57 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
 }
 
 
+std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_t maxUploads){
+    for (std::size_t mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
+        std::optional<std::vector<MeshResult>> res = queue.try_batch_dequeue(maxUploads);
+        if (res) return *res;
+        if (!res) continue; // retry
+    }
+
+    return {};
+}
+std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
+    profiler.bench_start("drainMesh");
+    std::size_t count = 0;
+    auto candidateMeshes = drainMeshResultQueue(rend.meshers.meshResultQueue,maxUploads);
+    for (const auto& [candidateRevision, chunkCoord, opaque, transparent] : candidateMeshes){
+        // TODO: consider making meshes optional?
+        // A mesh might need to be uploaded evne if empty, and the draw just gets nullified
+
+        auto state = world.chunkMap.try_get_state(chunkCoord);
+        auto entry = world.chunkMap.try_get_entry(chunkCoord);
+        auto loaded_mesh = world.chunkMap.try_get_meshEntry(chunkCoord);
+        if (!loaded_mesh){
+            world.chunkMap.assign_mesh_entry(chunkCoord,candidateRevision);
+        }
+        if (!loaded_mesh || loaded_mesh.value()->revisionID < candidateRevision){
+            if (opaque.vertices.size()>0){
+                rend.uploadMesh(chunkCoord, std::move(opaque));
+            } 
+            if (transparent.vertices.size()>0){
+                rend.uploadMesh(chunkCoord, std::move(transparent));
+            } 
+        }
+        if (loaded_mesh){
+            if (state && state.value()->isOnMeshQueue()){
+                if (candidateRevision >= state.value()->goal_meshRevisionID){
+                    (*state)->logCleanMeshDequeue();
+                }else{
+                    (*state)->logDirtyMeshDequeue();
+                }
+
+                this->chunksMeshed++;
+            }else{
+                LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was being meshed.");
+                LOG_DEBUG("Discarded chunk mesh data @{}; {}", chunkCoord, state ? "No entry" : "Not on gen queue");
+                continue;
+            }
+        }
+    }
+    profiler.bench_end("drainMesh");
+    return count;
+}
+
 std::vector<GenResult> drainGenResults(Queue<GenResult>& queue, std::size_t maxUploads){
     std::vector<GenResult> output; output.reserve(maxUploads);
 
@@ -302,54 +353,18 @@ std::vector<GenResult> drainGenResults(Queue<GenResult>& queue, std::size_t maxU
     return output;
 }
 
-std::vector<MeshResult> drainMeshResultQueue(Queue<MeshResult>& queue,std::size_t maxUploads){
-    for (std::size_t mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
-        std::optional<std::vector<MeshResult>> res = queue.try_batch_dequeue(maxUploads);
-        if (res){
-            return *res;
-        }
-        if (!res){
-            continue;
-        } 
-    }
-
-    return {};
-}
-std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
-    profiler.bench_start("drainMesh");
-    std::size_t count = 0;
-    auto candidateMeshes = drainMeshResultQueue(rend.meshers.meshResultQueue,maxUploads);
-    for (const auto& [candidateGen, chunkCoord, opaque, transparent] : candidateMeshes){
-        // We dont upload empty meshes. This might be a bit stupid, as we could just cull them later.
-        // i dont know if the performance savings outweigh the logical cost
-        if (opaque.vertices.size()>0){
-            rend.uploadMesh(chunkCoord, std::move(opaque));
-        } 
-        if (transparent.vertices.size()>0){
-            rend.uploadMesh(chunkCoord, std::move(transparent));
-        } 
-
-        auto state = world.chunkMap.try_get_state(chunkCoord);
-        if (state.has_value()){
-            (*state)->logMeshDequeue();
-            count++;
-            this->chunksMeshed++;
-        } else {
-            LOG_WARN("Homeless mesh not uploaded because its entry was deleted whilst it was being meshed.");
-        }
-    }
-    profiler.bench_end("drainMesh");
-    return count;
-}
-
 std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
     profiler.bench_start("drainGen");
     auto genResults = drainGenResults(world.chunkMap.generator.genResultQueue,maxUploads);
     auto count = genResults.size();
     for (const auto& newGen : genResults){
-        auto state = world.chunkMap.get_state(newGen.chunkCoord);
-        state->logGenDequeue();
-        world.chunkMap.uploadGeneratedChunk(newGen);
+        auto state = world.chunkMap.try_get_state(newGen.chunkCoord);
+        if (state && state.value()->isOnGenQueue()){
+            (*state)->logGenDequeue();
+            world.chunkMap.uploadGeneratedChunk(newGen);
+        }else{
+            LOG_DEBUG("Discarded chunk gen data @{}; {}", newGen.chunkCoord, state ? "No entry" : "Not on gen queue");
+        }
     }
     profiler.bench_end("drainGen");
     return genResults.size();
@@ -408,8 +423,8 @@ void Simulation::draw() {
     rend.draw_3DLines_to(droneCam,lines3d,secondaryView());
     
     if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks(playerCam,this,screenView());
-        rend.draw_debugChunks(droneCam,this,secondaryView());
+        rend.draw_debugChunks_to(playerCam,this,screenView());
+        rend.draw_debugChunks_to(droneCam,this,secondaryView());
         rend.draw_3DLines_to(playerCam,chunkOutlines,screenView());
         rend.draw_3DLines_to(droneCam,chunkOutlines,secondaryView());
     }

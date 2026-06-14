@@ -5,6 +5,7 @@
 #include "DebugFormatSpecializations.hpp"
 #include "Logger.hpp"
 #include <unordered_map>
+#include "Assertion.hpp"
 
 using namespace glm;
 TextureAtlas::TextureAtlas(const char* tex_img_path):

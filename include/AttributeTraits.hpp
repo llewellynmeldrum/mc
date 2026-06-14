@@ -7,6 +7,8 @@
 template <typename T>
 struct attribute_traits;
 
+
+
 template <>
 struct attribute_traits<f64> {
     using value_type = f64;

@@ -1,5 +1,5 @@
 #pragma once 
-#if !defined(DISABLE_STYLE)
+#include <ostream>
 namespace fmt{
 namespace ansi{
     enum {
@@ -100,9 +100,8 @@ inline std::string underline_rgb(int w){ return underline_rgb(w,w,w);}
 
 
 inline std::string bg_code_blocks = ansi::bg_rgb(50);
-} // namespace: ansi
+} //NOTE: namespace: ansi
 
-#include <ostream>
 template<typename ...Args>
 inline std::string style(Args ...codes){
     if constexpr(sizeof...(codes) ==0) return "\e[m";
@@ -214,35 +213,10 @@ inline std::string fg_br_yellow = style(ansi::fg_br_yellow);
 inline std::string fg_br_blue = style(ansi::fg_br_blue);
 inline std::string fg_br_magenta = style(ansi::fg_br_magenta);
 inline std::string fg_br_cyan = style(ansi::fg_br_cyan);
-}
-#else 
-namespace fmt{
-const static char* bold                             = "";
-const static char* underline                        = "";
-const static char* underbold                        = "";
 
-const static char* clear                            = "";
-const static char* italic                           = "";
-const static char* rev                              = "";
-const static char* bold_red                         = "";
-const static char* bold_green                       = "";
-const static char* bold_blue                        = "";
-const static char* bold_yellow                      = "";
-const static char* bg_white_fg_black                = "";
 
-const static char* ligrey                           = "";
-const static char* cyan                             = "";
-const static char* green                            = "";
-const static char* blue                             = "";
-const static char* orange                           = "";
-const static char* grey                             = "";
-const static char* yellow                           = "";
-const static char* purple                           = "";
-const static char* iyellow                          = "";
-const static char* pink                             = "";
-const static char* lired                            = "";
-const static char* red                              = "";
-const static char* dwhite                           = "";
-const static char* bold_dwhite                      = "";
+template<typename T>
+std::string styled(auto style, const T& val){
+    return std::format("{0}{1}{2}",style,val,fmt::reset);
 }
-#endif
+}

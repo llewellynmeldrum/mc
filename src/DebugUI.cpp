@@ -29,6 +29,7 @@
 #include "imgui.h"
 
 #include "DebugUI_Internal.hpp"
+#include "Assertion.hpp"
 
 using namespace glm;
 namespace IG = ImGui;  // namespace alias for convinience
@@ -134,8 +135,8 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
         auto& window = self;
         window.section("Secondary View:",[&ctx]{
-            UI::Text("scr: {}, {}",dbg_fmt(ctx->fixedCamTarget.pos), dbg_fmt(ctx->fixedCamTarget.size));
-            UI::Text("  w: {}, {}",dbg_fmt(ctx->droneCam.pos.raw()), dbg_fmt(ctx->droneCam.ortho_zoom));
+            UI::Text("scr: {}, {}",ctx->fixedCamTarget.pos, ctx->fixedCamTarget.size);
+            UI::Text("  w: {}, {}",ctx->droneCam.pos.raw(), ctx->droneCam.ortho_zoom);
             UI::DrawTexture(ctx->fixedCamTarget);
 
         });

@@ -1,5 +1,6 @@
 #include "BufferObjects.hpp"
 #include "glbindingWrapper.hpp"
+#include "Assertion.hpp"
 
 using namespace gl;
 // TODO: Refactor these as type traits. you know they should be.

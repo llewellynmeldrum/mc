@@ -1,13 +1,28 @@
 #pragma once
-#include <print>
+#include <cstdio>
+#define BRK_ASSERT(invariant) if (!invariant){ DEBUG_BREAKPOINT("FAILED ASSERTION: [" #invariant "]");}
+
+
 #if defined(__clang__)
-    #define DEBUG_BREAKPOINT_QUIET() __builtin_debugtrap()
+    #define TRAP() __builtin_debugtrap()
 #elif defined(__GNUC__) || defined(__GNUG__)
-    #define DEBUG_BREAKPOINT_QUIET() __builtin_trap()
+    #define TRAP() __builtin_trap()
 #else
     #error "Unsupported compiler. Use gcc or clang noob"
 #endif
 
+#if defined(IGNORE_BREAKPOINTS)
+    #define DEBUG_BREAKPOINT_QUIET()                \
+    fprintf(stderr,                                 \
+            "WARNING! IGNORING BREAKPOINT_QUIET @ %s:%d"  \
+            "TO RE-ENABLE, #undef `IGNORE_BREAKPOINTS`!",__FILE_NAME__, __LINE__);
+
+    #define DEBUG_BREAKPOINT(msg)                   \
+    fprintf(stderr,                                 \
+            "WARNING! IGNORING BREAKPOINT @ %s:%d"  \
+            "TO RE-ENABLE, #undef `IGNORE_BREAKPOINTS`!",__FILE_NAME__, __LINE__);
+#else 
+    #define DEBUG_BREAKPOINT_QUIET() TRAP()
 #define DEBUG_BREAKPOINT(msg)                                                                         \
     do {                                                                                           \
         std::println(                                                                              \
@@ -16,4 +31,9 @@
         DEBUG_BREAKPOINT_QUIET();                                                                  \
     } while (0)
 
-#define BRK_ASSERT(invariant) if (!invariant){ DEBUG_BREAKPOINT("FAILED ASSERTION: [" #invariant "]");}
+#endif 
+
+#if !defined(DEBUG_BREAKPOINT) || !defined(DEBUG_BREAKPOINT_QUIET) || !defined(TRAP)
+    #error "hi"
+#endif
+

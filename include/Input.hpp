@@ -6,6 +6,7 @@
 #include <array>
 #include "glmWrapper.hpp"
 #include "CoordIteration.hpp"
+#include "Assertion.hpp"
 struct GLFWwindow;
 // src/Input.cpp
 enum struct InputSignal{

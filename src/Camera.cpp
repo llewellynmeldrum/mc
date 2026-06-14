@@ -51,7 +51,7 @@ void Camera::move(Direction dir, f32 dt) {
     WorldBlockPos new_block_pos =  toWorldBlockPos(pos);
     if (new_block_pos != block_pos) {
         requestMeshRegeneration();
-        // LOG_DEBUG("{} != {}, regenerating mesh", dbg_fmt(new_block_pos), dbg_fmt(block_pos));
+        // LOG_DEBUG("{} != {}, regenerating mesh", new_block_pos, block_pos);
     }
     block_pos = new_block_pos;
 }

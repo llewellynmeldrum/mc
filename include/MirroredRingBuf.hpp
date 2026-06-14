@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <valarray>
 
+#include "Assertion.hpp"
 template <class T, size_t Q_SIZE>
 struct MirroredRingBuf {
     std::array<T, Q_SIZE * 2> buf{};

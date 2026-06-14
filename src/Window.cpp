@@ -15,6 +15,7 @@
 
 #include "Logger.hpp"
 #include "DEBUG.hpp"
+#include "Assertion.hpp"
 
 using namespace gl;
 

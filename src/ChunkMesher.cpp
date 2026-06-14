@@ -18,6 +18,7 @@
 #include "Concurrency.hpp"
 
 #include "Logger.hpp"
+#include "Assertion.hpp"
 
 // TODO: 
 // Next time i work on chunk meshing:
@@ -38,6 +39,8 @@ static const auto& getDefaultFaceVertexData(Direction dir) {
     return defaultCubeFaces[static_cast<i8>(dir)];
 }
 
+// 0x1234
+// 1A3B
 template <glm::length_t L, typename T, glm::qualifier Q>
 glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
     auto r = a % b;
@@ -182,7 +185,7 @@ void ChunkMesher::meshChunks
         auto job = input_queue.wait_dequeue();
 
 
-        MeshResult res{job.meshGeneration, job.chunkCoord};
+        MeshResult res{job.meshRevisionID, job.chunkCoord};
         res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
         res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
 

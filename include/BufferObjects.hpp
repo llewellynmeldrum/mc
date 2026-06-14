@@ -5,6 +5,7 @@
 #include "glbinding/gl/enum.h"
 #include <cstddef>
 #include <utility>
+#include "Assertion.hpp"
 
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 

@@ -5,6 +5,7 @@
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include "Assertion.hpp"
 
 
 struct Vertex {

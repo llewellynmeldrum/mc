@@ -6,15 +6,17 @@
 #include "DebugFormat.hpp"
 #include <format>
 #include "AnsiCodes.hpp"
+#include "CoordTypes.hpp"
 #include "Types.h"
 #include "glmWrapper.hpp"
+#include "LM.hpp"
+#include "UnixHelpers.hpp"
+#include "Assertion.hpp"
 
 // specializations of dbg_fmt for glm types
 //
-template <glm::length_t L, typename T, glm::qualifier Q>
-inline constexpr std::string dbg_fmt(const glm::vec<L, T, Q>& v) {
-    return "CHOSE THE GLM ONE";
-}
+#define dbg_fmt(val) assert_failure(#val, SRC_LOC_CURRENT(), "Tried to use deprecated dbg_fmt. Replace with std::formatter specialization")
+
 template<>
 struct std::formatter<glm::vec4>{
 
@@ -218,7 +220,6 @@ struct std::formatter<Direction>{
 
 template<>
 struct std::formatter<gl::GLenum>{
-
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const gl::GLenum& val, std::format_context& ctx)const {
 		return glbinding::aux::Meta::getString(val);
@@ -228,6 +229,28 @@ template<typename T>
 struct std::formatter<Bounded<T>>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const Bounded<T>& bounded, std::format_context& ctx)const {
-        return std::formatter<T>{}.format(bounded.val);
+        return std::formatter<T>{}.format(bounded.val,ctx);
     }
 };
+template<typename Tag, typename ScalarType>
+struct std::formatter<Coord3<Tag,ScalarType>>{
+    using T = Coord3<Tag,ScalarType>;
+	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
+	auto format(const T& bounded, std::format_context& ctx)const {
+        return std::formatter<typename T::VecType>{}.format(bounded.raw(),ctx);
+    }
+};
+
+template <typename T, typename CharT>
+requires std::is_pointer_v<T> 
+struct std::formatter<T, CharT> : std::formatter<const void*, CharT> {
+    
+    // Format the pointer by casting it to a const void*
+    template <typename FormatContext>
+    auto format(T ptr, FormatContext& ctx) const {
+        return std::formatter<const void*, CharT>::format(
+            static_cast<const void*>(ptr), ctx
+        );
+    }
+};
+

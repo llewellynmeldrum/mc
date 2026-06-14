@@ -84,18 +84,21 @@ constexpr std::string fmt_expr(const char* identifier, T&& expr) {
     using Arg = std::remove_reference_t<T>;
     std::string expr_str{};
 
-    if constexpr (isSequenceContainer<T>) {
+    if constexpr (SequenceContainer<T>) {
         expr_str.append("\n{\n");
         for (const auto& e : expr) {
             expr_str.append("\t");
-            expr_str.append(dbg_fmt(e));
+            expr_str.append(std::format("{}",e));
             if (&e != &expr.back()) {
                 expr_str.append(",\n");
             }
         }
         expr_str.append("\n}");
     } else {
-        expr_str = dbg_fmt(expr);
+        expr_str = std::format("{}",expr);
+    }
+    if constexpr (std::is_pointer_v<std::remove_cvref<T>>) {
+        expr_str+=std::format("({})",static_cast<const void*>(expr));
     }
     return std::format("{}{:>12}{} "
                        "{}{:<12}{} "
@@ -117,4 +120,4 @@ std::string fmt_obj(const char* identifier, T&& expr) {
     }
 }
 
-#define LOG_EXPR(expr) std::println("{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr(#expr, (expr)))
+#define LOG_EXPR(expr) std::println(stderr,"{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr(#expr, (expr)))

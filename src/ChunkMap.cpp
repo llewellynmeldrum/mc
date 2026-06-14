@@ -1,7 +1,10 @@
+
+#include "DebugFormatSpecializations.hpp"
+#include "NothrowLookup.hpp"
+
 #include "ChunkConstants.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
-#include "DebugFormatSpecializations.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "Logger.hpp"
@@ -9,43 +12,83 @@
 #include <ranges>
 
 using namespace glm;
-    void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
-        // 1. apply any pending writes TO CURRENT chunk which exist on the map.
-        if (pendingWritesMap.contains(chunkCoord)){
-            PendingWriteQueue& writesForMe = pendingWritesMap.at(chunkCoord);
-            while (!writesForMe.empty()){
-                const auto write = writesForMe.top(); writesForMe.pop();
-                pendingWritesSuccessful += srcBlocks.tryWrite(write);
-                //pendingWritesAttempted++;
+void ChunkMap::uploadGeneratedChunk(GenResult gen_res) {
+    ChunkStore& generatedBlocks = gen_res.chunkBlocks;
+    ChunkMetadata& generatedMeta = gen_res.meta;
+    const auto& deferredWrites = gen_res.deferredWrites;
+    const auto& chunkCoord = gen_res.chunkCoord;
+
+    auto* entry = make_entry(chunkCoord);
+    auto& state = states.at(chunkCoord);
+    // update entry to reflect generation data
+    handlePendingWrites(chunkCoord, static_cast<ChunkSpan>(generatedBlocks), deferredWrites);
+    
+    // why the fuck did they make it (src,dst) fucking AT&T propaganda
+    std::ranges::copy(generatedBlocks, entry->block_data.begin());
+    entry->metadata=generatedMeta;
+    updateNeighbourMap(chunkCoord);
+    updateBoundingBoxesMap(chunkCoord);
+}
+void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
+    // 1. apply any pending writes TO CURRENT chunk which exist on the map.
+    if (pendingWritesMap.contains(chunkCoord)){
+        PendingWriteQueue& writesForMe = AT(pendingWritesMap,chunkCoord);
+        while (!writesForMe.empty()){
+            const auto write = writesForMe.top(); writesForMe.pop();
+            //TODO: mark all neighbours as dirty after applying the writes to current
+            if (srcBlocks.tryWrite(write)){
+                pendingWritesSuccessful ++;
+                glm::ivec3 lo = chunkCoord.raw() + ivec3{-1,-1,-1};
+                glm::ivec3 hi = chunkCoord.raw() + ivec3{1,1,1};
+                ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){
+                    const auto neigh_state = try_get_state(WorldChunkCoord{x,y,z});
+                    if (neigh_state){
+                        (*neigh_state)->makeDirtyIfMeshed();
+                    }
+                });
             }
-            if (pendingWritesMap.at(chunkCoord).empty()){
-                // remove the queue if it no longer has anything remaining
-                // TODO: Is this is a bad idea?
-                pendingWritesMap.erase(chunkCoord);
-            }
+            pendingWritesAttempted++;
         }
-        
-        // 2. Apply any NEW pending writes TO OTHER chunks from pwl
-        for (const auto& write: newWriteList){
-            // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
-            const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
-            if (has_entry(targetChunkCoord)){
-                auto& entry = entries.at(targetChunkCoord);
-                pendingWritesSuccessful += entry->block_data.tryWrite(write);
-                pendingWritesAttempted++;
-            }else{
-                // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
-                // and then enqueue the write.
-                bool pendingWritesEntryExists = pendingWritesMap.contains(targetChunkCoord);
-                if (!pendingWritesEntryExists){
-                    pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
-                }
-                pendingWritesMap.at(targetChunkCoord).push(write);
-            }
+        if (AT(pendingWritesMap,chunkCoord).empty()){
+            // remove the queue if it no longer has anything remaining
+            // TODO: Is this is a bad idea?
+            pendingWritesMap.erase(chunkCoord);
         }
     }
+    
+    // 2. Apply any NEW pending writes TO OTHER chunks from pwl
+    for (const auto& write: newWriteList){
+        // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
+        const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
+        if (has_entry(targetChunkCoord)){
+            auto& entry = AT(entries,targetChunkCoord);
+            if (entry->block_data.tryWrite(write)){
+                pendingWritesSuccessful++;
+                // also mark the target as dirty,
+                // alongside all its neighbours, since 
+                glm::ivec3 lo = targetChunkCoord.raw() + ivec3{-1,-1,-1};
+                glm::ivec3 hi = targetChunkCoord.raw() + ivec3{1,1,1};
+                ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){
+                    const auto neigh_state = try_get_state(WorldChunkCoord{x,y,z});
+                    if (neigh_state){
+                        (*neigh_state)->makeDirtyIfMeshed();
+                    }
+                });
+            }
+            pendingWritesAttempted++;
+        }else{
+            // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
+            // and then enqueue the write.
+            bool pendingWritesEntryExists = pendingWritesMap.contains(targetChunkCoord);
+            if (!pendingWritesEntryExists){
+                pendingWritesMap.emplace(targetChunkCoord, std::priority_queue<PendingBlockWrite>{});
+            }
+            AT(pendingWritesMap,targetChunkCoord).push(write);
+        }
+    }
+}
 const AABB*   ChunkMap::getBoundingBox(WorldChunkCoord chunkCoord) const{
-    return &entries.at(chunkCoord)->bounding_box;
+    return &AT(entries,chunkCoord)->bounding_box;
 }
 
 // TODO: Continue plugging in the new strong coord types
@@ -84,14 +127,14 @@ void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
     // ALSO!!! invalidate all neighbours mesh as invalid here
     
     // what the fuck am i looking at 
-    entries.at(chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
+    AT(entries,chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
 
 }
 
 void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
     const auto min = toWorldOrigin(chunkCoord).raw();
     const auto max = min + Chunk::Extents;
-    entries.at(chunkCoord)->bounding_box = {min, max};
+    AT(entries,chunkCoord)->bounding_box = {min, max};
 }
 
 

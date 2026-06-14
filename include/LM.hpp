@@ -1,45 +1,11 @@
 #pragma once
 
 #include "Bitwise.hpp"
-#include "NumericConcepts.hpp"
 #include "Types.h"
 #include "glm/vec3.hpp"
+#include <string_view>
 #include <type_traits>
 namespace LM {
-
-struct variable{
-    std::string_view type_str;
-    std::string_view  val_str;
-    std::string_view  name_str;
-    const auto& val(){return val_str;}
-    const auto& type(){return type_str;}
-    const auto& name(){return name_str;}
-};
-struct source_location{
-    const char* _file;
-    const char* _function;
-    const char* _pretty_fn;
-    int _line;
-    int _col{0};
-    const auto& file_name(){return _file;}
-    const auto& function_name(){return _function;}
-    const auto& pretty_fn(){return _pretty_fn;}
-    const auto& line(){return _line;}
-    const auto& column(){return _col;}
-};
-#define SRC_LOC_CURRENT()\
-    LM::source_location{\
-        ._file=__FILE_NAME__,\
-        ._function=__FUNCTION__,\
-        ._pretty_fn=__PRETTY_FUNCTION__,\
-        ._line=__LINE__,\
-    }
-#define VAR_DBG(val)\
-    LM::variable{\
-        .type_str = pretty_type_name<decltype(val)>(),\
-        .val_str = std::format("{}",val),\
-        .name_str= #val,\
-    }
 constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
     i32 r = a % b;
     return r<0 ? r+b : r;
@@ -90,15 +56,36 @@ constexpr Float unlerp(Float a, Float b, Float t) noexcept {
     return (t - a) / (b - a);
 }
 
+
 template<typename A, typename B, typename C>
 requires IVec3<A> && IVec3<B> && IVec3<C>
-constexpr bool isVecInBounds(A v, B lo, C hi) noexcept {
+inline constexpr bool isVecInBounds(A v, B lo, C hi) noexcept {
     return lo.x <= v.x && v.x < hi.x &&  //
            lo.y <= v.y && v.y < hi.y &&  //
            lo.z <= v.z && v.z < hi.z;    //
 }
 
+template <typename Number>
+requires Numeric<Number>
+constexpr Number square(Number a) noexcept {
+    return a*a;
+}
 
+// Euclidean distance squared between two anyvec3's
+template<typename Vec3>
+requires AnyVec3<Vec3> 
+inline constexpr f32 sq_dist(Vec3 p0, Vec3 p1) noexcept {
+    return  square(p1.x - p0.x) + 
+            square(p1.y - p0.y) + 
+            square(p1.z - p0.z);
+}
+
+// Euclidean distance between two fvec3's (must be floating point as we are performing sqrt)
+template<typename _FVec3>
+requires FVec3<_FVec3> 
+inline constexpr f32 dist(_FVec3 p0, _FVec3 p1) noexcept {
+    return std::sqrt(sq_dist(p0,p1));
+}
 
 template<typename A, typename B>
 requires IVec3<A> && IVec3<B>

@@ -3,6 +3,8 @@
 #include <string>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
+
 
 // unix utilities
 namespace unix {
@@ -27,4 +29,33 @@ namespace unix {
         pclose(pipe);
         return result;
     }
+
+    template<typename T>
+    inline std::optional<T> get_env(const char* name) {
+        const char* str = std::getenv(name);
+        if (!str) return std::nullopt;
+
+        T value{};
+        std::string_view sv{str};
+
+        auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+
+        if (ec != std::errc{} || ptr != sv.data() + sv.size() || value <= 0) {
+            return std::nullopt;
+        }
+
+        return value;
+    }
+
+    // WARNING:!!! 
+    // This function is EXCEPTIONALLY slow. Like really really really slow. It literally has to 
+    inline std::size_t term_cols() {
+        auto cols = get_env<int>("COLUMNS");
+        return cols ? *cols : 0;
+    }
+    inline std::size_t term_rows() {
+        auto rows = get_env<int>("LINES");
+        return rows ? *rows : 0;
+    }
 }
+

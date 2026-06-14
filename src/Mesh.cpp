@@ -11,6 +11,7 @@
 #include "VertexAttributeType.hpp"
 
 #include "glbindingWrapper.hpp"
+#include "Assertion.hpp"
 using namespace gl;
 
 // NOTE: in gl, known as GL_TRIANGLES, GL_LINES, GL_STRIP

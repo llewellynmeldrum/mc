@@ -50,16 +50,16 @@ struct GenResult{
 // CONSUMER: Mesher thread.
 FORWARD_DECL_STRUCT(TextureAtlas)
 struct MeshJob{
-    std::size_t meshGeneration;
+    std::size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
     std::vector<ChunkStore> surroundingChunks{6,ChunkStore{}};
     ChunkMetadata meta;
     const TextureAtlas* atlas;
 
-    MeshJob(WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry):
+    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry):
 
-        meshGeneration(entry->latest_mesh_revision),
+        meshRevisionID(_meshRevisionID),
         chunkCoord(key),
         blocks(&entry->block_data),
         meta(entry->metadata),
@@ -88,7 +88,7 @@ struct TransparentMeshData{
 // PRODUCER: Mesher Thread
 // CONSUMER: Main thread.
 struct MeshResult{
-    std::size_t meshGeneration;
+    std::size_t revisionID;
     WorldChunkCoord chunkCoord;
     OpaqueMeshData opaque;
     TransparentMeshData transparent;

@@ -141,9 +141,9 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
 #ifdef _DEBUG
         check_uniform(name);
 #endif
-        auto pair = uniformLocationsCache.insert({ name, glGetUniformLocation(id, name.c_str()) });
+        auto [iter, inserted ]= uniformLocationsCache.insert({ name, glGetUniformLocation(id, name.c_str()) });
         //            LOG_DEBUG("Cached unform type of '{} {}'.",pretty_type_name<T>(), name);
-        location = pair.first->second;
+        location = iter->second;
     }
     if (location == -1) {
         LOG_FATAL("Unable to get location for uniform '{}'.", name);

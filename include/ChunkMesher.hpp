@@ -5,6 +5,7 @@
 #include "Chunk.hpp"
 #include "TextureAtlas.hpp"
 #include "cppslop.hpp"
+#include "Assertion.hpp"
 
 FORWARD_DECL_STRUCT(World)
 struct ChunkMesher {
