@@ -11,6 +11,48 @@
 
 #include "Assertion.hpp"
 
+
+enum struct GenStage{
+    on_queue,
+    done,
+};
+
+struct GenState{
+    GenStage stage;
+    bool isDirty;
+};
+
+enum struct MeshStage{
+    awaiting_generation,
+    ready,
+    on_queue,
+    done,
+};
+
+struct MeshState{
+    MeshStage stage;
+    bool isDirty;
+};
+
+struct ChunkState{
+    GenState gen;
+    MeshState mesh;
+};
+
+// on generation of a chunk (right before enqueue into genJobs)
+constexpr ChunkState initial(){
+    return ChunkState{
+        GenState{
+            .stage = GenStage::on_queue,
+            .isDirty = false,
+        },
+        MeshState{
+            .stage = MeshStage::awaiting_generation,
+            .isDirty = false,
+        },
+    };
+}
+
 static constexpr f32 ChunkDebugFillOpacity = 0.05f;
 static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
 static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
