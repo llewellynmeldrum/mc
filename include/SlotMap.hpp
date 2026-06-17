@@ -41,21 +41,25 @@ public:
     template<typename Fn, typename Fn2, typename Rt2=return_type<Fn2>>
         requires std::is_invocable_v<Fn,Mapped&>
               && std::is_invocable_v<Fn2>
-              && same_type<return_type<Fn,Mapped&>,return_type<Fn2>>
+              && same_type<
+                    return_type<Fn,Mapped&>,return_type<Fn2>
+                 >
               && (has_default_ctor<Rt2> || !(same_type<Rt2,void>)) 
              // if return type Rt2 is NOT void, Rt must be default constructible
     decltype(auto) if_contains_else(Key key, Fn&& on_found, Fn2&& on_missing){
         auto it = sparse.find(key);
         if (it!=sparse.end()){
             const auto& dense_idx = it->second;
-            const auto& val = AT(buf,dense_idx);
+            auto& val = AT(buf,dense_idx);
             if constexpr(return_type_is<void,Fn>){
+                std::invoke(std::forward<Fn>(on_found),val);
                 return;
             }else{
                 return std::invoke(std::forward<Fn>(on_found),val);
             }
         }else{
             if constexpr(return_type_is<void,Fn>){
+                std::invoke(std::forward<Fn2>(on_missing));
                 return;
             }else{
                 return std::invoke(std::forward<Fn2>(on_missing));

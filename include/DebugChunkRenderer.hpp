@@ -64,9 +64,10 @@ inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
 }
 
 #define state_color_match(Enum, name, col) case Enum :: name: return col(ChunkDebugFillOpacity); break;
-inline glm::vec4 MeshDebugColor(MeshStage state){
+
+inline glm::vec4 MeshDebugColor(MeshStage stage){
     using namespace Color01;
-    switch (state){
+    switch (stage){
         state_color_match(MeshStage, awaiting_generation   , GREY_50_a)
         state_color_match(MeshStage, ready_for_enqueue     , RED_a)
         state_color_match(MeshStage, on_queue              , ORANGE_a)
@@ -78,13 +79,19 @@ inline glm::vec4 GenDebugColor(std::nullopt_t nullopt){
     using namespace Color01;
     return GREY_50_a(ChunkDebugFillOpacity);
 }
-inline glm::vec4 GenDebugColor(GenStage state){
+inline glm::vec4 GenDebugColor(GenStage stage){
     using namespace Color01;
-    switch (state){
+    switch (stage){
         state_color_match(GenStage, on_queue, RED_a)
         state_color_match(GenStage, done, GREEN_a)
     }
     return {};
+}
+inline glm::vec4 GenDebugColor(GenState state){
+    return GenDebugColor(state.stage);
+}
+inline glm::vec4 MeshDebugColor(MeshState state){
+    return MeshDebugColor(state.stage);
 }
 #undef state_color_match
 

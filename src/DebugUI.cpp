@@ -190,6 +190,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     entryColor01 = showGenState ? GenDebugOutlineColor(state.gen) :
                                                   MeshDebugOutlineColor(state.mesh);
                     if (state.mesh.isClean()){
+                        // both returns types being void not workign
+                        // the constraints are wrong
                         ctx->rend.opaqueChunkMeshes.if_contains_else(
                             ch_pos,
                             [](Mesh& mesh){
