@@ -1,7 +1,7 @@
 #include "Shaders.hpp"
 #include "UnixHelpers.hpp"
 #include "glbindingWrapper.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "Logger.hpp"
 #define _DEBUG
 using namespace gl;
@@ -108,7 +108,7 @@ void ShaderProgram::check_uniform(std::string name) {
     auto        count = std::stoi(count_str);
     if (count <= 0) {
         std::println("->{}Error! uniform {}'{}'{}. Was not found. Did you mean any of these?",
-                     fmt::fg_red, fmt::bold, name, fmt::reset);
+                     fmt::fg_red(), fmt::bold(), name, fmt::reset());
         std::println("{}",
                      unix::exec(std::format("rg '' ./shaders | agrep -2 '{}' | tail -3", name)));
 

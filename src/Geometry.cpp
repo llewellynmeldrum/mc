@@ -2,6 +2,68 @@
 #include "Camera.hpp"
 #include "Line3D.hpp"
 using namespace glm;
+std::vector<Line3D> AABB::getLines(glm::vec4 color, bool includeCrissCross){
+    using namespace glm;
+    auto outer_thick = 0.25f;
+    auto inner_thick = outer_thick*.5f;
+
+    auto outer_col = color;
+    auto inner_col = glm::vec4{glm::vec3(color),color.a*.5};
+
+
+    auto extents = halfExtents*2.0f;
+    auto b0 = center-halfExtents;       // bl
+    auto b1 = b0 + vec3{extents.x,0,0}; // br
+    auto b2 = b1 + vec3{0,0,extents.z}; // tr
+    auto b3 = b0 + vec3{0,0,extents.z}; // br
+    //
+    auto t0 = b0 + vec3{0,extents.y,0}; // bl
+    auto t1 = b1 + vec3{0,extents.y,0}; // bl
+    auto t2 = b2 + vec3{0,extents.y,0}; // bl
+    auto t3 = b3 + vec3{0,extents.y,0}; // bl
+    auto res = std::vector{
+        Line3D{b0,b1,outer_thick,color},
+        Line3D{b1,b2,outer_thick,color},
+        Line3D{b2,b3,outer_thick,color},
+        Line3D{b3,b0,outer_thick,color},
+        Line3D{b0,t0,outer_thick,color},
+        Line3D{b1,t1,outer_thick,color},
+        Line3D{b2,t2,outer_thick,color},
+        Line3D{b3,t3,outer_thick,color},
+        Line3D{t0,t1,outer_thick,color},
+        Line3D{t1,t2,outer_thick,color},
+        Line3D{t2,t3,outer_thick,color},
+        Line3D{t3,t0,outer_thick,color},
+    };
+    if (includeCrissCross){
+        res.append_range(std::array{
+            // +Y face
+            Line3D{t0,t2,inner_thick,color},
+            Line3D{t1,t3,inner_thick,color},
+
+            // +Z face 
+            Line3D{t2,b3,inner_thick,color},
+            Line3D{b2,t3,inner_thick,color},
+
+            // -Z face 
+            Line3D{b0,t1,inner_thick,color},
+            Line3D{t0,b1,inner_thick,color},
+
+            // -Y face 
+            Line3D{b0,b2,inner_thick,color},
+            Line3D{b1,b3,inner_thick,color},
+
+            // +X face 
+            Line3D{b1,t2,inner_thick,color},
+            Line3D{t1,b2,inner_thick,color},
+
+            // -X face 
+            Line3D{b0,t3,inner_thick,color},
+            Line3D{t0,b3,inner_thick,color},
+        });
+    }
+    return res;
+}
 void Frustum::update(this auto& self, const Camera* cam) {
     self.path.clear(); 
     auto& path = self.path;

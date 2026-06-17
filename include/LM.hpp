@@ -97,7 +97,7 @@ constexpr inline std::remove_cvref_t<A> euclid_mod(A a, B b) noexcept {
     };
 }
 template<typename A>
-requires FVec3<A>
+    requires FVec3<A>
 constexpr inline std::remove_cvref_t<A> floor(A a) noexcept {
     return {
         std::floor(a.x),

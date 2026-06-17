@@ -7,14 +7,14 @@
 #include <type_traits>
 #include <functional>
 #include <unordered_set>
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "Types.h"
 #include "CommonConcepts.hpp"
 #include "Assertion.hpp"
 
 
 template<typename IntVec2, typename Fn>
-    requires IVec2<IntVec2> && callable_by<Fn,IntVec2>
+    requires IVec2<IntVec2> && callable_with<Fn,IntVec2>
 void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
 
@@ -35,7 +35,7 @@ _break:
 }
 
 template<typename IntVec2, typename Fn>
-    requires IVec2<IntVec2> && callable_by<Fn,val_t<IntVec2>,val_t<IntVec2>>
+    requires IVec2<IntVec2> && callable_with<Fn,val_t<IntVec2>,val_t<IntVec2>>
 void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
 
@@ -56,7 +56,7 @@ _break:
 }
 
 template<typename IntVec3, typename Fn>
-    requires IVec3<IntVec3> && callable_by<Fn,IntVec3>
+    requires IVec3<IntVec3> && callable_with<Fn,IntVec3>
 void ForEachInRangeEx(IntVec3 min, IntVec3 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
     for (ScalarType x = min.x; x<max.x; x++){

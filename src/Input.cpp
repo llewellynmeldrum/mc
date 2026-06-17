@@ -23,6 +23,9 @@ void Simulation::handleInputs() {
     input.mapToggleKey(KEY_P, [this]{
         togglePause();
     });
+    input.mapToggleKey(KEY_L, [this]{
+        pause_logging = !pause_logging;
+    });
 
     if (isPaused()) return; // WARNING: Anything below here is ignored during paused frames
 

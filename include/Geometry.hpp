@@ -43,33 +43,8 @@ struct AABB {
         center = (min + max) * 0.5f;
         halfExtents = max - center;
     }
-    inline std::vector<Line3D> getLines(glm::vec4 color){
-        using namespace glm;
-        auto extents = halfExtents*2.0f;
-        auto b0 = center-halfExtents; // bl
-        auto b1 = b0 + vec3{extents.x,0,0}; // br
-        auto b2 = b1 + vec3{0,0,extents.z}; // tr
-        auto b3 = b0 + vec3{0,0,extents.z}; // br
-        //
-        auto t0 = b0 + vec3{0,extents.y,0}; // bl
-        auto t1 = b1 + vec3{0,extents.y,0}; // bl
-        auto t2 = b2 + vec3{0,extents.y,0}; // bl
-        auto t3 = b3 + vec3{0,extents.y,0}; // bl
-        return {
-            Line3D{b0,b1,0.25,color},
-            Line3D{b1,b2,0.25,color},
-            Line3D{b2,b3,0.25,color},
-            Line3D{b3,b0,0.25,color},
-            Line3D{b0,t0,0.25,color},
-            Line3D{b1,t1,0.25,color},
-            Line3D{b2,t2,0.25,color},
-            Line3D{b3,t3,0.25,color},
-            Line3D{t0,t1,0.25,color},
-            Line3D{t1,t2,0.25,color},
-            Line3D{t2,t3,0.25,color},
-            Line3D{t3,t0,0.25,color},
-        };
-    }
+    std::vector<Line3D> getLines(glm::vec4 color, bool includeCrissCross=false);
+    
 
     bool testForwardIntersection(const Plane& p) const;
 };

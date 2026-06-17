@@ -5,6 +5,7 @@
 #include "DebugChunkRenderer.hpp"
 #include "World.hpp"
 #include <optional>
+#include <print>
 using namespace gl;
 
 
@@ -16,7 +17,7 @@ static constexpr glm::vec3 PPN{ CHUNK_EXTENT, CHUNK_EXTENT,0};
 static constexpr glm::vec3 PNP{ CHUNK_EXTENT,0, CHUNK_EXTENT};
 static constexpr glm::vec3 NPP{0, CHUNK_EXTENT, CHUNK_EXTENT};
 static constexpr glm::vec3 PPP{ CHUNK_EXTENT, CHUNK_EXTENT, CHUNK_EXTENT};
-constexpr std::array<DebugChunkVertex, MAX_VERTICES_PER_CUBE> DebugChunkVertices ={
+constexpr std::array DebugChunkVertices ={
 
         DebugChunkVertex{PNN},
         DebugChunkVertex{NNN},
@@ -48,13 +49,13 @@ constexpr std::array<DebugChunkVertex, MAX_VERTICES_PER_CUBE> DebugChunkVertices
         DebugChunkVertex{PPN},
         DebugChunkVertex{NPN},
 };
-constexpr std::array<u32,MAX_INDICES_PER_CUBE> DebugChunkIndices{
-     3, 0, 1, 1, 2, 3,
-     7, 4, 5, 5, 6, 7,
-    11, 8, 9, 9,10,11,
-    15,12,13,13,14,15,
-    19,16,17,17,18,19,
-    23,20,21,21,22,23,
+constexpr std::array DebugChunkIndices{
+     3U, 0U, 1U, 1U, 2U, 3U,
+     7U, 4U, 5U, 5U, 6U, 7U,
+    11U, 8U, 9U, 9U,10U,11U,
+    15U,12U,13U,13U,14U,15U,
+    19U,16U,17U,17U,18U,19U,
+    23U,20U,21U,21U,22U,23U,
 };
 
 void DebugChunkRenderer::setup(){
@@ -100,23 +101,34 @@ void DebugChunkRenderer::update(Camera& cam, Simulation* sim){
     vao.unbind();
 }
 void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
-    const auto& inRadius = sim->world.chunksStatesInRadius(toWorldChunkCoord(cam.pos),cam.DebugChunkRenderDistance);
+    auto cam_chunk = toWorldChunkCoord(cam.pos);
+    const auto& inRadius = sim->world.chunksStatesInRadius(cam_chunk,cam.DebugChunkRenderDistance);
     instances.clear();
+    if (sim->ui.dbg_view.showNeighbours){
+        for (const auto& [dir, offset]: eachDirOffset){
+            const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
+//            instances.emplace_back(toWorldBlockPos(neighbour,{0,0,0}).raw(), NeighbourDebugColor());
+        }
+    }
     bool showGenState = sim->ui.dbg_view.showGenState;
     for (const auto& [hasStateEntry, entryCoord]: inRadius){
         auto entryColor = showGenState ? GenDebugColor(std::nullopt) :
-                                         MeshDebugColor(ChunkMeshState::NoMesh);
+                                         MeshDebugColor(MeshStage::awaiting_generation);
         if (hasStateEntry){
-            const auto* state = sim->world.chunkMap.get_state(entryCoord);
-            const auto entry = sim->world.chunkMap.try_get_entry(entryCoord);
-            if (HIDE_CLEAN_CHUNKS && state->isCleanMeshed()){
+            const auto* state = sim->world.chunkMap.states.at(entryCoord);
+            if (HIDE_CLEAN_CHUNKS && state->mesh.isClean()){
                 continue; // skip, else visual clutter is too bad
             }
-            if (entry.has_value()){
-                if (HIDE_AIR_CHUNKS && (*entry)->block_data.isAllAir()){
-                    continue; // skip, else visual clutter is too bad
+            auto skip = sim->world.chunkMap.chunk_entries.if_contains(
+                entryCoord,
+                [](auto entry){
+                    if (HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
+                        return true;
+                    }
+                    return false;
                 }
-            }
+            );
+            if (skip) continue;
             entryColor = showGenState ? GenDebugColor(state->gen) :
                                          MeshDebugColor(state->mesh);
         }

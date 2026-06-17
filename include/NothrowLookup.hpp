@@ -1,21 +1,28 @@
 #pragma once 
 #include "Assertion.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "refl.hpp"
 #include "CommonConcepts.hpp"
 #include "CommonUtils.hpp"
 #include <debugging>
 #include <type_traits>
 #include <utility>
+// BRIEF:
+// Exception safe `.at()` replacement for most STL containers.
+// These macros capture type info, caller source location, container name, etc,
+// and present them in a console message, in the case of an out-of-bounds access 
+//      (or entry doesnt exist in the case of an associative container)
+// Overhead is around 2-3x .at() or operator[] from my benchmarks. Worth it for the time being,
+//  (and its a macro so very easy to reroute to regular .at() in real builds.)
 #define AT(c, i) at_safe_noexcept(c,i, #c, #i, SRC_LOC_CURRENT())
 #define AT_EXCEPT(c, i) at_safe(c,i, #c, #i, SRC_LOC_CURRENT())
 
 template<typename C, typename K> 
 [[gnu::always_inline]] inline bool inbounds(C& cont, K key){
-    if constexpr(ArrayLike<C>){
+    if constexpr(array_like<C>){
         static_assert(std::is_integral_v<K>);
         return (key>=0 && key<static_cast<decltype(key)>(cont.size()));
-    } else if constexpr(MapLike<C>){
+    } else if constexpr(map_like<C>){
         return cont.contains(key);
     } else{
         std::println(stderr, "Container type {} is neither MapLike nor ArrayLike. Check CommonConcepts.hpp",pretty_type_name(cont));
@@ -45,7 +52,7 @@ template<typename C, typename K>
 [[gnu::cold, gnu::noinline]]
 inline void report_oor_intermediate(C& cont, K key,std::string_view cont_name, std::string_view key_name, refl::source_location loc){
         i64 sz = cont.size();
-        if constexpr(MapLike<C>){ 
+        if constexpr(map_like<C>){ 
             sz=-1;
         }
         report_OOR(

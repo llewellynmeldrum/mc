@@ -2,7 +2,7 @@
 
 #include "Colors01.hpp"
 #include "CoordTypes.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "Logger.hpp"
 #include "Types.h"
 #include "glm/geometric.hpp"
@@ -67,7 +67,6 @@ struct Camera {
     inline const Frustum& getFrustum() const {
         return cached_frustum.get(
             [this](){
-                std::println(stderr,"Updated frustum.");
                 return Frustum(this);  // NOLINT
             }
         );

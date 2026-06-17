@@ -1,5 +1,6 @@
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
+#include "DebugChunkLog.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "Renderer.hpp"
 
@@ -10,6 +11,7 @@
 #include "glmWrapper.hpp"
 #include "World.hpp"
 #include <algorithm>
+#include <ranges>
 #include "LM.hpp"
 
 using namespace gl;
@@ -126,6 +128,9 @@ void Renderer::draw_to(Camera& cam, RenderTargetView target){
 
 void Renderer::drawTransparent(Camera& cam){
     auto sorted = sorted_transparent(cam);
+    for (const auto& [idx, coord]: std::views::enumerate(sorted)){
+        log_to_chunk(coord,"priority: {}/{}",idx,sorted.size());
+    }
     uploadMeshListToGpu(transparentChunkMeshes,sorted);
 }
 
@@ -136,17 +141,24 @@ void Renderer::drawOpaque(Camera& cam){
     uploadMeshListToGpu(opaqueChunkMeshes,sorted);
 }
 
-void Renderer::uploadMeshListToGpu(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>sortedCoords){
+void Renderer::uploadMeshListToGpu(const slot_map<WorldChunkCoord,Mesh>& meshList, 
+                                   std::span<WorldChunkCoord>sortedCoords){
     using std::views::filter;
     using std::views::transform;
-    auto isLoaded = [](const Mesh& mesh){ return mesh.isLoaded(); };
-    auto isNonEmpty = [](const Mesh& mesh){ return mesh.vertex_count>0; };
-    auto meshAt = [&meshList](WorldChunkCoord coord)->const Mesh&{ return meshList.at(coord); };
-    auto sorted_meshes = sortedCoords | transform(meshAt);
-    auto loadedOpaque = sorted_meshes    |
-                        filter(isLoaded) |
-                        filter(isNonEmpty);
-    for (const auto& mesh : loadedOpaque) {
+    auto is_mesh_loaded = [](const Mesh& mesh){
+        return mesh.isLoaded(); 
+    };
+    auto is_mesh_non_empty = [](const Mesh& mesh){ 
+        return mesh.vertex_count>0; 
+    };
+    auto get_mesh_at_coord = [&meshList](WorldChunkCoord coord)->const Mesh& {
+        return meshList.at(coord); 
+    };
+    auto filtered_meshes = sortedCoords |
+                        transform(get_mesh_at_coord) |
+                        filter(is_mesh_loaded) |
+                        filter(is_mesh_non_empty);
+    for (const auto& mesh : filtered_meshes) {
         auto model = mat4(1.0f);
         const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
         model = glm::translate(model, chunkFloatWorldPos);
@@ -162,20 +174,24 @@ std::vector<WorldChunkCoord> Renderer::sorted_opaque(Camera& cam){
     // we want nearest -> furthest for early Z culling
     auto source_chunk = toWorldChunkCoord(cam.pos);
     using LM::sq_dist;
-    auto closer = [source_chunk](Mesh& lhs, Mesh& rhs){
-        return sq_dist(source_chunk,lhs.chunkCoord) < sq_dist(source_chunk,rhs.chunkCoord);
+    auto closer = [source_chunk](const WorldChunkCoord& lhs, const WorldChunkCoord& rhs){
+        return sq_dist(source_chunk,lhs) < sq_dist(source_chunk,rhs);
     };
-    return transparentChunkMeshes.sorted_keys(closer);
+    return opaqueChunkMeshes.sorted_keys(closer);
 }
 
 std::vector<WorldChunkCoord> Renderer::sorted_transparent(Camera& cam){
     // we want furthest -> nearest for correct transparency
     auto source_chunk = toWorldChunkCoord(cam.pos);
     using LM::sq_dist;
-    auto further = [source_chunk](Mesh& lhs, Mesh& rhs){
-        return sq_dist(source_chunk,lhs.chunkCoord) > sq_dist(source_chunk,rhs.chunkCoord);
+    auto further= [source_chunk](const WorldChunkCoord& lhs, const WorldChunkCoord& rhs){
+        return sq_dist(source_chunk,lhs) > sq_dist(source_chunk,rhs);
     };
+
     return transparentChunkMeshes.sorted_keys(further);
+    //BUG: 
+    //Optimizations are disabled and the meshes are not being correctly marked as completed on the mesh queue.
+    // Add a debug ui thing to track the mesh generation of the current mesh. See how that moves
 }
 
 

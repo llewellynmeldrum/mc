@@ -34,8 +34,8 @@ struct World {
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            const auto state = chunkMap.try_get_state(key);
-            candidates.emplace_back(state.has_value(),key);
+            const auto state = chunkMap.states.try_get(key);
+            candidates.emplace_back(static_cast<bool>(state),key);
         };
 
         const i32& oy = chunkCoord.y;
@@ -63,14 +63,20 @@ struct World {
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            auto state = chunkMap.try_get_state(key);
-            if (state.has_value()){
-                if ((*state)->qualifiesForMeshing()){
-                    candidates.emplace_back(key);
-                    return true;
+            bool added = chunkMap.states.if_contains_else(
+                key,
+                [&](ChunkState& state){
+                    if (state.ready_for_mesh()){
+                        candidates.emplace_back(key);
+                        return true;
+                    }
+                    return false;
+                },
+                [&](){
+                    return false;
                 }
-            }
-            return false;
+            );
+            return added;
         };
         SpiralIterateRange(maxChunks, chunkCoord,extents.y, extents.x, add);
         return candidates;

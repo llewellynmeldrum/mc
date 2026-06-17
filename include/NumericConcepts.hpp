@@ -19,6 +19,7 @@ concept IVec2Like = requires(T v){
     {v.x}->Integral;
     {v.y}->Integral;
 };
+
 template <typename T>
 concept IVec3Like = IVec2Like<T> && requires(T v){
     {v.z}->Integral;

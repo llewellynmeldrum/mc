@@ -4,7 +4,7 @@
 #include "World.hpp"
 
 #include "Chunk.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "Logger.hpp"
 
 using namespace glm;
@@ -13,7 +13,7 @@ using namespace glm;
 Block World::getBlock(WorldBlockPos worldPos) const {
     WorldChunkCoord chunkCoord = toWorldChunkCoord(worldPos);
     auto  chunk_ptr =
-        chunkMap.entries.contains(chunkCoord) ? &chunkMap.entries.at(chunkCoord) : nullptr;
+        chunkMap.chunk_entries.contains(chunkCoord) ? &chunkMap.chunk_entries.at(chunkCoord) : nullptr;
     if (chunk_ptr) {
         auto worldChunkOffset = BlockOffset{toWorldBlockPos(chunkCoord,{0,0,0}).raw()};
         auto chunkLocal = worldPos - worldChunkOffset;

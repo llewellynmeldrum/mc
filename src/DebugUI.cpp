@@ -5,8 +5,10 @@
 #include <string>
 
 #include "ChunkEntry.hpp"
+#include "DebugChunkLog.hpp"
 #include "DebugFormat.hpp"
 
+#include "AnsiCodes.hpp"
 #define DISABLE_STYLE
 #include "DebugFormatSpecializations.hpp"
 #undef DISABLE_STYLE
@@ -61,8 +63,12 @@ void DebugUI::draw() {
     auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
     DebugUI::StartFrame();
 
-    for (auto& win_cfg: win_configs){
-        win_cfg.draw(win_cfg, ctx);
+    {
+        g_StyleConfig::disable();
+        for (auto& win_cfg: win_configs){
+            win_cfg.draw(win_cfg, ctx);
+        }
+        g_StyleConfig::enable();
     }
 
     IG::Render();
@@ -72,6 +78,25 @@ void DebugUI::draw() {
 
 void DebugUI::update() {
     auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
+}
+
+void drawLogWindow(WindowConfig& self, Simulation* ctx){
+    self.setAlpha(0.65f);
+    self.setup();
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags(UI::WinFlags::NoResize);
+    self.start_at(true, UVPos{1.0,0.5},[&self, &ctx]{
+        auto& window = self;
+        window.section("Per chunk log:",[&self, &ctx]{
+            // Shown in most->least recent vertical order
+            WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->playerCam.pos);
+            if (per_chunk_log.contains(cur_chunk)){
+                for (const auto& entry: per_chunk_log.at(cur_chunk) | std::views::reverse){
+                    UI::Text(DebugLog::entry_tostr(entry));
+                }
+            }
+        });
+    });
 }
 
 
@@ -109,21 +134,6 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
     });
 }
 
-void drawLogWindow(WindowConfig& self, Simulation* ctx){
-    self.setAlpha(0.65f);
-    self.setup();
-    self.setAlign(WinAlign::TopMid());
-    self.setFlags(UI::WinFlags::NoResize);
-    self.start_at(true, UVPos{1.0,0.5},[&self, &ctx]{
-        auto& window = self;
-        window.section("Per chunk log:",[&self, &ctx]{
-            self.ui->log_write("test\n");
-            for (const auto& entry: self.ui->dbg_log){
-                UI::Text(DebugLog::entry_tostr(entry));
-            }
-        });
-    });
-}
 
 void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
@@ -152,12 +162,12 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
         auto& window = self;
         window.section("Chunk Debug Colors:",[ctx]{
             if (ctx->ui.dbg_view.showGenState){
-                #define X(name) UI::ColoredText(GenDebugOutlineColor(ChunkGenState :: name), #name);
-                GEN_STATE_LIST
+                #define X(name) UI::ColoredText(GenDebugOutlineColor(GenStage :: name), #name);
+                GEN_STAGE_LIST
                 #undef X
             } else if (ctx->ui.dbg_view.showMeshState){
-                #define X(name) UI::ColoredText(MeshDebugOutlineColor(ChunkMeshState:: name), #name);
-                MESH_STATE_LIST
+                #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshStage:: name), #name);
+                MESH_STAGE_LIST
                 #undef X
             }
         });
@@ -167,43 +177,52 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
         window.section("Positions",[ctx]{
             auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
             bool showGenState = ctx->ui.dbg_view.showGenState;
-            auto entryColor01 = showGenState ? GenDebugOutlineColor(std::nullopt) : MeshDebugOutlineColor(ChunkMeshState::NoMesh) ;
+            auto entryColor01 = showGenState ? 
+                GenDebugOutlineColor(std::nullopt) : 
+                MeshDebugOutlineColor(MeshStage::ready_for_enqueue) ;
             ChunkEntry* entry = nullptr;
-            auto state = ctx->world.chunkMap.try_get_state(ch_pos);
+            std::string status_str{};
+            std::string suffix{};
+
+            ctx->world.chunkMap.states.if_contains(
+                ch_pos,
+                [&](ChunkState& state){
+                    entryColor01 = showGenState ? GenDebugOutlineColor(state.gen) :
+                                                  MeshDebugOutlineColor(state.mesh);
+                    if (state.mesh.isClean()){
+                        ctx->rend.opaqueChunkMeshes.if_contains_else(
+                            ch_pos,
+                            [](Mesh& mesh){
+
+                            },
+                            [](){
+                            }
+                        );
+                        auto it= std::ranges::find_if(ctx->rend.opaqueChunkMeshes,[ch_pos](const Mesh& mesh)->bool{
+                            return mesh.chunkCoord==ch_pos;
+                        });
+                        if (it != ctx->rend.opaqueChunkMeshes.end()){
+                            if (it->isLoaded()){
+                                suffix = "LOADED.";
+                            }else {
+                                suffix = "unloaded.";
+                            }
+                        }else{
+                            suffix = "Finished meshing, no opaqueMesh.";
+                        }
+                    }else{
+                            suffix = "not finished meshing.";
+                    }
+                    if (showGenState){
+                        status_str = std::format("{}",(*state)->gen) + ", "+ suffix;
+                    }else{
+                        status_str = std::format("{}",(*state)->mesh) + ", "+ suffix;
+                    }
+                }
+            );
             std::string status_str = "";
             std::string suffix = ", unloaded.";
             if (state.has_value()){
-                if (ctx->world.chunkMap.has_entry(ch_pos))
-                    entry = ctx->world.chunkMap.get_entry(ch_pos);
-                state = ctx->world.chunkMap.get_state(ch_pos);
-                entryColor01 = showGenState ? GenDebugOutlineColor((*state)->gen) :
-                                              MeshDebugOutlineColor((*state)->mesh);
-                if ((*state)->isCleanMeshed()){
-                    auto it= std::ranges::find_if(ctx->rend.opaqueChunkMeshes,[ch_pos](const Mesh& mesh)->bool{
-                        return mesh.chunkCoord==ch_pos;
-                    });
-                    if (it != ctx->rend.opaqueChunkMeshes.end()){
-                        if (it->isLoaded()){
-                            suffix = "LOADED.";
-                        }else {
-                            suffix = "unloaded.";
-                        }
-                    }else{
-                        suffix = "Finished meshing, no opaqueMesh.";
-                    }
-                }else{
-                        suffix = "not finished meshing.";
-                    // TODO: refine/distinguish debug colors better. i think im being lied to
-                    // ALSO: 
-                    // Perhaps manually slow queues / add a delay to certain operations
-                    // so i can better see whats happening in real time
-                    // I also dont think that enqueues are being reported. 
-                }
-                if (showGenState){
-                    status_str = std::format("{}",(*state)->gen) + ", "+ suffix;
-                }else{
-                    status_str = std::format("{}",(*state)->mesh) + ", "+ suffix;
-                }
             }
 
             std::string facing_str = get_facing_str(ctx->playerCam.getFront());
@@ -292,8 +311,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
 
             window.section("World Data:",[ctx]{
             IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-            IG::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.entries.size());
-            IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pendingWritesMap.size());
+            IG::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.chunk_entries.size());
+            IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pending_writes.size());
             {
                 std::size_t successful = ctx->world.chunkMap.pendingWritesSuccessful;
                 std::size_t  attempted = ctx->world.chunkMap.pendingWritesAttempted;

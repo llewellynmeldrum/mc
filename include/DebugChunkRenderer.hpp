@@ -1,8 +1,10 @@
 #pragma once 
 #include "AttributeTraits.hpp"
 #include "BufferObjects.hpp"
+#include "ChunkEntry.hpp"
 #include "Shaders.hpp"
 #include "cppslop.hpp"
+#include "Colors01.hpp"
 
 struct DebugChunkVertex{
     glm::ivec3 pos; // Chunk local vertex position
@@ -51,3 +53,60 @@ private:
     VertexBuffer  instance_vbo{std::nullopt};
     ShaderProgram prog{};
 };
+inline glm::vec4 NeighbourDebugColor(){
+    using namespace Color01;
+    return GREY_50_a(64);
+}
+
+inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
+    using namespace Color01;
+    return GREY_50_a(opacity_255);
+}
+
+#define state_color_match(Enum, name, col) case Enum :: name: return col(ChunkDebugFillOpacity); break;
+inline glm::vec4 MeshDebugColor(MeshStage state){
+    using namespace Color01;
+    switch (state){
+        state_color_match(MeshStage, awaiting_generation   , GREY_50_a)
+        state_color_match(MeshStage, ready_for_enqueue     , RED_a)
+        state_color_match(MeshStage, on_queue              , ORANGE_a)
+        state_color_match(MeshStage, done                  , GREEN_a)
+    }
+    return {};
+}
+inline glm::vec4 GenDebugColor(std::nullopt_t nullopt){
+    using namespace Color01;
+    return GREY_50_a(ChunkDebugFillOpacity);
+}
+inline glm::vec4 GenDebugColor(GenStage state){
+    using namespace Color01;
+    switch (state){
+        state_color_match(GenStage, on_queue, RED_a)
+        state_color_match(GenStage, done, GREEN_a)
+    }
+    return {};
+}
+#undef state_color_match
+
+
+
+// this is a retarded overload, why does this exist
+inline glm::vec4 GenDebugOutlineColor(std::nullopt_t nullopt) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(GenDebugColor(nullopt));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+inline glm::vec4 GenDebugOutlineColor(GenStage stage) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(GenDebugColor(stage));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+inline glm::vec4 MeshDebugOutlineColor(MeshStage stage) { 
+    glm::vec3 rgb = static_cast<glm::vec3>(MeshDebugColor(stage));
+    return {rgb,ChunkDebugOutlineOpacity};
+}
+
+inline glm::vec4 GenDebugOutlineColor(GenState state) { 
+    return GenDebugOutlineColor(state.stage);
+}
+inline glm::vec4 MeshDebugOutlineColor(MeshState state) { 
+    return MeshDebugOutlineColor(state.stage);
+}

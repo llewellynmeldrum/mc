@@ -1,20 +1,35 @@
 
+#include <cassert>
+#include <sstream>
+#include <sstream>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <optional>
+#include <regex>
+#include <algorithm>
+
+#include <curl/curl.h>      
+#include <libxml/HTMLparser.h>
+#include <libxml/xpath.h>
+
 // WARNING: Always do glfw->glbinding
+#include "AnsiCodes.hpp"
 #include "GLFWWrapper.hpp"
 #include "glbindingWrapper.hpp"
 #include "glbinding-aux/Meta.h"
 #include "glbinding-aux/logging.h"
+#include "glbinding-aux/types_to_string.h"
 
+#include "glHelpers.hpp"
 #include "Window.hpp"
 #include "GLFW/glfw3.h"
 #include "stb_image.hpp"
 #include "GLFWCallbacks.hpp"
-#include <cassert>
-#include <iostream>
 
 
 #include "Logger.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "Assertion.hpp"
 
 using namespace gl;
@@ -111,6 +126,7 @@ void Window::freeCursor(){
     glfwSetInputMode(ptr, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
+std::string lookup_gl_error_description( const std::string& function_name, const std::string& error);
 static void init_glFunctionLoader() {
     std::println(stderr, "testing\n");
     LOG_DEBUG("setup gl function loader");
@@ -122,29 +138,46 @@ static void init_glFunctionLoader() {
     glbinding::setAfterCallback([](const glbinding::FunctionCall& call) {
         const auto err = glGetError();
         if (err != GL_NO_ERROR) {
-            std::cout << fmt::bold_red;
-            std::print(">>>>>OPEN GL ERR [{}].  LAST CALL:", glbinding::aux::Meta::getString(err));
-            if (!call.function->isResolved()) {
-                std::cout << " (UNRESOLVED FUNCTION CALL!!):";
-            }
-            std::cout << fmt::reset << std::endl << "\t";
-
-            std::cout << fmt::fg_cyan;
-            std::cout << call.function->name();
-            std::cout << fmt::reset << "(";
+            std::ostringstream fn_params_oss{};
+            fn_params_oss << fmt::reset();
             for (const auto& param : call.parameters) {
-                std::cout << param.get();
+                fn_params_oss << param;
                 if (param != call.parameters.back()) {
-                    std::print(", ");
+                    fn_params_oss <<  ", ";
                 }
             }
-            std::cout << ")";
 
-            if (call.returnValue) {
-                std::cout << " -> " << call.returnValue.get();
+            std::string fn_sig{};
+            if (!call.function->isResolved()) {
+                fn_sig=" (UNRESOLVED FUNCTION CALL!!):";
             }
-            std::println();
-            DEBUG_BREAKPOINT();
+
+            std::ostringstream fn_return_oss;
+            if (call.returnValue.get()) {
+                fn_return_oss << call.returnValue;
+            }else{
+                fn_return_oss << "void";
+            }
+
+            fn_sig+= std::format("{}\n\t{}({}) -> {}",
+                fmt::reset(),
+                fmt::styled(fmt::fg_cyan(), call.function->name()),
+                fmt::styled(fmt::reset(), fn_params_oss.str()),
+                fmt::styled(fmt::fg_cyan(), fn_return_oss.str())
+            );
+
+            std::string error_type_str = glbinding::aux::Meta::getString(err);
+
+             std::string error_str = std::format("{} >>>> OpenGL Error: [{}]. Last function call: {}",
+                fmt::bold_red(),
+                fmt::styled_bg(fmt::italic(),error_type_str),
+                fn_sig
+            );
+
+            std::println(stderr,"{}",error_str);
+            std::println(stderr,"{}", lookup_gl_error_description(call.function->name(), error_type_str));
+            DEBUG_BREAKPOINT_QUIET();
         }
     });
 }
+

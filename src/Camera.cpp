@@ -1,6 +1,6 @@
 #include "DebugFormat.hpp"
 #include "DebugFormatSpecializations.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 
 #include "Camera.hpp"
 #include "glmWrapper.hpp"

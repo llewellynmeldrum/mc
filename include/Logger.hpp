@@ -45,21 +45,21 @@ struct LogLevel {
     i32         precedence;
 };
 
-inline LogLevel DEBUG{ "[DEBUG]", fmt::fg_cyan, -1 };
-inline LogLevel INFO{ "[INFO]", fmt::fg_yellow, 0 };
-inline LogLevel NOTICE{ "[NOTICE]", fmt::fg_pink, 1 };
-inline LogLevel WARN{ "[WARN]", fmt::fg_br_red, 2 };
-inline LogLevel ERROR{ "[ERROR]", fmt::fg_red, 3 };
-inline LogLevel FATAL{ "[FATAL]", fmt::fg_green, 4 };
-inline LogLevel COUNT{ "[COUNT]", fmt::fg_red, 5 };
+inline LogLevel DEBUG{ "[DEBUG]", fmt::fg_cyan(), -1 };
+inline LogLevel INFO{ "[INFO]", fmt::fg_yellow(), 0 };
+inline LogLevel NOTICE{ "[NOTICE]", fmt::fg_pink(), 1 };
+inline LogLevel WARN{ "[WARN]", fmt::fg_br_red(), 2 };
+inline LogLevel ERROR{ "[ERROR]", fmt::fg_red(), 3 };
+inline LogLevel FATAL{ "[FATAL]", fmt::fg_green(), 4 };
+inline LogLevel COUNT{ "[COUNT]", fmt::fg_red(), 5 };
 
 extern std::mutex log_mut;
 #define LOG_LVL(lvl, file, ln, fmt_str, ...)                                                       \
     do {                                                                                           \
         std::unique_lock<std::mutex> lock(log_mut);                                                \
         std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset);                               \
-        std::print("{}{}:{:<3}{} ", fmt::bold, file, ln, fmt::reset);                              \
+        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                               \
+        std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                              \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
     } while (0)
 
@@ -83,28 +83,12 @@ template <typename T>
 constexpr std::string fmt_expr(const char* identifier, T&& expr) {
     using Arg = std::remove_reference_t<T>;
     std::string expr_str{};
-
-    if constexpr (SequenceContainer<T>) {
-        expr_str.append("\n{\n");
-        for (const auto& e : expr) {
-            expr_str.append("\t");
-            expr_str.append(std::format("{}",e));
-            if (&e != &expr.back()) {
-                expr_str.append(",\n");
-            }
-        }
-        expr_str.append("\n}");
-    } else {
-        expr_str = std::format("{}",expr);
-    }
-    if constexpr (std::is_pointer_v<std::remove_cvref<T>>) {
-        expr_str+=std::format("({})",static_cast<const void*>(expr));
-    }
+    expr_str = std::format("{}",expr);
     return std::format("{}{:>12}{} "
                        "{}{:<12}{} "
                        " = {:<12};",
-                       fmt::fg_cyan, pretty_type_name<Arg>(), fmt::reset, fmt::fg_red, identifier,
-                       fmt::reset, expr_str);
+                       fmt::fg_cyan(), pretty_type_name<Arg>(), fmt::reset(), fmt::fg_red(), identifier,
+                       fmt::reset(), expr_str);
 }
 
 // @brief returns a string containing the underlying type of the object expr represents. No value
@@ -120,4 +104,20 @@ std::string fmt_obj(const char* identifier, T&& expr) {
     }
 }
 
-#define LOG_EXPR(expr) std::println(stderr,"{}:{} -> {}", __FILE_NAME__, __LINE__, fmt_expr(#expr, (expr)))
+#define LOG_EXPR(expr) std::println(stderr,"{}:{} -> {}{} {} = {}",\
+        __FILE_NAME__, __LINE__, \
+        fmt::bg_code(),\
+        fmt::styled_fg(fmt::fg_type(), pretty_type_name<decltype(expr)>()),\
+        fmt::styled_fg(fmt::fg_identifier(),#expr),\
+        fmt::styled(fmt::reset(), expr)\
+        )
+
+
+
+
+
+
+
+
+
+

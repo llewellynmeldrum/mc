@@ -11,6 +11,14 @@
     #define TEST_MAIN __fake_entry_point__
 #endif
 
+#if defined(_MSC_VER)
+    #error "This project makes use of unix specific syscalls, and gcc/clang exclusives."
+    #error "These gcc/clang exclusives include:" 
+    #error "-> \\e for escape sequences (equivalent on msvc to \x1b)"
+    #error "-> Parsing of the __PRETTY_FUNCTION__ macro to get pretty typenames"
+#endif
+
+#include "AnsiCodes.hpp"
 #include "NothrowLookup.hpp"
 
 
@@ -26,21 +34,9 @@
 #include "SlotMap.hpp"
 
 int TEST_MAIN(){
-    slot_map<char, const char*> map;
-    map.insert_or_assign('b', "Beta");
-    map.insert_or_assign('a', "FAIL");
-    map.insert_or_assign('a', "Apple");
-
-    map.insert_or_assign('d', "Delta");
-    map.insert_or_assign('c', "Charlie");
-    map.erase('b');
-    std::println("{}",map);
-    auto sorted_keys = map.sorted_keys([](auto a, auto b){
-        return a<b;
-    });
-    for (const auto& key: sorted_keys){
-        std::println("({},{})",key,map.at(key));
-    }
+    ChunkState state{{0,0,0}};
+    state.transition(gen_dequeue);
+    std::println("{}",state);
 
     // contains
     // some type of sorted/unsorted iteration.
@@ -52,6 +48,9 @@ int TEST_MAIN(){
 int MAIN(int argc, char** argv) {
     App app{};
     app.setup();
+    if (g_StyleConfig::isEnabled()){
+        std::println("Debugger detected, disabling ansi styling.");
+    }
     while (!app.shouldClose()) {
         app.loop();
     }

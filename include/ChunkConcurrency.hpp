@@ -72,6 +72,9 @@ struct MeshJob{
             surroundingChunks[i] = *neighbour_ptr;
         }
     }
+    // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
+    // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
+    // i.e the ones bordering the actual chunk in question.
 };
 
 struct OpaqueMeshData{

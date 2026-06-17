@@ -2,10 +2,13 @@
 
 #include "ChunkConstants.hpp"
 #include "CoordTypes.hpp"
+#include "CommonConcepts.hpp"
 #include "Assertion.hpp"
 #include "NothrowLookup.hpp"
 #include <print>
+#include <type_traits>
 #include <vector>
+#include <ranges>
 
 
 template<typename Key, typename Mapped>
@@ -17,23 +20,59 @@ private:
 public:
 
 
-    template<typename Fn>
-    inline auto sorted_keys(Fn&& compar){
-        auto all_keys = std::views::keys(sparse) | std::ranges::to<std::vector>();
-        LOG_EXPR(all_keys);
-        // TODO: fix this by making a mutable copy or some shit
-//        std::ranges::sort(all_keys,std::forward<Fn>(compar));
-        return all_keys;
+    decltype(auto) at(this auto& self, Key victim_key){
+        return AT(self.buf,AT(self.sparse,victim_key));
     }
 
     template<typename Fn>
-    inline auto erase_if(Fn&& pred){
+    auto sorted_keys(Fn&& compar){
+        auto all_keys = std::views::keys(sparse) | std::ranges::to<std::vector>();
+        std::ranges::sort(all_keys,std::forward<Fn>(compar));
+        return all_keys;
+    }
+    auto all_keys(){
+        return std::views::keys(sparse) | std::ranges::to<std::vector>();
+    }
+
+    template<typename Fn>
+    auto erase_if(Fn&& pred){
         // TODO: Implement
+    }
+    template<typename Fn, typename Fn2, typename Rt2=return_type<Fn2>>
+        requires std::is_invocable_v<Fn,Mapped&>
+              && std::is_invocable_v<Fn2>
+              && same_type<return_type<Fn,Mapped&>,return_type<Fn2>>
+              && (has_default_ctor<Rt2> || !(same_type<Rt2,void>)) 
+             // if return type Rt2 is NOT void, Rt must be default constructible
+    decltype(auto) if_contains_else(Key key, Fn&& on_found, Fn2&& on_missing){
+        auto it = sparse.find(key);
+        if (it!=sparse.end()){
+            const auto& dense_idx = it->second;
+            const auto& val = AT(buf,dense_idx);
+            if constexpr(return_type_is<void,Fn>){
+                return;
+            }else{
+                return std::invoke(std::forward<Fn>(on_found),val);
+            }
+        }else{
+            if constexpr(return_type_is<void,Fn>){
+                return;
+            }else{
+                return std::invoke(std::forward<Fn2>(on_missing));
+            }
+        }
+    }
+
+    template<typename Fn>
+        requires std::is_invocable_v<Fn,Mapped&>
+              && std::is_default_constructible_v<return_type<Fn>>
+    decltype(auto) if_contains(Key key, Fn&& on_found){
+        return if_contains_else(key,on_found,[]{});
     }
 
     template<typename _mapped>
         requires std::convertible_to<_mapped, Mapped> // allows only _Mapped& or _Mapped&&
-    inline bool insert_or_assign(Key key, _mapped&& val){
+    bool insert_or_assign(Key key, _mapped&& val){
         auto [it,slot_empty] = sparse.try_emplace(key,buf.size());
         if (slot_empty){
             buf.emplace_back(std::forward<_mapped>(val));
@@ -56,7 +95,7 @@ public:
         sparse.clear();
     }
     template<typename ...Args>
-    inline bool emplace_or_assign(Key key, Args&& ... vargs){
+    bool emplace_or_assign(Key key, Args&& ... vargs){
         auto [it,inserted] = sparse.try_emplace(key,buf.size());
         if (inserted){
             dense.push_back(key);
@@ -69,15 +108,12 @@ public:
         return inserted;
     }
 
-    inline void contains(Key victim_key){
+    bool contains(Key victim_key){
         return sparse.contains(victim_key);
     }
-    inline auto& at(this auto& self, Key victim_key){
-        return AT(self.buf,AT(self.sparse,victim_key));
-    }
 
 
-    inline void erase(Key victim_key){
+    void erase(Key victim_key){
         auto it = sparse.find(victim_key);
         assert(it != sparse.end()); // tried to erase non-existent element
         DenseIdx victim_idx = it->second;

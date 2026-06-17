@@ -1,6 +1,6 @@
 #include "Chunk.hpp"
 #include "CoordIteration.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "ChunkMesher.hpp"
 #include "Block.hpp"

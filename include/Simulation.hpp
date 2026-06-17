@@ -20,8 +20,6 @@ struct Simulation {
     Simulation() = default;
     ~Simulation() = default;
 
-    std::vector<Line3D> lines3d;
-    std::vector<Line3D> chunkOutlines;
     Window   win;
     Profiler profiler;
     Input    input;
@@ -31,6 +29,9 @@ struct Simulation {
     Renderer rend;
     DebugUI  ui;
     World    world;
+
+    std::vector<Line3D> lines3d;
+    std::vector<Line3D> chunkOutlines;
 
     static constexpr std::size_t maxGenUploadsPerFrame= 32;
     static constexpr std::size_t maxGenJobsPerFrame = 32;

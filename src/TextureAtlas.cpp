@@ -1,7 +1,7 @@
 #include "TextureAtlas.hpp"
 #include "CommonUtils.hpp"
 #include "glbindingWrapper.hpp"
-#include "DEBUG.hpp"
+#include "Breakpoints.hpp"
 #include "DebugFormatSpecializations.hpp"
 #include "Logger.hpp"
 #include <unordered_map>

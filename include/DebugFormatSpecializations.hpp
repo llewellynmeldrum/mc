@@ -1,16 +1,19 @@
 #pragma once
-#include "Block.hpp"
 #ifdef INCLUDE_LOGGER_LAST
 #error "Logger.hpp must be included AFTER DebugFormat* headers!"
 #endif
-#include "DebugFormat.hpp"
+
 #include <format>
+
+#include "Block.hpp"
+#include "DebugFormat.hpp"
 #include "AnsiCodes.hpp"
 #include "CoordTypes.hpp"
 #include "Types.h"
 #include "glmWrapper.hpp"
 #include "LM.hpp"
 #include "UnixHelpers.hpp"
+#include "ChunkEntry.hpp"
 #include "Assertion.hpp"
 
 // specializations of dbg_fmt for glm types
@@ -22,9 +25,9 @@ struct std::formatter<glm::vec4>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::vec4& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green,
-                       val.y, fmt::reset, fmt::fg_blue, val.z, fmt::reset, fmt::fg_grey, val.w,
-                       fmt::reset);
+		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(),
+                       val.y, fmt::reset(), fmt::fg_blue(), val.z, fmt::reset(), fmt::fg_grey(), val.w,
+                       fmt::reset());
     }
 };
 
@@ -33,8 +36,8 @@ struct std::formatter<glm::vec3>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::vec3& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green, val.y,
-                       fmt::reset, fmt::fg_blue, val.z, fmt::reset);
+		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(), val.y,
+                       fmt::reset(), fmt::fg_blue(), val.z, fmt::reset());
     }
 };
 
@@ -43,8 +46,8 @@ struct std::formatter<glm::vec2>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::vec2& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green, val.y,
-                       fmt::reset);
+		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(), val.y,
+                       fmt::reset());
     }
 };
 
@@ -53,9 +56,9 @@ struct std::formatter<glm::ivec4>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::ivec4& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green,
-                       val.y, fmt::reset, fmt::fg_blue, val.z, fmt::reset, fmt::fg_grey, val.w,
-                       fmt::reset);
+		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(),
+                       val.y, fmt::reset(), fmt::fg_blue(), val.z, fmt::reset(), fmt::fg_grey(), val.w,
+                       fmt::reset());
     }
 };
 
@@ -65,8 +68,8 @@ struct std::formatter<glm::ivec3>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::ivec3& val, std::format_context& ctx)const {
 		return 
-std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green, val.y,
-                       fmt::reset, fmt::fg_blue, val.z, fmt::reset);
+std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(), val.y,
+                       fmt::reset(), fmt::fg_blue(), val.z, fmt::reset());
     }
 };
 template<>
@@ -75,8 +78,8 @@ struct std::formatter<glm::ivec2>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const glm::ivec2& val, std::format_context& ctx)const {
 		return 
-std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", fmt::fg_red, val.x, fmt::reset, fmt::fg_green, val.y,
-                       fmt::reset);
+std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", fmt::fg_red(), val.x, fmt::reset(), fmt::fg_green(), val.y,
+                       fmt::reset());
     }
 };
 template<>
@@ -253,4 +256,90 @@ struct std::formatter<T, CharT> : std::formatter<const void*, CharT> {
         );
     }
 };
+#include "ChunkEntry.hpp"
 
+#define state_set_str(Enum, str_identifier, name) case Enum :: name: str_identifier=#name; break;
+#define X(name) state_set_str(GenStage, str, name)
+template<>
+struct std::formatter<GenStage>{
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for Point.");
+        }
+        return it;
+    }
+    auto format(GenStage s, std::format_context& ctx) const{
+        std::string_view str = "???GenState???";
+        switch (s){
+            GEN_STAGE_LIST
+        }
+        return format_to(ctx.out(), "{}", str);
+    }
+};
+#if defined(X)
+    #undef X
+#endif
+#define X(name) state_set_str(MeshStage, str, name)
+template<>
+struct std::formatter<MeshStage>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for MeshStage.");
+        }
+        return it;
+    }
+    inline auto format(MeshStage s, std::format_context& ctx) const{
+        std::string_view str = "???ChunkMeshState???";
+        switch (s){
+            MESH_STAGE_LIST 
+        }
+        return format_to(ctx.out(), "{}", str);
+    }
+};
+#undef X
+#undef state_set_str
+
+template<>
+struct std::formatter<GenState>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for GenState.");
+        }
+        return it;
+    }
+    inline auto format(GenState s, std::format_context& ctx) const{
+        std::string_view str = "???ChunkMeshState???";
+        return format_to(ctx.out(), "{},{}", s.stage,s.isDirty() ? "(dirty)" : "(clean)");
+    }
+};
+template<>
+struct std::formatter<MeshState>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for MeshState.");
+        }
+        return it;
+    }
+    inline auto format(MeshState s, std::format_context& ctx) const{
+        std::string_view str = "?MeshState?";
+        return format_to(ctx.out(), "{},{}", s.stage,s.isDirty() ? "(dirty)" : "(clean)");
+    }
+};
+template<>
+struct std::formatter<ChunkState>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for ChunkState.");
+        }
+        return it;
+    }
+    inline auto format(ChunkState s, std::format_context& ctx) const{
+        std::string_view str = "?ChunkState?";
+        return format_to(ctx.out(), "{},{}", s.gen,s.mesh);
+    }
+};
