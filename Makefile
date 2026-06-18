@@ -15,6 +15,11 @@ GENERATOR      := Ninja
 CXX            := /opt/gcc-16/bin/g++
 APP            := mc
 
+# Compiler for the scripts/ unit tests. They avoid <print>, so any stock
+# C++23 toolchain works; fall back to a system compiler when gcc-16 is absent.
+TEST_CXX       ?= $(firstword $(wildcard /opt/gcc-16/bin/g++) $(shell command -v g++ 2>/dev/null) $(shell command -v clang++ 2>/dev/null))
+TEST_BIN       := build/test_rename_header
+
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
 BUILD_FLAGS := -j $(JOBS)
 
@@ -28,7 +33,8 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
         asan run-asan \
         tsan run-tsan \
         ausan run-ausan \
-        compile-commands
+        compile-commands \
+        test
 
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
@@ -106,6 +112,14 @@ run-asan: asan
 
 run-ausan: ausan
 	ASAN_OPTIONS="$(ASAN_OPTS)" UBSAN_OPTIONS="$(UBSAN_OPTS)" cmake --build $(BUILD_AUSAN) $(BUILD_FLAGS) --target run
+
+# --------------------------------------------------
+# Unit tests (scripts/)
+
+test:
+	@mkdir -p build
+	$(TEST_CXX) -std=c++23 -Wall -Wextra scripts/test_rename_header.cpp -o $(TEST_BIN)
+	./$(TEST_BIN)
 
 # --------------------------------------------------
 # Utilities
