@@ -92,11 +92,16 @@ target_link_directories(imgui PUBLIC ${GLFW3_LIBRARY_DIRS})
 target_link_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )
+find_package(CURL REQUIRED)
+find_package(LibXml2 REQUIRED)
 target_link_libraries(mc PRIVATE
     glbinding
     glbinding-aux
     imgui
+    CURL::libcurl
+    LibXml2::LibXml2
 )
+
 set_target_properties(mc PROPERTIES
     BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )

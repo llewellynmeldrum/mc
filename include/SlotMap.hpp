@@ -44,7 +44,7 @@ public:
               && same_type<
                     return_type<Fn,Mapped&>,return_type<Fn2>
                  >
-              && (has_default_ctor<Rt2> || !(same_type<Rt2,void>)) 
+              && (has_default_ctor<Rt2> || same_type<Rt2,void>) 
              // if return type Rt2 is NOT void, Rt must be default constructible
     decltype(auto) if_contains_else(Key key, Fn&& on_found, Fn2&& on_missing){
         auto it = sparse.find(key);
