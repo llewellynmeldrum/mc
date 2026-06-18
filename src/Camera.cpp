@@ -1,5 +1,5 @@
 #include "DebugFormat.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "Breakpoints.hpp"
 
 #include "Camera.hpp"

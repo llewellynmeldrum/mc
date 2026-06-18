@@ -8,9 +8,9 @@
 #include "DebugChunkLog.hpp"
 #include "DebugFormat.hpp"
 
-#include "AnsiCodes.hpp"
+#include "FmtStyle.hpp"
 #define DISABLE_STYLE
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #undef DISABLE_STYLE
 
 #include "DebugUI.hpp"

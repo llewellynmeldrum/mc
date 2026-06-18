@@ -8,7 +8,7 @@
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "CoordIteration.hpp"
 
 #include "Simulation.hpp"

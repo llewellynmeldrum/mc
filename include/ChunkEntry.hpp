@@ -6,7 +6,7 @@
 #include "Geometry.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
-#include "Bitwise.hpp"
+#include "BitwiseOps.hpp"
 #include "glm/vec4.hpp"
 #include "Colors01.hpp"
 

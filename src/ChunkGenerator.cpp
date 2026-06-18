@@ -4,7 +4,7 @@
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "Assertion.hpp"
 #include "CoordIteration.hpp"
 #include "LM.hpp"

@@ -1,5 +1,5 @@
 
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "GLFWCallbacks.hpp"
 #include "Simulation.hpp"
 #include "GLFW/glfw3.h"

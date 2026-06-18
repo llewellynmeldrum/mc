@@ -2,7 +2,7 @@
 #include "CommonUtils.hpp"
 #include "glbindingWrapper.hpp"
 #include "Breakpoints.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "Logger.hpp"
 #include <unordered_map>
 #include "Assertion.hpp"

@@ -1,7 +1,7 @@
 #include "Chunk.hpp"
 #include "CoordIteration.hpp"
 #include "Breakpoints.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "ChunkMesher.hpp"
 #include "Block.hpp"
 #include "ChunkHelpers.hpp"

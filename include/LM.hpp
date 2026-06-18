@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Bitwise.hpp"
+#include "BitwiseOps.hpp"
 #include "Types.h"
 #include "glm/vec3.hpp"
 #include <string_view>

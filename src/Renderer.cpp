@@ -1,7 +1,7 @@
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "Renderer.hpp"
 
 #include "Profiler.hpp"

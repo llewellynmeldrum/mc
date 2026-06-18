@@ -7,7 +7,7 @@
 #include "CommonUtils.hpp"
 
 // NOTE:
-// 'include/DebugFormatSpecializations.hpp' contains specializations/overloads for custom/project
+// 'include/FormatSpecs.hpp' contains specializations/overloads for custom/project
 // specific types.
 
 // @brief returns a string containing the type and value category, i.e the type that is passed with

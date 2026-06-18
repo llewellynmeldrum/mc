@@ -1,6 +1,6 @@
 
 #include "ChunkHelpers.hpp"
-#include "DebugFormatSpecializations.hpp"
+#include "FormatSpecs.hpp"
 #include "World.hpp"
 
 #include "Chunk.hpp"
