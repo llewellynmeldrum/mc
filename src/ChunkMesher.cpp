@@ -50,7 +50,7 @@ glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
 
 
 std::array<Block, DirectionCount> 
-getNeighbourBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
+getSurroundingBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
     std::array<Block, DirectionCount> res{};
 
     constexpr glm::ivec3 lo = glm::ivec3(0);
@@ -58,17 +58,22 @@ getNeighbourBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
     for (const auto& [faceDirection, neighbourOffset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(faceDirection);
         ChunkBlockPos neighbourBlockPos = chunkLocal + BlockOffset{neighbourOffset};
-        const auto neighbourChunk = job.surroundingChunks[dir_idx];
+        if (!job.surroundingChunks[dir_idx]){
+            // treat all blocks as air, i.e return air
+            res[dir_idx] = Block(BlockType::AIR);
+        }else{
+            const auto neighbourChunk = job.surroundingChunks[dir_idx].value();
 
-        const bool neighbourInBounds = LM::isVecInBounds(neighbourBlockPos, lo, hi);
+            const bool neighbourInBounds = LM::isVecInBounds(neighbourBlockPos, lo, hi);
 
-        if (neighbourInBounds) [[likely]] {
-            const auto& p = neighbourBlockPos;
-            res[dir_idx] = job.blocks[neighbourBlockPos];
-        } else [[unlikely]] {
-            neighbourBlockPos = LM::euclid_mod(neighbourBlockPos, Chunk::Extents);
-            assert(LM::isVecInBounds(neighbourBlockPos, lo, hi));
-            res[dir_idx] = neighbourChunk.at(neighbourBlockPos);
+            if (neighbourInBounds) [[likely]] {
+                const auto& p = neighbourBlockPos;
+                res[dir_idx] = job.blocks[neighbourBlockPos];
+            } else [[unlikely]] {
+                neighbourBlockPos = LM::euclid_mod(neighbourBlockPos, Chunk::Extents);
+                assert(LM::isVecInBounds(neighbourBlockPos, lo, hi));
+                res[dir_idx] = neighbourChunk.at(neighbourBlockPos);
+            }
         }
     }
     static_assert(res.size() == DirectionCount);
@@ -131,9 +136,9 @@ MeshDataType meshChunk(const MeshJob& job){
         }
 
         const f32 block_opacity = block.getOpacity();
-        auto neighbour_blocks = getNeighbourBlocks(job,chunkLocal);
+        auto adjacent_blocks = getSurroundingBlocks(job,chunkLocal);
 
-        for (const auto& [face_idx, adjacentBlock] : enumerate(neighbour_blocks)) {
+        for (const auto& [face_idx, adjacentBlock] : enumerate(adjacent_blocks)) {
             const auto faceDir = static_cast<Direction>(face_idx);
             if constexpr (same_as_nocvref<OpaqueMeshData,MeshDataType>){
                 // skip opaque blocks in the opaque meshing function

@@ -55,70 +55,30 @@ struct MeshState{
     bool isClean() const noexcept{return !dirty;}
 };
 
-// @brief: 
-// A logical 'chunk' gets a ChunkState entry when it is first enqueued into the gen queue.
 struct ChunkState{
     ChunkState(WorldChunkCoord _key) :
         coord(_key),
         gen(GenStage::on_queue,false),
         mesh(MeshStage::awaiting_generation, false) {}
     ~ChunkState()=default;
-    MeshRevisionID goal_meshRevisionID{};
     WorldChunkCoord coord;
     GenState gen;
     MeshState mesh;
 
-    template<typename Fn>
-    void transition(Fn&& fn) {
-        std::invoke(fn, this);
-    }
-    template<typename Fn>
-    void transition_if(const Fn& fn) &{
-        std::invoke(fn, *this);
-    }
 
-    inline void mark_dirty_mesh(){ 
-        goal_meshRevisionID++;
-        mesh.dirty=true; 
-    }
-    inline void mark_clean_mesh(MeshRevisionID clean_id){
-        assert_eq(clean_id, goal_meshRevisionID);
-        mesh.dirty=false; 
-    }
-    inline void mark_dirty_gen (){
-        gen.dirty=true; 
-    }
-    inline void mark_clean_gen (){
-        gen.dirty=false; 
-    }
-    inline bool ready_for_mesh()const{
-        return mesh.isDirty() || mesh.stage == MeshStage::ready_for_enqueue;
-    }
 
 };
 
 
-inline void gen_enqueue(ChunkState* s) {
-   1; // zorp
-}
-inline void gen_dequeue(ChunkState* s) {
-    assert(s->gen.stage==GenStage::on_queue);
-    assert(s->mesh.stage == MeshStage::awaiting_generation);
-    s->mesh.stage = MeshStage::ready_for_enqueue;
-    s->gen.stage = GenStage::done;
-}
+void transition_logger(const ChunkState& before, const ChunkState& after);
+FORWARD_DECL_STRUCT(ChunkEntry)
+void gen_enqueue (ChunkEntry* e);
+void gen_dequeue (ChunkEntry* e);
+void mesh_enqueue(ChunkEntry* e);
+void mesh_dequeue(ChunkEntry* e);
 
-inline void mesh_enqueue(ChunkState* s) {
-    assert(s->gen.stage==GenStage::done);
-    assert(s->mesh.stage == MeshStage::ready_for_enqueue);
-    s->mesh.stage = MeshStage::on_queue;
-}
+void mark_mesh_dirty(ChunkEntry* e);
 
-inline void mesh_dequeue(ChunkState* s) {
-    assert(s->gen.stage==GenStage::done);
-    assert(s->mesh.stage == MeshStage::ready_for_enqueue);
-    s->mesh.stage = MeshStage::done;
-}
 static constexpr u8 ChunkDebugFillOpacity = 12;
 static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
 static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
@@ -142,10 +102,31 @@ struct ChunkEntry{
     bounding_box(
                 toWorldOrigin(chunkCoord).raw(),
                 toWorldOrigin(chunkCoord).raw()+Chunk::Extents
-    ) {}
+    ),
+    state(chunkCoord){}
 
     AABB bounding_box; 
     ChunkMetadata metadata;
-    std::vector<const Chunk*> neighbours={6, nullptr};
+    std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(6,std::nullopt);
     Chunk block_data;
+    ChunkState state;
+    bool is_mesh_dirty()const noexcept{
+        return loaded_mesh_revision!=target_mesh_revision;
+    }
+    bool is_mesh_clean()const noexcept{
+        return loaded_mesh_revision==target_mesh_revision;
+    }
+    void mark_mesh_dirty()noexcept{
+        target_mesh_revision++;
+    }
+    template<typename Fn>
+    void state_transition(Fn&& fn) {
+        auto before = ChunkState(state);
+        std::invoke(fn, this);
+        auto after = ChunkState(state);
+        transition_logger(before,after);
+    }
+    MeshRevisionID target_mesh_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
+    MeshRevisionID scheduled_mesh_revision{0};  // newest revision in flight (on queue)     ()
+    MeshRevisionID loaded_mesh_revision{0};     // The data on the gpu right now
 };

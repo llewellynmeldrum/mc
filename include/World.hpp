@@ -24,7 +24,10 @@ struct World {
     inline void setup(){
         chunkMap.launchGenerator();
     }
-
+    void make_chunk_entry(WorldChunkCoord key);
+    decltype(auto) try_get_chunk_entry(WorldChunkCoord key){
+        return chunkMap.entries.try_get(key);
+    }
 
 
     inline std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist) {
@@ -34,7 +37,7 @@ struct World {
 
         auto add = [this, &candidates](i32 x, i32 y, i32 z){
             const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            const auto state = chunkMap.states.try_get(key);
+            const auto state = chunkMap.entries.try_get(key);
             candidates.emplace_back(static_cast<bool>(state),key);
         };
 
@@ -57,30 +60,6 @@ struct World {
         return candidates;
     }
 
-    inline std::vector<WorldChunkCoord> 
-    meshReadyChunksInRad(WorldChunkCoord chunkCoord, glm::ivec3 extents, i32 maxChunks=0) {
-        std::vector<WorldChunkCoord> candidates;
-
-        auto add = [this, &candidates](i32 x, i32 y, i32 z){
-            const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
-            bool added = chunkMap.states.if_contains_else(
-                key,
-                [&](ChunkState& state){
-                    if (state.ready_for_mesh()){
-                        candidates.emplace_back(key);
-                        return true;
-                    }
-                    return false;
-                },
-                [&](){
-                    return false;
-                }
-            );
-            return added;
-        };
-        SpiralIterateRange(maxChunks, chunkCoord,extents.y, extents.x, add);
-        return candidates;
-    }
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;
 

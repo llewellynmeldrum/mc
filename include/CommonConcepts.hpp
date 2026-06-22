@@ -6,6 +6,7 @@
 #include <ranges>
 #include <type_traits>
 #include <string>
+#include <vector>
 #include "Macros.hpp"
 // SECTION:: STL wrappers that are more understandable semantically (for me).
 // Some are more for convinience.
@@ -43,6 +44,11 @@ concept has_default_ctor = std::is_default_constructible_v<T>;
 template<typename T1, typename T2>
 concept same_type = std::same_as<T1,T2>;
 
+template<typename T1, typename T2>
+concept same_type_no_cvref = std::same_as<std::remove_cvref_t<T1>,std::remove_cvref_t<T2>>;
+
+template<typename T, typename U1, typename U2>
+concept same_as_either = std::same_as<T, U1> || std::same_as<T,U2>;
 template <typename T>
 concept pointer_like = requires(T ptr) {
     *ptr;
@@ -76,7 +82,6 @@ static_assert(array_like<std::vector<int>>);
 // TODO: Make this concept work, then make the map overload, then format
 template <typename C>
 concept map_like = requires(C c){
-    typename std::remove_cvref_t<C>::value_type;
     typename std::remove_cvref_t<C>::mapped_type;
     typename std::remove_cvref_t<C>::key_type;
 

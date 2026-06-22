@@ -109,6 +109,11 @@ run-ausan: ausan
 
 # --------------------------------------------------
 # Utilities
+#
+test_hashmap: configure
+	cmake --build build --target test_hashmap
+	ctest --test-dir build --verbose
+
 
 db: configure
 	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json

@@ -112,16 +112,16 @@ void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
     }
     bool showGenState = sim->ui.dbg_view.showGenState;
     for (const auto& [hasStateEntry, entryCoord]: inRadius){
-        auto entryColor = showGenState ? GenDebugColor(std::nullopt) :
-                                         MeshDebugColor(MeshStage::awaiting_generation);
+        auto entryColor = DefaultDebugColor();
         if (hasStateEntry){
-            const auto* state = sim->world.chunkMap.states.at(entryCoord);
-            if (HIDE_CLEAN_CHUNKS && state->mesh.isClean()){
+            const auto* entry = sim->world.chunkMap.entries.at(entryCoord);
+            const auto& state = entry->state;
+            if (HIDE_CLEAN_CHUNKS && state.mesh.isClean()){
                 continue; // skip, else visual clutter is too bad
             }
-            auto skip = sim->world.chunkMap.chunk_entries.if_contains(
+            auto skip = sim->world.chunkMap.entries.if_contains(
                 entryCoord,
-                [](auto entry){
+                [](ChunkEntry& entry)->bool{
                     if (HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
                         return true;
                     }
@@ -129,8 +129,8 @@ void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
                 }
             );
             if (skip) continue;
-            entryColor = showGenState ? GenDebugColor(state->gen) :
-                                         MeshDebugColor(state->mesh);
+            entryColor = showGenState ? GenDebugColor(state.gen) :
+                                         MeshDebugColor(state.mesh);
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
     }

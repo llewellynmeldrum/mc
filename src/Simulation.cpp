@@ -1,5 +1,6 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include <algorithm>
+#include <optional>
 #include <print>
 
 #include "Chunk.hpp"
@@ -93,8 +94,6 @@ bool Simulation::inPlayerFrustum(WorldChunkCoord coord){
 }
 
 
-[[deprecated]]void Simulation::markInsideFrustum(){
-}
 void Simulation::cullMeshes(bool enableFrustumCulling){
     // if a mesh is outside of render dist, but still being meshed, cull it.
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
@@ -166,25 +165,27 @@ std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t max
 
     i32 minY = oy-dist;
     i32 maxY = oy+dist;
-    SpiralIterateRange(chunkCoord, SIMULATION_DIST*2, SIMULATION_DIST, 
-                       [this, &candidates](i32 x, i32 y, i32 z) -> bool {
-        const auto key = WorldChunkCoord{x,y,z};
-        // 1. if an state entry exists, check if it needs regeneration.
-        auto* state = world.chunkMap.states.try_get(key);
-        if(state){
-            if (state->gen.isDirty()){
-                candidates.emplace_back(key);
-                return true;
-            }else {
-                return false;
-            }
+    SpiralIterateRange(
+        chunkCoord, 
+        SIMULATION_DIST*2, 
+        SIMULATION_DIST, 
+        [this, &candidates](i32 x, i32 y, i32 z) -> bool {
+            const auto key = WorldChunkCoord{x,y,z};
+            bool candidate_qualifies = world.chunkMap.entries.if_contains_else(
+                key,
+                [&](ChunkEntry& entry){
+                    // 1. if an entry exists, check if it needs regeneration.
+                    return entry.state.gen.isDirty();
+                },
+                [&](){
+                    // 2. if no entry exists; then the chunk hasnt been generated => it qualifies.
+                    return true;
+                }
+            );
+            if (candidate_qualifies) candidates.emplace_back(key);
+            return candidate_qualifies;
         }
-
-        // 2. if no state entry exists; then the chunk hasnt been generated => it qualifies.
-        candidates.emplace_back(key);
-        return true;
-
-    });
+    );
     return candidates;
 }
 
@@ -201,13 +202,13 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
             world.genConfig
         );
         if (success){
-            world.chunkMap.states.if_contains_else(chunkWorldPos, 
-                [&](ChunkState& state){
-                    state.transition(gen_enqueue);
+            world.chunkMap.entries.if_contains_else(
+                chunkWorldPos, 
+                [&](ChunkEntry& entry){
+                    entry.state_transition(gen_enqueue);
                 },
                 [&](){
-                    bool inserted = world.chunkMap.states.try_emplace(chunkWorldPos,chunkWorldPos);
-                    assert(inserted);
+                    world.make_chunk_entry(chunkWorldPos);
                 }
             );
             count++;
@@ -217,22 +218,64 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     return count;
 }
 
+auto Simulation::construct_mesh_job(WorldChunkCoord candidateCoord){
+        auto* entry = AT(world.chunkMap.entries,candidateCoord);
+        auto current_revision = entry->scheduled_mesh_revision;
+        std::vector<std::optional<ChunkStore>> neighbours_copy;
+        for (const auto& neighbour_coord: entry->neighbours){
+            if (!neighbour_coord){
+                neighbours_copy.emplace_back(std::nullopt);
+                continue;
+            }
+            world.chunkMap.entries.if_contains_else(
+                neighbour_coord.value(),
+                [&](ChunkEntry& neighbour){
+                    std::optional<ChunkStore> copy = {neighbour.block_data};
+                    neighbours_copy.emplace_back(copy);
+                },
+                [&](){
+                    neighbours_copy.emplace_back(std::nullopt);
+                }
+            );
+        }
+    return MeshJob{current_revision,candidateCoord,&rend.atlas,entry,neighbours_copy};
+}
 std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     
     const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
-    const auto candidateList = world.meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS, maxJobs);
+    auto meshReadyChunksInRad = [&](WorldChunkCoord chunkCoord, glm::ivec3 extents, i32 maxChunks=0) {
+        std::vector<WorldChunkCoord> candidates;
+        auto add = [&](i32 x, i32 y, i32 z){
+            const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
+            bool added = world.chunkMap.entries.if_contains_else(
+                key,
+                [&](ChunkEntry& entry){
+                    if (entry.state.gen.stage != GenStage::done){
+                        return false;
+                    }
+                    const auto& target = entry.target_mesh_revision;
+                    const auto& scheduled = entry.scheduled_mesh_revision;
+                    if ((entry.state.mesh.stage == MeshStage::ready_for_enqueue || entry.state.mesh.stage == MeshStage::done) && target > scheduled){
+                        // only enqueue jobs if the one scheduled is too old 
+                        candidates.emplace_back(key);
+                        return true;
+                    }
+                    return false;
+                },
+                [&](){
+                    return false;
+                }
+            );
+            return added;
+        };
+        SpiralIterateRange(maxChunks, chunkCoord,extents.y, extents.x, add);
+        return candidates;
+    };
+    const auto candidateList = meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS, maxJobs);
 
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
-        auto entry = world.chunkMap.chunk_entries.at(candidateCoord);
-        auto state = world.chunkMap.states.at(candidateCoord);
-        auto current_revision = world.chunkMap.get_current_mesh_revision(candidateCoord);
-        res.emplace_back(
-            current_revision,
-            candidateCoord,
-            &rend.atlas,
-            entry
-        );
+        res.push_back(construct_mesh_job(candidateCoord));
     }
     return res;
 }
@@ -242,16 +285,17 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
     auto jobsForMeshing = findMeshJobs(maxJobs);
 
     std::size_t count = 0;
-    for (std::size_t attempts = 0; attempts<maxMeshDequeueAttempts; attempts++){
+    for (std::size_t attempts = 0; attempts<maxMeshEnqueueAttempts; attempts++){
         auto& q = rend.meshers.meshJobQueue;
         count = q.try_batch_enqueue(jobsForMeshing);
-        if (count >= 0) break; // we have successfully enqueued the batch
+        if (count > 0) break; // we have successfully enqueued the batch, stop attempts
     }
 
-    for (const auto& job: jobsForMeshing){
-        const auto entry = world.chunkMap.chunk_entries.at(job.chunkCoord);
-        const auto state = world.chunkMap.states.at(job.chunkCoord);
-        state->transition(mesh_enqueue);
+    if (count>0){
+        for (const auto& job: jobsForMeshing){
+            auto* entry = AT(world.chunkMap.entries,job.chunkCoord);
+            entry->state_transition(mesh_enqueue);
+        }
     }
     profiler.bench_end("enqueueMesh");
     return count;
@@ -270,15 +314,10 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
     };
     auto candidateMeshes = drain_mesh_results(rend.meshers.meshResultQueue,maxUploads);
     for (const auto& [candidate_revision, chunkCoord, opaque, transparent] : candidateMeshes){
-        // TODO: consider making meshes optional?
-        // A mesh might need to be uploaded evne if empty, and the draw just gets nullified
-
-        auto state = world.chunkMap.states.try_get(chunkCoord);
-        auto entry = world.chunkMap.chunk_entries.try_get(chunkCoord);
-        auto loaded_mesh_entry = world.chunkMap.mesh_entries.get_or_insert(chunkCoord,candidate_revision);
+        auto* entry = world.chunkMap.entries.try_get(chunkCoord);
 
         // only accept newer or equal 
-        if (candidate_revision >= loaded_mesh_entry->revisionID){
+        if (candidate_revision > entry->loaded_mesh_revision){
             if (opaque.vertices.size()>0){
                 rend.uploadMesh(chunkCoord, std::move(opaque));
             } 
@@ -286,16 +325,12 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
                 rend.uploadMesh(chunkCoord, std::move(transparent));
             } 
         }
-        if (state && state->mesh.stage==MeshStage::on_queue){
-            state->transition(mesh_dequeue);
-            if (candidate_revision >= state->goal_meshRevisionID){
-                state->mark_clean_mesh(candidate_revision);
-            }
-
+        if (entry->state.mesh.stage==MeshStage::on_queue){
+            entry->state_transition(mesh_dequeue);
             this->chunksMeshed++;
         }else{
             LOG_WARN("(mesh_dequeue): Homeless mesh not uploaded because its entry was deleted whilst it was being meshed.\n"
-                     "\t\t State:{}",state ? std::format("{}",*state):"n/a");
+                     "\t\t State:{}",entry ? std::format("{}",entry->state):"n/a");
             // perhaps recreate the state entry here?
             continue;
         }
@@ -315,7 +350,7 @@ std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
             if (result.has_value()){
                 output.emplace_back(*result);
             } else{
-                break; // give up this frame?
+                break; // give up this frame
             }
         }
         return output;
@@ -323,16 +358,25 @@ std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
     auto genResults = drain_gen_results(world.chunkMap.generator.genResultQueue,maxUploads);
     auto count = genResults.size();
     for (const auto& newGen : genResults){
-        bool err = world.chunkMap.states.if_contains_else(
+        bool success = world.chunkMap.entries.if_contains_else(
             newGen.chunkCoord,
-            [](ChunkState& state){
-                return state.gen.stage==GenStage::on_queue;
+            [&](ChunkEntry& entry){
+                if (entry.state.gen.stage==GenStage::on_queue){
+                    entry.state_transition(gen_dequeue);
+                    return true;
+                }else{
+                    LOG_DEBUG("(gen_upload): Discarded homeless chunk gen data @{}.", newGen.chunkCoord);
+                    return false;
+                }
             },
             [](){
                 return false;
             }
         );
-        if (err){
+        if (success){
+            world.chunkMap.uploadGeneratedChunk(newGen);
+
+        }else{
             LOG_DEBUG("(gen_upload): Discarded homeless chunk gen data @{}.", newGen.chunkCoord);
         }
     }
@@ -344,18 +388,18 @@ void Simulation::draw() {
     profiler.bench_start("draw");
     chunkOutlines.clear();
 
-    world.chunkMap.chunk_entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
-        const auto* state = world.chunkMap.states.at(key);
+    world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
+        const auto& state = entry.state;
         if (inPlayerFrustum(key)){
-            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && state->mesh.isClean()){
+            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
                 return;
             }
             if (DebugChunkRenderer::HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
                 return;
             }
-            auto color = ui.dbg_view.showMeshState    
-                    ? MeshDebugOutlineColor(state->mesh)
-                    : GenDebugOutlineColor(state->gen);
+            auto color = ui.dbg_view.showGenState
+                    ? GenDebugOutlineColor(state.gen)
+                    : MeshDebugOutlineColor(state.mesh);
 
             chunkOutlines.append_range(entry.bounding_box.getLines(color));
         }
@@ -364,14 +408,14 @@ void Simulation::draw() {
         auto cam_chunk = toWorldChunkCoord(playerCam.pos);
         for (const auto& [dir, offset]: eachDirOffset){
             const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
-            world.chunkMap.chunk_entries.if_contains(
+            world.chunkMap.entries.if_contains(
                 neighbour,
                 [&](ChunkEntry& entry){
                     auto color = NeighbourDebugOutlineColor(128);
                     chunkOutlines.append_range(entry.bounding_box.getLines(color,true));
                 });
         }
-        world.chunkMap.chunk_entries.if_contains(
+        world.chunkMap.entries.if_contains(
             cam_chunk,
             [&](ChunkEntry& entry){
                 auto color = NeighbourDebugOutlineColor();
@@ -422,12 +466,11 @@ void Simulation::freeCursor(){
 // -> How do we inform meshes on the queue that their entries have been nuked?
 //      What do we do with those homeless meshes? we must check for and discard them. 
 void Simulation::unGenerateAllChunks(){
-    world.chunkMap.chunk_entries.clear();
-    world.chunkMap.states.clear();
+    world.chunkMap.entries.clear();
 }
 void Simulation::unMeshAllChunks(){
-    world.chunkMap.states.for_each([](WorldChunkCoord coord, ChunkState& state){
-        state.mesh.stage = MeshStage::ready_for_enqueue;
+    world.chunkMap.entries.for_each([](WorldChunkCoord coord, ChunkEntry& entry){
+        entry.state.mesh.stage = MeshStage::ready_for_enqueue;
     });
     rend.opaqueChunkMeshes.clear();
     rend.transparentChunkMeshes.clear();

@@ -5,6 +5,7 @@
 #include "glmWrapper.hpp"
 #include "LM.hpp"
 #include "Line3D.hpp"
+#include "Direction.hpp"
 
 FORWARD_DECL_STRUCT(Camera);
 

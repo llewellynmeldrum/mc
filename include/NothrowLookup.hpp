@@ -7,6 +7,7 @@
 #include <debugging>
 #include <type_traits>
 #include <utility>
+#include <print>
 // BRIEF:
 // Exception safe `.at()` replacement for most STL containers.
 // These macros capture type info, caller source location, container name, etc,
@@ -25,6 +26,8 @@ template<typename C, typename K>
     } else if constexpr(map_like<C>){
         return cont.contains(key);
     } else{
+        // ERROR: 
+        // add a specialization for my hashmap
         std::println(stderr, "Container type {} is neither MapLike nor ArrayLike. Check CommonConcepts.hpp",pretty_type_name(cont));
         DEBUG_BREAKPOINT();
         return false;
@@ -49,7 +52,7 @@ template<typename T>
 // we make this cold and noinline, to keep the actual checking function smaller (since its always inline.)
 // That way, there is less cost in the cold path.
 template<typename C, typename K>
-[[gnu::cold, gnu::noinline]]
+[[gnu::cold, gnu::noinline,noreturn]]
 inline void report_oor_intermediate(C& cont, K key,std::string_view cont_name, std::string_view key_name, refl::source_location loc){
         i64 sz = cont.size();
         if constexpr(map_like<C>){ 

@@ -24,6 +24,7 @@
 #include "ImGuiWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "GLFWWrapper.hpp"
+#include "ChunkMap.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -165,7 +166,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                 #define X(name) UI::ColoredText(GenDebugOutlineColor(GenStage :: name), #name);
                 GEN_STAGE_LIST
                 #undef X
-            } else if (ctx->ui.dbg_view.showMeshState){
+            } else{
                 #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshStage:: name), #name);
                 MESH_STAGE_LIST
                 #undef X
@@ -175,63 +176,87 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
 
 
         window.section("Positions",[ctx]{
+            auto mesh_state_color = DefaultDebugColor();
+            auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
             bool showGenState = ctx->ui.dbg_view.showGenState;
-            auto entryColor01 = showGenState ? 
-                GenDebugOutlineColor(std::nullopt) : 
-                MeshDebugOutlineColor(MeshStage::ready_for_enqueue) ;
-            ChunkEntry* entry = nullptr;
-            std::string status_str{};
-            std::string suffix{};
-
-            ctx->world.chunkMap.states.if_contains(
+            std::string gen_state_str{"No state entry."};
+            std::string mesh_state_str{"No state entry."};
+            ctx->world.chunkMap.entries.if_contains(
                 ch_pos,
-                [&](ChunkState& state){
-                    entryColor01 = showGenState ? GenDebugOutlineColor(state.gen) :
-                                                  MeshDebugOutlineColor(state.mesh);
-                    if (state.mesh.isClean()){
-                        // both returns types being void not workign
-                        // the constraints are wrong
-                        ctx->rend.opaqueChunkMeshes.if_contains_else(
-                            ch_pos,
-                            [](Mesh& mesh){
+                [&](ChunkEntry& entry){
+                    ChunkState& state = entry.state;
+                    GenStage gen_stage{};
+                    bool gen_clean{};
+                    bool noBlocks{};
+                    bool opaque_loaded{};
+                    bool transp_loaded{};
+                    bool opaque_empty{};
+                    bool transp_empty{};
+                    bool mesh_clean{};
+                    MeshStage mesh_stage{};
+                    gen_stage =state.gen.stage;
+                    gen_clean = state.gen.isClean();
 
-                            },
-                            [](){
-                            }
-                        );
-                        auto it= std::ranges::find_if(ctx->rend.opaqueChunkMeshes,[ch_pos](const Mesh& mesh)->bool{
-                            return mesh.chunkCoord==ch_pos;
-                        });
-                        if (it != ctx->rend.opaqueChunkMeshes.end()){
-                            if (it->isLoaded()){
-                                suffix = "LOADED.";
-                            }else {
-                                suffix = "unloaded.";
-                            }
-                        }else{
-                            suffix = "Finished meshing, no opaqueMesh.";
+                    
+                    ctx->world.chunkMap.entries.if_contains(
+                        ch_pos,
+                        [&](ChunkEntry& entry){
+                            noBlocks = entry.block_data.empty();
                         }
-                    }else{
-                            suffix = "not finished meshing.";
-                    }
-                    if (showGenState){
-                        status_str = std::format("{}",(*state)->gen) + ", "+ suffix;
-                    }else{
-                        status_str = std::format("{}",(*state)->mesh) + ", "+ suffix;
-                    }
+                    );
+                    
+                    gen_state_str = std::format(
+                        "{} ({})  {}",
+                        state.gen,
+                        gen_clean ? "clean"     : "dirty",
+                        noBlocks ? "(empty)" : ""
+                    );
+                    gen_state_color = GenDebugOutlineColor(state.gen);
+
+                    mesh_stage=state.mesh.stage;
+                    mesh_clean = state.mesh.isClean();
+
+                    
+                    ctx->rend.opaqueChunkMeshes.if_contains(
+                        ch_pos,
+                        [&](Mesh& mesh){
+                            opaque_empty = mesh.vertex_count==0;
+                            opaque_loaded = mesh.isLoaded();
+                        }
+                    );
+                    ctx->rend.transparentChunkMeshes.if_contains(
+                        ch_pos,
+                        [&](Mesh& mesh){
+                            transp_empty = mesh.vertex_count==0;
+                            transp_loaded = mesh.isLoaded();
+                        }
+                    );
+                    
+                    mesh_state_str = std::format(
+                        "{} ({})  OP:{}{} TR:{}{}",
+                        state.mesh,
+                        mesh_clean ? "clean"     : "dirty",
+                        opaque_loaded ? "LOADED" : "UNLOADED",
+                        opaque_empty ? "(empty)" : "",
+                        transp_loaded ? "LOADED" : "UNLOADED",
+                        transp_empty ? "(empty)" : ""
+                    );
+                    mesh_state_color = MeshDebugOutlineColor(state.mesh);
+                    // state.gen 
+                    // opqMesh: [Loaded|Unloaded] [(empty)] 
+                    // trnMesh: [Loaded|Unloaded] [(empty)] 
+                    // isDirty
                 }
             );
-            std::string status_str = "";
-            std::string suffix = ", unloaded.";
-            if (state.has_value()){
-            }
+
+
 
             std::string facing_str = get_facing_str(ctx->playerCam.getFront());
             IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
             IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
-            UI::SameLine();
-            UI::ColoredText01(entryColor01, status_str);
+            UI::ColoredText01(gen_state_color ,"G:{}", gen_state_str);
+            UI::ColoredText01(mesh_state_color,"M:{}", mesh_state_str);
             IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->playerCam.pitch, ctx->playerCam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });
@@ -312,14 +337,18 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
             });
 
             window.section("World Data:",[ctx]{
-            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-            IG::Text("Loaded generated chunks: %lu", ctx->world.chunkMap.chunk_entries.size());
-            IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pending_writes.size());
-            {
-                std::size_t successful = ctx->world.chunkMap.pendingWritesSuccessful;
-                std::size_t  attempted = ctx->world.chunkMap.pendingWritesAttempted;
-                IG::Text("Pending chunk writes completed: %lu/%lu", successful, attempted);
-            }
+                IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+                IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
+                IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pending_writes.size());
+                {
+                    int successful = ctx->world.chunkMap.pendingWritesSuccessful;
+                    int attempted = ctx->world.chunkMap.pendingWritesAttempted;
+                    IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
+                }
+                IG::Text(".");
+                IG::Text(".");
+                IG::Text(".");
+                IG::Text(".");
             });
     });
 }
@@ -332,7 +361,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
     ImGui_ImplOpenGL3_Init();
     win_configs.insert_range(
         win_configs.begin(),std::vector<WindowConfig>{ 
-            {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::Overlay, drawGeneralDebugOverlay},
+            {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::Overlay, drawGeneralDebugOverlay,this},
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
             {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow,this},

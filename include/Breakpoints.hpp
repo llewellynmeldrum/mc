@@ -1,5 +1,4 @@
 #pragma once
-#include <cstdio>
 #define BRK_ASSERT(invariant) if (!invariant){ DEBUG_BREAKPOINT("FAILED ASSERTION: [" #invariant "]");}
 
 

@@ -1,77 +1,70 @@
 #include "ChunkEntry.hpp"
 #include "CoordTypes.hpp"
+#include "FormatSpecs.hpp"
 #include "DebugUI.hpp"
-using ChunkGenState::DirtyGen;
-using ChunkGenState::OnGenerationQueue;
-using ChunkGenState::FinishedGeneration;
-
-using ChunkMeshState::NoMesh;
-using ChunkMeshState::OnMeshQueue;
-using ChunkMeshState::CleanMeshed;
-using ChunkMeshState::DirtyMeshed;
 
 
 #include "Simulation.hpp"
 static Simulation* sim{};
 
+void gen_enqueue(ChunkEntry* s) {
+   1; // zorp
+}
+void gen_dequeue(ChunkEntry* e) {
+    assert_eq(e->state.gen.stage,GenStage::on_queue);
+    assert_eq(e->state.mesh.stage,MeshStage::awaiting_generation);
+    e->state.mesh.stage = MeshStage::ready_for_enqueue;
+    e->state.gen.stage = GenStage::done;
+}
+
+void mark_mesh_dirty(ChunkEntry* e) {
+//    assert_eq(e->state.gen.stage,GenStage::done);
+//    assert_eq(e->state.mesh.stage,MeshStage::done);
+    e->state.mesh.dirty = true;
+    e->target_mesh_revision++;
+    assert_neq(e->target_mesh_revision,e->loaded_mesh_revision);
+}
+void mark_mesh_clean(ChunkEntry* e) {
+//    assert_eq(e->state.gen.stage,GenStage::done);
+//    assert_eq(e->state.mesh.stage,MeshStage::done);
+    assert_eq(e->target_mesh_revision,e->loaded_mesh_revision);
+    e->state.mesh.dirty = false;
+    e->target_mesh_revision++;
+}
+
+void mesh_enqueue(ChunkEntry* e) {
+    assert_eq(e->state.gen.stage,GenStage::done);
+    assert(e->state.mesh.stage == MeshStage::ready_for_enqueue || e->state.mesh.stage == MeshStage::done);
+
+    e->scheduled_mesh_revision=e->target_mesh_revision;
+    e->state.mesh.stage = MeshStage::on_queue;
+}
+
+void mesh_dequeue(ChunkEntry* e) {
+    assert_eq(e->state.gen.stage,GenStage::done);
+    assert_eq(e->state.mesh.stage,MeshStage::on_queue);
+    e->state.mesh.stage = MeshStage::done;
+}
 void init_state_transition_logger(Simulation* _sim){
     sim=_sim;
 }
 
-template<ChunkGenState A, ChunkGenState B>
-void state_transition_wrapper(WorldChunkCoord coord, ChunkGenState& cur){
-    auto str = makeStateTransition<A, B,true>(cur);
-    log_to_chunk(coord,"G: {}",str);
-}
-
-template<ChunkMeshState A, ChunkMeshState B>
-void state_transition_wrapper(WorldChunkCoord coord, ChunkMeshState& cur){
-    auto str = makeStateTransition<A, B,true>(cur);
-    log_to_chunk(coord,"M: {}",str);
-}
-
-
-void ChunkState::logDirtyGenEnqueue(){ 
-    // for generated chunks which we want to regenerate (for debug work on world gen)
-    state_transition_wrapper<DirtyGen, OnGenerationQueue>(key,gen);
-}
-
- void ChunkState::logGenDequeue(){ 
-    state_transition_wrapper<OnGenerationQueue, FinishedGeneration>(key,gen);
-}
-
-
-
-
- void ChunkState::logNewMeshEnqueue(){
-    assert(gen==FinishedGeneration);
-    state_transition_wrapper<NoMesh,OnMeshQueue>(key,mesh);
-}
-
- void ChunkState::logDirtyMeshEnqueue(){
-    assert(gen==FinishedGeneration);
-    state_transition_wrapper<DirtyMeshed,OnMeshQueue>(key,mesh);
-}
-
-
- bool ChunkState::makeDirtyIfMeshed(){
-    if (mesh==CleanMeshed){
-        markMeshAsDirty();
-        return true;
+void transition_logger(const ChunkState& before, const ChunkState& after){
+    if (before.mesh.dirty != after.mesh.dirty){
+        std::string dirty_state = before.mesh.dirty ? "dirty -> clean" : "clean -> dirty";
+        log_to_chunk(before.coord,"M: {}",dirty_state);
     }
-    return false;
-};
- void ChunkState::logDirtyMeshDequeue(){ 
-    state_transition_wrapper<OnMeshQueue,DirtyMeshed>(key,mesh);
-}
- void ChunkState::logCleanMeshDequeue(){ 
-    state_transition_wrapper<OnMeshQueue,CleanMeshed>(key,mesh);
-}
- void ChunkState::markMeshAsDirty(){
-    state_transition_wrapper<CleanMeshed,DirtyMeshed>(key,mesh);
-    goal_meshRevisionID++;
-};
+    if (before.gen.dirty != after.gen.dirty){
+        std::string dirty_state = before.gen.dirty ? "dirty -> clean" : "clean -> dirty";
+        log_to_chunk(before.coord,"M: {}",dirty_state);
+    }
 
- void ChunkState::markDirtyGen(){
-    state_transition_wrapper<FinishedGeneration, DirtyGen>(key,gen);
-};
+    if (before.mesh.stage != after.mesh.stage){
+        std::string s = std::format("M: {} -> {}",before.mesh.stage,after.mesh.stage);
+        log_to_chunk(before.coord,"G: {}",s);
+    }
+    if (before.gen.stage != after.gen.stage){
+        std::string s = std::format("M: {} -> {}",before.gen.stage,after.gen.stage);
+        log_to_chunk(before.coord,"G: {}",s);
+    }
+}

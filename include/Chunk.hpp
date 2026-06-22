@@ -53,6 +53,8 @@ struct ChunkMetadata {
 struct Chunk{
     Chunk() = default;
     ~Chunk() = default;
+    constexpr std::size_t size() const noexcept {return data.size();}
+    constexpr bool empty() const noexcept {return data.size()==0;}
 
     std::array<Block,CHUNK_SIZE>data{};
 

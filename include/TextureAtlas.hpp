@@ -3,6 +3,7 @@
 #include "CommonUtils.hpp"
 #include "Texture2D.hpp"
 #include "Vertex.hpp"
+#include "Direction.hpp"
 #include <string>
 
 struct TextureAtlas {

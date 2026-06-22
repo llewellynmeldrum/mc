@@ -16,6 +16,7 @@
 // src/Simulation.cpp
 struct Simulation {
   public:
+auto construct_mesh_job(WorldChunkCoord candidateCoord);
     void setupSimulation();
     Simulation() = default;
     ~Simulation() = default;
@@ -36,6 +37,7 @@ struct Simulation {
     static constexpr std::size_t maxGenUploadsPerFrame= 32;
     static constexpr std::size_t maxGenJobsPerFrame = 32;
     static constexpr std::size_t maxMeshUploadsPerFrame= 16;
+    static constexpr std::size_t maxMeshEnqueueAttempts = 4;
     static constexpr std::size_t maxMeshDequeueAttempts = 4;
     static constexpr std::size_t maxMeshJobsPerFrame = 128;
 

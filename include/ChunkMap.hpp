@@ -37,32 +37,19 @@ struct ChunkMap {
     ChunkGenerator generator;
     // NOTE: ENTRY MADE: on enqueue into MeshJobs (before meshing)
     HashMap<WorldChunkCoord, MeshRevisionID> current_mesh_revision;
-    // NOTE: ENTRY DELETED: 
 
-    // NOTE: ENTRY MADE: on enqueue into GenJobs (before generation)
-    // NOTE: ENTRY DELETED: World regen?
-    HashMap<WorldChunkCoord, std::unique_ptr<ChunkEntry>> chunk_entries;
 
-    // NOTE: A chunk MeshEntry contains information about the currently loaded mesh.
-    // NOTE: ENTRY MADE: on deqeueue from MeshResults (before mesh upload)
-    // NOTE: ENTRY DELETED: Idk
-    HashMap<WorldChunkCoord, std::unique_ptr<MeshEntry>> mesh_entries;
 
     // NOTE: ENTRY MADE: Either on GenData upload, or when a chunk tries to write to it
     // NOTE: ENTRY DELETED: When the queue for a chunk is empty. Not sure how i feel about this.
     HashMap<WorldChunkCoord, PendingWriteQueue> pending_writes;
 
-    // NOTE: An entry is made into this map right before generation enqueue, 
-    // and is **NEVER UNLOADED OR REMOVED**. It persists through mesh unloading
+
     // NOTE: ENTRY MADE: on enqueue into GenJobs (before generation)
-    // NOTE: ENTRY DELETED: NEVER
-    HashMap<WorldChunkCoord, ChunkState> states;
+    // NOTE: ENTRY DELETED: World regen?
+    HashMap<WorldChunkCoord, ChunkEntry> entries;
 
 
-    inline MeshRevisionID get_current_mesh_revision(WorldChunkCoord coord){
-        auto current_revision = *current_mesh_revision.get_or_insert(coord,0);
-        return current_revision;
-    }
 
     inline bool has_pending_writes(WorldChunkCoord coord){
         return pending_writes.if_contains_else(

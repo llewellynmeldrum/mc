@@ -1,16 +1,22 @@
+
+//#include "FormatSpecs.hpp"
+
 #include "FmtStyle.hpp"
 #include "Assertion.hpp"
 #include "Breakpoints.hpp"
 #include "UnixHelpers.hpp"
 using namespace std;
 
-// TEMP:
-#define IGNORE_BREAKPOINTS
+#include <cstdio>
+#include <string>
+#include <format>
+#include <print>
+#include <exception>
 
-inline auto fn_fmt = fmt::style(fmt::ansi::bg_code_blocks, fmt::fg_rgb(141, 189, 251));
+inline auto fn_fmt = fmt::fg_rgb(141, 189, 251);
 inline auto file_fmt = fmt::fg_rgb(0, 203, 0);
 inline auto num_fmt = fmt::fg_rgb(180, 200, 200);
-inline auto misc_fmt = fmt::style(fmt::ansi::fg_rgb(122, 218, 229));
+inline auto misc_fmt = fmt::fg_rgb(122, 218, 229);
 inline auto intense_red_fmt = fmt::style(fmt::ansi::bold, fmt::ansi::fg_rgb(252, 148, 159));
 inline auto red_fmt = fmt::style(fmt::ansi::fg_rgb(252, 148, 159));
 inline auto type_fmt = fmt::style(fmt::ansi::fg_rgb(243, 211, 152));
@@ -37,7 +43,7 @@ auto banner_str(auto ch,  std::size_t n = unix::term_cols()){
     }
     return s+"\n";
 };
-std::string report_OOR(i64 cont_size, std::string_view err_msg, 
+void report_OOR(i64 cont_size, std::string_view err_msg, 
                        refl::variable cont_var, refl::variable key_var,  refl::source_location loc){
     using namespace std;
     auto line1 = report_location(loc,err_msg);
@@ -64,9 +70,9 @@ std::string report_OOR(i64 cont_size, std::string_view err_msg,
             err_specific,
             bot_banner);
     DEBUG_BREAKPOINT_QUIET();
-    return {};
+    std::abort();
 }
-std::string assert_failure(std::string_view name, refl::source_location loc,std::string_view note){
+void assert_failure(std::string_view name, refl::source_location loc,std::string_view note){
     using namespace std;
 
     string line1 = format(
@@ -92,7 +98,7 @@ std::string assert_failure(std::string_view name, refl::source_location loc,std:
             fmt::styled(intense_red_fmt,banner_str("▁"))
     );
     DEBUG_BREAKPOINT_QUIET();
-    return std::string(note);
+    std::abort();
 }
 
 void assert_failure(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc){
@@ -160,4 +166,5 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
             fmt::styled(intense_red_fmt,banner_str("▁"))
     );
     DEBUG_BREAKPOINT_QUIET();
+    std::abort();
 }

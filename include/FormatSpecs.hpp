@@ -5,6 +5,7 @@
 
 #include <format>
 
+#include "Direction.hpp"
 #include "Block.hpp"
 #include "DebugFormat.hpp"
 #include "FmtStyle.hpp"
@@ -114,7 +115,7 @@ template<>
 struct std::formatter<Vertex>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const Vertex& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}, {}]", dbg_fmt(val.pos), dbg_fmt(val.txCoords));
+		return std::format_to(ctx.out(), "[{}, {}]", val.pos, val.txCoords);
     }
 };
 
@@ -341,5 +342,17 @@ struct std::formatter<ChunkState>{
     inline auto format(ChunkState s, std::format_context& ctx) const{
         std::string_view str = "?ChunkState?";
         return format_to(ctx.out(), "{},{}", s.gen,s.mesh);
+    }
+};
+template<typename T>
+    requires std::formattable<T,char>
+struct std::formatter<std::optional<T>>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    inline auto format(std::optional<T> s, std::format_context& ctx) const{
+        if (s){
+            return format_to(ctx.out(), "{}",s.value());
+        }else{
+            return format_to(ctx.out(), "nullopt");
+        }
     }
 };

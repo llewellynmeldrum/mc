@@ -1,5 +1,6 @@
 #pragma once 
 #include "Types.h"
+#include <string_view>
 namespace refl{
 #define SRC_LOC_CURRENT()\
     refl::source_location{\
@@ -39,6 +40,7 @@ struct source_location{
     const char* _pretty_fn;
     int _line;
     int _col{0};
+    bool valid=true;
     const auto& file_name(){return _file;}
     const auto& function_name(){return _function;}
     const auto& pretty_fn(){return _pretty_fn;}

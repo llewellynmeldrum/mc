@@ -34,12 +34,6 @@
 #include "SlotMap.hpp"
 
 int TEST_MAIN(){
-    ChunkState state{{0,0,0}};
-    state.transition(gen_dequeue);
-    std::println("{}",state);
-
-    // contains
-    // some type of sorted/unsorted iteration.
     return 0;
 }
 

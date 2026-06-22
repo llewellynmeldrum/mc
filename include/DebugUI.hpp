@@ -1,6 +1,8 @@
 #pragma once 
+#include "ChunkEntry.hpp"
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
+#include "DebugChunkRenderer.hpp"
 #include "cppslop.hpp"
 #include <chrono>
 #include <format>
@@ -9,8 +11,14 @@ FORWARD_DECL_STRUCT(GLFWwindow)
 
 struct DebugViewSettings{
     bool showGenState = false;
-    bool showMeshState = false;
     bool showNeighbours = true;
+    glm::vec4 resolve_debug_outline_color(const ChunkState& state){
+        if (showGenState){
+            return GenDebugOutlineColor(state.gen);
+        } else{
+            return MeshDebugOutlineColor(state.mesh);
+        }
+    }
 };
 struct DebugUI{
      DebugUI();

@@ -53,11 +53,11 @@ struct MeshJob{
     std::size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
-    std::vector<ChunkStore> surroundingChunks{6,ChunkStore{}};
+    std::vector<std::optional<ChunkStore>> surroundingChunks;
     ChunkMetadata meta;
     const TextureAtlas* atlas;
 
-    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry):
+    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkStore>> neighbourChunks):
 
         meshRevisionID(_meshRevisionID),
         chunkCoord(key),
@@ -65,12 +65,8 @@ struct MeshJob{
         meta(entry->metadata),
         atlas(_atlas)
     {
+        surroundingChunks.append_range(neighbourChunks);
         assert(surroundingChunks.size()==N_NEIGHBOURS);
-        for (const auto [i,neighbour_ptr] : std::views::enumerate(entry->neighbours)){
-            if (!neighbour_ptr) continue;
-
-            surroundingChunks[i] = *neighbour_ptr;
-        }
     }
     // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
     // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,

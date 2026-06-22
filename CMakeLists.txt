@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 option(MC_ENABLE_IWYU "Run include-what-you-use" OFF)
+enable_testing()
 
 if(MC_ENABLE_IWYU)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE include-what-you-use)
@@ -39,7 +40,7 @@ target_compile_options(mc PRIVATE
     -Wfatal-errors
     -fdiagnostics-color=always
     -fmax-errors=1
-    -ftemplate-backtrace-limit=5
+    -ftemplate-backtrace-limit=0
     -fdiagnostics-show-template-tree
 )
 
@@ -124,6 +125,7 @@ option(MC_O1 "Enable -O1" OFF)
 option(MC_O2 "Enable -O2" OFF)
 option(MC_O3 "Enable -O3" OFF)
 
+
 if(MC_O1)
     target_compile_options(mc PRIVATE -O1)
 endif()
@@ -169,3 +171,15 @@ add_custom_target(debug
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
+
+enable_testing()
+add_executable(test_hashmap
+    tests/src/test_runner.cpp
+    src/Assertion.cpp)
+
+target_include_directories(test_hashmap PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(test_hashmap PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}tests/include")
+
+add_test(NAME HashMap_unit_tests COMMAND test_hashmap)

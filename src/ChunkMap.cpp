@@ -1,4 +1,5 @@
 
+#include "ChunkEntry.hpp"
 #include "FormatSpecs.hpp"
 #include "NothrowLookup.hpp"
 
@@ -9,6 +10,7 @@
 #include "CommonUtils.hpp"
 #include "Logger.hpp"
 #include <memory>
+#include <optional>
 #include <ranges>
 
 using namespace glm;
@@ -18,8 +20,7 @@ void ChunkMap::uploadGeneratedChunk(GenResult gen_res) {
     const auto& deferredWrites = gen_res.deferredWrites;
     const auto& chunkCoord = gen_res.chunkCoord;
 
-    auto* entry = chunk_entries.emplace(chunkCoord,chunkCoord);
-    auto* state = states.at(chunkCoord);
+    auto* entry = AT(entries,chunkCoord);
     // update entry to reflect generation data
     handlePendingWrites(chunkCoord, static_cast<ChunkSpan>(generatedBlocks), deferredWrites);
     
@@ -28,6 +29,7 @@ void ChunkMap::uploadGeneratedChunk(GenResult gen_res) {
     entry->metadata=generatedMeta;
     updateNeighbourMap(chunkCoord);
     updateBoundingBoxesMap(chunkCoord);
+    mark_mesh_dirty(entry); // allow for meshing
 }
 void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
@@ -42,10 +44,10 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
                     glm::ivec3 lo = chunkCoord.raw() + ivec3{-1,-1,-1};
                     glm::ivec3 hi = chunkCoord.raw() + ivec3{1,1,1};
                     ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){
-                        states.if_contains(
+                        entries.if_contains(
                             WorldChunkCoord{x,y,z},
-                            [](ChunkState& neigh_state){
-                                neigh_state.mark_dirty_mesh();
+                            [](ChunkEntry& neighbour_entry){
+                                neighbour_entry.mark_mesh_dirty();
                             }
                         );
                     });
@@ -64,7 +66,7 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
     for (const auto& write: newWriteList){
         // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
         const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
-        chunk_entries.if_contains_else(
+        entries.if_contains_else(
             targetChunkCoord,
             [&](ChunkEntry& entry){
                 if (entry.block_data.tryWrite(write)){
@@ -74,10 +76,10 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
                     glm::ivec3 lo = targetChunkCoord.raw() + ivec3{-1,-1,-1};
                     glm::ivec3 hi = targetChunkCoord.raw() + ivec3{1,1,1};
                     ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){
-                        states.if_contains(
+                        entries.if_contains(
                             WorldChunkCoord{x,y,z},
-                            [](ChunkState& neigh_state){
-                                neigh_state.mark_dirty_mesh();
+                            [](ChunkEntry& neigh_entry){
+                                neigh_entry.mark_mesh_dirty();
                             }
                         );
                     });
@@ -94,7 +96,7 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
     }
 }
 const AABB*   ChunkMap::getBoundingBox(WorldChunkCoord chunkCoord) const{
-    return &AT(chunk_entries,chunkCoord)->bounding_box;
+    return &AT(entries,chunkCoord)->bounding_box;
 }
 
 // TODO: Continue plugging in the new strong coord types
@@ -107,41 +109,48 @@ const AABB*   ChunkMap::getBoundingBox(WorldChunkCoord chunkCoord) const{
 void ChunkMap::updateNeighbourMap(WorldChunkCoord chunkCoord) {
     //NOTE: this might be a good spot to invalidate neighbours meshes after generation, 
     //if they are older than us by some amount.
-    auto* self_ptr = &(chunk_entries[chunkCoord]->block_data);
+    auto* self_ptr = &(entries[chunkCoord]->block_data);
 
-    std::array<const Chunk*, N_NEIGHBOURS> my_neighbours{};
+    std::array<std::optional<WorldChunkCoord>, N_NEIGHBOURS> my_neighbours{};
     for (const auto& [dir,offset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(dir);
         const auto neighbourChunkCoord = chunkCoord + ChunkOffset{offset};
-        chunk_entries.if_contains(
+        entries.if_contains(
             neighbourChunkCoord,
             [&](ChunkEntry& neighbourEntry){
-                // assign NEIGHBOUR to OUR NeighbourList @dir
-                auto* neighbourState = states.at(neighbourChunkCoord);
-                my_neighbours[dir_idx] = &(neighbourEntry.block_data);
-                // also INVALIDATE THEIR MESH
-                neighbourState->mark_dirty_mesh();
+                // 1. assign NEIGHBOUR to OUR NeighbourList @dir
+                my_neighbours[dir_idx] = std::make_optional(neighbourChunkCoord);
 
-                // NOTE: This is an optmisation for opaque chunks, 
-                // but NECESSARY for transparent chunks. 
+                entries.if_contains(
+                    neighbourChunkCoord,
+                    [](ChunkEntry& neighbour_entry){
+                        // 2. INVALIDATE THEIR MESH, we have just generated next to them,
+                        // and they need to be made aware of our blocks to correctly cull faces.
+                        neighbour_entry.mark_mesh_dirty();
+                    }
+                );
 
-                // assign OURSELVES to NEIGHBOUR.dir @inverseDir
+                // 3. assign OURSELVES to NEIGHBOUR.dir @inverseDir
                 const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
-                chunk_entries[neighbourChunkCoord]->neighbours[inverseDir_idx] = self_ptr;
+                
+                auto& neighbours_neighbours = entries[neighbourChunkCoord]->neighbours;
+                if (neighbours_neighbours[inverseDir_idx]){
+                    neighbours_neighbours[inverseDir_idx] = std::make_optional(chunkCoord);
+                }
             }
         );
     }
     // ALSO!!! invalidate all neighbours mesh as invalid here
     
     // what the fuck am i looking at 
-    AT(chunk_entries,chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
+    AT(entries,chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
 
 }
 
 void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
     const auto min = toWorldOrigin(chunkCoord).raw();
     const auto max = min + Chunk::Extents;
-    AT(chunk_entries,chunkCoord)->bounding_box = {min, max};
+    AT(entries,chunkCoord)->bounding_box = {min, max};
 }
 
 

@@ -2,7 +2,6 @@
 #define ASSERT_TRUE(a) assert(a)
 
 #include "refl.hpp"
-#include <exception>
 #define assert_binary_valuewise(a, COMPARATOR, b)do{\
     [[unlikely]] \
     if  ((a COMPARATOR b) == false){\
@@ -32,11 +31,12 @@
 #define assert_geq(a,b) assert_binary_valuewise(a,>=,b)
 
 
-[[gnu::cold, gnu::noinline]] 
+[[gnu::cold, gnu::noinline, noreturn]] 
 void assert_failure(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc);
 
-[[gnu::cold, gnu::noinline]] 
-std::string assert_failure(std::string_view name, refl::source_location loc,std::string_view  desc);
+[[gnu::cold, gnu::noinline, noreturn]] 
+void assert_failure(std::string_view name, refl::source_location loc,std::string_view  desc);
 
-std::string report_OOR(i64 cont_sz, std::string_view err_msg, refl::variable cont_var, refl::variable key_var,  refl::source_location loc);
+[[noreturn]] 
+void report_OOR(i64 cont_sz, std::string_view err_msg, refl::variable cont_var, refl::variable key_var,  refl::source_location loc);
 

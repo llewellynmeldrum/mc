@@ -39,8 +39,8 @@ public:
         // TODO: Implement
     }
     template<typename Fn, typename Fn2, typename Rt2=return_type<Fn2>>
-        requires std::is_invocable_v<Fn,Mapped&>
-              && std::is_invocable_v<Fn2>
+        requires callable_with<Fn,Mapped&>
+              && callable_with<Fn2>
               && same_type<
                     return_type<Fn,Mapped&>,return_type<Fn2>
                  >
@@ -68,10 +68,13 @@ public:
     }
 
     template<typename Fn>
-        requires std::is_invocable_v<Fn,Mapped&>
-              && std::is_default_constructible_v<return_type<Fn>>
     decltype(auto) if_contains(Key key, Fn&& on_found){
-        return if_contains_else(key,on_found,[]{});
+        if constexpr(return_type_is<void,Fn>){
+            if_contains_else(key,std::forward<Fn>(on_found),[]{});
+            return;
+        }else{
+            return if_contains_else(key,std::forward<Fn>(on_found),[]{});
+        }
     }
 
     template<typename _mapped>

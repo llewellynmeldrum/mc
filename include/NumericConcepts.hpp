@@ -9,10 +9,6 @@ concept Integral = std::integral<std::remove_cvref_t<T>>;
 template <typename T>
 concept Numeric = FloatingPoint<T> || Integral<T>;
 
-template <typename T>
-concept CoordLike = requires(T v){
-    {v.raw()}->std::convertible_to<glm::vec3>;
-};
 
 template <typename T>
 concept IVec2Like = requires(T v){
@@ -94,6 +90,4 @@ template <typename T>
 concept AnyVec4 = AnyVec4Like<T>;
 
 
-template <typename T>
-concept AnyCoord = AnyVec3Like<T> && !AnyVec4Like<T> && CoordLike<T>;
 
