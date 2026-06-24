@@ -6,6 +6,8 @@
 #include "cppslop.hpp"
 #include "ChunkHelpers.hpp"
 #include <optional>
+
+static inline constexpr glm::ivec3 Chunk_Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
 struct ChunkOffsetTag{};
 struct BlockOffsetTag{};
 struct WorldChunkCoordTag{};

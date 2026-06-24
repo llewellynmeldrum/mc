@@ -51,7 +51,7 @@ namespace UI{
                                             UI::WinFlags::AlwaysAutoResize | UI::WinFlags::NoSavedSettings |
                                             UI::WinFlags::NoFocusOnAppearing | UI::WinFlags::NoNav | UI::WinFlags::NoMove,
             MovableOverlay = UI::WinFlags::NoDecoration | UI::WinFlags::NoDocking |
-                                            UI::WinFlags::AlwaysAutoResize | UI::WinFlags::NoSavedSettings |
+                                             UI::WinFlags::NoSavedSettings |
                                             UI::WinFlags::NoFocusOnAppearing ,
             Normal = UI::WinFlags::None,
         };

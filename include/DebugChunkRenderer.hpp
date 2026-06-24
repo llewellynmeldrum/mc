@@ -60,26 +60,26 @@ inline glm::vec4 NeighbourDebugColor(){
 
 inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
     using namespace Color01;
-    return GREY_50_a(opacity_255);
+    return PURPLE_a(opacity_255);
 }
 
 #define state_color_match(Enum, name, col) case Enum :: name: return col(ChunkDebugFillOpacity); break;
 
-inline glm::vec4 MeshDebugColor(MeshStage stage){
+inline glm::vec4 MeshDebugColor(MeshState stage){
     using namespace Color01;
     switch (stage){
-        state_color_match(MeshStage, awaiting_generation   , GREY_50_a)
-        state_color_match(MeshStage, ready_for_enqueue     , RED_a)
-        state_color_match(MeshStage, on_queue              , ORANGE_a)
-        state_color_match(MeshStage, done                  , GREEN_a)
+        state_color_match(MeshState, awaiting_generation   , GREY_50_a)
+        state_color_match(MeshState, ready_for_enqueue     , RED_a)
+        state_color_match(MeshState, on_queue              , ORANGE_a)
+        state_color_match(MeshState, done                  , GREEN_a)
     }
     return {};
 }
-inline glm::vec4 GenDebugColor(GenStage stage){
+inline glm::vec4 GenDebugColor(GenState stage){
     using namespace Color01;
     switch (stage){
-        state_color_match(GenStage, on_queue, RED_a)
-        state_color_match(GenStage, done, GREEN_a)
+        state_color_match(GenState, on_queue, RED_a)
+        state_color_match(GenState, done, GREEN_a)
     }
     return {};
 }
@@ -88,25 +88,11 @@ inline glm::vec4 GenDebugColor(GenStage stage){
 
 
 
-inline glm::vec4 GenDebugOutlineColor(GenStage stage) { 
-    return {glm::vec3{GenDebugColor(stage)},ChunkDebugOutlineOpacity};
-}
-inline glm::vec4 MeshDebugOutlineColor(MeshStage stage) { 
-    return {glm::vec3{MeshDebugColor(stage)},ChunkDebugOutlineOpacity};
-}
-
-// state->stage convinience overloads
 inline glm::vec4 GenDebugOutlineColor(GenState state) { 
-    return GenDebugOutlineColor(state.stage);
+    return {glm::vec3{GenDebugColor(state)},ChunkDebugOutlineOpacity};
 }
 inline glm::vec4 MeshDebugOutlineColor(MeshState state) { 
-    return MeshDebugOutlineColor(state.stage);
-}
-inline glm::vec4 GenDebugColor(GenState state){
-    return GenDebugColor(state.stage);
-}
-inline glm::vec4 MeshDebugColor(MeshState state){
-    return MeshDebugColor(state.stage);
+    return {glm::vec3{MeshDebugColor(state)},ChunkDebugOutlineOpacity};
 }
 
 

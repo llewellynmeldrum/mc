@@ -2,6 +2,7 @@
 
 #include "NumericConcepts.hpp"
 #include "Types.h"
+#include <ranges>
 
 // NOTE:
 // I dont like how similar `default` and `delete` look when glazing over classes.

@@ -43,7 +43,7 @@ void Camera::move(Direction dir, f32 dt) {
         moveForward(dt);
         break;
     default:
-        DEBUG_BREAKPOINT();
+        BREAKPOINT();
         break;
     }
     cached_viewMatrix.invalidate();

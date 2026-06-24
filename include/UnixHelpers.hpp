@@ -1,6 +1,7 @@
 #pragma once 
 #include "Types.h"
 #include <debugging>
+#include <optional>
 #include <string>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -33,20 +34,25 @@ namespace unix {
     }
 
     template<typename T>
-    inline std::optional<T> get_env(const char* name) {
-        const char* str = std::getenv(name);
+    inline std::optional<T> get_env(std::string name) {
+        const char* str = std::getenv(name.c_str());
         if (!str) return std::nullopt;
 
-        T value{};
-        std::string_view sv{str};
+        if constexpr(std::same_as<T,std::string>){
+            return std::make_optional(std::string(str));
+        }else{
+            T value{};
+        
+            std::string_view sv{str};
 
-        auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+            auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
 
-        if (ec != std::errc{} || ptr != sv.data() + sv.size() || value <= 0) {
-            return std::nullopt;
+            if (ec != std::errc{} || ptr != sv.data() + sv.size() || value <= 0) {
+                return std::nullopt;
+            }
+
+            return value;
         }
-
-        return value;
     }
 
     // WARNING:!!! 
@@ -81,6 +87,21 @@ namespace unix {
             return false;
 
         #endif 
+    }
+    inline std::size_t rss_bytes(){
+        struct rusage usage;
+        if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        #if defined(__APPLE__)
+            // on macos, ru_maxrss is in bytes
+            std::size_t rb_bytes = usage.ru_maxrss;
+        #elif defined(__linux__)
+            std::size_t rb_bytes = usage.ru_maxrss / 1000.0;
+            // on linux, ru_maxrss is in kilobytes
+        #endif
+            return rb_bytes;
+        } else {
+            return 0;
+        }
     }
 }
 

@@ -29,7 +29,7 @@ void ChunkMap::uploadGeneratedChunk(GenResult gen_res) {
     entry->metadata=generatedMeta;
     updateNeighbourMap(chunkCoord);
     updateBoundingBoxesMap(chunkCoord);
-    mark_mesh_dirty(entry); // allow for meshing
+    entry->mark_mesh_dirty(); // allow for meshing
 }
 void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
@@ -38,11 +38,16 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
         [&](PendingWriteQueue & writesForMe){
             while (!writesForMe.empty()){
                 const auto write = writesForMe.top(); writesForMe.pop();
-                //TODO: mark all neighbours as dirty after applying the writes to current
                 if (srcBlocks.tryWrite(write)){
+                    // TODO: add pending writes to queue -> requests and fulfillments
                     pendingWritesSuccessful ++;
                     glm::ivec3 lo = chunkCoord.raw() + ivec3{-1,-1,-1};
                     glm::ivec3 hi = chunkCoord.raw() + ivec3{1,1,1};
+                    // NOTE:
+                    // We make all adjacent chunks meshes dirty, as a block change has occured
+                    // potentially on the border.
+                    // In future, it might be good to distinguish this, i.e only endirty
+                    // the actual chunks it impacts (if on border/corner it impacts however many)
                     ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){
                         entries.if_contains(
                             WorldChunkCoord{x,y,z},
@@ -56,7 +61,7 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
             }
             if (AT(pending_writes,chunkCoord)->empty()){
                 // remove the queue if it no longer has anything remaining
-                // TODO: Is this is a bad idea?
+                // Q: Is this is a bad idea?
                 pending_writes.erase(chunkCoord);
             }
         }
@@ -73,6 +78,7 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
                     pendingWritesSuccessful++;
                     // also mark the target as dirty,
                     // alongside all its neighbours, since 
+                    // ... since what
                     glm::ivec3 lo = targetChunkCoord.raw() + ivec3{-1,-1,-1};
                     glm::ivec3 hi = targetChunkCoord.raw() + ivec3{1,1,1};
                     ForEachInRangeEx(lo,hi,[&](i32 x, i32 y, i32 z){

@@ -1,12 +1,12 @@
 #pragma once 
 
 #include "ChunkConstants.hpp"
-#include "CoordTypes.hpp"
 #include "CommonConcepts.hpp"
 #include "Assertion.hpp"
 #include "NothrowLookup.hpp"
 #include <print>
 #include <type_traits>
+#include <functional>
 #include <vector>
 #include <ranges>
 
@@ -19,6 +19,9 @@ private:
     static constexpr std::size_t NULL_INDEX = std::numeric_limits<std::size_t>::max();
 public:
 
+    auto size()const noexcept{
+        return dense.size();
+    }
 
     decltype(auto) at(this auto& self, Key victim_key){
         return AT(self.buf,AT(self.sparse,victim_key));
@@ -33,10 +36,73 @@ public:
     auto all_keys(){
         return std::views::keys(sparse) | std::ranges::to<std::vector>();
     }
+    void erase(Key victim_key){
+        auto it = sparse.find(victim_key);
+        assert(it != sparse.end()); // tried to erase non-existent element
+        DenseIdx victim_idx = it->second;
+
+        auto back_idx = buf.size()-1;
+
+        // only perform the swap if the victim is not already at the back.
+        if (victim_idx != back_idx){
+            Key back_key = AT(dense,back_idx);
+
+            AT(buf,victim_idx) = std::move(AT(buf,back_idx));
+            AT(dense,victim_idx) = back_key;
+
+            AT(sparse,back_key)=victim_idx;
+        }
+        dense.pop_back();
+        buf.pop_back();
+        sparse.erase(it);
+    }
 
     template<typename Fn>
     auto erase_if(Fn&& pred){
-        // TODO: Implement
+        std::vector<Key> victim_keys;
+        for (const auto&[key, dense_idx]: sparse){
+            if (pred(AT(buf,dense_idx))){
+                victim_keys.push_back(key);
+            }
+        }
+        for (const auto& key: victim_keys){
+            erase(key);
+        }
+        return victim_keys.size();
+    }
+    template<typename Fn>
+    auto for_each(Fn&& action){
+        for (const auto&[key, dense_idx]: sparse){
+            action(AT(buf,dense_idx));
+        }
+    }
+    template<typename Fn, typename Fn2>
+    auto for_each_if(Fn&& pred, Fn2&& action){
+        std::vector<Mapped*> element_matches;
+        for (const auto&[key, dense_idx]: sparse){
+            Mapped* element = &(AT(buf,dense_idx));
+            if (pred(*element)){
+                element_matches.push_back(element);
+            }
+        }
+        for (Mapped* val: element_matches){
+            action(*val);
+        }
+        return element_matches.size();
+    }
+    template<typename Fn, typename Fn2, typename Fn3>
+    auto for_each_if_else(Fn&& pred, Fn2&& on_true, Fn3&& on_false){
+        std::vector<std::pair<bool,Mapped*>> element_matches;
+        auto true_count = 0uz;
+        for (const auto&[key, dense_idx]: sparse){
+            Mapped* element = &(AT(buf,dense_idx));
+            element_matches.emplace_back(pred(*element),element);
+        }
+        for (auto& [match, ptr]: element_matches){
+            true_count += match;
+            match ? on_true(*ptr) :  on_false(*ptr);
+        }
+        return true_count;
     }
     template<typename Fn, typename Fn2, typename Rt2=return_type<Fn2>>
         requires callable_with<Fn,Mapped&>
@@ -120,26 +186,6 @@ public:
     }
 
 
-    void erase(Key victim_key){
-        auto it = sparse.find(victim_key);
-        assert(it != sparse.end()); // tried to erase non-existent element
-        DenseIdx victim_idx = it->second;
-
-        auto back_idx = buf.size()-1;
-
-        // only perform the swap if the victim is not already at the back.
-        if (victim_idx != back_idx){
-            Key back_key = AT(dense,back_idx);
-
-            AT(buf,victim_idx) = std::move(AT(buf,back_idx));
-            AT(dense,victim_idx) = back_key;
-
-            AT(sparse,back_key)=victim_idx;
-        }
-        dense.pop_back();
-        buf.pop_back();
-        sparse.erase(it);
-    }
 
 //private:
 

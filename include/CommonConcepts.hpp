@@ -4,6 +4,7 @@
 #include <map>
 #include <map>
 #include <ranges>
+#include <memory>
 #include <type_traits>
 #include <string>
 #include <vector>

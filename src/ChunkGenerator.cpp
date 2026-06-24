@@ -40,22 +40,22 @@ struct BlockPalette {
 
 
 
-template<std::size_t extentX, std::size_t extentZ>
-struct i2D_Array{
-    std::array<i32, extentX*extentZ> buf;
+template<typename value_type, std::size_t extentX, std::size_t extentZ>
+struct Array2D{
+    std::array<value_type, extentX*extentZ> buf;
 
     decltype(auto) span(this auto& self){
         return std::mdspan(self.buf.data(),CHUNK_XWIDTH, CHUNK_ZWIDTH);
     }
-    decltype(auto) operator[](this auto& self, i32 x, i32 z){
+    decltype(auto) operator[](this auto& self, size_t x, size_t z){
         return self.span()[x,z]; 
     }
 };
 
 struct HeightMap{
 private:
-    i2D_Array<Chunk::Extents.x, Chunk::Extents.z> chunk_buf;
-    i2D_Array<Chunk::Extents.x, Chunk::Extents.z> world_buf;
+    Array2D<i32, Chunk::Extents.x, Chunk::Extents.z> chunk_buf;
+    Array2D<i32, Chunk::Extents.x, Chunk::Extents.z> world_buf;
 public:
     HeightMap(Noise2D& hn1, Noise2D& hn2, GenConfig cfg, WorldChunkCoord chunkCoord, decltype(GenJob::worldSeed) seed)
     :heightNoise1(hn1),
@@ -143,10 +143,6 @@ static GenResult generateChunk(GenJob job){
     caveNoise.setFractalOctaves(3);
 
 
-    //PendingBlockWrite
-    auto queueDeferredWrite = [chunkCoord, &pendingWrites](OverwritePolicy pol, WorldBlockPos wpos, BlockType bt){
-    };
-
     const auto world_block_origin = toWorldOrigin(job.chunkCoord);
     const auto& world_block_lo = world_block_origin;
     const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{Chunk::Extents};
@@ -164,7 +160,7 @@ static GenResult generateChunk(GenJob job){
                 chunk.set(cx,cy,cz, bt);
             }
         }else{
-         pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
+            pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
         }
     };
 
@@ -177,7 +173,7 @@ static GenResult generateChunk(GenJob job){
 
     // 1. Generate heightmap and set max height per xz column.
     {
-        i2D_Array<Chunk::Extents.x, Chunk::Extents.y> heightAt;
+        Array2D<i32, Chunk::Extents.x, Chunk::Extents.y> heightAt;
         const glm::ivec2 chunkLocalMin = {0,0};
         const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
         ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
@@ -252,7 +248,11 @@ static GenResult generateChunk(GenJob job){
         return static_cast<i32>(std::round(randf(4,6)));
     };
     Noise2D treeDensityNoise(NoiseType::Perlin,job.worldSeed);
-    auto placeTree =[chunkCoord, &chunk, tryBlockWrite, tree_height](i32 cx, i32 cy, i32 cz){
+    treeDensityNoise.setFractalType(FractalType::FBm);
+    treeDensityNoise.setFreq(0.005);
+    treeDensityNoise.setScale(0.8f);
+    treeDensityNoise.setFractalOctaves(3);
+    auto placeTree = [chunkCoord, &chunk, tryBlockWrite, tree_height](f32 noise, i32 cx, i32 cy, i32 cz){
         const auto wpos = WorldBlockPos{chunkCoord.raw()*Chunk::Extents} +BlockOffset{cx,cy,cz};
         WorldBlockPos iwpos = wpos;
         for (i32 dy = 0; dy<tree_height(cx,cz); dy++){
@@ -298,7 +298,7 @@ static GenResult generateChunk(GenJob job){
         );
     };
 
-    treeDensityNoise.setScale(1.5);
+//    treeDensityNoise.setScale(1.5);
 
     ForEachInRangeEx(chunkLocalMin2,chunkLocalMax2,[&](i32 cx, i32 cz){
         i32 cy = chunk_heightmap.at_chunk(cx,cz);
@@ -309,9 +309,12 @@ static GenResult generateChunk(GenJob job){
         srand(job.worldSeed+wx+wz);
         i32 dist_to_top_block = w_top_block_y - wy;
         if (cy>=1 && chunk.at(cx,cy-1,cz)==BlockType::GRASS_BLOCK){
-            auto r = randf(0,1);
-            if (r <= gen_cfg.tree_place_threshold){
-                placeTree(cx,cy+1,cz);
+            f32 noise = treeDensityNoise.sample(wx,wz);
+
+            if (noise > gen_cfg.tree_distribution_threshold){
+                if (noise > gen_cfg.tree_place_threshold){
+                    placeTree(noise, cx,cy+1,cz);
+                }
             }
 
         }

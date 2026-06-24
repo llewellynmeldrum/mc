@@ -4,7 +4,15 @@
 
 void App::setup() {
     sim.setupSimulation();
+    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
     g_StyleConfig::disabled = unix::is_debugger_present();
+    auto optimization_level = unix::get_env<int>("OPT_LEVEL");
+    if (optimization_level){
+        std::println("{}",*optimization_level);
+        sim.ui.dbg_params.opt_lvl = *optimization_level;
+    }else{
+        std::println("No OPT_LEVEL env found.");
+    }
 }
 
 void App::loop() {

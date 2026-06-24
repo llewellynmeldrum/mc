@@ -4,6 +4,7 @@
 #include "ChunkConstants.hpp"
 FORWARD_DECL_STRUCT(Chunk);  // forward decl for using defs
 using MeshRevisionID = u64;
+using GenRevisionID = u64;
 
 // A ChunkView is a non owning view of a sequence of chunks, paired with their coordinates
 using ChunkView = std::pair<glm::ivec3, const Chunk*>;

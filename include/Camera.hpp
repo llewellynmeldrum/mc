@@ -24,6 +24,7 @@ struct Camera {
     static constexpr f32 SPRINT_MOVESPEED = 300.0f;
     static constexpr f32 SPRINT_KEYBOARD_SENSITVITY= 50.5f;
     static constexpr f32 BASE_KEYBOARD_SENSITIVITY = 1.5f;
+    static constexpr f32 WALK_MOVESPEED = {4.0f};
 
     static constexpr i32 DebugChunkRenderDistance = 8;
 

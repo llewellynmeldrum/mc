@@ -128,9 +128,9 @@ void Renderer::draw_to(Camera& cam, RenderTargetView target){
 
 void Renderer::drawTransparent(Camera& cam){
     auto sorted = sorted_transparent(cam);
-    for (const auto& [idx, coord]: std::views::enumerate(sorted)){
-        log_to_chunk(coord,"priority: {}/{}",idx,sorted.size());
-    }
+//    for (const auto& [idx, coord]: std::views::enumerate(sorted)){
+//        log_to_chunk(coord,"priority: {}/{}",idx,sorted.size());
+//    }
     uploadMeshListToGpu(transparentChunkMeshes,sorted);
 }
 

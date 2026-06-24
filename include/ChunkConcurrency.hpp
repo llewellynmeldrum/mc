@@ -21,7 +21,8 @@ struct GenConfig{
     f32 cave_air_threshold = -0.55;
     i32 cave_y_threshold = 150;
     i32 MAX_ELEVATION_DELTA = 32;
-    f32 tree_place_threshold=0.01;
+    f32 tree_distribution_threshold=0.0f;
+    f32 tree_place_threshold=0.99f;
     i32 TERRAIN_HEIGHT(){return SEA_LEVEL+16;}
 };
 

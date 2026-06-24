@@ -1,4 +1,5 @@
 
+#include "Block.hpp"
 #include "ChunkHelpers.hpp"
 #include "FormatSpecs.hpp"
 #include "World.hpp"
@@ -26,7 +27,7 @@ Block World::getBlock(WorldBlockPos worldPos) const {
         auto chunkLocal = worldPos - worldChunkOffset;
         return chunk_ptr->block_data.at(ChunkBlockPos{chunkLocal.raw()});
     } else {
-        return Block::Empty();
+        return AIR_BLOCK;
     }
     // TODO: 
     // currently midway through refactoring all ambiguous uses of ivec3 

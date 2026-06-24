@@ -9,6 +9,9 @@
 FORWARD_DECL_STRUCT(Simulation)
 FORWARD_DECL_STRUCT(GLFWwindow)
 
+struct DebugParams{
+    int opt_lvl{-1};
+};
 struct DebugViewSettings{
     bool showGenState = false;
     bool showNeighbours = true;
@@ -32,6 +35,7 @@ struct DebugUI{
     }
     DebugViewSettings dbg_view;
     DebugLog dbg_log;
+    DebugParams dbg_params;
     void draw();
     void update();
 

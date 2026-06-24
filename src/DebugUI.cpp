@@ -9,6 +9,7 @@
 #include "DebugFormat.hpp"
 
 #include "FmtStyle.hpp"
+#include "PendingBlockWrites.hpp"
 #define DISABLE_STYLE
 #include "FormatSpecs.hpp"
 #undef DISABLE_STYLE
@@ -82,11 +83,12 @@ void DebugUI::update() {
 }
 
 void drawLogWindow(WindowConfig& self, Simulation* ctx){
-    self.setAlpha(0.65f);
+    self.setAlpha(0.9f);
     self.setup();
+    self.setSize(UVSize{0.4,0.4});
     self.setAlign(WinAlign::TopMid());
-    self.setFlags(UI::WinFlags::NoResize);
-    self.start_at(true, UVPos{1.0,0.5},[&self, &ctx]{
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
         auto& window = self;
         window.section("Per chunk log:",[&self, &ctx]{
             // Shown in most->least recent vertical order
@@ -140,7 +142,8 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
     self.setup();
     f32 aspect  = ctx->fixedCamTarget.size.x / ctx->fixedCamTarget.size.y;
-    self.setSize(UVSize{0.4,0.4*aspect});
+    f32 xwidth = ctx->fixedCamTarget.size.x/ctx->win.px_w * 2;
+    self.setSize(UVSize{xwidth, xwidth * aspect});
     self.setAlign(WinAlign::TopMid());
     self.setFlags(UI::WinFlags::NoResize);
     self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
@@ -159,34 +162,43 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
 void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
     self.setAlpha(0.65f);
     self.setup();
+    self.setFlags(UI::WinFlags::NoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
         window.section("Chunk Debug Colors:",[ctx]{
-            if (ctx->ui.dbg_view.showGenState){
-                #define X(name) UI::ColoredText(GenDebugOutlineColor(GenStage :: name), #name);
-                GEN_STAGE_LIST
-                #undef X
-            } else{
-                #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshStage:: name), #name);
-                MESH_STAGE_LIST
-                #undef X
-            }
+            IG::Separator();
+            UI::Text("GenStates:");
+            #define X(name) UI::ColoredText(GenDebugOutlineColor(GenState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
+            GEN_STATE_LIST
+            #undef X
+
+            IG::Separator();
+            UI::Text("MeshStates:");
+            #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshState:: name),"{}: {}", #name, ctx->n_mesh_ ##name);
+            MESH_STATE_LIST
+            #undef X
         });
         window.dropdown.show();
 
 
-        window.section("Positions",[ctx]{
+        window.section("Chunk Data:",[ctx]{
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
             bool showGenState = ctx->ui.dbg_view.showGenState;
             std::string gen_state_str{"No state entry."};
             std::string mesh_state_str{"No state entry."};
+            auto target_mesh_id = 0uz;
+            auto inflight_mesh_id = 0uz;
+            auto loaded_mesh_id = 0uz;
             ctx->world.chunkMap.entries.if_contains(
                 ch_pos,
                 [&](ChunkEntry& entry){
+                    target_mesh_id = entry.target_mesh_revision;
+                    inflight_mesh_id = entry.scheduled_mesh_revision;
+                    loaded_mesh_id = entry.loaded_mesh_revision;
                     ChunkState& state = entry.state;
-                    GenStage gen_stage{};
+                    GenState gen_stage{};
                     bool gen_clean{};
                     bool noBlocks{};
                     bool opaque_loaded{};
@@ -194,9 +206,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     bool opaque_empty{};
                     bool transp_empty{};
                     bool mesh_clean{};
-                    MeshStage mesh_stage{};
-                    gen_stage =state.gen.stage;
-                    gen_clean = state.gen.isClean();
+                    MeshState mesh_stage{};
+                    gen_stage = state.gen;
+                    gen_clean = entry.is_gen_clean();
 
                     
                     ctx->world.chunkMap.entries.if_contains(
@@ -209,13 +221,13 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     gen_state_str = std::format(
                         "{} ({})  {}",
                         state.gen,
-                        gen_clean ? "clean"     : "dirty",
-                        noBlocks ? "(empty)" : ""
+                        (gen_clean ? "clean"     : "dirty"),
+                        (noBlocks ? "(empty)" : "")
                     );
                     gen_state_color = GenDebugOutlineColor(state.gen);
 
-                    mesh_stage=state.mesh.stage;
-                    mesh_clean = state.mesh.isClean();
+                    mesh_stage=state.mesh;
+                    mesh_clean = entry.is_mesh_clean();
 
                     
                     ctx->rend.opaqueChunkMeshes.if_contains(
@@ -236,11 +248,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     mesh_state_str = std::format(
                         "{} ({})  OP:{}{} TR:{}{}",
                         state.mesh,
-                        mesh_clean ? "clean"     : "dirty",
-                        opaque_loaded ? "LOADED" : "UNLOADED",
-                        opaque_empty ? "(empty)" : "",
-                        transp_loaded ? "LOADED" : "UNLOADED",
-                        transp_empty ? "(empty)" : ""
+                        (mesh_clean ? "clean"     : "dirty"    ),
+                        (opaque_loaded ? "LOADED" : "UNLOADED" ),
+                        (opaque_empty ? "(empty)" : ""         ),
+                        (transp_loaded ? "LOADED" : "UNLOADED" ),
+                        (transp_empty ? "(empty)" : ""         )
                     );
                     mesh_state_color = MeshDebugOutlineColor(state.mesh);
                     // state.gen 
@@ -249,21 +261,84 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                     // isDirty
                 }
             );
+            auto n_pending_writes = 0uz;
+            ctx->world.chunkMap.pending_writes.if_contains(
+                ch_pos,
+                [&](PendingWriteQueue& pwq){
+                    n_pending_writes = pwq.size();
+                }
+            );
 
 
 
             std::string facing_str = get_facing_str(ctx->playerCam.getFront());
-            IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
-            IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
+            IG::Text("WorldChunkCoord:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
             UI::ColoredText01(gen_state_color ,"G:{}", gen_state_str);
             UI::ColoredText01(mesh_state_color,"M:{}", mesh_state_str);
+            UI::Text("MeshRev: loaded:{}\t | inflight:{}\t | target:{}",loaded_mesh_id,inflight_mesh_id,target_mesh_id);
+            UI::Text("PendingWrites:{}",n_pending_writes);
+            auto total_opaque   =0uz;
+            auto loaded_opaque  =0uz;
+            auto total_trans    =0uz;
+            auto loaded_trans   =0uz;
+            ctx->rend.opaqueChunkMeshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_opaque](auto& mesh){loaded_opaque++;});
+            ctx->rend.transparentChunkMeshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_trans](auto& mesh){loaded_trans++;});
+            UI::Text("Loaded opaque:{}/{}",loaded_opaque,total_opaque);
+            UI::Text("Loaded trans:{}/{}",loaded_trans,total_trans);
+        });
+        window.section("Positions",[ctx]{
+            auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
+            std::string facing_str = get_facing_str(ctx->playerCam.getFront());
+            IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
+            IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
             IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->playerCam.pitch, ctx->playerCam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });
+        window.section("World Data:",[ctx]{
+            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+            IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
+            auto n_pending_ungenerated  = 0uz;
+            auto n_pending_unmeshed     = 0uz;
+            auto n_pending_clean_meshed = 0uz;
+            auto n_pending_dirty_meshed = 0uz;
+            for (const auto& [key, _]: ctx->world.chunkMap.pending_writes){
+                ctx->world.chunkMap.entries.if_contains_else(
+                    key,
+                    [&](ChunkEntry& entry){
+                        if (entry.state.mesh == MeshState::done){
+                            n_pending_clean_meshed += entry.is_mesh_clean();
+                            n_pending_dirty_meshed += entry.is_mesh_dirty();
+                        }  else{
+                            n_pending_unmeshed++;
+                        }
+                    },
+                    [&](){
+                        n_pending_ungenerated++;
+                    }
+                );
+            }
+            IG::Text("Total Pending: %lu", ctx->world.chunkMap.pending_writes.size());
+            IG::Text("Ungenerated Pending: %lu", n_pending_ungenerated);
+            IG::Text("Generated Pending: %lu", n_pending_unmeshed+n_pending_clean_meshed+n_pending_dirty_meshed);
+            IG::Text("Unmeshed Pending: %lu", n_pending_unmeshed);
+            IG::Text("Clean Meshed Pending: %lu", n_pending_clean_meshed);
+            IG::Text("Dirty Meshed Pending: %lu", n_pending_dirty_meshed);
+            {
+                int successful = ctx->world.chunkMap.pendingWritesSuccessful;
+                int attempted = ctx->world.chunkMap.pendingWritesAttempted;
+                IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
+            }
+            IG::Text(".");
+            IG::Text(".");
+            IG::Text(".");
+            IG::Text(".");
+        });
 
         window.section("Perf:",[ctx]{
-            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+            UI::Text("Optimization lvl: -O{}",ctx->ui.dbg_params.opt_lvl);
+            IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
+            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
             auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
             assert(k!=0);
             std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
@@ -274,7 +349,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                 plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
             }
 
-            IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
         });
 
         window.section("Per frame draw info:",[ctx]{
@@ -327,6 +401,32 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                 plotRingBuf(rb, max, name);
             };
 
+            auto idk =[](auto cur_size, auto& rb, auto max, auto& name){
+                UI::Text("{}:", name); UI::SameLine();
+                UI::Text("{}", cur_size); UI::SameLine();
+                {
+                    UI::setTextColor(0,255,0);
+                        UI::Text("{}",rb.avg()); 
+                    UI::ResetTextColor();
+                }
+                plotRingBuf(rb, max, name);
+            };
+            idk(
+                ctx->n_generating,
+                ctx->rb_generating,
+                gen.genJobQueue.capacity + gen.genResultQueue.capacity,
+                "Generating"
+            );
+
+            idk(
+                ctx->n_meshing,
+                ctx->rb_meshing,
+                ctx->rend.meshers.meshJobQueue.capacity + ctx->rend.meshers.meshResultQueue.capacity,
+                "Meshing"
+            );
+
+                
+            IG::Separator();
 
             drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->genJobsThisFrame, ctx->rb_genJobsAdded);
             drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->genResultsThisFrame,ctx->rb_genJobsAdded);
@@ -335,21 +435,13 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
             drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->meshResultsThisFrame,ctx->rb_meshResultsAdded);
 
             });
+        window.section("Padding:",[ctx]{
+            UI::Text("");
+            UI::Text("");
+            UI::Text("");
+            UI::Text("");
+        });
 
-            window.section("World Data:",[ctx]{
-                IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-                IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
-                IG::Text("Chunks with pending reads: %lu", ctx->world.chunkMap.pending_writes.size());
-                {
-                    int successful = ctx->world.chunkMap.pendingWritesSuccessful;
-                    int attempted = ctx->world.chunkMap.pendingWritesAttempted;
-                    IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
-                }
-                IG::Text(".");
-                IG::Text(".");
-                IG::Text(".");
-                IG::Text(".");
-            });
     });
 }
 
@@ -361,7 +453,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
     ImGui_ImplOpenGL3_Init();
     win_configs.insert_range(
         win_configs.begin(),std::vector<WindowConfig>{ 
-            {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::Overlay, drawGeneralDebugOverlay,this},
+            {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::MovableOverlay, drawGeneralDebugOverlay,this},
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
             {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow,this},

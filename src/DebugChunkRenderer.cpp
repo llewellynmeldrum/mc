@@ -116,7 +116,7 @@ void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
         if (hasStateEntry){
             const auto* entry = sim->world.chunkMap.entries.at(entryCoord);
             const auto& state = entry->state;
-            if (HIDE_CLEAN_CHUNKS && state.mesh.isClean()){
+            if (HIDE_CLEAN_CHUNKS && entry->is_mesh_clean()){
                 continue; // skip, else visual clutter is too bad
             }
             auto skip = sim->world.chunkMap.entries.if_contains(

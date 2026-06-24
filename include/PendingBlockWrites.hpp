@@ -8,9 +8,13 @@
 #include <queue>
 #include <type_traits>
 
+#define OVERWRITE_POLICY_LIST   \
+    X(OnlyAir)                  \
+    X(OnlyGrass)
 enum class OverwritePolicy: u8{
-    OnlyAir,
-    OnlyGrass,
+#define X(var) var,
+    OVERWRITE_POLICY_LIST
+#undef X
 };
 
 struct PendingBlockWrite{

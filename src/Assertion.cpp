@@ -46,6 +46,8 @@ auto banner_str(auto ch,  std::size_t n = unix::term_cols()){
 void report_OOR(i64 cont_size, std::string_view err_msg, 
                        refl::variable cont_var, refl::variable key_var,  refl::source_location loc){
     using namespace std;
+    std::cout.flush();
+    std::cerr.flush();
     auto line1 = report_location(loc,err_msg);
     std::string err_specific = {};
     std::string key_str = 
@@ -69,11 +71,13 @@ void report_OOR(i64 cont_size, std::string_view err_msg,
             line1,
             err_specific,
             bot_banner);
-    DEBUG_BREAKPOINT_QUIET();
+    BREAKPOINT(3);
     std::abort();
 }
 void assert_failure(std::string_view name, refl::source_location loc,std::string_view note){
     using namespace std;
+    std::cout.flush();
+    std::cerr.flush();
 
     string line1 = format(
         "{} {} {} {} {} {}\n",
@@ -97,11 +101,13 @@ void assert_failure(std::string_view name, refl::source_location loc,std::string
             line1,line2,line3,
             fmt::styled(intense_red_fmt,banner_str("▁"))
     );
-    DEBUG_BREAKPOINT_QUIET();
+    BREAKPOINT();
     std::abort();
 }
 
 void assert_failure(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc){
+    std::cout.flush();
+    std::cerr.flush();
     using namespace std;
 
     string line1 = format(
@@ -165,6 +171,6 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
             line1,line2,line3,line4,
             fmt::styled(intense_red_fmt,banner_str("▁"))
     );
-    DEBUG_BREAKPOINT_QUIET();
+    BREAKPOINT();
     std::abort();
 }

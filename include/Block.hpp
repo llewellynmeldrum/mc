@@ -2,18 +2,21 @@
 
 #include "Types.h"
 #include <array>
+#define BLOCK_TYPE_LIST \
+    X(AIR)              \
+    X(DIRT_BLOCK)       \
+    X(GRASS_BLOCK)      \
+    X(STONE_BLOCK)      \
+    X(WATER_BLOCK)      \
+    X(OAK_LOG)          \
+    X(OAK_LEAF)
+
+#define X(var) var, // test
 enum class BlockType : u8 {
-    null = 0,
-    empty = 0,
-    AIR = 0,
-    DIRT_BLOCK,
-    GRASS_BLOCK,
-    STONE_BLOCK,
-    WATER_BLOCK,
-    OAK_LOG,
-    OAK_LEAF,
+    BLOCK_TYPE_LIST
     COUNT,
 };
+#undef X
 template <typename Attr_t>
 using BlockAttribArray = std::array<Attr_t, static_cast<size_t>(BlockType::COUNT)>;
 
@@ -63,8 +66,6 @@ struct Block {
         return *this;
     }
 
-    static constexpr inline const auto Null() { return Block{ BlockType::null }; }
-    static constexpr inline const auto Empty() { return Block{ BlockType::empty }; }
 };
 
 const inline auto AIR_BLOCK = Block{ BlockType::AIR };

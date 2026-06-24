@@ -16,68 +16,47 @@
 FORWARD_DECL_STRUCT(Simulation)
 void init_state_transition_logger(Simulation* _sim);
 
-#define GEN_STAGE_LIST \
+#define GEN_STATE_LIST \
 X(on_queue)\
 X(done)
 
-#define MESH_STAGE_LIST \
+#define MESH_STATE_LIST \
 X(awaiting_generation   )\
 X(ready_for_enqueue     )\
 X(on_queue              )\
 X(done                  )
 
 
-enum struct GenStage{
+enum struct GenState{
 #define X(name)\
     name,
-    GEN_STAGE_LIST
+    GEN_STATE_LIST
 #undef X
 };
 
-struct GenState{
-    GenStage stage;
-    bool dirty;
-    bool isDirty() const noexcept{return dirty;}
-    bool isClean() const noexcept{return !dirty;}
-};
 
-enum struct MeshStage{
+enum struct MeshState{
 #define X(name)\
     name,
-    MESH_STAGE_LIST
+    MESH_STATE_LIST
 #undef X
 };
 
-struct MeshState{
-    MeshStage stage;
-    bool dirty;
-    bool isDirty() const noexcept{return dirty;}
-    bool isClean() const noexcept{return !dirty;}
-};
 
 struct ChunkState{
-    ChunkState(WorldChunkCoord _key) :
-        coord(_key),
-        gen(GenStage::on_queue,false),
-        mesh(MeshStage::awaiting_generation, false) {}
+    ChunkState(WorldChunkCoord _key) : coord(_key){}
     ~ChunkState()=default;
     WorldChunkCoord coord;
-    GenState gen;
-    MeshState mesh;
-
-
-
+    GenState gen{};
+    MeshState mesh{};
 };
 
 
 void transition_logger(const ChunkState& before, const ChunkState& after);
-FORWARD_DECL_STRUCT(ChunkEntry)
-void gen_enqueue (ChunkEntry* e);
-void gen_dequeue (ChunkEntry* e);
-void mesh_enqueue(ChunkEntry* e);
-void mesh_dequeue(ChunkEntry* e);
-
-void mark_mesh_dirty(ChunkEntry* e);
+void gen_enqueue (ChunkState* e);
+void gen_dequeue (ChunkState* e);
+void mesh_enqueue(ChunkState* e);
+void mesh_dequeue(ChunkState* e);
 
 static constexpr u8 ChunkDebugFillOpacity = 12;
 static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
@@ -85,11 +64,6 @@ static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
 
 
 
-
-// An entry that contains information about the currently loaded mesh.
-struct MeshEntry{
-    std::size_t revisionID; // the mesh revision of the currently loaded mesh
-};
 
 // @Brief:
 // represents the in memory store of a chunks data.
@@ -119,14 +93,43 @@ struct ChunkEntry{
     void mark_mesh_dirty()noexcept{
         target_mesh_revision++;
     }
+    bool qualifies_for_gen_dequeue() const noexcept{
+        return state.gen==GenState::on_queue;
+    }
+    bool qualifies_for_mesh_enqueue()const noexcept{
+        return  (state.gen == GenState::done) &&
+                (target_mesh_revision > scheduled_mesh_revision) &&
+                (state.mesh == MeshState::ready_for_enqueue ||
+                    state.mesh == MeshState::done);
+    }
+    bool is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept{
+        return candidate_mesh_revision_id > loaded_mesh_revision;
+    }
+    bool is_mesh_on_queue()const noexcept {
+        return state.mesh == MeshState::on_queue;
+    }
+    bool is_gen_dirty() const noexcept{
+        return loaded_gen_revision != target_gen_revision;
+    }
+    bool is_gen_clean() const noexcept{
+        return loaded_gen_revision == target_gen_revision;
+    }
+    bool mark_gen_dirty() noexcept{
+        // NOTE: currently unused
+        return target_gen_revision++;
+    }
     template<typename Fn>
     void state_transition(Fn&& fn) {
         auto before = ChunkState(state);
-        std::invoke(fn, this);
+        std::invoke(fn, &state);
         auto after = ChunkState(state);
         transition_logger(before,after);
     }
     MeshRevisionID target_mesh_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
     MeshRevisionID scheduled_mesh_revision{0};  // newest revision in flight (on queue)     ()
     MeshRevisionID loaded_mesh_revision{0};     // The data on the gpu right now
+    //
+    GenRevisionID target_gen_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
+    GenRevisionID scheduled_gen_revision{0};  // newest revision in flight (on queue)     ()
+    GenRevisionID loaded_gen_revision{0};     // The data on the gpu right now
 };

@@ -180,6 +180,18 @@ public:
     constexpr bool empty() const noexcept{
         return map.size()==0;
     }
+    constexpr auto cbegin() const noexcept{
+        return map.cbegin();
+    }
+    constexpr auto cend() const noexcept{
+        return map.cend();
+    }
+    constexpr auto begin() noexcept{
+        return map.begin();
+    }
+    constexpr auto end() noexcept{
+        return map.end();
+    }
 
     constexpr void clear()noexcept{
         map.clear();

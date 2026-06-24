@@ -1,6 +1,7 @@
 #include "FormatSpecs.hpp"
 
 #include "Input.hpp"
+#include "KeyCodes.hpp"
 #include "Simulation.hpp"
 #include "GLFWWrapper.hpp"
 
@@ -62,7 +63,13 @@ void Simulation::handleInputs() {
             playerCam.moveSpeed = Camera::SPRINT_MOVESPEED;
             playerCam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
         }else{
-            playerCam.moveSpeed = Camera::BASE_MOVESPEED;
+            input.mapHeldKey(KEY_LEFT_CONTROL,[this](bool isHeld){
+                if (isHeld){
+                    playerCam.moveSpeed = Camera::WALK_MOVESPEED;
+                }else{
+                    playerCam.moveSpeed = Camera::BASE_MOVESPEED;
+                }
+            });
             playerCam.keyboard_sensitivity= Camera::BASE_KEYBOARD_SENSITIVITY;
         }
     });

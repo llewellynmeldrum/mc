@@ -1,26 +1,52 @@
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
+#include "DebugChunkLog.hpp"
+// disable colors
+#include "FormatSpecs.hpp"
 
 std::atomic<u32> id_counter{0};
+static constexpr BlockType overwrite_block = BlockType::STONE_BLOCK;
 
+static void log_deferred_write(PendingBlockWrite write, Block target_block, bool success){
+    auto chunk_coord = toWorldChunkCoord(write.targetWorldBlockPos);
+//    auto targetChunkLocal = toChunkBlockPos(write.targetWorldBlockPos);
+    //  Investigate why all deferred writes are failing.
+    //  The logging is telling me that the destination blocks match the source block every time. very odd
+    log_to_chunk(chunk_coord,"Attempted ({}:{}) chunk write @W{} | {}->{}",
+                 write.overwritePolicy,
+                 success ? "Y" : "N",
+                 write.targetWorldBlockPos,
+                 target_block,
+                 write.source_block
+    );
+}
 bool Chunk::tryWrite(PendingBlockWrite write){
     auto targetChunkLocal = toChunkBlockPos(write.targetWorldBlockPos);
     Block& targetBlock = this->at(targetChunkLocal);
+    bool success{};
     if (canMakeWrite(write,targetBlock)){
         targetBlock = write.source_block;
-        return true;
-   }
-    return false;
+        success = true;
+    }
+    success = false;
+    log_deferred_write(write, targetBlock, success);
+    //TODO:  add all other invocations of deferred write system to per chunk log
+    return success;
 }
 bool ChunkSpan::tryWrite(PendingBlockWrite write){
     // turn the targetChunkCoord and write.WorldBlockPos to targetChunkBlockPos
     auto targetChunkLocal = toChunkBlockPos(write.targetWorldBlockPos);
     Block& targetBlock = this->at(targetChunkLocal);
+    bool success{};
     // the higher 'priority' block wins.
     if (canMakeWrite(write,targetBlock)){
-        targetBlock = write.source_block;
-        return true;
+        // HACK: in order to see pending writes easier:
+        targetBlock = overwrite_block;
+        //targetBlock = write.source_block;
+        success =true;
     }
-    return false;
+    log_deferred_write(write, targetBlock, success);
+    success= false;
+    return success;
 }

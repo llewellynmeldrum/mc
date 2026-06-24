@@ -135,7 +135,7 @@ struct WindowConfig{
     inline void setAlpha(f32 alpha){
         IG::SetNextWindowBgAlpha(alpha);  // Transparent background
     }
-    inline void setFlags(i32 flags){
+    inline void setFlags(i32 flags=0){
         this->flags=flags;
     }
     template<typename Fn>
@@ -150,7 +150,7 @@ struct WindowConfig{
         }else{
             IG::SetNextWindowPos(toScreen(pos_padded), ImGuiCond_Always, alignment);
         }
-        IG::Begin(title.c_str());
+        IG::Begin(title.c_str(), nullptr, flags);
         std::invoke(std::forward<Fn>(work));
         IG::End();
     }
@@ -170,10 +170,9 @@ struct WindowConfig{
     }
 
     template <typename Fn>
-    inline void section(std::string_view name, Fn&& section){
-        IG::Separator();
-        UI::Text("{}",name);
-        std::invoke(std::forward<Fn>(section));
+    inline void section(std::string name, Fn&& section){
+        if (IG::CollapsingHeader(name.c_str()))
+            std::invoke(std::forward<Fn>(section));
     };
     DropDown<std::string,7> dropdown ={"combo 2", { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG"}};
 };

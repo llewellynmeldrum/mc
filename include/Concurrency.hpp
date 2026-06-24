@@ -108,6 +108,7 @@ struct Queue{
         std::lock_guard lock(mtx);
 
         if ( slotsRemaining() < batch.size()){
+            
             // cant accomodate the entire span
             return 0;
         }
