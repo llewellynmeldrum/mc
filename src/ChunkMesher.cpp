@@ -20,15 +20,6 @@
 #include "Logger.hpp"
 #include "Assertion.hpp"
 
-// TODO: 
-// Next time i work on chunk meshing:
-// Create some sort of chunk debug view, which renders on top of meshes.
-// This debug view will show a different color for :
-// -> A currently meshing chunk (yellow)
-// -> A dirty chunk             (red)
-// -> A clean chunk             (green)
-// Perhaps just an opaque cube that sits on top of the chunk.
-
 using std::views::enumerate;
 
 
@@ -39,41 +30,31 @@ static const auto& getDefaultFaceVertexData(Direction dir) {
     return defaultCubeFaces[static_cast<i8>(dir)];
 }
 
-// 0x1234
-// 1A3B
-template <glm::length_t L, typename T, glm::qualifier Q>
-glm::vec<L, T, Q> euclid_mod(glm::vec<L, T, Q> a, glm::vec<L, T, Q> b) {
-    auto r = a % b;
-    auto mask = glm::lessThan(r, glm::vec<L, T, Q>(0));
-    return r + glm::mix(glm::vec<L, T, Q>(0), glm::abs(b), mask);
-}
-
 
 std::array<Block, DirectionCount> 
 getSurroundingBlocks(const MeshJob& job, ChunkBlockPos chunkLocal) {
     std::array<Block, DirectionCount> res{};
-
     constexpr glm::ivec3 lo = glm::ivec3(0);
     constexpr glm::ivec3 hi = Chunk::Extents;
+
     for (const auto& [faceDirection, neighbourOffset] : eachDirOffset) {
         const i32   dir_idx = static_cast<i32>(faceDirection);
         ChunkBlockPos neighbourBlockPos = chunkLocal + BlockOffset{neighbourOffset};
-        if (!job.surroundingChunks[dir_idx]){
-            // treat all blocks as air, i.e return air
-            res[dir_idx] = Block(BlockType::AIR);
-        }else{
-            const auto neighbourChunk = job.surroundingChunks[dir_idx].value();
+        const bool neighbourInBounds = LM::isVecInBounds(neighbourBlockPos, lo, hi);
 
-            const bool neighbourInBounds = LM::isVecInBounds(neighbourBlockPos, lo, hi);
-
-            if (neighbourInBounds) [[likely]] {
-                const auto& p = neighbourBlockPos;
-                res[dir_idx] = job.blocks[neighbourBlockPos];
-            } else [[unlikely]] {
-                neighbourBlockPos = LM::euclid_mod(neighbourBlockPos, Chunk::Extents);
-                assert(LM::isVecInBounds(neighbourBlockPos, lo, hi));
-                res[dir_idx] = neighbourChunk.at(neighbourBlockPos);
+        if (neighbourInBounds) [[likely]] {
+            const auto& p = neighbourBlockPos;
+            res[dir_idx] = job.blocks[neighbourBlockPos];
+        } else [[unlikely]] {
+            if (!job.surroundingChunks[dir_idx]){
+                // treat all blocks of a missing chunk as air
+                res[dir_idx] = Block(BlockType::AIR);
+                continue;
             }
+            const auto& adjacentChunk = job.surroundingChunks[dir_idx].value();
+            neighbourBlockPos = LM::euclid_mod(neighbourBlockPos, Chunk::Extents);
+            assert(LM::isVecInBounds(neighbourBlockPos, lo, hi));
+            res[dir_idx] = adjacentChunk.at(neighbourBlockPos);
         }
     }
     static_assert(res.size() == DirectionCount);

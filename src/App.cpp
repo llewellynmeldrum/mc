@@ -13,11 +13,16 @@ void App::setup() {
     }else{
         std::println("No OPT_LEVEL env found.");
     }
+    if (g_StyleConfig::isEnabled()){
+        std::println("Debugger detected, disabling ansi styling.");
+    }
 }
 
 void App::loop() {
-    sim.loop();
-    loop_count++;
+    while (!shouldClose()) {
+        sim.loop();
+        loop_count++;
+    }
 }
 bool App::shouldClose() {
     return sim.win.shouldClose();

@@ -1,6 +1,6 @@
 
 #include "Block.hpp"
-#include "ChunkConstants.hpp"
+#include "ChunkInvariants.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"

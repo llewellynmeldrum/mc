@@ -19,6 +19,7 @@ file( GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS
 )
 
 add_subdirectory(external/imgui)
+add_subdirectory(external/cpptrace)
 
 
 add_executable(mc
@@ -42,6 +43,13 @@ target_compile_options(mc PRIVATE
     -fmax-errors=1
     -ftemplate-backtrace-limit=0
     -fdiagnostics-show-template-tree
+    -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.
+#    -v
+)
+
+# enable std::stacktrace and some other experimental STL stuff
+target_link_options(mc PRIVATE
+    -lstdc++exp
 )
 
 # TEMPORARY FOR BENCHMARKING
@@ -67,6 +75,7 @@ target_include_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace"
 
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
@@ -87,6 +96,7 @@ target_compile_options(imgui PRIVATE ${GLFW3_CFLAGS_OTHER})
 target_link_libraries(imgui PUBLIC ${GLFW3_LIBRARIES})
 target_link_directories(imgui PUBLIC ${GLFW3_LIBRARY_DIRS})
 
+target_link_libraries(mc PRIVATE cpptrace::cpptrace)
 
 
 # -GLBINDING
@@ -170,16 +180,40 @@ add_custom_target(debug
     DEPENDS mc
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+if(APPLE)
+    add_custom_command(TARGET mc POST_BUILD
+    COMMAND dsymutil $<TARGET_FILE:mc>
+    COMMENT "Generating .dSYM for stack traces")
+endif()
 
 
-enable_testing()
-add_executable(test_hashmap
-    tests/src/test_runner.cpp
-    src/Assertion.cpp)
+#============================================
+#               TESTING
+#============================================
 
-target_include_directories(test_hashmap PRIVATE
+add_executable(test_queue
+    tests/src/test_queue.cpp
+    src/Assertion.cpp
+    src/Concurrency.cpp
+)
+
+target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
+
+target_include_directories(test_queue PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_include_directories(test_hashmap PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}tests/include")
+target_include_directories(test_queue PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
 
-add_test(NAME HashMap_unit_tests COMMAND test_hashmap)
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
+)
+
+add_test(NAME Queue_tests COMMAND test_queue)

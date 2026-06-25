@@ -1,6 +1,6 @@
 #pragma once 
 #include "LM.hpp"
-#include "ChunkConstants.hpp"
+#include "ChunkInvariants.hpp"
 #include "glmWrapper.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "cppslop.hpp"
@@ -51,7 +51,16 @@ struct Coord3{
     constexpr Coord3(ScalarType all) noexcept :x(all),y(all), z(all) {}
     constexpr Coord3(ScalarType _x, ScalarType _y, ScalarType _z) noexcept :x(_x),y(_y), z(_z) {}
 
+    constexpr value_type& operator[](this auto& self, std::size_t idx){
+        switch(idx){
+            case 0: return self.x; break;
+            case 1: return self.y; break;
+            case 2: return self.z; break;
+        }
+        throw std::out_of_range("Error: index must be >=0 && <=2 ");
+    }
     explicit constexpr Coord3(VecType v) noexcept :x(v.x),y(v.y), z(v.z) {}
+    
 
 
     constexpr VecType raw() const noexcept { return VecType{x,y,z}; };

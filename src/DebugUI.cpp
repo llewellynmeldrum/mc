@@ -18,7 +18,7 @@
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
 #include "Window.hpp"
-#include "ChunkConstants.hpp"
+#include "ChunkInvariants.hpp"
 #include "Simulation.hpp"
 #include "CoordTypes.hpp"
 #include "CommonConcepts.hpp"
@@ -165,7 +165,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
     self.setFlags(UI::WinFlags::NoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
-        window.section("Chunk Debug Colors:",[ctx]{
+        window.section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
             #define X(name) UI::ColoredText(GenDebugOutlineColor(GenState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
@@ -177,6 +177,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
             #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshState:: name),"{}: {}", #name, ctx->n_mesh_ ##name);
             MESH_STATE_LIST
             #undef X
+            UI::Text("Chunk Entries: {}",ctx->world.chunkMap.entries.size());
         });
         window.dropdown.show();
 
@@ -195,7 +196,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                 ch_pos,
                 [&](ChunkEntry& entry){
                     target_mesh_id = entry.target_mesh_revision;
-                    inflight_mesh_id = entry.scheduled_mesh_revision;
+                    inflight_mesh_id = entry.inflight_mesh_revision;
                     loaded_mesh_id = entry.loaded_mesh_revision;
                     ChunkState& state = entry.state;
                     GenState gen_stage{};
@@ -373,17 +374,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                 (const std::string name, std::size_t max, auto& q, auto newcount, const auto& rb){
 
                 auto total_sz = q.wait_size();
-                auto unique_sz = q.uniqueSet.size();
-                std::string percentUnique ="all ";
-                if (total_sz!=unique_sz){
-                    percentUnique = std::format("{:4.1}%",((f64)unique_sz/total_sz)*100.0);
-                }
                 std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
 
                 auto newcounts_per_second = rb.avg();
                 std::string additions = std::format("+{:<4}",newcount);
                 std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
-                std::string n_unique = std::format("({:<5} unique)",percentUnique);
                 UI::Text(cur_size); UI::SameLine();
                 {
                     UI::setTextColor(0,255,0);
@@ -396,8 +391,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
                         UI::Text(avg.c_str()); 
                     UI::ResetTextColor();
                 }
-                UI::SameLine();
-                UI::Text(n_unique);
                 plotRingBuf(rb, max, name);
             };
 

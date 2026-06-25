@@ -29,8 +29,6 @@ struct Queue{
     std::condition_variable not_empty;
     std::condition_variable not_full;
 
-    // TODO:  this is for debugging
-    std::unordered_set<T> uniqueSet;
 
 
     // BLOCKS until:
@@ -46,7 +44,6 @@ struct Queue{
                 return q.size()<capacity;
             });
 
-            uniqueSet.emplace(obj);
             q.emplace_back(std::forward<U>(obj));
         }
         not_empty.notify_one();
@@ -61,7 +58,6 @@ struct Queue{
             not_full.wait(lock, [&](){
                 return q.size()<capacity;
             });
-            uniqueSet.emplace(vargs...);
             q.emplace_back(std::forward<Args>(vargs)...);
         }
         not_empty.notify_one();
@@ -78,7 +74,6 @@ struct Queue{
             if ( !(q.size()<capacity) ){
                 return false;
             }
-            uniqueSet.emplace(vargs...);
             q.emplace_back(std::forward<Args>(vargs)...);
         }
         not_empty.notify_one(); 
@@ -95,7 +90,6 @@ struct Queue{
             if ( !(q.size()<capacity) ){
                 return false;
             }
-            uniqueSet.emplace(obj);
             q.push_back(std::forward<U>(obj));
         }
         not_empty.notify_one(); 
@@ -113,7 +107,6 @@ struct Queue{
             return 0;
         }
         for (std::size_t i = 0; i<batch.size(); i++){
-            uniqueSet.emplace(batch[i]);
             q.push_back(batch[i]);
             not_empty.notify_one(); 
         }
@@ -133,7 +126,6 @@ struct Queue{
             return (q.empty() == false);
         });
 
-        uniqueSet.erase(q.front());
         T res = std::move(q.front());
         q.pop_front();
 
@@ -150,7 +142,6 @@ struct Queue{
         if (q.empty()){
             return std::nullopt;
         }
-        uniqueSet.erase(q.front());
         const auto res = std::make_optional(std::move(q.front()));
         q.pop_front();
 
@@ -172,7 +163,6 @@ struct Queue{
         batch.reserve(batch_size);
 
         for (std::size_t i = 0; i<batch_size; i++){
-            uniqueSet.erase(q.front());
             batch.push_back(std::move(q.front()));
             q.pop_front();
             not_full.notify_one(); 

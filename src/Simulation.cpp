@@ -1,3 +1,4 @@
+#include "ChunkStorage.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include <algorithm>
 #include <optional>
@@ -73,7 +74,6 @@ void Simulation::loop(){
 
     if (isPaused() == false){
         update();
-
     }
     // DRAWING
     draw(); 
@@ -161,6 +161,9 @@ void Simulation::count_states(){
 
 void Simulation::update() {
     profiler.bench_start("update");
+    // TODO: 
+    // Remodel entire thing.
+    // 
 
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
     rb_genJobsAdded.write(genJobsThisFrame);
@@ -291,16 +294,45 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
         auto* entry = AT(world.chunkMap.entries,candidateCoord);
-        std::vector<std::optional<ChunkStore>> neighbours_copy;
-        for (const auto& neighbour_coord: entry->neighbours){
+        std::vector<std::optional<ChunkSlice2D>> neighbours_copy;
+        for (const auto& [dir, dir_idx]: eachDirIndex){
+            const auto& neighbour_coord = entry->neighbours[dir_idx];
             if (!neighbour_coord){
                 neighbours_copy.emplace_back(std::nullopt);
                 continue;
             }
+            ChunkBlockPos p0{}, p1{};
+            constexpr auto XE = CHUNK_XWIDTH;
+            constexpr auto YE = CHUNK_HEIGHT;
+            constexpr auto ZE = CHUNK_ZWIDTH;
+            SliceType slice_type = {};
+            switch (dir){
+                // -Z
+                case Direction ::BACKWARD: p0 = {0,0,0}; p1 ={XE,YE,1}; slice_type = SliceType::Z; break;
+                // +Z
+                case Direction ::FORWARD: p0 = {0,0,ZE-1}; p1 ={XE,YE,ZE}; slice_type = SliceType::Z; break;
+
+                // -X
+                case Direction ::RIGHT: p0 = {0,0,0}; p1 ={1,YE,ZE}; slice_type = SliceType::X; break;
+                // +X
+                case Direction ::LEFT   : p0 = {XE-1,0,0}; p1 ={XE,YE,ZE}; slice_type = SliceType::X; break;
+
+                // - Y
+                case Direction ::UP :p0 = {0,0,0}; p1 ={XE,1,ZE}; slice_type = SliceType::Y; break;
+                // + Y
+                case Direction ::DOWN     :p0 = {0,YE-1,0}; p1 ={XE,YE,ZE}; slice_type = SliceType::Y; break;
+                default:
+                    break;
+            }
             world.chunkMap.entries.if_contains_else(
                 neighbour_coord.value(),
                 [&](ChunkEntry& neighbour){
-                    std::optional<ChunkStore> copy = {neighbour.block_data};
+                    std::optional<ChunkSlice2D> copy = std::make_optional<ChunkSlice2D>(
+                       &neighbour.block_data,
+                        slice_type,
+                        p0,
+                        p1
+                    );
                     neighbours_copy.emplace_back(copy);
                 },
                 [&](){
@@ -326,7 +358,7 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
             world.chunkMap.entries.if_contains_else(
                 job.chunkCoord, 
                 [&](ChunkEntry& entry){
-                    entry.scheduled_mesh_revision = entry.target_mesh_revision;
+                    entry.inflight_mesh_revision = entry.target_mesh_revision;
                     entry.state_transition(mesh_enqueue);
                 },
                 [&](){

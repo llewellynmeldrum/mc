@@ -1,17 +1,22 @@
-Hover:
-  ShowAKA: true
-
-Documentation:
-  CommentFormat: Doxygen
-
 CompileFlags:
+  Remove: [-freflection, -fmodules-ts, -fmodule-mapper=*, -fdeps-format=*]
   Add:
     - std=c++23
-    - -D__STRICT_ANSI__
-    - -U__SIZEOF_FLOAT128__T_ANSI__
-  Remove: [-fmodules-ts, -fmodule-mapper=*, -fdeps-format=*]
+Diagnostics:
+  Suppress: ["type_unsupported", "unknown_argument","invalid_consteval_call"]
+If:
+
+  PathMatch: .*reflection_utils\.hpp
+Diagnostics:
+  Suppress: ['*']
+
+#Hover:
+#  ShowAKA: true
+#
+#Documentation:
+#  CommentFormat: Doxygen
+  #
+#    - -D__STRICT_ANSI__
+#    - -U__SIZEOF_FLOAT128__T_ANSI__
 
 # clangd will yell about __float128 or some shit on arm64
-Diagnostics:
-  Suppress: ["type_unsupported"]
-

@@ -97,10 +97,11 @@ struct ChunkEntry{
         return state.gen==GenState::on_queue;
     }
     bool qualifies_for_mesh_enqueue()const noexcept{
-        return  (state.gen == GenState::done) &&
-                (target_mesh_revision > scheduled_mesh_revision) &&
-                (state.mesh == MeshState::ready_for_enqueue ||
-                    state.mesh == MeshState::done);
+        const bool target_is_newer_than_inflight = (target_mesh_revision > inflight_mesh_revision);
+        const bool gen_done = state.gen == GenState::done;
+        const bool ready = state.mesh==MeshState::ready_for_enqueue;
+        const bool dirty_done = state.mesh==MeshState::done && is_mesh_dirty();
+        return target_is_newer_than_inflight && gen_done && (ready || dirty_done);
     }
     bool is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept{
         return candidate_mesh_revision_id > loaded_mesh_revision;
@@ -126,7 +127,7 @@ struct ChunkEntry{
         transition_logger(before,after);
     }
     MeshRevisionID target_mesh_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
-    MeshRevisionID scheduled_mesh_revision{0};  // newest revision in flight (on queue)     ()
+    MeshRevisionID inflight_mesh_revision{0};  // newest revision in flight (on queue)     ()
     MeshRevisionID loaded_mesh_revision{0};     // The data on the gpu right now
     //
     GenRevisionID target_gen_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())

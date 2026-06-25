@@ -22,6 +22,6 @@ struct ChunkMesher {
     Queue<MeshJob> meshJobQueue;
     Queue<MeshResult> meshResultQueue;
 private:
-    ThreadPool mesherThreads{9};
+    ThreadPool mesherThreads{1};
     static void meshChunks(std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue);
 };

@@ -3,7 +3,7 @@
 #include <queue>
 #include <atomic>
 
-#include "ChunkConstants.hpp"
+#include "ChunkInvariants.hpp"
 #include "ChunkEntry.hpp"
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"
@@ -54,11 +54,11 @@ struct MeshJob{
     std::size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
-    std::vector<std::optional<ChunkStore>> surroundingChunks;
+    std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
     ChunkMetadata meta;
     const TextureAtlas* atlas;
 
-    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkStore>> neighbourChunks):
+    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
 
         meshRevisionID(_meshRevisionID),
         chunkCoord(key),

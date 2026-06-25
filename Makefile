@@ -12,7 +12,7 @@ ASAN_OPTS := detect_leaks=0:color=always:abort_on_error=1:halt_on_error=1
 UBSAN_OPTS := color=always:print_stacktrace=1:halt_on_error=1
 
 GENERATOR      := Ninja
-CXX            := /opt/gcc-16/bin/g++
+CXX            := g++-16
 APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
@@ -30,10 +30,11 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
         ausan run-ausan \
         compile-commands
 
+export OPT_LEVEL
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
-		-DMC_O1=ON
-#		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_O1=ON \
+		-DCMAKE_BUILD_TYPE=Debug 
 
 configure-debug:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
@@ -43,6 +44,7 @@ configure-debug:
 build: configure
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 
+run: OPT_LEVEL=1
 run: build
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target run
 
@@ -69,9 +71,11 @@ faster:
 
 	cmake --build $(BUILD_FAST) $(BUILD_FLAGS)
 
+run-fast: OPT_LEVEL=2
 run-fast: fast
 	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 
+run-faster: OPT_LEVEL=3
 run-faster: faster
 	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 # --------------------------------------------------
@@ -114,6 +118,9 @@ test_hashmap: configure
 	cmake --build build --target test_hashmap
 	ctest --test-dir build --verbose
 
+test_queue: configure
+	cmake --build build --target test_queue
+	ctest --test-dir build --verbose
 
 db: configure
 	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json

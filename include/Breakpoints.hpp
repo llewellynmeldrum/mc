@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cpptrace/cpptrace.hpp>
+#include "cpptrace/cpptrace.hpp"
 
+#include <iostream>
 
 #if defined(__clang__)
     #define TRAP() __builtin_debugtrap()
@@ -25,7 +26,7 @@ constexpr inline void BREAKPOINT_QUIET(){
 }
 [[noreturn]]
 constexpr inline void BREAKPOINT(std::size_t skip_frames=0){
-    cpptrace::generate_trace(skip_frames).print_with_snippets(std::cerr, true); 
+    cpptrace::generate_trace(skip_frames).print(std::cerr, false); 
     BREAKPOINT_QUIET();
 }
 /* #define BREAKPOINT_QUIET() TRAP()

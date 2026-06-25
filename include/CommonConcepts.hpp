@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "Macros.hpp"
 // SECTION:: STL wrappers that are more understandable semantically (for me).
 // Some are more for convinience.

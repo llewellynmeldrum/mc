@@ -3,7 +3,7 @@
 #include "FormatSpecs.hpp"
 #include "NothrowLookup.hpp"
 
-#include "ChunkConstants.hpp"
+#include "ChunkInvariants.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "ChunkMap.hpp"

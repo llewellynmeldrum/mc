@@ -82,7 +82,7 @@ struct Simulation {
     void captureCursor();
     void freeCursor();
     void loop();
-    static constexpr i32 RENDER_DIST = 12;
+    static constexpr i32 RENDER_DIST = 6;
     static constexpr glm::ivec3 RENDER_EXTENTS = {RENDER_DIST,4, RENDER_DIST};
     static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
     static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
