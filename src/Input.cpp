@@ -2,7 +2,7 @@
 
 #include "Input.hpp"
 #include "KeyCodes.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "GLFWWrapper.hpp"
 
 using namespace glm;

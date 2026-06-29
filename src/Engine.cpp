@@ -13,16 +13,29 @@
 #include "FormatSpecs.hpp"
 #include "CoordIteration.hpp"
 
-#include "Simulation.hpp"
+#include "Engine.hpp"
 
 #include "LM.hpp"
 #include "Line3D.hpp"
 #include "Profiler.hpp"
 #include "Logger.hpp"
 #include "Assertion.hpp"
+#include "FmtStyle.hpp"
+#include "UnixHelpers.hpp"
 
-using namespace glm;
-void Simulation::setupSimulation() {
+void Simulation::setup() {
+    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
+    g_StyleConfig::disabled = unix::is_debugger_present();
+    auto optimization_level = unix::get_env<int>("OPT_LEVEL");
+    if (optimization_level){
+        std::println("{}",*optimization_level);
+        ui.dbg_params.opt_lvl = *optimization_level;
+    }else{
+        std::println("No OPT_LEVEL env found.");
+    }
+    if (g_StyleConfig::isEnabled()){
+        std::println("Debugger detected, disabling ansi styling.");
+    }
     init_state_transition_logger(this);
     program_epoch_ns = get_current_ns();
     playerCam.isPlayer=true;
@@ -62,33 +75,45 @@ void Simulation::setupSimulation() {
     LOG_DEBUG("Finished World setup.");
 }
 
-void Simulation::loop(){
-    profiler.start_frame();
-    profiler.bench_start("frame");
 
-    // INPUT
-    profiler.bench_start("input");
-    input.poll();
-    handleInputs(); 
-    profiler.bench_end("input");
-
-    if (isPaused() == false){
-        update();
-    }
-    // DRAWING
-    draw(); 
-    ui.update();
-    if (rend.debug.showDebugUI){
-        ui.draw(); 
-    }
-
-    profiler.bench_start("render");
-    win.swapBuffers();
-    profiler.bench_end("render");
-
-    profiler.bench_end("frame");
-    profiler.end_frame();
+i32 Simulation::exit(i32 exit_code) {
+    ui.destroy();
+    win.terminate();
+    std::exit(exit_code);
+    return exit_code;
 }
+
+
+void Simulation::loop(){
+    while (!win.shouldClose()) {
+        profiler.start_frame();
+        profiler.bench_start("frame");
+
+        // INPUT
+        profiler.bench_start("input");
+        input.poll();
+        handleInputs(); 
+        profiler.bench_end("input");
+
+        if (isPaused() == false){
+            update();
+        }
+        // DRAWING
+        draw(); 
+        ui.update();
+        if (rend.debug.showDebugUI){
+            ui.draw(); 
+        }
+
+        profiler.bench_start("render");
+        win.swapBuffers();
+        profiler.bench_end("render");
+
+        profiler.bench_end("frame");
+        profiler.end_frame();
+    }
+}
+
 bool Simulation::inPlayerFrustum(WorldChunkCoord coord){
     return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(coord));
 }

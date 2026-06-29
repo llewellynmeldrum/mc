@@ -4,7 +4,7 @@
 #include "DebugUI.hpp"
 
 
-#include "Simulation.hpp"
+#include "Engine.hpp"
 static Simulation* sim{};
 
 //TODO: change all but mark_mesh_dirty to accept chunkState instead of ChunkEntry

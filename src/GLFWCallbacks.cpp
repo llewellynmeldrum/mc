@@ -1,7 +1,7 @@
 
 #include "FormatSpecs.hpp"
 #include "GLFWCallbacks.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "GLFW/glfw3.h"
 
 void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height) {

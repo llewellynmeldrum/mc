@@ -16,9 +16,8 @@
 // src/Simulation.cpp
 struct Simulation {
   public:
-    auto construct_mesh_job(WorldChunkCoord candidateCoord);
-    void count_states();
-    void setupSimulation();
+    void setup();
+    i32 exit(i32 exit_code);
     Simulation() = default;
     ~Simulation() = default;
 
@@ -75,6 +74,8 @@ struct Simulation {
 
     RenderTargetView screenView();
     RenderTargetView secondaryView();
+    auto construct_mesh_job(WorldChunkCoord candidateCoord);
+    void count_states();
     bool inPlayerFrustum(WorldChunkCoord coord);
     void cullMeshes(bool enableFrustumCulling);
     void unMeshAllChunks();

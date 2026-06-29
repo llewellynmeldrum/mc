@@ -5,7 +5,7 @@
 #include "Renderer.hpp"
 
 #include "Profiler.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "glbinding/gl/functions.h"
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
