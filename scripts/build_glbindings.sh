@@ -4,16 +4,14 @@ cd src/../
 cd shaders/../ 
 
 
-cd external/glbinding
-
 rm -rf ./build
 
-cmake -S . -B build -G "Unix Makefiles" \
-  -DCMAKE_CXX_COMPILER=/opt/gcc-16/bin/g++ \
-  -DCMAKE_C_COMPILER=/opt/gcc-16/bin/gcc \
-  -DCMAKE_BUILD_TYPE=Release
+cmake -S ./external/glbinding -B build -G "Unix Makefiles" \
+    -DCMAKE_CXX_COMPILER=gcc\
+    -DCMAKE_C_COMPILER=gcc\
+    -DCMAKE_BUILD_TYPE=Release
 
-cmake --build build
+cmake --build ./external/glbinding/build
 
 
 

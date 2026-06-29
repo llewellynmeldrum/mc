@@ -12,7 +12,17 @@ ASAN_OPTS := detect_leaks=0:color=always:abort_on_error=1:halt_on_error=1
 UBSAN_OPTS := color=always:print_stacktrace=1:halt_on_error=1
 
 GENERATOR      := Ninja
-CXX            := g++-16
+
+ifeq ($(shell uname -s), Darwin)
+    # macOS 
+    CC  := /opt/homebrew/bin/gcc-16
+    CXX := /opt/homebrew/bin/g++-16
+else
+	# linux
+    CC  := gcc
+    CXX := g++
+endif
+
 APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
