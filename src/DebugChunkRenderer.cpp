@@ -93,14 +93,61 @@ void DebugChunkRenderer::draw(Camera& cam){
     prog.stop();
 }
 
-void DebugChunkRenderer::update(Camera& cam, Simulation* sim){
+void DebugChunkRenderer::update(Camera& cam, Engine* sim){
+    // solid geometry
     updateInstances(cam,sim);
+    // lines
+    const bool show_chunk_boundaries = sim->ui.dbg_view.showChunkBoundaries;
+    const bool highlight_neighbours = sim->ui.dbg_view.showNeighbours;
+    chunk_outlines.clear();
+    if (show_chunk_boundaries){
+        sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
+            if (sim->inPlayerFrustum(key)){
+                if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
+                    return;
+                }
+                if (DebugChunkRenderer::HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
+                    return;
+                }
+                const auto& state = entry.state;
+                auto color = sim->ui.dbg_view.showGenState
+                        ? GenDebugOutlineColor(state.gen)
+                        : MeshDebugOutlineColor(state.mesh);
+
+                chunk_outlines.append_range(entry.bounding_box.getLines(color));
+            }
+        });
+    }
+    if (highlight_neighbours){
+        auto cam_chunk = toWorldChunkCoord(sim->playerCam.pos);
+        for (const auto& [dir, offset]: eachDirOffset){
+            const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
+            sim->world.chunkMap.entries.if_contains(
+                neighbour,
+                [&](ChunkEntry& entry){
+                    const auto& state = entry.state;
+                    auto color = sim->ui.dbg_view.showGenState
+                            ? GenDebugOutlineColor(state.gen)
+                            : MeshDebugOutlineColor(state.mesh);
+                    chunk_outlines.append_range(entry.bounding_box.getLines(color,true));
+                });
+        }
+        sim->world.chunkMap.entries.if_contains(
+            cam_chunk,
+            [&](ChunkEntry& entry){
+                    const auto& state = entry.state;
+                    auto color = sim->ui.dbg_view.showGenState
+                            ? GenDebugOutlineColor(state.gen)
+                            : MeshDebugOutlineColor(state.mesh);
+                chunk_outlines.append_range(entry.bounding_box.getLines(color,true));
+            });
+    }
 
     vao.bind();
     instance_vbo.load<DebugChunkInstance>(instances);
     vao.unbind();
 }
-void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
+void DebugChunkRenderer::updateInstances(Camera& cam,  Engine* sim){
     auto cam_chunk = toWorldChunkCoord(cam.pos);
     const auto& inRadius = sim->world.chunksStatesInRadius(cam_chunk,cam.DebugChunkRenderDistance);
     instances.clear();

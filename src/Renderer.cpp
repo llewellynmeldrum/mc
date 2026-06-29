@@ -76,9 +76,19 @@ void Renderer::beginOpaquePass(){
     disableColorBlending();
 }
 
-void Renderer::draw_debugChunks_to(Camera& cam, Simulation* sim, RenderTargetView target){
+void Renderer::update_player_cam_frustum_lines(Engine* sim){
+    // always update the debug rends' radius and chunks with the player camera
+    auto make_frustum_lines_for = [](Camera& cam){
+        auto frustum = cam.getFrustum();
+        std::vector<Line3D> frustum_lines;
+        frustum.path.publish(frustum_lines);
+        frustum_lines.append_range(frustum.extra_lines);
+        return frustum_lines;
+    };
+    player_cam_frustum_lines = make_frustum_lines_for(sim->playerCam);
+}
+void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();
-    dbg_rend.update(sim->playerCam,sim);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     beginTransparentPass();
@@ -86,6 +96,7 @@ void Renderer::draw_debugChunks_to(Camera& cam, Simulation* sim, RenderTargetVie
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
     target.stop();
+
 }
 
 void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target){

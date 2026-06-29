@@ -8,7 +8,7 @@ int TEST_MAIN(){
 }
 
 int MAIN(int argc, char** argv) {
-    Simulation eng{};
+    Engine eng{};
     eng.setup();
     eng.loop();
     return eng.exit(EXIT_SUCCESS);

@@ -23,7 +23,7 @@
 #include "FmtStyle.hpp"
 #include "UnixHelpers.hpp"
 
-void Simulation::setup() {
+void Engine::setup() {
     cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
     g_StyleConfig::disabled = unix::is_debugger_present();
     auto optimization_level = unix::get_env<int>("OPT_LEVEL");
@@ -33,11 +33,10 @@ void Simulation::setup() {
     }else{
         std::println("No OPT_LEVEL env found.");
     }
-    if (g_StyleConfig::isEnabled()){
-        std::println("Debugger detected, disabling ansi styling.");
-    }
-    init_state_transition_logger(this);
+
     program_epoch_ns = get_current_ns();
+
+    init_state_transition_logger(this);
     playerCam.isPlayer=true;
     playerCam.lineColor = Color01::WHITE;
     playerCam.far_clip_z = 1000.0f;
@@ -76,7 +75,7 @@ void Simulation::setup() {
 }
 
 
-i32 Simulation::exit(i32 exit_code) {
+i32 Engine::exit(i32 exit_code) {
     ui.destroy();
     win.terminate();
     std::exit(exit_code);
@@ -84,24 +83,27 @@ i32 Simulation::exit(i32 exit_code) {
 }
 
 
-void Simulation::loop(){
+void Engine::loop(){
     while (!win.shouldClose()) {
         profiler.start_frame();
         profiler.bench_start("frame");
 
-        // INPUT
-        profiler.bench_start("input");
-        input.poll();
-        handleInputs(); 
-        profiler.bench_end("input");
+        input.handle(profiler,ui,win,playerCam,droneCam,rend,paused); 
 
-        if (isPaused() == false){
-            update();
-        }
-        // DRAWING
-        draw(); 
         ui.update();
-        if (rend.debug.showDebugUI){
+        if (!paused){
+            update_scene();
+            if (ui.dbg_view.showChunkBoundaries){
+                rend.dbg_rend.update(playerCam,this);
+            }
+            if (ui.dbg_view.showDebugUI){
+                rend.update_player_cam_frustum_lines(this);
+            }
+        }
+
+        draw_scene(); 
+
+        if (ui.dbg_view.showDebugUI){
             ui.draw(); 
         }
 
@@ -114,12 +116,12 @@ void Simulation::loop(){
     }
 }
 
-bool Simulation::inPlayerFrustum(WorldChunkCoord coord){
+bool Engine::inPlayerFrustum(WorldChunkCoord coord){
     return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(coord));
 }
 
 
-void Simulation::cullMeshes(bool enableFrustumCulling){
+void Engine::cullMeshes(bool enableFrustumCulling){
     // if a mesh is outside of render dist, but still being meshed, cull it.
     auto lo = toWorldChunkCoord(playerCam.pos) + ChunkOffset{-MESH_CULL_DIST};
     auto hi = toWorldChunkCoord(playerCam.pos) + ChunkOffset{MESH_CULL_DIST};
@@ -131,9 +133,9 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
         mesh.load();
     };
 
-    auto inside_frustum = [](Simulation* sim){
-        return [sim](IndexedMesh& mesh){
-            return sim->inPlayerFrustum(mesh.chunkCoord);
+    auto inside_frustum = [](Engine* eng){
+        return [eng](IndexedMesh& mesh){
+            return eng->inPlayerFrustum(mesh.chunkCoord);
         };
     };
     auto outside_range = [](auto lo, auto hi){
@@ -150,7 +152,12 @@ void Simulation::cullMeshes(bool enableFrustumCulling){
     rend.opaqueChunkMeshes.erase_if(outside_range(lo,hi));
     rend.transparentChunkMeshes.erase_if(outside_range(lo,hi));
 }
-void Simulation::count_states(){
+void Engine::count_states(){
+    rb_genJobsAdded.write(genJobsThisFrame);
+    rb_genResultsAdded.write(genResultsThisFrame);
+    rb_meshJobsAdded.write(meshJobsThisFrame);
+    rb_meshResultsAdded.write(meshResultsThisFrame);
+
     n_generating = n_generating + genJobsThisFrame - genResultsThisFrame;
     rb_generating.write(n_generating);
 
@@ -184,24 +191,17 @@ void Simulation::count_states(){
 
 };
 
-void Simulation::update() {
+void Engine::update_scene() {
     profiler.bench_start("update");
-    // TODO: 
-    // Remodel entire thing.
-    // 
 
     genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
-    rb_genJobsAdded.write(genJobsThisFrame);
 
     genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
-    rb_genResultsAdded.write(genResultsThisFrame);
 
     cullMeshes(true);
     meshJobsThisFrame = enqueueMeshingJobs(maxMeshJobsPerFrame);
-    rb_meshJobsAdded.write(meshJobsThisFrame);
 
     meshResultsThisFrame = drainAndUploadMeshResults(maxMeshUploadsPerFrame);
-    rb_meshResultsAdded.write(meshResultsThisFrame);
 
 
     count_states();
@@ -210,19 +210,12 @@ void Simulation::update() {
     droneCam.cached_viewMatrix.invalidate();
     droneCam.cached_frustum.invalidate();
 
-    lines3d.clear();
-    auto makeCamFrustumLines = [this](Camera& cam){
-        auto frustum = cam.getFrustum();
-        frustum.path.publish(lines3d);
-        lines3d.append_range(frustum.extra_lines);
-    };
-//    makeCamFrustumLines(playerCam);
-//    makeCamFrustumLines(droneCam);
+
     profiler.bench_end("update");
 }
 
 
-std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t maxJobs){
+std::vector<WorldChunkCoord> Engine::findChunksForGeneration(std::size_t maxJobs){
     std::vector<WorldChunkCoord> candidates;
     const auto chunkCoord = toWorldChunkCoord(playerCam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
@@ -256,7 +249,7 @@ std::vector<WorldChunkCoord> Simulation::findChunksForGeneration(std::size_t max
     return candidates;
 }
 
-std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
+std::size_t Engine::enqueueGenerationJobs(std::size_t maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = findChunksForGeneration(maxJobs);
     std::size_t count = 0;
@@ -285,13 +278,13 @@ std::size_t Simulation::enqueueGenerationJobs(std::size_t maxJobs){
     return count;
 }
 
-std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
+std::vector<MeshJob> Engine::findMeshJobs(std::size_t maxJobs){
     
     const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
     auto meshReadyChunksInRad = [&](WorldChunkCoord chunkCoord, glm::ivec3 extents, i32 maxChunks=0) {
         std::vector<WorldChunkCoord> candidates;
         auto add = [&](i32 x, i32 y, i32 z){
-            const auto key = WorldChunkCoord{x,y,z}; // dont you have to 
+            const auto key = WorldChunkCoord{x,y,z};
             bool added = world.chunkMap.entries.if_contains_else(
                 key,
                 [&](ChunkEntry& entry){
@@ -314,7 +307,7 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
         SpiralIterateRange(maxChunks, chunkCoord,extents.y, extents.x, add);
         return candidates;
     };
-    const auto candidateList = meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS, maxJobs);
+    const auto candidateList = meshReadyChunksInRad(camChunkCoord, RENDER_EXTENTS(), maxJobs);
 
     std::vector<MeshJob> res;
     for (const auto candidateCoord: candidateList){
@@ -370,7 +363,7 @@ std::vector<MeshJob> Simulation::findMeshJobs(std::size_t maxJobs){
     return res;
 }
 
-std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
+std::size_t Engine::enqueueMeshingJobs(std::size_t maxJobs){
     profiler.bench_start("enqueueMesh");
     auto candidates = findMeshJobs(maxJobs);
 
@@ -401,7 +394,7 @@ std::size_t Simulation::enqueueMeshingJobs(std::size_t maxJobs){
 }
 
 
-std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
+std::size_t Engine::drainAndUploadMeshResults(std::size_t maxUploads){
     profiler.bench_start("drainMesh");
     std::size_t count = 0;
     auto drain_mesh_results = [](auto& queue,auto maxUploads)->std::vector<MeshResult>{
@@ -440,7 +433,7 @@ std::size_t Simulation::drainAndUploadMeshResults(std::size_t maxUploads){
 }
 
 
-std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
+std::size_t Engine::drainAndUploadGenResults(std::size_t maxUploads){
     profiler.bench_start("drainGen");
     auto drain_gen_results = [](Queue<GenResult>& queue, std::size_t maxUploads){
         std::vector<GenResult> output; output.reserve(maxUploads);
@@ -484,53 +477,16 @@ std::size_t Simulation::drainAndUploadGenResults(std::size_t maxUploads){
     return genResults.size();
 }
 
-void Simulation::draw() {
+void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
+    rend.draw_debugChunks_to(playerCam,this,screenView());
+    rend.draw_3DLines_to(cam,rend.dbg_rend.chunk_outlines,target);
+}
+void Engine::draw_scene() {
     profiler.bench_start("draw");
-    chunkOutlines.clear();
 
-    world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
-        if (inPlayerFrustum(key)){
-            if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
-                return;
-            }
-            if (DebugChunkRenderer::HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
-                return;
-            }
-            const auto& state = entry.state;
-            auto color = ui.dbg_view.showGenState
-                    ? GenDebugOutlineColor(state.gen)
-                    : MeshDebugOutlineColor(state.mesh);
 
-            chunkOutlines.append_range(entry.bounding_box.getLines(color));
-        }
-    });
-    if (ui.dbg_view.showNeighbours){
-        auto cam_chunk = toWorldChunkCoord(playerCam.pos);
-        for (const auto& [dir, offset]: eachDirOffset){
-            const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
-            world.chunkMap.entries.if_contains(
-                neighbour,
-                [&](ChunkEntry& entry){
-                    const auto& state = entry.state;
-                    auto color = ui.dbg_view.showGenState
-                            ? GenDebugOutlineColor(state.gen)
-                            : MeshDebugOutlineColor(state.mesh);
-                    chunkOutlines.append_range(entry.bounding_box.getLines(color,true));
-                });
-        }
-        world.chunkMap.entries.if_contains(
-            cam_chunk,
-            [&](ChunkEntry& entry){
-                    const auto& state = entry.state;
-                    auto color = ui.dbg_view.showGenState
-                            ? GenDebugOutlineColor(state.gen)
-                            : MeshDebugOutlineColor(state.mesh);
-                chunkOutlines.append_range(entry.bounding_box.getLines(color,true));
-            });
-    }
-
-    ScopeTimer t_mesh_chunks{ "Chunk meshing", "chunk" };
     playerCam.aspectRatio = win.aspect();
+
     rend.debug.reset_per_frame();
     rend.clear_to(screenView());
     rend.clear_to(secondaryView());
@@ -538,14 +494,13 @@ void Simulation::draw() {
     rend.draw_to(playerCam, screenView());
     rend.draw_to(droneCam, secondaryView());
 
-    rend.draw_3DLines_to(playerCam,lines3d,screenView());
-    rend.draw_3DLines_to(droneCam,lines3d,secondaryView());
+
+    // Drone cam sees players' frustum lines 
+    rend.draw_3DLines_to(droneCam, rend.player_cam_frustum_lines, secondaryView());
     
-    if(rend.debug.showChunkBoundaries){
-        rend.draw_debugChunks_to(playerCam,this,screenView());
-        rend.draw_debugChunks_to(droneCam,this,secondaryView());
-        rend.draw_3DLines_to(playerCam,chunkOutlines,screenView());
-        rend.draw_3DLines_to(droneCam,chunkOutlines,secondaryView());
+    if(ui.dbg_view.showChunkBoundaries){
+        draw_chunk_boundaries(playerCam, screenView());
+        draw_chunk_boundaries(droneCam, secondaryView());
     }
 
 
@@ -559,10 +514,6 @@ void Simulation::draw() {
 }
 
 
-void Simulation::freeCursor(){
-    win.freeCursor();
-    playerCam.disableMousePanning();
-}
 
 
 // BUG: 
@@ -571,10 +522,10 @@ void Simulation::freeCursor(){
 // For example:
 // -> How do we inform meshes on the queue that their entries have been nuked?
 //      What do we do with those homeless meshes? we must check for and discard them. 
-void Simulation::unGenerateAllChunks(){
+void Engine::unGenerateAllChunks(){
     world.chunkMap.entries.clear();
 }
-void Simulation::unMeshAllChunks(){
+void Engine::unMeshAllChunks(){
     world.chunkMap.entries.for_each([](WorldChunkCoord coord, ChunkEntry& entry){
         entry.mark_mesh_dirty();
     });
@@ -585,32 +536,12 @@ void Simulation::unMeshAllChunks(){
 
 
 
-void Simulation::captureCursor(){
-    win.captureCursor();
-    playerCam.enableMousePanning();
-}
-
-void Simulation::pause(){
-    freeCursor();
-    paused=true;
-}
-void Simulation::unpause(){
-    captureCursor();
-    paused=false;
-}
-bool Simulation::isPaused(){
-    return paused;
-}
-void Simulation::togglePause(){
-    if (paused) unpause();
-    else pause();
-}
-RenderTargetView Simulation::screenView() {
+RenderTargetView Engine::screenView() {
     return {
         .pos = {win.x,win.y},
         .size = {win.px_w, win.px_h},
     };
 }
-RenderTargetView Simulation::secondaryView() {
+RenderTargetView Engine::secondaryView() {
     return fixedCamTarget.view();
 }

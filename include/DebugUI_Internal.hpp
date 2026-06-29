@@ -117,7 +117,7 @@ auto plotRingBuf (const auto& rb,std::size_t max, const std::string key="????", 
 struct WindowConfig{
     std::string title;
     i32 flags;
-    std::function<void(WindowConfig&, Simulation*)> draw;
+    std::function<void(WindowConfig&, Engine*)> draw;
 
     DebugUI* ui{nullptr};
     ImVec2 work_pos{};

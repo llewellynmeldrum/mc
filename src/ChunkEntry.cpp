@@ -5,7 +5,7 @@
 
 
 #include "Engine.hpp"
-static Simulation* sim{};
+static Engine* sim{};
 
 //TODO: change all but mark_mesh_dirty to accept chunkState instead of ChunkEntry
 void gen_enqueue(ChunkState* s) {
@@ -31,7 +31,7 @@ void mesh_dequeue(ChunkState* e) {
     e->mesh = MeshState::done;
 }
 
-void init_state_transition_logger(Simulation* _sim){
+void init_state_transition_logger(Engine* _sim){
     sim=_sim;
 }
 

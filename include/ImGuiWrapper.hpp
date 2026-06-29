@@ -119,6 +119,9 @@ namespace UI{
     inline vec2 getCursorPos(){
         return ImGui::GetCursorScreenPos();
     }
+    inline void Separator(){
+        return ImGui::Separator();
+    }
 
 
     inline bool StartWindow(const char* name, i32 flags, std::function<bool()> pred=[]{ return true;}){

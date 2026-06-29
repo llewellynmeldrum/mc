@@ -6,7 +6,7 @@
 #include "cppslop.hpp"
 #include <chrono>
 #include <format>
-FORWARD_DECL_STRUCT(Simulation)
+FORWARD_DECL_STRUCT(Engine)
 FORWARD_DECL_STRUCT(GLFWwindow)
 
 struct DebugParams{
@@ -15,6 +15,8 @@ struct DebugParams{
 struct DebugViewSettings{
     bool showGenState = false;
     bool showNeighbours = true;
+    bool        showChunkBoundaries{ false};  
+    bool        showDebugUI{ true};  
     glm::vec4 resolve_debug_outline_color(const ChunkState& state){
         if (showGenState){
             return GenDebugOutlineColor(state.gen);
@@ -28,6 +30,7 @@ struct DebugUI{
     ~DebugUI();
     void init(GLFWwindow* win_ptr);
     void destroy();
+    bool is_ui_expanded{false};
 
     template <typename ...Args>
     void log(std::format_string<Args...> fmt, Args&& ...vargs){

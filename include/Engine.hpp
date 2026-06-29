@@ -14,12 +14,12 @@
 
 #include "Concurrency.hpp"
 // src/Simulation.cpp
-struct Simulation {
+struct Engine {
   public:
     void setup();
     i32 exit(i32 exit_code);
-    Simulation() = default;
-    ~Simulation() = default;
+    Engine() = default;
+    ~Engine() = default;
 
     Window   win;
     Profiler profiler;
@@ -31,8 +31,6 @@ struct Simulation {
     DebugUI  ui;
     World    world;
 
-    std::vector<Line3D> lines3d;
-    std::vector<Line3D> chunkOutlines;
 
     static constexpr std::size_t maxGenUploadsPerFrame= 16;
     static constexpr std::size_t maxGenJobsPerFrame = 16;
@@ -80,24 +78,18 @@ struct Simulation {
     void cullMeshes(bool enableFrustumCulling);
     void unMeshAllChunks();
     void unGenerateAllChunks();
-    void captureCursor();
-    void freeCursor();
     void loop();
     static constexpr i32 RENDER_DIST = 6;
-    static constexpr glm::ivec3 RENDER_EXTENTS = {RENDER_DIST,4, RENDER_DIST};
+    static constexpr glm::ivec3 RENDER_EXTENTS(){return  {RENDER_DIST,4, RENDER_DIST};}
     static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
     static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;
 
-    void handleInputs();
-    void update();
-    void draw();
-    void pause();
-    void unpause();
-    bool isPaused();
-    void togglePause();
+    void update_scene();
+    void draw_scene();
+void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
+    bool paused{false};
 private:
-    bool paused;
     std::vector<WorldChunkCoord> findChunksForGeneration(std::size_t maxJobs);
     std::vector<MeshJob> findMeshJobs(std::size_t maxJobs);
 

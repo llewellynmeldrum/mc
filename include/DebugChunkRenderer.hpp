@@ -33,19 +33,20 @@ struct DebugChunkInstance{
 
 FORWARD_DECL_STRUCT(Camera)
 FORWARD_DECL_STRUCT(World)
-FORWARD_DECL_STRUCT(Simulation)
+FORWARD_DECL_STRUCT(Engine)
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 struct DebugChunkRenderer{
     static gl::GLenum PrimitiveType();
     void setup();
     void draw(Camera& cam);
-    void update(Camera& cam, Simulation* sim);
+    void update(Camera& cam, Engine* sim);
     std::vector<DebugChunkInstance> instances;
 
+    std::vector<Line3D> chunk_outlines;
     static constexpr bool HIDE_AIR_CHUNKS = true;
     static constexpr bool HIDE_CLEAN_CHUNKS = true;
 private:
-    void updateInstances(Camera& cam, Simulation* sim);
+    void updateInstances(Camera& cam, Engine* sim);
     VertexArray   vao{std::nullopt};
     VertexBuffer  cube_vbo{std::nullopt};
     ElementBuffer cube_ebo{std::nullopt};

@@ -13,8 +13,8 @@
 #include "Assertion.hpp"
 #include <functional>
 
-FORWARD_DECL_STRUCT(Simulation)
-void init_state_transition_logger(Simulation* _sim);
+FORWARD_DECL_STRUCT(Engine)
+void init_state_transition_logger(Engine* _sim);
 
 #define GEN_STATE_LIST \
 X(on_queue)\

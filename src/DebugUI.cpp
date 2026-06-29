@@ -62,7 +62,7 @@ DebugUI::~DebugUI(){
     destroy();
 }
 void DebugUI::draw() {
-    auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
+    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
     DebugUI::StartFrame();
 
     {
@@ -79,10 +79,10 @@ void DebugUI::draw() {
 
 
 void DebugUI::update() {
-    auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
+    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
 }
 
-void drawLogWindow(WindowConfig& self, Simulation* ctx){
+void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
     self.setSize(UVSize{0.4,0.4});
@@ -103,9 +103,9 @@ void drawLogWindow(WindowConfig& self, Simulation* ctx){
 }
 
 
-void drawFullscreenOverlay(WindowConfig& self, Simulation* ctx) {
+void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
     auto io = IG::GetIO();
-    if (ctx->isPaused()){
+    if (ctx->paused){
         auto* d = IG::GetForegroundDrawList();
         auto display_size = io.DisplaySize;
         d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 64));
@@ -121,24 +121,8 @@ void drawFullscreenOverlay(WindowConfig& self, Simulation* ctx) {
     }
 }
 
-void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
-    // TODO: Make this.
-    // Perhaps a 2d noise preview image (black to white)
-    // Alongside the adjustments for each one 
-    self.setAlpha(0.65f);
-    self.setup();
-    self.setAlign(WinAlign::TopMid());
-    self.start_at(true, UVPos{0.5,0},[&self, ctx]{
-        auto& window = self;
-        window.section("Noise sliders:",[]{
-            UI::Text("Noise preview hahahaha");
-        });
-        window.dropdown.show();
-    });
-}
 
-
-void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
+void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
     self.setAlpha(0.65f);
     self.setup();
     f32 aspect  = ctx->fixedCamTarget.size.x / ctx->fixedCamTarget.size.y;
@@ -159,12 +143,39 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     
 }
 
-void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
+void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
     self.setAlpha(0.65f);
     self.setup();
-    self.setFlags(UI::WinFlags::NoResize);
+    self.setFlags(UI::WinFlags::AlwaysAutoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
+        const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+        const auto k = std::max(1.0f, fps_rb.n_percent_high(1.0));
+        assert(k!=0);
+        const auto p99 = 1000.0/k;
+        const auto fps = 1000.0/fps_rb.avg();
+        const auto ft_ms = fps_rb.avg();
+
+        const auto draw_ms = ctx->profiler.ringbufs.at("draw").avg();
+        const auto upd_ms = ctx->profiler.ringbufs.at("update").avg();
+        const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
+        const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
+
+        const auto n_chunks_loaded = ctx->n_mesh_done;
+        const auto n_chunks_meshing = ctx->n_meshing;
+        const auto n_chunks_genning = ctx->n_generating;
+
+
+        UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
+        UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
+        UI::Separator();
+        UI::Text("chunks: {: 7} (+{: 7} generating, +{: 7} meshing)",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
+        UI::Separator();
+        if (!ctx->ui.is_ui_expanded){
+            UI::Text("Press '`' to expand.");
+            return;
+        }
+        UI::Text("Press '`' to minimize.");
         window.section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
@@ -449,7 +460,6 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::MovableOverlay, drawGeneralDebugOverlay,this},
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
-            {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow,this},
             {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
         }
     );
