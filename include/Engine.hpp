@@ -9,6 +9,7 @@
 #include "Renderer.hpp"
 #include "cppslop.hpp"
 #include "Profiler.hpp"
+#include "ChunkDirector.hpp"
 
 #include "World.hpp"
 
@@ -16,10 +17,12 @@
 // src/Simulation.cpp
 struct Engine {
   public:
-    void setup();
-    i32 exit(i32 exit_code);
     Engine() = default;
     ~Engine() = default;
+    void setup();
+    void loop();
+    i32 exit(i32 exit_code);
+
 
     Window   win;
     Profiler profiler;
@@ -30,6 +33,7 @@ struct Engine {
     Renderer rend;
     DebugUI  ui;
     World    world;
+    ChunkDirector director;
 
 
     static constexpr std::size_t maxGenUploadsPerFrame= 16;
@@ -39,9 +43,39 @@ struct Engine {
     static constexpr std::size_t maxMeshDequeueAttempts = 64;
     static constexpr std::size_t maxMeshJobsPerFrame = 128;
 
-    std::size_t chunksMeshed{0};
 
+
+    RenderTargetView screenView();
+    RenderTargetView secondaryView();
+    auto construct_mesh_job(WorldChunkCoord candidateCoord);
+    void count_states();
+    bool is_chunk_in_frustum(const Frustum& frustum, WorldChunkCoord coord)const;
+    void cullMeshes(bool enableFrustumCulling);
+    void unMeshAllChunks();
+    void unGenerateAllChunks();
+
+    void update_scene();
+    void draw_scene();
+    void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
+    bool paused{false};
+
+    // =========
+    // Generation
+    // =========
+    static constexpr i32 RENDER_DIST = 6;
+    static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
+    static constexpr u64 WORLD_SEED = 1237;
+    
+    // =========
+    // Meshing 
+    // =========
+    static constexpr glm::ivec3 RENDER_EXTENTS(){return  {RENDER_DIST,4, RENDER_DIST};}
+    static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
+    // =========
+    // telemetry
+    // =========
     static constexpr std::size_t RB_SZ = 256;
+    std::size_t chunksMeshed{0};
     MirroredRingBuf<f32, RB_SZ> rb_genJobsAdded;
     MirroredRingBuf<f32, RB_SZ> rb_genResultsAdded;
 
@@ -59,9 +93,6 @@ struct Engine {
 
     std::size_t meshJobsThisFrame = 0;
     std::size_t meshResultsThisFrame = 0;
-    
-    // include/ChunkEntry.hpp
-
     std::size_t n_gen_on_queue               {};
     std::size_t n_gen_done                   {};
 
@@ -69,26 +100,6 @@ struct Engine {
     std::size_t n_mesh_ready_for_enqueue     {};
     std::size_t n_mesh_on_queue              {};
     std::size_t n_mesh_done                  {};
-
-    RenderTargetView screenView();
-    RenderTargetView secondaryView();
-    auto construct_mesh_job(WorldChunkCoord candidateCoord);
-    void count_states();
-    bool inPlayerFrustum(WorldChunkCoord coord);
-    void cullMeshes(bool enableFrustumCulling);
-    void unMeshAllChunks();
-    void unGenerateAllChunks();
-    void loop();
-    static constexpr i32 RENDER_DIST = 6;
-    static constexpr glm::ivec3 RENDER_EXTENTS(){return  {RENDER_DIST,4, RENDER_DIST};}
-    static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
-    static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
-    static constexpr u64 WORLD_SEED = 1237;
-
-    void update_scene();
-    void draw_scene();
-void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
-    bool paused{false};
 private:
     std::vector<WorldChunkCoord> findChunksForGeneration(std::size_t maxJobs);
     std::vector<MeshJob> findMeshJobs(std::size_t maxJobs);

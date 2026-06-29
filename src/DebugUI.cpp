@@ -161,7 +161,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
         const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
 
-        const auto n_chunks_loaded = ctx->n_mesh_done;
+        const auto n_chunks_loaded = ctx->rend.opaqueChunkMeshes.size();
         const auto n_chunks_meshing = ctx->n_meshing;
         const auto n_chunks_genning = ctx->n_generating;
 
@@ -169,7 +169,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
         UI::Separator();
-        UI::Text("chunks: {: 7} (+{: 7} generating, +{: 7} meshing)",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
+        UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
+        UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());
         UI::Separator();
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");

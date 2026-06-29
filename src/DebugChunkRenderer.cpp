@@ -102,7 +102,7 @@ void DebugChunkRenderer::update(Camera& cam, Engine* sim){
     chunk_outlines.clear();
     if (show_chunk_boundaries){
         sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
-            if (sim->inPlayerFrustum(key)){
+            if (sim->is_chunk_in_frustum(sim->playerCam.getFrustum(), key)){
                 if (DebugChunkRenderer::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
                     return;
                 }

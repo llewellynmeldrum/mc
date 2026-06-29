@@ -1,8 +1,5 @@
 #include "ChunkStorage.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include <algorithm>
-#include <optional>
-#include <print>
 
 #include "Chunk.hpp"
 #include "ChunkConcurrency.hpp"
@@ -23,64 +20,9 @@
 #include "FmtStyle.hpp"
 #include "UnixHelpers.hpp"
 
-void Engine::setup() {
-    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
-    g_StyleConfig::disabled = unix::is_debugger_present();
-    auto optimization_level = unix::get_env<int>("OPT_LEVEL");
-    if (optimization_level){
-        std::println("{}",*optimization_level);
-        ui.dbg_params.opt_lvl = *optimization_level;
-    }else{
-        std::println("No OPT_LEVEL env found.");
-    }
-
-    program_epoch_ns = get_current_ns();
-
-    init_state_transition_logger(this);
-    playerCam.isPlayer=true;
-    playerCam.lineColor = Color01::WHITE;
-    playerCam.far_clip_z = 1000.0f;
-
-    droneCam.vertical_fov=50.0f;
-
-    win.set_callbacks(static_cast<void*>(this));
-    LOG_DEBUG("Finished setting window callbacks.");
-
-    input.set_callbacks(win.ptr);
-    LOG_DEBUG("Finished Input setup.");
-
-    profiler.init(
-        "frame",
-        "input",
-        "update",
-        "enqueueGen",
-        "drainGen",
-        "enqueueMesh",
-        "drainMesh",
-        "draw",
-        "render"
-    );
-    LOG_DEBUG("Finished Profiler setup.");
-
-    playerCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
-    droneCam.set_pos_ori({0, 300, 0}, -89.0, 0.0);
-    LOG_DEBUG("Finished Camera setup.");
-
-
-    ui.init(win.ptr);
-    LOG_DEBUG("Finished UI setup.");
-
-    world.setup();
-    LOG_DEBUG("Finished World setup.");
-}
-
-
-i32 Engine::exit(i32 exit_code) {
-    ui.destroy();
-    win.terminate();
-    std::exit(exit_code);
-    return exit_code;
-}
+#include <algorithm>
+#include <optional>
+#include <print>
 
 
 void Engine::loop(){
@@ -93,16 +35,9 @@ void Engine::loop(){
         ui.update();
         if (!paused){
             update_scene();
-            if (ui.dbg_view.showChunkBoundaries){
-                rend.dbg_rend.update(playerCam,this);
-            }
-            if (ui.dbg_view.showDebugUI){
-                rend.update_player_cam_frustum_lines(this);
-            }
         }
 
         draw_scene(); 
-
         if (ui.dbg_view.showDebugUI){
             ui.draw(); 
         }
@@ -116,9 +51,6 @@ void Engine::loop(){
     }
 }
 
-bool Engine::inPlayerFrustum(WorldChunkCoord coord){
-    return playerCam.getFrustum().isAABBInside(world.chunkMap.getBoundingBox(coord));
-}
 
 
 void Engine::cullMeshes(bool enableFrustumCulling){
@@ -135,7 +67,7 @@ void Engine::cullMeshes(bool enableFrustumCulling){
 
     auto inside_frustum = [](Engine* eng){
         return [eng](IndexedMesh& mesh){
-            return eng->inPlayerFrustum(mesh.chunkCoord);
+            return eng->is_chunk_in_frustum(eng->playerCam.getFrustum(), mesh.chunkCoord);
         };
     };
     auto outside_range = [](auto lo, auto hi){
@@ -193,8 +125,18 @@ void Engine::count_states(){
 
 void Engine::update_scene() {
     profiler.bench_start("update");
+    if (ui.dbg_view.showChunkBoundaries){
+        rend.dbg_rend.update(playerCam,this);
+    }
+    if (ui.dbg_view.showDebugUI){
+        rend.update_player_cam_frustum_lines(this);
+    }
 
-    genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
+    if (director.did_player_cross_chunk_boundary(playerCam.pos)){
+        genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
+    }else{
+        genJobsThisFrame =0;
+    }
 
     genResultsThisFrame = drainAndUploadGenResults(maxGenUploadsPerFrame);
 
@@ -211,6 +153,7 @@ void Engine::update_scene() {
     droneCam.cached_frustum.invalidate();
 
 
+    director.end_frame(playerCam.pos);
     profiler.bench_end("update");
 }
 
@@ -533,9 +476,75 @@ void Engine::unMeshAllChunks(){
     rend.transparentChunkMeshes.clear();
 }
 
+void Engine::setup() {
+    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
+    g_StyleConfig::disabled = unix::is_debugger_present();
+    auto optimization_level = unix::get_env<int>("OPT_LEVEL");
+    if (optimization_level){
+        std::println("{}",*optimization_level);
+        ui.dbg_params.opt_lvl = *optimization_level;
+    }else{
+        std::println("No OPT_LEVEL env found.");
+    }
+
+    program_epoch_ns = get_current_ns();
+
+    init_state_transition_logger(this);
+    playerCam.isPlayer=true;
+    playerCam.lineColor = Color01::WHITE;
+    playerCam.far_clip_z = 1000.0f;
+
+    droneCam.vertical_fov=50.0f;
+
+    win.set_callbacks(static_cast<void*>(this));
+    LOG_DEBUG("Finished setting window callbacks.");
+
+    input.set_callbacks(win.ptr);
+    LOG_DEBUG("Finished Input setup.");
+
+    profiler.init(
+        "frame",
+        "input",
+        "update",
+        "enqueueGen",
+        "drainGen",
+        "enqueueMesh",
+        "drainMesh",
+        "draw",
+        "render"
+    );
+    LOG_DEBUG("Finished Profiler setup.");
+
+    playerCam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
+    droneCam.set_pos_ori({0, 300, 0}, -89.0, 0.0);
+    director.end_frame(playerCam.pos);
+    LOG_DEBUG("Finished Camera setup.");
 
 
+    ui.init(win.ptr);
+    LOG_DEBUG("Finished UI setup.");
 
+    world.setup();
+    LOG_DEBUG("Finished World setup.");
+
+    // enqueue the starting chunks
+    genJobsThisFrame = enqueueGenerationJobs(maxGenJobsPerFrame);
+}
+
+
+i32 Engine::exit(i32 exit_code) {
+    ui.destroy();
+    win.terminate();
+    std::exit(exit_code);
+    return exit_code;
+}
+
+// =========
+// Helpers 
+// =========
+bool Engine::is_chunk_in_frustum(const Frustum& frustum, WorldChunkCoord coord) const{
+    return frustum.isAABBInside(world.chunkMap.getBoundingBox(coord));
+}
 RenderTargetView Engine::screenView() {
     return {
         .pos = {win.x,win.y},
