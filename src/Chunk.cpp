@@ -1,7 +1,7 @@
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
-#include "DebugChunkLog.hpp"
+#include "UIDebugLog.hpp"
 // disable colors
 #include "FormatSpecs.hpp"
 

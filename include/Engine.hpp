@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Camera.hpp"
+#include "CommonUtils.hpp"
 #include "MirroredRingBuf.hpp"
 #include "Window.hpp"
 #include "Timer.hpp"
@@ -13,14 +14,25 @@
 #include "World.hpp"
 
 #include "Concurrency.hpp"
-// src/Simulation.cpp
-struct Simulation {
+
+#include "ChunkScheduler.hpp"
+// src/Engine.cpp
+struct Engine {
   public:
-    auto construct_mesh_job(WorldChunkCoord candidateCoord);
-    void count_states();
-    void setupSimulation();
-    Simulation() = default;
-    ~Simulation() = default;
+    Engine() : scheduler(std::ref(world)){
+        Engine::setup();
+    }
+    ~Engine() = default;
+    Engine(const Engine&) = delete;
+    Engine(Engine&&) = delete;
+    decltype(auto) operator=(const Engine&) = delete;
+    decltype(auto) operator=(Engine&&) = delete;
+
+    std::size_t loop_count{0};
+    void setup();
+    void loop();
+    bool should_close(); 
+    i32 exit(i32 exit_code);
 
     Window   win;
     Profiler profiler;
@@ -31,16 +43,16 @@ struct Simulation {
     Renderer rend;
     DebugUI  ui;
     World    world;
+    ChunkScheduler scheduler;
 
     std::vector<Line3D> lines3d;
     std::vector<Line3D> chunkOutlines;
+void count_chunk_states();
 
     static constexpr std::size_t maxGenUploadsPerFrame= 16;
     static constexpr std::size_t maxGenJobsPerFrame = 16;
-    static constexpr std::size_t maxMeshUploadsPerFrame= 64;
-    static constexpr std::size_t maxMeshEnqueueAttempts = 64;
-    static constexpr std::size_t maxMeshDequeueAttempts = 64;
-    static constexpr std::size_t maxMeshJobsPerFrame = 128;
+    static constexpr std::size_t maxMeshUploadsPerFrame= 256;
+    static constexpr std::size_t maxMeshJobsPerFrame = 256;
 
     std::size_t chunksMeshed{0};
 
@@ -72,7 +84,13 @@ struct Simulation {
     std::size_t n_mesh_ready_for_enqueue     {};
     std::size_t n_mesh_on_queue              {};
     std::size_t n_mesh_done                  {};
+    std::size_t n_mesh_done_clean                  {};
 
+    std::size_t opaque_unloaded {};
+    std::size_t opaque_loaded {};
+    std::size_t opaque_removed {};
+
+    void update_debug_info();
     RenderTargetView screenView();
     RenderTargetView secondaryView();
     bool inPlayerFrustum(WorldChunkCoord coord);
@@ -81,28 +99,43 @@ struct Simulation {
     void unGenerateAllChunks();
     void captureCursor();
     void freeCursor();
-    void loop();
-    static constexpr i32 RENDER_DIST = 6;
-    static constexpr glm::ivec3 RENDER_EXTENTS = {RENDER_DIST,4, RENDER_DIST};
-    static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
-    static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
-    static constexpr u64 WORLD_SEED = 1237;
+    Bounded<i32> draw_distance{8,4,8};
 
-    void handleInputs();
-    void update();
-    void draw();
+    // anything INSIDE these is meshed/genned
+    glm::ivec3 mesh_extent() {return {draw_distance, 4, draw_distance};}
+    glm::ivec3 gen_extent() {return mesh_extent()+glm::ivec3{1};}
+
+    // anything outside these is culled
+    glm::ivec3 mesh_nocull_extent() {return {draw_distance, 4, draw_distance};}
+    glm::ivec3 gen_nocull_extent() {return mesh_extent()+glm::ivec3{1};}
+
+
+    void handle_inputs();
+    void update_scene();
+    void draw_scene();
     void pause();
     void unpause();
-    bool isPaused();
+    bool isPaused()const ;
     void togglePause();
+    template<typename ResType>
+    std::vector<ResType> drain_queue(Queue<ResType>& queue, std::size_t maxUploads){
+        std::vector<ResType> output; output.reserve(maxUploads);
+
+        for (std::size_t mesh_count = 0; mesh_count < maxUploads; mesh_count++){
+            std::optional<ResType> result = queue.try_dequeue();
+            if (result.has_value()){
+                output.emplace_back(*result);
+            } else{
+                break; // give up this frame
+            }
+        }
+        return output;
+    }
 private:
     bool paused;
-    std::vector<WorldChunkCoord> findChunksForGeneration(std::size_t maxJobs);
-    std::vector<MeshJob> findMeshJobs(std::size_t maxJobs);
 
-    std::size_t enqueueGenerationJobs(std::size_t maxJobs);
-    std::size_t enqueueMeshingJobs(std::size_t maxJobs);
-
+    std::size_t enqueueGenerationJobs(std::span<WorldChunkCoord> candidates);
+    std::size_t enqueueMeshingJobs(std::span<WorldChunkCoord> candidates);
 
     std::size_t drainAndUploadGenResults(std::size_t maxUploads);
     std::size_t drainAndUploadMeshResults(std::size_t maxUploads);

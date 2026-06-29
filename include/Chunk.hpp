@@ -8,6 +8,7 @@
 #include <atomic>
 #include <vector>
 
+#include "ChunkInvariants.hpp"
 #include "CommonUtils.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
@@ -29,7 +30,7 @@ struct ChunkMetadata {
     ChunkMetadata() = default;
     ~ChunkMetadata() = default;
     struct {
-        std::array<f32, CHUNK_SIZE> data{};
+//        std::array<f32, CHUNK_SIZE> data{};
         inline auto span(this auto& self){
             return std::mdspan(self.storage.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
         }
@@ -39,7 +40,7 @@ struct ChunkMetadata {
     } blockTemperature;
 
     struct {
-        std::array<f32, CHUNK_SIZE> data{};
+//        std::array<f32, CHUNK_SIZE> data{};
         inline auto span(this auto& self){
             return std::mdspan(self.storage.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
         }
@@ -56,7 +57,7 @@ struct Chunk{
     constexpr std::size_t size() const noexcept {return data.size();}
     constexpr bool empty() const noexcept {return data.size()==0;}
 
-    std::array<Block,CHUNK_SIZE>data{};
+    std::vector<Block> data = std::vector<Block>(CHUNK_SIZE,{BlockType::AIR});
 
     Chunk(std::span<Block> sp){
         for (const auto& [i, val]: std::views::enumerate(sp)){

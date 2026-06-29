@@ -117,7 +117,7 @@ auto plotRingBuf (const auto& rb,std::size_t max, const std::string key="????", 
 struct WindowConfig{
     std::string title;
     i32 flags;
-    std::function<void(WindowConfig&, Simulation*)> draw;
+    std::function<void(WindowConfig&, Engine*)> draw;
 
     DebugUI* ui{nullptr};
     ImVec2 work_pos{};
@@ -170,9 +170,18 @@ struct WindowConfig{
     }
 
     template <typename Fn>
-    inline void section(std::string name, Fn&& section){
-        if (IG::CollapsingHeader(name.c_str()))
-            std::invoke(std::forward<Fn>(section));
+    inline void section(std::string name, Fn&& fn, i32 flags=0){
+        if (IG::CollapsingHeader(name.c_str(), flags))
+            std::invoke(std::forward<Fn>(fn));
+    };
+    template <typename Fn>
+    inline void open_section(std::string name, Fn&& fn){
+        section(name,std::forward<Fn>(fn),ImGuiTreeNodeFlags_DefaultOpen );
+    };
+    template <typename Fn>
+    inline void sub_section(std::string name, Fn&& fn){
+        constexpr int i =  ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_NoAutoOpenOnLog;
+        section(name,std::forward<Fn>(fn),ImGuiTreeNodeFlags_CollapsingHeader ^ ImGuiTreeNodeFlags_NoTreePushOnOpen);
     };
     DropDown<std::string,7> dropdown ={"combo 2", { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG"}};
 };

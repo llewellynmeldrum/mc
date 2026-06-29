@@ -1,8 +1,5 @@
 #pragma once
 #include "PendingBlockWrites.hpp"
-#ifdef INCLUDE_LOGGER_LAST
-#error "Logger.hpp must be included AFTER DebugFormat* headers!"
-#endif
 
 #include <format>
 

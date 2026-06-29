@@ -20,6 +20,7 @@
 <br>
 
 - Faces touching opaque faces are culled from meshes (chunk generation makes surrounding chunks trigger remesh, so this applies to almost all cases where it can, including on chunk boundaries)
+- Mesher is now only aware of a *slice* of surrounding chunks.
 - Translucent faces of the same material which touch each other are culled
 - World generation and chunk meshing happens off main thread
 - Chunks are culled ocasionally if they become `render_distance+2` far away from the camera.
@@ -74,6 +75,17 @@ Added trees<br>
 <br>
 Added frustum culling <br>
 <img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
+# Build notes:
+It is necessary to first build glbinding, and becaue I suck at cmake this is currently a separate step.
+```sh
+# this is done from the project root directory, i.e the one that contains README.md, src/, include/, shaders/
+# step 1:
+run ./scripts/build_glbindings.sh
+
+# step 2: 
+make run
+
+```
 
 # Tools used
 - gnu make+ Cmake
@@ -86,6 +98,7 @@ Added frustum culling <br>
 - glm (opengl math library, for vector types and matrix math)
 - glbinding (loads opengl functions with c++11 bindings, slightly stronger typing than GLAD)
 - FastNoise2 (noise functions for terrain generation)
+- cpptrace (for stack traces since std::stacktrace doesn't seem to be working on aarch64 g++-16)
 
 # Resources used
 - [learnopengl.com](https://learnopengl.com/Introduction) - excellent resource for learning opengl for basic 3D, especially with backwards compatability in mind (macos users rejoice)
@@ -94,3 +107,4 @@ Added frustum culling <br>
 
 - [Meshing in a Minecraft Game - mikolalysenko](https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/) - Another cool article
 - [The World Generation Of Minecraft - Alan Zucconi](https://www.alanzucconi.com/2022/06/05/minecraft-world-generation/) - good intro to minecrafts world gen
+https://sites.google.com/site/letsmakeavoxelengine/home/chunks?authuser=0

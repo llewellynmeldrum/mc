@@ -88,6 +88,12 @@ namespace UI{
         std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
         ImGui::TextUnformatted(out.c_str());
     }
+    template<typename... Args>
+    inline void BulletPoint(std::format_string<Args...> fmt, Args&&... args){
+        std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
+        ImGui::Bullet();
+        ImGui::TextUnformatted(out.c_str());
+    }
 
     template<typename... Args>
     inline void ColoredText01(glm::vec4 color, std::format_string<Args...> fmt, Args&&... args){

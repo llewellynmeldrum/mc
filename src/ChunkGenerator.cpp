@@ -18,6 +18,7 @@
 #include "LM.hpp"
 #include <print>
 #include <queue>
+#include "Concurrency.hpp"
 
 //          |?         swamp       jungle
 // humidity |spruce    plains      acacia
@@ -326,13 +327,27 @@ static GenResult generateChunk(GenJob job){
     // 5. Create trees.
 }
 
-void ChunkGenerator::genChunks(std::stop_token stopToken, 
+void ChunkGenScheduler::genChunks(std::stop_token stopToken, ThreadTracker& tracker,
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
+    using namespace std::chrono_literals;
     while (!stopToken.stop_requested()){
+        
+        tracker.set_state(ThreadState::WAITING_INPUT);
+        dbg_sleep_point();
         GenJob job = input_queue.wait_dequeue();
+        dbg_sleep_point();
+
+        tracker.set_state(ThreadState::WORKING);
+        dbg_sleep_point();
         GenResult res = generateChunk(job);
+        dbg_sleep_point();
+
+        tracker.set_state(ThreadState::WAITING_OUTPUT);
+        dbg_sleep_point();
         output_queue.wait_enqueue(res);
+        dbg_sleep_point();
     }
+    tracker.set_state(ThreadState::DONE);
     
 }
 

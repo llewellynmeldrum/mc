@@ -58,7 +58,7 @@ public:
     }
 
     template<typename Fn>
-    auto erase_if(Fn&& pred){
+    std::size_t erase_if(Fn&& pred){
         std::vector<Key> victim_keys;
         for (const auto&[key, dense_idx]: sparse){
             if (pred(AT(buf,dense_idx))){
@@ -91,7 +91,7 @@ public:
         return element_matches.size();
     }
     template<typename Fn, typename Fn2, typename Fn3>
-    auto for_each_if_else(Fn&& pred, Fn2&& on_true, Fn3&& on_false){
+    std::pair<std::size_t,std::size_t> for_each_if_else(Fn&& pred, Fn2&& on_true, Fn3&& on_false){
         std::vector<std::pair<bool,Mapped*>> element_matches;
         auto true_count = 0uz;
         for (const auto&[key, dense_idx]: sparse){
@@ -102,7 +102,8 @@ public:
             true_count += match;
             match ? on_true(*ptr) :  on_false(*ptr);
         }
-        return true_count;
+        auto false_count = sparse.size()-true_count;
+        return {true_count,false_count};
     }
     template<typename Fn, typename Fn2, typename Rt2=return_type<Fn2>>
         requires callable_with<Fn,Mapped&>

@@ -5,7 +5,7 @@
 #include <string>
 
 #include "ChunkEntry.hpp"
-#include "DebugChunkLog.hpp"
+#include "UIDebugLog.hpp"
 #include "DebugFormat.hpp"
 
 #include "FmtStyle.hpp"
@@ -19,13 +19,12 @@
 #include "ChunkConcurrency.hpp"
 #include "Window.hpp"
 #include "ChunkInvariants.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "CoordTypes.hpp"
 #include "CommonConcepts.hpp"
 #include "ImGuiWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "GLFWWrapper.hpp"
-#include "ChunkMap.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -62,7 +61,7 @@ DebugUI::~DebugUI(){
     destroy();
 }
 void DebugUI::draw() {
-    auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
+    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
     DebugUI::StartFrame();
 
     {
@@ -79,10 +78,10 @@ void DebugUI::draw() {
 
 
 void DebugUI::update() {
-    auto* ctx = static_cast<Simulation*>(glfwGetWindowUserPointer(win_ptr));
+    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
 }
 
-void drawLogWindow(WindowConfig& self, Simulation* ctx){
+void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
     self.setSize(UVSize{0.4,0.4});
@@ -90,7 +89,13 @@ void drawLogWindow(WindowConfig& self, Simulation* ctx){
     self.setFlags();
     self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
         auto& window = self;
-        window.section("Per chunk log:",[&self, &ctx]{
+        window.open_section("Global Log:",[&self, &ctx]{
+            // Shown in most->least recent vertical order
+            for (const auto& entry: global_log | std::views::reverse){
+                UI::Text(DebugLog::entry_tostr(entry));
+            }
+        });
+        window.section("Per Chunk Log:",[&self, &ctx]{
             // Shown in most->least recent vertical order
             WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->playerCam.pos);
             if (per_chunk_log.contains(cur_chunk)){
@@ -103,7 +108,7 @@ void drawLogWindow(WindowConfig& self, Simulation* ctx){
 }
 
 
-void drawFullscreenOverlay(WindowConfig& self, Simulation* ctx) {
+void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
     auto io = IG::GetIO();
     if (ctx->isPaused()){
         auto* d = IG::GetForegroundDrawList();
@@ -121,7 +126,7 @@ void drawFullscreenOverlay(WindowConfig& self, Simulation* ctx) {
     }
 }
 
-void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
+void drawNoisePreviewWindow(WindowConfig& self, Engine* ctx) {
     // TODO: Make this.
     // Perhaps a 2d noise preview image (black to white)
     // Alongside the adjustments for each one 
@@ -137,8 +142,43 @@ void drawNoisePreviewWindow(WindowConfig& self, Simulation* ctx) {
     });
 }
 
+void drawConcurrencyWindow(WindowConfig& self, Engine* ctx) {
+    self.setAlpha(0.95f);
+    self.setup();
+    self.setAlign(WinAlign::TopMid());
+    self.start_at(true, UVPos{0.5,0},[&]{
+        auto& window = self;
+        const auto& mesh_threads = ctx->rend.meshers.mesherThreads;
+        const auto& gen_threads = ctx->world.chunkMap.generator.genThreads;
+        auto q_print_stats = [](std::string_view name, const auto& q, const auto& rb){
+            const auto sz = q.size_unlocked();
+            const auto cap = q.capacity;
+            const auto load = sz/static_cast<f32>(cap);
+            auto new_per_sec = rb.avg();
+            std::string avg = std::format("+{:>6.3}/s",new_per_sec);
+            UI::Text("{} Q: {: 4}/{} ({:3.2f}%)",name, sz,cap,load*100.0f);
+            UI::SameLine();
+            UI::ColoredText({0,1,0,1},"{}",avg);
+        };
+        window.open_section("Mesh Threads:",[&]{
+            q_print_stats("Job", ctx->rend.meshers.meshJobQueue, ctx->rb_meshJobsAdded);
+            q_print_stats("Res", ctx->rend.meshers.meshResultQueue,ctx->rb_meshResultsAdded);
+            for (const auto& tracker: mesh_threads.trackers ){
+                UI::BulletPoint("{}",tracker.to_str());
+            }
+        });
+        window.open_section("Gen Threads:",[&]{
+            q_print_stats("Job",ctx->world.chunkMap.generator.genJobQueue,ctx->rb_genJobsAdded);
+            q_print_stats("Res",ctx->world.chunkMap.generator.genResultQueue,ctx->rb_genResultsAdded);
+            for (const auto& tracker: gen_threads.trackers ){
+                UI::BulletPoint("{}",tracker.to_str());
+            }
+        });
+    });
+}
 
-void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
+
+void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
     self.setAlpha(0.65f);
     self.setup();
     f32 aspect  = ctx->fixedCamTarget.size.x / ctx->fixedCamTarget.size.y;
@@ -159,13 +199,13 @@ void drawSecondCameraWindow(WindowConfig& self, Simulation* ctx) {
     
 }
 
-void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
+void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
     self.setAlpha(0.65f);
     self.setup();
     self.setFlags(UI::WinFlags::NoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
-        window.section("Chunk States:",[ctx]{
+        window.open_section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
             #define X(name) UI::ColoredText(GenDebugOutlineColor(GenState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
@@ -177,9 +217,169 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
             #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshState:: name),"{}: {}", #name, ctx->n_mesh_ ##name);
             MESH_STATE_LIST
             #undef X
+            UI::Text("Meshed (clean): {}",ctx->n_mesh_done_clean);
             UI::Text("Chunk Entries: {}",ctx->world.chunkMap.entries.size());
+            UI::Text("opaque_unloaded:{}",  ctx->opaque_unloaded);
+            UI::Text("opaque_loaded   :{}   ",ctx->opaque_loaded );
+            UI::Text("opaque_removed :{}",  ctx->opaque_removed);
         });
-        window.dropdown.show();
+        window.open_section("World Data:",[&]{
+            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
+            IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
+            auto n_pending_ungenerated  = 0uz;
+            auto n_pending_unmeshed     = 0uz;
+            auto n_pending_clean_meshed = 0uz;
+            auto n_pending_dirty_meshed = 0uz;
+            for (const auto& [key, _]: ctx->world.chunkMap.pending_writes){
+                ctx->world.chunkMap.entries.if_contains_else(
+                    key,
+                    [&](ChunkEntry& entry){
+                        if (entry.state.mesh == MeshState::done){
+                            n_pending_clean_meshed += entry.is_mesh_clean();
+                            n_pending_dirty_meshed += entry.is_mesh_dirty();
+                        }  else{
+                            n_pending_unmeshed++;
+                        }
+                    },
+                    [&](){
+                        n_pending_ungenerated++;
+                    }
+                );
+            }
+            window.sub_section("Pending Writes:",[&](){
+                IG::Text("Total Pending: %lu", ctx->world.chunkMap.pending_writes.size());
+                IG::Text("Ungenerated Pending: %lu", n_pending_ungenerated);
+                IG::Text("Generated Pending: %lu", n_pending_unmeshed+n_pending_clean_meshed+n_pending_dirty_meshed);
+                IG::Text("Unmeshed Pending: %lu", n_pending_unmeshed);
+                IG::Text("Clean Meshed Pending: %lu", n_pending_clean_meshed);
+                IG::Text("Dirty Meshed Pending: %lu", n_pending_dirty_meshed);
+                {
+                    int successful = ctx->world.chunkMap.pendingWritesSuccessful;
+                    int attempted = ctx->world.chunkMap.pendingWritesAttempted;
+                    IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
+                }
+            });
+        });
+        window.open_section("Performance:",[&]{
+            UI::Text("Optimization lvl: -O{}",ctx->ui.dbg_params.opt_lvl);
+            UI::Text("vsync: {}", ctx->win.enable_vsync ? "enabled" : "disabled");
+            UI::Text("draw dist: {}", ctx->draw_distance.val);
+
+            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+            auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
+            assert(k!=0);
+            std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
+            IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
+            IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
+
+            for (const auto& [key, val]: ctx->profiler.ringbufs){
+                if (key=="frame") continue;
+                plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
+            }
+
+        });
+
+        window.open_section("Per frame draw info:",[ctx]{
+            std::size_t n_vtx = ctx->rend.debug.vertex_count;
+            std::size_t n_bytes = n_vtx * sizeof(Vertex);
+            f32 kb = n_bytes /1000.0;
+            f32 mb = kb/1000.0;
+            f32 gb = mb/1000.0;
+            IG::Text("Vertex Count: %lu (%7.2lfMB | %6.2lfGB) ",n_vtx, mb,gb); 
+            IG::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
+            IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
+        });
+
+        window.open_section("Process Metrics:",[]{
+            IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
+        });
+
+        window.open_section("Concurrency:",[ctx]{
+            auto& gen = ctx->world.chunkMap.generator;
+            auto& mesher = ctx->rend.meshers;
+            auto drawSizeAndUniqueness = [ctx]
+                (const std::string name, std::size_t max, auto& q, auto newcount, const auto& rb){
+
+                auto total_sz = q.wait_size();
+                std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
+
+                auto newcounts_per_second = rb.avg();
+                std::string additions = std::format("+{:<4}",newcount);
+                std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
+                UI::Text(cur_size); UI::SameLine();
+                {
+                    UI::setTextColor(0,255,0);
+                        UI::Text(additions.c_str()); 
+                    UI::ResetTextColor();
+
+                    UI::SameLine();
+
+                    UI::setTextColor(0,255,0);
+                        UI::Text(avg.c_str()); 
+                    UI::ResetTextColor();
+                }
+                plotRingBuf(rb, max, name);
+            };
+
+            auto idk =[](auto cur_size, auto& rb, auto max, auto& name){
+                UI::Text("{}:", name); UI::SameLine();
+                UI::Text("{}", cur_size); UI::SameLine();
+                {
+                    UI::setTextColor(0,255,0);
+                        UI::Text("{}",rb.avg()); 
+                    UI::ResetTextColor();
+                }
+                plotRingBuf(rb, max, name);
+            };
+            idk(
+                ctx->n_generating,
+                ctx->rb_generating,
+                gen.genJobQueue.capacity + gen.genResultQueue.capacity,
+                "Generating"
+            );
+
+            idk(
+                ctx->n_meshing,
+                ctx->rb_meshing,
+                ctx->rend.meshers.meshJobQueue.capacity + ctx->rend.meshers.meshResultQueue.capacity,
+                "Meshing"
+            );
+
+                
+            IG::Separator();
+
+            drawSizeAndUniqueness(
+                " genJobQ",
+                ctx->maxGenJobsPerFrame,
+                gen.genJobQueue,
+                ctx->genJobsThisFrame,
+                ctx->rb_genJobsAdded
+            );
+            drawSizeAndUniqueness(
+                " genResQ",
+                ctx->maxGenUploadsPerFrame,
+                gen.genResultQueue,
+                ctx->genResultsThisFrame,
+                ctx->rb_genResultsAdded
+            );
+
+            drawSizeAndUniqueness(
+                "meshJobQ",
+                ctx->maxMeshJobsPerFrame,
+                mesher.meshJobQueue,
+                ctx->meshJobsThisFrame,
+                ctx->rb_meshJobsAdded
+            );
+            drawSizeAndUniqueness(
+                "meshResQ",
+                ctx->maxMeshUploadsPerFrame,
+                mesher.meshResultQueue,
+                ctx->meshResultsThisFrame,
+                ctx->rb_meshResultsAdded
+            );
+
+            });
 
 
         window.section("Chunk Data:",[ctx]{
@@ -295,139 +495,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Simulation* ctx) {
             IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->playerCam.pitch, ctx->playerCam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });
-        window.section("World Data:",[ctx]{
-            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-            IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
-            auto n_pending_ungenerated  = 0uz;
-            auto n_pending_unmeshed     = 0uz;
-            auto n_pending_clean_meshed = 0uz;
-            auto n_pending_dirty_meshed = 0uz;
-            for (const auto& [key, _]: ctx->world.chunkMap.pending_writes){
-                ctx->world.chunkMap.entries.if_contains_else(
-                    key,
-                    [&](ChunkEntry& entry){
-                        if (entry.state.mesh == MeshState::done){
-                            n_pending_clean_meshed += entry.is_mesh_clean();
-                            n_pending_dirty_meshed += entry.is_mesh_dirty();
-                        }  else{
-                            n_pending_unmeshed++;
-                        }
-                    },
-                    [&](){
-                        n_pending_ungenerated++;
-                    }
-                );
-            }
-            IG::Text("Total Pending: %lu", ctx->world.chunkMap.pending_writes.size());
-            IG::Text("Ungenerated Pending: %lu", n_pending_ungenerated);
-            IG::Text("Generated Pending: %lu", n_pending_unmeshed+n_pending_clean_meshed+n_pending_dirty_meshed);
-            IG::Text("Unmeshed Pending: %lu", n_pending_unmeshed);
-            IG::Text("Clean Meshed Pending: %lu", n_pending_clean_meshed);
-            IG::Text("Dirty Meshed Pending: %lu", n_pending_dirty_meshed);
-            {
-                int successful = ctx->world.chunkMap.pendingWritesSuccessful;
-                int attempted = ctx->world.chunkMap.pendingWritesAttempted;
-                IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
-            }
-            IG::Text(".");
-            IG::Text(".");
-            IG::Text(".");
-            IG::Text(".");
-        });
 
-        window.section("Perf:",[ctx]{
-            UI::Text("Optimization lvl: -O{}",ctx->ui.dbg_params.opt_lvl);
-            IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
-
-            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
-            auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
-            assert(k!=0);
-            std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
-            IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
-            IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
-
-            for (const auto& [key, val]: ctx->profiler.ringbufs){
-                plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
-            }
-
-        });
-
-        window.section("Per frame draw info:",[ctx]{
-            std::size_t n_vtx = ctx->rend.debug.vertex_count;
-            std::size_t n_bytes = n_vtx * sizeof(Vertex);
-            f32 kb = n_bytes /1000.0;
-            f32 mb = kb/1000.0;
-            f32 gb = mb/1000.0;
-            IG::Text("Vertex Count: %lu (%7.2lfMB | %6.2lfGB) ",n_vtx, mb,gb); 
-            IG::Text("Draw Calls: %llu", ctx->rend.debug.draw_calls);
-            IG::Text("Mesh Count: %llu", ctx->rend.debug.mesh_count);
-        });
-
-        window.section("Process Metrics:",[]{
-            IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
-        });
-
-        window.section("Concurrency:",[ctx]{
-            auto& gen = ctx->world.chunkMap.generator;
-            auto& mesher = ctx->rend.meshers;
-            auto drawSizeAndUniqueness = [ctx]
-                (const std::string name, std::size_t max, auto& q, auto newcount, const auto& rb){
-
-                auto total_sz = q.wait_size();
-                std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
-
-                auto newcounts_per_second = rb.avg();
-                std::string additions = std::format("+{:<4}",newcount);
-                std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
-                UI::Text(cur_size); UI::SameLine();
-                {
-                    UI::setTextColor(0,255,0);
-                        UI::Text(additions.c_str()); 
-                    UI::ResetTextColor();
-
-                    UI::SameLine();
-
-                    UI::setTextColor(0,255,0);
-                        UI::Text(avg.c_str()); 
-                    UI::ResetTextColor();
-                }
-                plotRingBuf(rb, max, name);
-            };
-
-            auto idk =[](auto cur_size, auto& rb, auto max, auto& name){
-                UI::Text("{}:", name); UI::SameLine();
-                UI::Text("{}", cur_size); UI::SameLine();
-                {
-                    UI::setTextColor(0,255,0);
-                        UI::Text("{}",rb.avg()); 
-                    UI::ResetTextColor();
-                }
-                plotRingBuf(rb, max, name);
-            };
-            idk(
-                ctx->n_generating,
-                ctx->rb_generating,
-                gen.genJobQueue.capacity + gen.genResultQueue.capacity,
-                "Generating"
-            );
-
-            idk(
-                ctx->n_meshing,
-                ctx->rb_meshing,
-                ctx->rend.meshers.meshJobQueue.capacity + ctx->rend.meshers.meshResultQueue.capacity,
-                "Meshing"
-            );
-
-                
-            IG::Separator();
-
-            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->genJobsThisFrame, ctx->rb_genJobsAdded);
-            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->genResultsThisFrame,ctx->rb_genJobsAdded);
-
-            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.meshJobQueue,ctx->meshJobsThisFrame,ctx->rb_meshJobsAdded);
-            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->meshResultsThisFrame,ctx->rb_meshResultsAdded);
-
-            });
         window.section("Padding:",[ctx]{
             UI::Text("");
             UI::Text("");
@@ -450,6 +518,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
             {"NOISE PREVIEW", UI::WinFlagGroup::Normal,drawNoisePreviewWindow,this},
+            {"CONCURRENCY", UI::WinFlagGroup::Normal,drawConcurrencyWindow,this},
             {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
         }
     );

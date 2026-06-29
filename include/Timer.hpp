@@ -1,8 +1,17 @@
 #pragma once
 #include "Types.h"
 #include "MirroredRingBuf.hpp"
+#include "cppslop.hpp"
 #include <map>
 // src/Timer.cpp
+//
+FORWARD_DECL_STRUCT(Profiler)
+struct ScopeProfiler{
+    Profiler* profiler;
+    std::string_view key;
+    ScopeProfiler(Profiler* p, std::string_view k);
+    ~ScopeProfiler();
+};
 struct Profiler {
 public:
     Profiler() = default;
@@ -21,6 +30,7 @@ public:
     void bench_start(std::string_view key);
     void bench_end(std::string_view key);
     void end_frame();
+    ScopeProfiler bench_scope(std::string_view key);
 
     std::map<std::string_view, MirroredRingBuf<f32, 200>> ringbufs{};
     std::map<std::string_view, f64> start_time{};

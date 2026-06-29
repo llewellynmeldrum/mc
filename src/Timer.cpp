@@ -5,12 +5,22 @@
 
 i64  program_epoch_ns = 0;
 
+ScopeProfiler::ScopeProfiler(Profiler* p, std::string_view k):profiler(p),key(k){
+    profiler->bench_start(key);
+}
+ScopeProfiler::~ScopeProfiler(){
+    profiler->bench_end(key);
+}
+
 void Profiler::setupTimer_impl(){
     glfwSetTime(0.0);
 }
 void Profiler::start_frame() {
     f64 now = glfwGetTime();
     start_of_frame = now;
+}
+[[nodiscard]] ScopeProfiler Profiler::bench_scope(std::string_view key){
+    return {this, key};
 }
 
 void Profiler::bench_start(std::string_view key){

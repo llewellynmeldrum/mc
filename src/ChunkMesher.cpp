@@ -10,7 +10,7 @@
 #include "CommonUtils.hpp"
 #include "Logger.hpp"
 #include "glmWrapper.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "Profiler.hpp"
 #include "LM.hpp"
 #include <ranges>
@@ -163,20 +163,35 @@ MeshDataType meshChunk(const MeshJob& job){
 }
 
 std::atomic<std::size_t> thread_id;
-void ChunkMesher::meshChunks
-(std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue){
+void MeshScheduler::meshChunks (
+    std::stop_token stopToken,
+    ThreadTracker& tracker,
+    Queue<MeshJob>& in_queue,
+    Queue<MeshResult>& out_queue
+)
+{
     const std::size_t id = thread_id.fetch_add(1);
     while (!stopToken.stop_requested()){
         
-        auto job = input_queue.wait_dequeue();
+        tracker.set_state(ThreadState::WAITING_INPUT);
+        dbg_sleep_point();
+        auto job = in_queue.wait_dequeue();
+        dbg_sleep_point();
 
 
+        tracker.set_state(ThreadState::WORKING);
+        dbg_sleep_point();
         MeshResult res{job.meshRevisionID, job.chunkCoord};
         res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
         res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
+        dbg_sleep_point();
 
-       output_queue.wait_emplace(res);
+        tracker.set_state(ThreadState::WAITING_OUTPUT);
+        dbg_sleep_point();
+        out_queue.wait_emplace(res);
+        dbg_sleep_point();
     }
+    tracker.set_state(ThreadState::DONE);
 
 }
 // clang-format off

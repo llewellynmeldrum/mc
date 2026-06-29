@@ -1,16 +1,17 @@
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
-#include "DebugChunkLog.hpp"
+#include "UIDebugLog.hpp"
 #include "FormatSpecs.hpp"
 #include "Renderer.hpp"
 
 #include "Profiler.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "glbinding/gl/functions.h"
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "World.hpp"
 #include <algorithm>
+#include <print>
 #include <ranges>
 #include "LM.hpp"
 
@@ -76,7 +77,7 @@ void Renderer::beginOpaquePass(){
     disableColorBlending();
 }
 
-void Renderer::draw_debugChunks_to(Camera& cam, Simulation* sim, RenderTargetView target){
+void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();
     dbg_rend.update(sim->playerCam,sim);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -138,6 +139,7 @@ void Renderer::drawOpaque(Camera& cam){
     //TODO: cache this sort between frames? 
     //This would require some extra fuckery im not bothered with atm
     auto sorted = sorted_opaque(cam);
+//    std::println("n_sorted opaque: {}", sorted.size());
     uploadMeshListToGpu(opaqueChunkMeshes,sorted);
 }
 

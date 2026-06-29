@@ -2,6 +2,7 @@
 
 #include "cpptrace/cpptrace.hpp"
 
+static inline constexpr bool color_stack_traces = true;
 #include <iostream>
 
 #if defined(__clang__)
@@ -26,7 +27,7 @@ constexpr inline void BREAKPOINT_QUIET(){
 }
 [[noreturn]]
 constexpr inline void BREAKPOINT(std::size_t skip_frames=0){
-    cpptrace::generate_trace(skip_frames).print(std::cerr, false); 
+    cpptrace::generate_trace(skip_frames).print(std::cerr, color_stack_traces); 
     BREAKPOINT_QUIET();
 }
 /* #define BREAKPOINT_QUIET() TRAP()

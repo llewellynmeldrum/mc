@@ -4,11 +4,11 @@
 #include "DebugUI.hpp"
 
 
-#include "Simulation.hpp"
-static Simulation* sim{};
+#include "Engine.hpp"
+static Engine* sim{};
 
-//TODO: change all but mark_mesh_dirty to accept chunkState instead of ChunkEntry
-void gen_enqueue(ChunkState* s) {
+void gen_enqueue(ChunkState* e) {
+    assert_eq(e->gen,GenState::on_queue);
    1; // zorp
 }
 void gen_dequeue(ChunkState* e) {
@@ -20,6 +20,7 @@ void gen_dequeue(ChunkState* e) {
 
 void mesh_enqueue(ChunkState* e) {
     assert_eq(e->gen,GenState::done);
+    std::println(stderr, "{}",e->mesh);
     assert(e->mesh == MeshState::ready_for_enqueue || e->mesh == MeshState::done);
 
     e->mesh = MeshState::on_queue;
@@ -31,7 +32,7 @@ void mesh_dequeue(ChunkState* e) {
     e->mesh = MeshState::done;
 }
 
-void init_state_transition_logger(Simulation* _sim){
+void init_state_transition_logger(Engine* _sim){
     sim=_sim;
 }
 

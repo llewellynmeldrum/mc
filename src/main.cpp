@@ -1,4 +1,4 @@
-#include "App.hpp"
+#include "Engine.hpp"
 //#define TESTING_SOMETHING
 #include "preamble.hpp"
 int TEST_MAIN(){
@@ -7,10 +7,9 @@ int TEST_MAIN(){
 }
 
 int MAIN(int argc, char** argv) {
-    App app{};
-    app.setup();
-    app.loop();
-    return app.exit(EXIT_SUCCESS);
+    Engine eng{};
+    eng.loop();
+    return eng.exit(EXIT_SUCCESS);
 }
 
 

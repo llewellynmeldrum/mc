@@ -1,12 +1,12 @@
 #pragma once 
 #include "ChunkEntry.hpp"
 #include "CoordTypes.hpp"
-#include "DebugChunkLog.hpp"
+#include "UIDebugLog.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "cppslop.hpp"
 #include <chrono>
 #include <format>
-FORWARD_DECL_STRUCT(Simulation)
+FORWARD_DECL_STRUCT(Engine)
 FORWARD_DECL_STRUCT(GLFWwindow)
 
 struct DebugParams{

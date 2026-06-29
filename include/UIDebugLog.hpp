@@ -3,6 +3,8 @@
 #include "CoordTypes.hpp"
 #include <chrono>
 #include <format>
+#include <mutex>
+#include <thread>
 
 struct DebugLog{
     using Clock = std::chrono::steady_clock;
@@ -40,11 +42,23 @@ struct DebugLog{
     }
 };
 inline std::unordered_map<WorldChunkCoord, DebugLog> per_chunk_log;
+// thread safe logger
+extern DebugLog global_log;
 inline bool pause_logging = false;
 
 template <typename ...Args>
 inline void log_to_chunk(WorldChunkCoord key, std::format_string<Args...> fmt, Args&& ...vargs){
     if (!pause_logging)
         per_chunk_log[key].make_entry(std::format(fmt,std::forward<Args>(vargs)...));
+}
+
+
+void log_to_all_impl(std::string s);
+inline std::mutex global_log_write;
+template <typename ...Args>
+inline void log_to_all(std::format_string<Args...> fmt, Args&& ...vargs){
+    if (!pause_logging){
+        log_to_all_impl(std::format(fmt,std::forward<Args>(vargs)...));
+    }
 }
 

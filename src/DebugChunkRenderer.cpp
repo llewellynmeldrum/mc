@@ -1,7 +1,7 @@
 #include "ChunkInvariants.hpp"
 #include "ChunkEntry.hpp"
 #include "Renderer.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "World.hpp"
 #include <optional>
@@ -93,14 +93,14 @@ void DebugChunkRenderer::draw(Camera& cam){
     prog.stop();
 }
 
-void DebugChunkRenderer::update(Camera& cam, Simulation* sim){
+void DebugChunkRenderer::update(Camera& cam, Engine* sim){
     updateInstances(cam,sim);
 
     vao.bind();
     instance_vbo.load<DebugChunkInstance>(instances);
     vao.unbind();
 }
-void DebugChunkRenderer::updateInstances(Camera& cam,  Simulation* sim){
+void DebugChunkRenderer::updateInstances(Camera& cam,  Engine* sim){
     auto cam_chunk = toWorldChunkCoord(cam.pos);
     const auto& inRadius = sim->world.chunksStatesInRadius(cam_chunk,cam.DebugChunkRenderDistance);
     instances.clear();

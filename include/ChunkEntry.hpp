@@ -13,8 +13,8 @@
 #include "Assertion.hpp"
 #include <functional>
 
-FORWARD_DECL_STRUCT(Simulation)
-void init_state_transition_logger(Simulation* _sim);
+FORWARD_DECL_STRUCT(Engine)
+void init_state_transition_logger(Engine* _sim);
 
 #define GEN_STATE_LIST \
 X(on_queue)\
@@ -90,16 +90,13 @@ struct ChunkEntry{
     bool is_mesh_clean()const noexcept{
         return loaded_mesh_revision==target_mesh_revision;
     }
-    void mark_mesh_dirty()noexcept{
-        target_mesh_revision++;
-    }
     bool qualifies_for_gen_dequeue() const noexcept{
         return state.gen==GenState::on_queue;
     }
     bool qualifies_for_mesh_enqueue()const noexcept{
         const bool target_is_newer_than_inflight = (target_mesh_revision > inflight_mesh_revision);
         const bool gen_done = state.gen == GenState::done;
-        const bool ready = state.mesh==MeshState::ready_for_enqueue;
+        const bool ready = state.mesh == MeshState::ready_for_enqueue;
         const bool dirty_done = state.mesh==MeshState::done && is_mesh_dirty();
         return target_is_newer_than_inflight && gen_done && (ready || dirty_done);
     }
@@ -116,7 +113,6 @@ struct ChunkEntry{
         return loaded_gen_revision == target_gen_revision;
     }
     bool mark_gen_dirty() noexcept{
-        // NOTE: currently unused
         return target_gen_revision++;
     }
     template<typename Fn>

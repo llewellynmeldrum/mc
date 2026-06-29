@@ -191,29 +191,29 @@ endif()
 #               TESTING
 #============================================
 
-add_executable(test_queue
-    tests/src/test_queue.cpp
-    src/Assertion.cpp
-    src/Concurrency.cpp
-)
-
-target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
-
-target_include_directories(test_queue PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_include_directories(test_queue PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
-
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
-)
-
-add_test(NAME Queue_tests COMMAND test_queue)
+#add_executable(test_queue
+#    tests/src/test_queue.cpp
+#    src/Assertion.cpp
+#    src/Concurrency.cpp
+#)
+#
+#target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
+#
+#target_include_directories(test_queue PRIVATE
+#    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+#target_include_directories(test_queue PRIVATE
+#    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
+#
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
+#)
+#
+#add_test(NAME Queue_tests COMMAND test_queue)

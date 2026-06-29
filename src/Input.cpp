@@ -2,11 +2,15 @@
 
 #include "Input.hpp"
 #include "KeyCodes.hpp"
-#include "Simulation.hpp"
+#include "Engine.hpp"
 #include "GLFWWrapper.hpp"
 
 using namespace glm;
-void Simulation::handleInputs() {
+void Engine::handle_inputs() {
+    auto input_bench = profiler.bench_scope("input");
+
+    input.poll();
+
     auto signal = 
     input.mapToggleKey(KEY_ESCAPE, [this]{
         if (isPaused()){
@@ -104,10 +108,10 @@ void Simulation::handleInputs() {
 		playerCam.rotate(Direction::RIGHT, profiler.dt_s);
 	});
     input.mapHeldKey(KEY_UP,[this]{
-		playerCam.rotate(Direction::UP, profiler.dt_s);
+        draw_distance++;
 	});
     input.mapHeldKey(KEY_DOWN,[this]{
-		playerCam.rotate(Direction::DOWN, profiler.dt_s);
+        draw_distance--;
 	});
     input.prevmousepos = input.mousepos;
     input.prevscroll = input.scroll;
@@ -124,7 +128,7 @@ void Input::poll() {
 }
 
 static void glfw_key_callback(GLFWwindow* window, int key, int code, int action, int mods) {
-    auto* ctx = (Simulation*)glfwGetWindowUserPointer(window);
+    auto* ctx = (Engine*)glfwGetWindowUserPointer(window);
     auto& input = ctx->input;
     //    LOG_DEBUG("Key {} pressed, code:{}, action:{},mods={},", key, code, action, mods);
     if (key == GLFW_KEY_UNKNOWN) {
