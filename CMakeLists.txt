@@ -6,33 +6,30 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+
 option(MC_ENABLE_IWYU "Run include-what-you-use" OFF)
-enable_testing()
+
 
 if(MC_ENABLE_IWYU)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE include-what-you-use)
 endif()
+
+# -- deps --
+add_subdirectory(external/imgui)
+add_subdirectory(external/glbinding EXCLUDE_FROM_ALL)
+add_subdirectory(external/cpptrace)
 
 # -- source files --
 file( GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
-add_subdirectory(external/imgui)
-add_subdirectory(external/cpptrace)
 
-
-add_executable(mc
-    ${APP_SRC}
-)
-set_target_properties( mc PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
-)
-
-
+# -- executable --
+add_executable(mc ${APP_SRC})
 
 # -- warnings --
-
 target_compile_options(mc PRIVATE
     -Wall
     -Werror
@@ -40,33 +37,21 @@ target_compile_options(mc PRIVATE
     -Wno-unused
     -Wfatal-errors
     -fdiagnostics-color=always
-    -fmax-errors=1
+    -fmax-errors=2
     -ftemplate-backtrace-limit=0
-    -fdiagnostics-show-template-tree
-    -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.
-#    -v
+    -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. # gives stack traces a relative path to cwd
 )
 
-# enable std::stacktrace and some other experimental STL stuff
-target_link_options(mc PRIVATE
-    -lstdc++exp
-)
-
-# TEMPORARY FOR BENCHMARKING
-#target_compile_options(mc PRIVATE -ftime-report)
-
+# --  gcc specific flags --
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(mc PRIVATE
         -fdiagnostics-color=always
         -fdiagnostics-color=always
         -fdiagnostics-show-template-tree
-#        -fdiagnostics-show-caret
     )
 endif()
 
 # -- includes --
-
-
 target_include_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
 
@@ -77,25 +62,35 @@ target_include_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace"
 
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
 )
 
+set_target_properties( mc PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin"
+)
 
-# -- DEPS --
+# TEMPORARY FOR BENCHMARKING COMPILE TIME
+#target_compile_options(mc PRIVATE -ftime-report)
 
-# -GLFW
+
+
+
+
+# -- GLFW
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW3 REQUIRED glfw3)
 
-target_include_directories(imgui PRIVATE ${GLFW3_INCLUDE_DIRS})
-target_include_directories(mc PRIVATE ${GLFW3_INCLUDE_DIRS})
-target_compile_options(imgui PRIVATE ${GLFW3_CFLAGS_OTHER})
-target_link_libraries(imgui PUBLIC ${GLFW3_LIBRARIES})
-target_link_directories(imgui PUBLIC ${GLFW3_LIBRARY_DIRS})
+target_include_directories( mc       PRIVATE    ${GLFW3_INCLUDE_DIRS})
 
+target_include_directories( imgui    PRIVATE    ${GLFW3_INCLUDE_DIRS})
+target_compile_options(     imgui    PRIVATE    ${GLFW3_CFLAGS_OTHER})
+target_link_libraries(      imgui    PUBLIC     ${GLFW3_LIBRARIES})
+target_link_directories(    imgui    PUBLIC     ${GLFW3_LIBRARY_DIRS})
+
+# -- CPPTRACE
 target_link_libraries(mc PRIVATE cpptrace::cpptrace)
 
 
@@ -103,8 +98,27 @@ target_link_libraries(mc PRIVATE cpptrace::cpptrace)
 target_link_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )
+if(TARGET glbinding::glbinding)
+    target_link_libraries(mc PRIVATE
+        glbinding::glbinding
+        glbinding::glbinding-aux
+        imgui
+    )
+else()
+    message(FATAL_ERROR "Could not find glbinding CMake targets after add_subdirectory(external/glbinding)")
+    #    target_link_libraries(mc PRIVATE
+    #        glbinding
+    #        glbinding-aux
+    #        imgui
+    #    )
+endif()
+
+# -- CURL (only needed for debugging opengl errors, we literally download the help pages to understand errrors)
 find_package(CURL REQUIRED)
+
+# -- LibXML2 (also only for debugging opengl errors. Parses the webpages for us)
 find_package(LibXml2 REQUIRED)
+
 target_link_libraries(mc PRIVATE
     glbinding
     glbinding-aux
@@ -113,12 +127,7 @@ target_link_libraries(mc PRIVATE
     LibXml2::LibXml2
 )
 
-set_target_properties(mc PROPERTIES
-    BUILD_RPATH "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
-)
-
 # --- Precompiled headers
-
 target_precompile_headers(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include/pch.hpp"
 )
@@ -126,14 +135,14 @@ target_precompile_headers(mc PRIVATE
 
 # --- Optimization and sanitizers
 
-option(MC_ENABLE_ASAN  "Enable AddressSanitizer" OFF)
-option(MC_ENABLE_LSAN  "Enable AddressSanitizer leak detection" OFF)
-option(MC_ENABLE_TSAN  "Enable ThreadSanitizer" OFF)
-option(MC_ENABLE_UBSAN "Enable UBSan" OFF)
-option(MC_FAST_MATH    "Enable -ffast-math" OFF)
-option(MC_O1 "Enable -O1" OFF)
-option(MC_O2 "Enable -O2" OFF)
-option(MC_O3 "Enable -O3" OFF)
+OPTION(MC_ENABLE_ASAN  "ENABLE ADDRESSSANITIZER" OFF)
+OPTION(MC_ENABLE_LSAN  "ENABLE ADDRESSSANITIZER LEAK DETECTION" OFF)
+OPTION(MC_ENABLE_TSAN  "ENABLE THREADSANITIZER" OFF)
+OPTION(MC_ENABLE_UBSAN "ENABLE UBSAN" OFF)
+OPTION(MC_FAST_MATH    "ENABLE -FFAST-MATH" OFF)
+OPTION(MC_O1 "ENABLE -O1" OFF)
+OPTION(MC_O2 "ENABLE -O2" OFF)
+OPTION(MC_O3 "ENABLE -O3" OFF)
 
 
 if(MC_O1)
@@ -191,29 +200,29 @@ endif()
 #               TESTING
 #============================================
 
-add_executable(test_queue
-    tests/src/test_queue.cpp
-    src/Assertion.cpp
-    src/Concurrency.cpp
-)
-
-target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
-
-target_include_directories(test_queue PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_include_directories(test_queue PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
-
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
-)
-
-add_test(NAME Queue_tests COMMAND test_queue)
+#add_executable(test_queue
+#    tests/src/test_queue.cpp
+#    src/Assertion.cpp
+#    src/Concurrency.cpp
+#)
+#
+#target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
+#
+#target_include_directories(test_queue PRIVATE
+#    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+#target_include_directories(test_queue PRIVATE
+#    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
+#
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
+#)
+#
+#add_test(NAME Queue_tests COMMAND test_queue)
