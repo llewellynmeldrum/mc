@@ -165,6 +165,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto n_chunks_meshing = ctx->n_meshing;
         const auto n_chunks_genning = ctx->n_generating;
 
+        const auto pos = ctx->playerCam.pos;
+        const auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
 
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
@@ -172,6 +174,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
         UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());
         UI::Separator();
+        UI::Text("{: 3.2f},{: 3.2f},{: 3.2f} ({: 3}{: 3}{: 3})",pos.x,pos.y,pos.z, ch_pos.x,ch_pos.y,ch_pos.z);
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;
@@ -308,8 +311,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             IG::Text("Facing: %s", facing_str.c_str());
         });
         window.section("World Data:",[ctx]{
-            IG::Text("Chunks meshed: %lu", ctx->chunksMeshed);
-            IG::Text("Generated chunks: %lu", ctx->world.chunkMap.entries.size());
+            UI::Text("Chunks meshed: {}", ctx->chunksMeshed);
+            UI::Text("Generated chunks: {}", ctx->world.chunkMap.entries.size());
             auto n_pending_ungenerated  = 0uz;
             auto n_pending_unmeshed     = 0uz;
             auto n_pending_clean_meshed = 0uz;
@@ -330,21 +333,21 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     }
                 );
             }
-            IG::Text("Total Pending: %lu", ctx->world.chunkMap.pending_writes.size());
-            IG::Text("Ungenerated Pending: %lu", n_pending_ungenerated);
-            IG::Text("Generated Pending: %lu", n_pending_unmeshed+n_pending_clean_meshed+n_pending_dirty_meshed);
-            IG::Text("Unmeshed Pending: %lu", n_pending_unmeshed);
-            IG::Text("Clean Meshed Pending: %lu", n_pending_clean_meshed);
-            IG::Text("Dirty Meshed Pending: %lu", n_pending_dirty_meshed);
+            UI::Text("Total Pending: {}", ctx->world.chunkMap.pending_writes.size());
+            UI::Text("Ungenerated Pending: {}", n_pending_ungenerated);
+            UI::Text("Generated Pending: {}", n_pending_unmeshed+n_pending_clean_meshed+n_pending_dirty_meshed);
+            UI::Text("Unmeshed Pending: {}", n_pending_unmeshed);
+            UI::Text("Clean Meshed Pending: {}", n_pending_clean_meshed);
+            UI::Text("Dirty Meshed Pending: {}", n_pending_dirty_meshed);
             {
                 int successful = ctx->world.chunkMap.pendingWritesSuccessful;
                 int attempted = ctx->world.chunkMap.pendingWritesAttempted;
-                IG::Text("Pending chunk writes completed: %d/%d", successful, attempted);
+                UI::Text("Pending chunk writes completed: {}/{}", successful, attempted);
             }
-            IG::Text(".");
-            IG::Text(".");
-            IG::Text(".");
-            IG::Text(".");
+            UI::Text(".");
+            UI::Text(".");
+            UI::Text(".");
+            UI::Text(".");
         });
 
         window.section("Perf:",[ctx]{

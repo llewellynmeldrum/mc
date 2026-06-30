@@ -36,12 +36,12 @@ struct Engine {
     ChunkDirector director;
 
 
-    static constexpr std::size_t maxGenUploadsPerFrame= 16;
-    static constexpr std::size_t maxGenJobsPerFrame = 16;
-    static constexpr std::size_t maxMeshUploadsPerFrame= 64;
-    static constexpr std::size_t maxMeshEnqueueAttempts = 64;
-    static constexpr std::size_t maxMeshDequeueAttempts = 64;
-    static constexpr std::size_t maxMeshJobsPerFrame = 128;
+    static constexpr i64 maxGenUploadsPerFrame= 16;
+    static constexpr i64 maxGenJobsPerFrame = 16;
+    static constexpr i64 maxMeshUploadsPerFrame= 64;
+    static constexpr i64 maxMeshEnqueueAttempts = 64;
+    static constexpr i64 maxMeshDequeueAttempts = 64;
+    static constexpr i64 maxMeshJobsPerFrame = 128;
 
 
 
@@ -74,42 +74,42 @@ struct Engine {
     // =========
     // telemetry
     // =========
-    static constexpr std::size_t RB_SZ = 256;
-    std::size_t chunksMeshed{0};
+    static constexpr i64 RB_SZ = 256;
+    i64 chunksMeshed{0};
     MirroredRingBuf<f32, RB_SZ> rb_genJobsAdded;
     MirroredRingBuf<f32, RB_SZ> rb_genResultsAdded;
 
     MirroredRingBuf<f32, RB_SZ> rb_meshJobsAdded;
     MirroredRingBuf<f32, RB_SZ> rb_meshResultsAdded;
 
-    std::size_t n_generating{};
+    i64 n_generating{};
     MirroredRingBuf<f32, RB_SZ> rb_generating;
 
-    std::size_t n_meshing{};
+    i64 n_meshing{};
     MirroredRingBuf<f32, RB_SZ> rb_meshing;
 
-    std::size_t genJobsThisFrame = 0;
-    std::size_t genResultsThisFrame = 0;
+    i64 genJobsThisFrame = 0;
+    i64 genResultsThisFrame = 0;
 
-    std::size_t meshJobsThisFrame = 0;
-    std::size_t meshResultsThisFrame = 0;
-    std::size_t n_gen_on_queue               {};
-    std::size_t n_gen_done                   {};
+    i64 meshJobsThisFrame = 0;
+    i64 meshResultsThisFrame = 0;
+    i64 n_gen_on_queue               {};
+    i64 n_gen_done                   {};
 
-    std::size_t n_mesh_awaiting_generation   {};
-    std::size_t n_mesh_ready_for_enqueue     {};
-    std::size_t n_mesh_on_queue              {};
-    std::size_t n_mesh_done                  {};
+    i64 n_mesh_awaiting_generation   {};
+    i64 n_mesh_ready_for_enqueue     {};
+    i64 n_mesh_on_queue              {};
+    i64 n_mesh_done                  {};
 private:
-    std::vector<WorldChunkCoord> findChunksForGeneration(std::size_t maxJobs);
-    std::vector<MeshJob> findMeshJobs(std::size_t maxJobs);
+    std::vector<WorldChunkCoord> findChunksForGeneration(i64 maxJobs);
+    std::vector<MeshJob> findMeshJobs(i64 maxJobs);
 
-    std::size_t enqueueGenerationJobs(std::size_t maxJobs);
-    std::size_t enqueueMeshingJobs(std::size_t maxJobs);
+    i64 enqueueGenerationJobs(i64 maxJobs);
+    i64 enqueueMeshingJobs(i64 maxJobs);
 
 
-    std::size_t drainAndUploadGenResults(std::size_t maxUploads);
-    std::size_t drainAndUploadMeshResults(std::size_t maxUploads);
+    i64 drainAndUploadGenResults(i64 maxUploads);
+    i64 drainAndUploadMeshResults(i64 maxUploads);
 };
 
 // Input::Key definitions (based on glfw3)

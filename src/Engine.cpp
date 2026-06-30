@@ -90,7 +90,9 @@ void Engine::count_states(){
     rb_meshJobsAdded.write(meshJobsThisFrame);
     rb_meshResultsAdded.write(meshResultsThisFrame);
 
-    n_generating = n_generating + genJobsThisFrame - genResultsThisFrame;
+    sizeof(long long int);
+    sizeof(i64);
+    n_generating = std::max(0ll,n_generating + genJobsThisFrame - genResultsThisFrame);
     rb_generating.write(n_generating);
 
     n_meshing = n_meshing + meshJobsThisFrame - meshResultsThisFrame;
@@ -158,7 +160,7 @@ void Engine::update_scene() {
 }
 
 
-std::vector<WorldChunkCoord> Engine::findChunksForGeneration(std::size_t maxJobs){
+std::vector<WorldChunkCoord> Engine::findChunksForGeneration(i64 maxJobs){
     std::vector<WorldChunkCoord> candidates;
     const auto chunkCoord = toWorldChunkCoord(playerCam.pos);
     // enumerate them based on their range to the player, such that nearest chunks come first.
@@ -192,10 +194,10 @@ std::vector<WorldChunkCoord> Engine::findChunksForGeneration(std::size_t maxJobs
     return candidates;
 }
 
-std::size_t Engine::enqueueGenerationJobs(std::size_t maxJobs){
+i64 Engine::enqueueGenerationJobs(i64 maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = findChunksForGeneration(maxJobs);
-    std::size_t count = 0;
+    i64 count = 0;
     auto& genQ = world.chunkMap.generator.genJobQueue;
     for (const auto& candidate_coord: candidates){
 
@@ -221,7 +223,7 @@ std::size_t Engine::enqueueGenerationJobs(std::size_t maxJobs){
     return count;
 }
 
-std::vector<MeshJob> Engine::findMeshJobs(std::size_t maxJobs){
+std::vector<MeshJob> Engine::findMeshJobs(i64 maxJobs){
     
     const auto camChunkCoord = toWorldChunkCoord(playerCam.pos);
     auto meshReadyChunksInRad = [&](WorldChunkCoord chunkCoord, glm::ivec3 extents, i32 maxChunks=0) {
@@ -306,11 +308,11 @@ std::vector<MeshJob> Engine::findMeshJobs(std::size_t maxJobs){
     return res;
 }
 
-std::size_t Engine::enqueueMeshingJobs(std::size_t maxJobs){
+i64 Engine::enqueueMeshingJobs(i64 maxJobs){
     profiler.bench_start("enqueueMesh");
     auto candidates = findMeshJobs(maxJobs);
 
-    std::size_t count = 0;
+    i64 count = 0;
     for (const auto& job: candidates){
 
         auto& meshQ = rend.meshers.meshJobQueue;
@@ -337,11 +339,11 @@ std::size_t Engine::enqueueMeshingJobs(std::size_t maxJobs){
 }
 
 
-std::size_t Engine::drainAndUploadMeshResults(std::size_t maxUploads){
+i64 Engine::drainAndUploadMeshResults(i64 maxUploads){
     profiler.bench_start("drainMesh");
-    std::size_t count = 0;
+    i64 count = 0;
     auto drain_mesh_results = [](auto& queue,auto maxUploads)->std::vector<MeshResult>{
-        for (std::size_t mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
+        for (i64 mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
             auto res = queue.try_batch_dequeue(maxUploads);
             if (res) return res.value();
         }
@@ -376,12 +378,12 @@ std::size_t Engine::drainAndUploadMeshResults(std::size_t maxUploads){
 }
 
 
-std::size_t Engine::drainAndUploadGenResults(std::size_t maxUploads){
+i64 Engine::drainAndUploadGenResults(i64 maxUploads){
     profiler.bench_start("drainGen");
-    auto drain_gen_results = [](Queue<GenResult>& queue, std::size_t maxUploads){
+    auto drain_gen_results = [](Queue<GenResult>& queue, i64 maxUploads){
         std::vector<GenResult> output; output.reserve(maxUploads);
 
-        for (std::size_t mesh_count = 0; mesh_count < maxUploads; mesh_count++){
+        for (i64 mesh_count = 0; mesh_count < maxUploads; mesh_count++){
             std::optional<GenResult> result = queue.try_dequeue();
             if (result.has_value()){
                 output.emplace_back(*result);
