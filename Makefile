@@ -12,7 +12,8 @@ ASAN_OPTS := detect_leaks=0:color=always:abort_on_error=1:halt_on_error=1
 UBSAN_OPTS := color=always:print_stacktrace=1:halt_on_error=1
 
 GENERATOR      := Ninja
-CXX            := g++-16
+CXX            := /opt/homebrew/bin/g++-16
+CC            := /opt/homebrew/bin/gcc-16
 APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
@@ -20,6 +21,8 @@ BUILD_FLAGS := -j $(JOBS)
 
 CMAKE_COMMON := -G "$(GENERATOR)" \
 	-DCMAKE_CXX_COMPILER="$(CXX)" \
+	-DCMAKE_C_COMPILER="$(CC)" \
+  	-DCMAKE_OSX_ARCHITECTURES=arm64 \
 	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 .PHONY: help configure build run clean clean-all rebuild \
