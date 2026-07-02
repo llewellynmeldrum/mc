@@ -1,12 +1,23 @@
+#include "DebugOptions.hpp"
 #include "FormatSpecs.hpp"
 
 #include "Input.hpp"
 #include "KeyCodes.hpp"
 #include "Engine.hpp"
 #include "GLFWWrapper.hpp"
+#include <print>
 
 using namespace glm;
-void Input::handle(Profiler& profiler, DebugUI& ui, Window& win, Camera& player_cam, Camera& drone_cam, Renderer& rend, bool& paused) {
+void Input::handle(
+    Profiler& profiler, 
+    DebugUI& ui, 
+    Window& win, 
+    Camera& player_cam, 
+    Camera& drone_cam, 
+    Renderer& rend, 
+    bool& paused,
+    bool& chunk_updates_paused
+) {
     profiler.bench_start("input");
     poll();
 
@@ -41,6 +52,9 @@ void Input::handle(Profiler& profiler, DebugUI& ui, Window& win, Camera& player_
             player_cam.disableMousePanning();
         }
     });
+    mapToggleKey(KEY_G, [&]{
+        chunk_updates_paused= !chunk_updates_paused;
+    });
     mapToggleKey(KEY_L, [&]{
         pause_logging = !pause_logging;
     });
@@ -57,10 +71,12 @@ void Input::handle(Profiler& profiler, DebugUI& ui, Window& win, Camera& player_
         rend.debug.wireframe = !rend.debug.wireframe;
     });
     mapToggleKey(KEY_H, [&]{
-        ui.dbg_view.showDebugUI = !ui.dbg_view.showDebugUI;
+        DebugOption::showDebugUI = !DebugOption::showDebugUI;
     });
     mapToggleKey(KEY_C, [&]{
-        ui.dbg_view.showChunkBoundaries = !ui.dbg_view.showChunkBoundaries;
+        DebugOption::fill_chunk_boundaries = !DebugOption::fill_chunk_boundaries;
+        bool b =         DebugOption::fill_chunk_boundaries;
+        LOG_DEBUG("{}->{}",!b,b);
     });
 //    mapToggleKey(KEY_R,[&]{
 //        unMeshAllChunks();

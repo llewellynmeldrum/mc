@@ -85,7 +85,7 @@ void Renderer::update_player_cam_frustum_lines(Engine* sim){
         frustum_lines.append_range(frustum.extra_lines);
         return frustum_lines;
     };
-    player_cam_frustum_lines = make_frustum_lines_for(sim->playerCam);
+    player_cam_frustum_lines = make_frustum_lines_for(sim->player_cam);
 }
 void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();

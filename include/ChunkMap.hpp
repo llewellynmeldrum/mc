@@ -70,7 +70,7 @@ struct ChunkMap {
     int pendingWritesAttempted= 0;
     int pendingWritesSuccessful = 0;
 
-    void uploadGeneratedChunk(GenResult gen_res);
+    void upload_generated_chunk(GenResult gen_res);
     void handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList);
 
 
@@ -79,7 +79,7 @@ struct ChunkMap {
     
 
 private:
-    void           updateNeighbourMap(WorldChunkCoord chunkCoord);
+    void           update_neighbour_map(WorldChunkCoord chunkCoord);
     void           updateBoundingBoxesMap(WorldChunkCoord chunkCoord);
 
 

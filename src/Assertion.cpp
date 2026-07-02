@@ -172,5 +172,5 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
             fmt::styled(intense_red_fmt,banner_str("▁"))
     );
     BREAKPOINT();
-    std::abort();
+    std::terminate();
 }

@@ -22,7 +22,7 @@ FORWARD_DECL_STRUCT(Camera)
 FORWARD_DECL_STRUCT(Renderer)
 FORWARD_DECL_STRUCT(DebugUI)
 struct Input {
-    void handle(Profiler& profiler, DebugUI& dbg_ui, Window& win, Camera& player_cam, Camera& drone_cam, Renderer& rend, bool& paused);
+    void handle(Profiler& profiler, DebugUI& dbg_ui, Window& win, Camera& player_cam, Camera& drone_cam, Renderer& rend, bool& paused, bool& chunk_updates_paused);
 
     Input() = default;
     ~Input() = default;

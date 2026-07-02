@@ -90,12 +90,20 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setFlags();
     self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
         auto& window = self;
-        window.section("Per chunk log:",[&self, &ctx]{
+        static bool on = false;
+//        for ()
+        for (auto& [key, val]: is_log_type_enabled ){
+            window.checkbox(key, &val);
+        }
+        window.open_section("Per chunk log:",[&self, &ctx]{
             // Shown in most->least recent vertical order
-            WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->playerCam.pos);
+            WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->player_cam.pos);
             if (per_chunk_log.contains(cur_chunk)){
                 for (const auto& entry: per_chunk_log.at(cur_chunk) | std::views::reverse){
-                    UI::Text(DebugLog::entry_tostr(entry));
+                    auto [log_type, duration, contents] = entry;
+                    if (is_log_type_enabled.at(log_type)){
+                        UI::Text(DebugLog::entry_tostr(entry));
+                    }
                 }
             }
         });
@@ -118,6 +126,19 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
         );
 
         d->AddText(text_pos, IM_COL32_WHITE, text);
+    }else if (ctx->chunk_updates_paused){
+        auto* d = IG::GetForegroundDrawList();
+        auto display_size = io.DisplaySize;
+        d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 6));
+        const char* text = "CHUNK UPDATES PAUSED";
+        ScreenPos text_size = IG::CalcTextSize(text) * 2.5f; // default font size
+
+        ScreenPos text_pos = ScreenPos(
+            (display_size.x - text_size.x) * 0.5f,
+            (display_size.y - text_size.y) * 0.1f
+        );
+
+        d->AddText(text_pos, IM_COL32_WHITE, text);
     }
 }
 
@@ -134,7 +155,7 @@ void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
         auto& window = self;
         window.section("Secondary View:",[&ctx]{
             UI::Text("scr: {}, {}",ctx->fixedCamTarget.pos, ctx->fixedCamTarget.size);
-            UI::Text("  w: {}, {}",ctx->droneCam.pos.raw(), ctx->droneCam.ortho_zoom);
+            UI::Text("  w: {}, {}",ctx->drone_cam.pos.raw(), ctx->drone_cam.ortho_zoom);
             UI::DrawTexture(ctx->fixedCamTarget);
 
         });
@@ -165,8 +186,15 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto n_chunks_meshing = ctx->n_meshing;
         const auto n_chunks_genning = ctx->n_generating;
 
-        const auto pos = ctx->playerCam.pos;
-        const auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
+        const auto pos = ctx->player_cam.pos;
+        const auto round_pos = glm::ivec3{LM::floor(ctx->player_cam.pos).raw()};
+        const auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
+        const auto cl_pos = pos.raw() - 
+            glm::vec3{
+                ch_pos.x * Chunk::Extents.x,
+                round_pos.y,
+                ch_pos.z * Chunk::Extents.z,
+            };
 
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
@@ -174,7 +202,12 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
         UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());
         UI::Separator();
-        UI::Text("{: 3.2f},{: 3.2f},{: 3.2f} ({: 3}{: 3}{: 3})",pos.x,pos.y,pos.z, ch_pos.x,ch_pos.y,ch_pos.z);
+        UI::Text("pos :{: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
+                 pos.x,pos.y,pos.z,std::floor(pos.x),std::floor(pos.y),std::floor(pos.z));
+        UI::Text("chunk :{: 3},{: 3}",ch_pos.x,ch_pos.z);
+        UI::Text("chunk local: {: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
+                 cl_pos.x,cl_pos.y,cl_pos.z,std::floor(cl_pos.x),std::floor(cl_pos.y),std::floor(cl_pos.z));
+        UI::Separator();
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;
@@ -200,8 +233,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         window.section("Chunk Data:",[ctx]{
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
-            auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
-            bool showGenState = ctx->ui.dbg_view.showGenState;
+            auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
+            bool showGenState = DebugOption::showGenState;
             std::string gen_state_str{"No state entry."};
             std::string mesh_state_str{"No state entry."};
             auto target_mesh_id = 0uz;
@@ -287,8 +320,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
 
 
 
-            std::string facing_str = get_facing_str(ctx->playerCam.getFront());
-            IG::Text("WorldChunkCoord:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
+            std::string facing_str = get_facing_str(ctx->player_cam.getFront());
+            UI::Text("WorldChunkCoord:{:+3},{:+3}", ch_pos.x,ch_pos.z);
             UI::ColoredText01(gen_state_color ,"G:{}", gen_state_str);
             UI::ColoredText01(mesh_state_color,"M:{}", mesh_state_str);
             UI::Text("MeshRev: loaded:{}\t | inflight:{}\t | target:{}",loaded_mesh_id,inflight_mesh_id,target_mesh_id);
@@ -303,11 +336,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             UI::Text("Loaded trans:{}/{}",loaded_trans,total_trans);
         });
         window.section("Positions",[ctx]{
-            auto ch_pos = toWorldChunkCoord(ctx->playerCam.pos);
-            std::string facing_str = get_facing_str(ctx->playerCam.getFront());
-            IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->playerCam.pos.x, ctx->playerCam.pos.y, ctx->playerCam.pos.z);
-            IG::Text("Chunk:%+3d,%+3d,%+3d", ch_pos.x, ch_pos.y, ch_pos.z);
-            IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->playerCam.pitch, ctx->playerCam.yaw);
+            auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
+            std::string facing_str = get_facing_str(ctx->player_cam.getFront());
+            IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->player_cam.pos.x, ctx->player_cam.pos.y, ctx->player_cam.pos.z);
+            UI::Text("WorldChunkCoord:{:+3},{:+3}", ch_pos.x,ch_pos.z);
+            IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->player_cam.pitch, ctx->player_cam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });
         window.section("World Data:",[ctx]{
@@ -351,7 +384,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         });
 
         window.section("Perf:",[ctx]{
-            UI::Text("Optimization lvl: -O{}",ctx->ui.dbg_params.opt_lvl);
+            UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);
             IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
             const auto& fps_rb = ctx->profiler.ringbufs.at("frame");

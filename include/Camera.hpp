@@ -11,11 +11,12 @@
 #include "Geometry.hpp"
 #include <memory>
 // src/Camera.cpp
-struct Frustum;
+#include "cppslop.hpp"
+FORWARD_DECL_STRUCT(Frustum)
 struct Camera {
 
   public:
-    bool isPlayer=false;
+    bool is_main_camera=false;
     glm::vec4 lineColor=Color01::BLUE;
     Camera() = default;
     ~Camera() = default;
@@ -29,6 +30,8 @@ struct Camera {
     static constexpr i32 DebugChunkRenderDistance = 8;
 
     void set_pos_ori(WorldFloatPos pos, f32 pitch, f32 yaw);
+    void set_pos(WorldFloatPos pos);
+    void set_orientation(f32 pitch, f32 yaw);
     void move(Direction dir, f32 dt);
     void rotate(Direction dir, f32 dt);
     void rotateByMouse(glm::vec2 offset, f32 dt);
@@ -110,7 +113,7 @@ struct Camera {
     f32 moveSpeed = Camera::BASE_MOVESPEED;
 
     inline glm::mat4 getProjectionMatrix() const{
-        if (isPlayer){
+        if (is_main_camera){
             return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
         }else{
 

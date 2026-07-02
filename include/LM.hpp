@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BitwiseOps.hpp"
+#include "CommonConcepts.hpp"
 #include "Types.h"
 #include "glm/vec3.hpp"
 #include <string_view>
@@ -11,24 +12,14 @@ constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
     return r<0 ? r+b : r;
 }
 
-template<typename T>
-requires Numeric<T>
-constexpr inline T min(T a, T b) noexcept{
-    return a<b ? a : b;
-}
-template<typename T>
-requires Numeric<T>
-constexpr inline T max(T a, T b) noexcept{
-    return a>b ? a : b;
-}
 
 template<typename T>
 requires Numeric<T>
 constexpr inline T avg(T a, T b) noexcept{
-    return (a+b/static_cast<T>(2));
+    return ((a+b)/static_cast<T>(2));
 }
 
-constexpr inline i32 ifloor_div(i32 a, i32 b) noexcept{
+constexpr inline i32 floor_div(i32 a, i32 b) noexcept{
     i32 quotient = a/b;
     bool hasRemainder =a%b!=0;
     if (hasRemainder && SignsDiffer(a,b)){
@@ -36,9 +27,8 @@ constexpr inline i32 ifloor_div(i32 a, i32 b) noexcept{
     }
     return quotient;
 }
-template<typename A, typename B>
-requires FloatingPoint<A> && Numeric<B>
-constexpr inline A ffloor_div(A a, B b) noexcept{
+
+constexpr inline f32 floor_div(f32 a, i32 b) noexcept{
     return std::floor(a/b);
 }
 template<typename T>
@@ -58,11 +48,18 @@ constexpr Float unlerp(Float a, Float b, Float t) noexcept {
 
 
 template<typename A, typename B, typename C>
-requires IVec3<A> && IVec3<B> && IVec3<C>
+requires is_ivec3<A> && is_ivec3<B> && is_ivec3<C>
 inline constexpr bool isVecInBounds(A v, B lo, C hi) noexcept {
-    return lo.x <= v.x && v.x < hi.x &&  //
-           lo.y <= v.y && v.y < hi.y &&  //
-           lo.z <= v.z && v.z < hi.z;    //
+    return lo[0] <= v[0] && v[0] < hi[0] &&  //
+           lo[1] <= v[1] && v[1] < hi[1] &&  //
+           lo[2] <= v[2] && v[2] < hi[2];    //
+}
+
+template<typename A, typename B, typename C>
+requires is_ivec2<A> && is_ivec2<B> && is_ivec2<C>
+inline constexpr bool isVecInBounds(A v, B lo, C hi) noexcept {
+    return lo[0] <= v[0] && v[0] < hi[0] &&  //
+           lo[1] <= v[1] && v[1] < hi[1];
 }
 
 template <typename Number>
@@ -70,77 +67,96 @@ requires Numeric<Number>
 constexpr Number square(Number a) noexcept {
     return a*a;
 }
+template<typename Vec3>
+requires is_vec3<Vec3> 
+inline constexpr auto piecewise_mult(Vec3 p0, Vec3 p1) noexcept {
+    return no_cvref<Vec3>{
+        p1[0] * p0[0],
+        p1[1] * p0[1],
+        p1[2] * p0[2],
+    };
+}
 
 // Euclidean distance squared between two anyvec3's
 template<typename Vec3>
-requires AnyVec3<Vec3> 
+requires is_vec3<Vec3> 
 inline constexpr f32 sq_dist(Vec3 p0, Vec3 p1) noexcept {
-    return  square(p1.x - p0.x) + 
-            square(p1.y - p0.y) + 
-            square(p1.z - p0.z);
+    return  square(p1[0] - p0[0]) + 
+            square(p1[1] - p0[1]) + 
+            square(p1[2] - p0[2]);
+}
+// Euclidean distance squared between two anyvec3's
+template<typename Vec2>
+    requires is_vec2<Vec2> 
+inline constexpr f32 sq_dist(Vec2 p0, Vec2 p1) noexcept {
+    return  square(p1[0] - p0[0]) + 
+            square(p1[1] - p0[1]);
 }
 
 // Euclidean distance between two fvec3's (must be floating point as we are performing sqrt)
 template<typename _FVec3>
-requires FVec3<_FVec3> 
+requires is_fvec3<_FVec3> 
 inline constexpr f32 dist(_FVec3 p0, _FVec3 p1) noexcept {
     return std::sqrt(sq_dist(p0,p1));
 }
 
+// TODO: test this function?
 template<typename A, typename B>
-requires IVec3<A> && IVec3<B>
+requires is_ivec3<A> && is_ivec3<B>
 constexpr inline std::remove_cvref_t<A> euclid_mod(A a, B b) noexcept {
     return {
-        ieuclid_mod(a.x,b.x),
-        ieuclid_mod(a.y,b.y),
-        ieuclid_mod(a.z,b.z),
+        ieuclid_mod(a[0],b[0]),
+        ieuclid_mod(a[1],b[1]),
+        ieuclid_mod(a[2],b[2]),
     };
 }
+
 template<typename A>
-    requires FVec3<A>
+    requires is_fvec3<A>
 constexpr inline std::remove_cvref_t<A> floor(A a) noexcept {
     return {
-        std::floor(a.x),
-        std::floor(a.y),
-        std::floor(a.z),
+        std::floor(a[0]),
+        std::floor(a[1]),
+        std::floor(a[2]),
     };
 }
 
 template<typename A, typename B>
-requires IVec3<A> && IVec3<B>
+requires is_ivec3<A> && is_ivec3<B>
 constexpr inline std::remove_cvref_t<A> floor_div(A a, B b) {
     return {
-        ifloor_div(a.x,b.x),
-        ifloor_div(a.y,b.y),
-        ifloor_div(a.z,b.z),
+        floor_div(a[0],b[0]),
+        floor_div(a[1],b[1]),
+        floor_div(a[2],b[2]),
+
     };
 }
 template<typename A, typename B>
-requires FVec3<A> && AnyVec3<B>
+requires is_fvec3<A> && is_vec3<B>
 constexpr inline std::remove_cvref_t<A> floor_div(A a, B b) {
     return {
-        ffloor_div(a.x,b.x),
-        ffloor_div(a.y,b.y),
-        ffloor_div(a.z,b.z),
+        floor_div(a[0],b[0]),
+        floor_div(a[1],b[1]),
+        floor_div(a[2],b[2]),
     };
 }
 
-template<typename A, typename B>
-requires IVec3<A> && IVec3<B>
-constexpr inline std::remove_cvref_t<A> min(A a, B b) noexcept {
+template<typename IntVector3>
+requires is_ivec3<IntVector3> 
+constexpr inline std::remove_cvref_t<IntVector3> min(IntVector3 a, IntVector3 b) noexcept {
     return {
-        min(a.x,b.x),
-        min(a.y,b.y),
-        min(a.z,b.z),
+        std::min(a[0],b[0]),
+        std::min(a[1],b[1]),
+        std::min(a[2],b[2]),
     };
 }
 template<typename A, typename B>
-requires IVec3<A> && IVec3<B>
+requires is_ivec3<A> && is_ivec3<B>
 constexpr inline std::remove_cvref_t<A> max(A a, B b) noexcept {
     return {
-        max(a.x,b.x),
-        max(a.y,b.y),
-        max(a.z,b.z),
+        std::max(a[0],b[0]),
+        std::max(a[1],b[1]),
+        std::max(a[2],b[2]),
     };
 }
 

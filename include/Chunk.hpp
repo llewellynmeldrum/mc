@@ -13,12 +13,14 @@
 #include "cppslop.hpp"
 #include "FmtStyle.hpp"
 
+#include "LM.hpp"
 #include "Vertex.hpp"
 #include "Block.hpp"
 
 #include "ChunkHelpers.hpp"
 #include "ChunkStorage.hpp"
 #include "ChunkHelpers.hpp"
+#include "NumericConcepts.hpp"
 
 
 #include "glbinding/gl/enum.h"

@@ -20,7 +20,7 @@ constexpr inline const auto EachBlockInChunk() {
 // only accept blocks which satisfy pred
 template<typename Pred>
 constexpr inline auto EachBlockInChunk(Pred&& pred) {
-    return std::views::cartesian_product(CHUNK_XRANGE, CHUNK_YRANGE, CHUNK_ZRANGE)|
+    return std::views::cartesian_product(CHUNK_XRANGE, CHUNK_YRANGE, CHUNK_ZRANGE) |
     std::views::filter(std::forward<Pred>(pred));
 }
 

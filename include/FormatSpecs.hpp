@@ -249,6 +249,14 @@ struct std::formatter<Coord3<Tag,ScalarType>>{
         return std::formatter<typename T::VecType>{}.format(bounded.raw(),ctx);
     }
 };
+template<typename Tag, typename ScalarType>
+struct std::formatter<Coord2<Tag,ScalarType>>{
+    using T = Coord2<Tag,ScalarType>;
+	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
+	auto format(const T& bounded, std::format_context& ctx)const {
+        return std::formatter<typename T::VecType>{}.format(bounded.raw(),ctx);
+    }
+};
 
 template <typename T, typename CharT>
 requires std::is_pointer_v<T> 
@@ -318,7 +326,7 @@ struct std::formatter<ChunkState>{
     }
     inline auto format(ChunkState s, std::format_context& ctx) const{
         std::string_view str = "?ChunkState?";
-        return format_to(ctx.out(), "{},{}", s.gen,s.mesh);
+        return format_to(ctx.out(), "G:{},M:{}", s.gen,s.mesh);
     }
 };
 template<typename T>

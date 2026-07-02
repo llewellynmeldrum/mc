@@ -2,6 +2,7 @@
 
 #include "Block.hpp"
 
+#include "ChunkInvariants.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "PendingBlockWrites.hpp"
@@ -41,6 +42,14 @@ struct ChunkStore{
 private:
     std::vector<Block> buf={};
 public:
+    using key_type = ChunkBlockPos;
+    using mapped_type = Block;
+    constexpr std::size_t size()const noexcept{ return CHUNK_SIZE;}
+    constexpr bool contains(ChunkBlockPos p)const noexcept{
+        return  0 <= p.x && p.x < Chunk_Extents.x && 
+                0 <= p.y && p.y < Chunk_Extents.y && 
+                0 <= p.z && p.z < Chunk_Extents.z ;
+    }
     ChunkStore(const Chunk& chunk);
     ChunkStore(const Chunk* chunk);
     ChunkStore();
@@ -76,13 +85,13 @@ public:
             set(min.x, y, min.z, bt);
         });
     }
+    auto begin(){
+        return buf.begin();
+    }
+    auto end(){
+        return buf.end();
+    }
 
-    inline auto begin(this auto& self){
-        return self.buf.begin(); 
-    }
-    inline auto end(this auto& self){
-        return self.buf.end(); 
-    }
     auto& buffer(){ return buf; }
 
     // implicit conversion to a ChunkSpan. 
@@ -90,6 +99,9 @@ public:
         return {data()};
     }
 };
+static_assert(!array_like<ChunkStore>);
+static_assert(map_like<ChunkStore>);
+
 // A slice can be taken out of a 
 enum struct SliceType{
     X,
@@ -101,6 +113,36 @@ private:
     std::vector<Block> buf={};
     i32 locked_axis_val{};
 public:
+    using key_type = ChunkBlockPos;
+    using mapped_type = Block;
+    std::size_t size()const noexcept{
+        if (slice_type == SliceType::X){
+             return CHUNK_HEIGHT * CHUNK_ZWIDTH;
+        }else if (slice_type == SliceType::Y){
+             return CHUNK_XWIDTH * CHUNK_ZWIDTH;
+        }else{
+             return CHUNK_XWIDTH * CHUNK_HEIGHT;
+        }
+    }
+
+    constexpr bool contains(ChunkBlockPos p)const noexcept{
+        if (slice_type == SliceType::X){
+            return  
+                    p.x == locked_axis_val && 
+                    0 <= p.y && p.y < Chunk_Extents.y && 
+                    0 <= p.z && p.z < Chunk_Extents.z ;
+        }else if (slice_type == SliceType::Y){
+            return  
+                    0 <= p.x && p.x < Chunk_Extents.x && 
+                    p.y == locked_axis_val && 
+                    0 <= p.z && p.z < Chunk_Extents.z ;
+        }else{
+            return  
+                    0 <= p.x && p.x < Chunk_Extents.x && 
+                    0 <= p.y && p.y < Chunk_Extents.y &&
+                    p.z == locked_axis_val;
+        }
+    }
 
     SliceType slice_type;
     ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2);

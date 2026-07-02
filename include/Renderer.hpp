@@ -22,7 +22,7 @@ struct Renderer {
     TextureAtlas atlas{ "resources/textures/new_textures.png" };
     ChunkMesher  meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
-    DebugChunkRenderer dbg_rend;
+    DebugChunkMesher dbg_rend;
     Line3DRenderer line3d_rend;
     std::vector<Line3D> player_cam_frustum_lines;
     glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};

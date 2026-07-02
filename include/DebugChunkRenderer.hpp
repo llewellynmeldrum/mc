@@ -5,6 +5,7 @@
 #include "Shaders.hpp"
 #include "cppslop.hpp"
 #include "Colors01.hpp"
+#include "DebugOptions.hpp"
 
 struct DebugChunkVertex{
     glm::ivec3 pos; // Chunk local vertex position
@@ -35,7 +36,7 @@ FORWARD_DECL_STRUCT(Camera)
 FORWARD_DECL_STRUCT(World)
 FORWARD_DECL_STRUCT(Engine)
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
-struct DebugChunkRenderer{
+struct DebugChunkMesher{
     static gl::GLenum PrimitiveType();
     void setup();
     void draw(Camera& cam);
@@ -43,8 +44,6 @@ struct DebugChunkRenderer{
     std::vector<DebugChunkInstance> instances;
 
     std::vector<Line3D> chunk_outlines;
-    static constexpr bool HIDE_AIR_CHUNKS = true;
-    static constexpr bool HIDE_CLEAN_CHUNKS = true;
 private:
     void updateInstances(Camera& cam, Engine* sim);
     VertexArray   vao{std::nullopt};
@@ -64,7 +63,7 @@ inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
     return PURPLE_a(opacity_255);
 }
 
-#define state_color_match(Enum, name, col) case Enum :: name: return col(ChunkDebugFillOpacity); break;
+#define state_color_match(Enum, name, col) case Enum :: name: return col(DebugOption::ChunkDebugFillOpacity); break;
 
 inline glm::vec4 MeshDebugColor(MeshState stage){
     using namespace Color01;
@@ -90,19 +89,19 @@ inline glm::vec4 GenDebugColor(GenState stage){
 
 
 inline glm::vec4 GenDebugOutlineColor(GenState state) { 
-    return {glm::vec3{GenDebugColor(state)},ChunkDebugOutlineOpacity};
+    return {glm::vec3{GenDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
 }
 inline glm::vec4 MeshDebugOutlineColor(MeshState state) { 
-    return {glm::vec3{MeshDebugColor(state)},ChunkDebugOutlineOpacity};
+    return {glm::vec3{MeshDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
 }
 
 
 
 // Default states
 inline glm::vec4 DefaultDebugColor(){ 
-    return Color01::GREY_50_a(ChunkDebugFillOpacity); 
+    return Color01::GREY_50_a(DebugOption::ChunkDebugFillOpacity); 
 }
 
 inline glm::vec4 DefaultDebugOutlineColor() { 
-    return {glm::vec3{DefaultDebugColor()},ChunkDebugOutlineOpacity};
+    return {glm::vec3{DefaultDebugColor()},DebugOption::ChunkDebugOutlineOpacity};
 }

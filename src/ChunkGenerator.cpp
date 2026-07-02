@@ -115,10 +115,9 @@ static GenResult generateChunk(GenJob job){
     GenResult res{
         .chunkCoord=job.chunkCoord,
         .chunkBlocks = {},
-        .meta = {},
         .deferredWrites = {},
     };
-    auto& [chunkCoord, chunk, meta, pendingWrites] = res;
+    auto& [chunkCoord, chunk, pendingWrites] = res;
 
     constexpr glm::ivec2 chunkLocalMin2 = {0,0};
     constexpr  glm::ivec2 chunkLocalMax2 =ivec2{Chunk::Extents.x, Chunk::Extents.z};
@@ -238,87 +237,6 @@ static GenResult generateChunk(GenJob job){
                 }
             }
         }
-    });
-
-    
-    // NOTE: 
-    // PLACE TREES
-    auto tree_height = [&job](i32 cx, i32 cz){
-        srand(job.worldSeed+cx+cz);
-        return static_cast<i32>(std::round(randf(4,6)));
-    };
-    Noise2D treeDensityNoise(NoiseType::Perlin,job.worldSeed);
-    treeDensityNoise.setFractalType(FractalType::FBm);
-    treeDensityNoise.setFreq(0.005);
-    treeDensityNoise.setScale(0.8f);
-    treeDensityNoise.setFractalOctaves(3);
-    auto placeTree = [chunkCoord, &chunk, tryBlockWrite, tree_height](f32 noise, i32 cx, i32 cy, i32 cz){
-        const auto wpos = WorldBlockPos{chunkCoord.raw()*Chunk::Extents} +BlockOffset{cx,cy,cz};
-        WorldBlockPos iwpos = wpos;
-        for (i32 dy = 0; dy<tree_height(cx,cz); dy++){
-            iwpos.y = wpos.y + dy;
-            tryBlockWrite(
-                OverwritePolicy::OnlyAir, 
-                iwpos, 
-                palette.wood_log
-            );
-        }
-        ForEachInRangeEx(ivec3{-1,0,-1},ivec3{2,2,2},[&](i32 ix, i32 iy, i32 iz){
-            tryBlockWrite(
-                OverwritePolicy::OnlyAir, 
-                WorldBlockPos{iwpos.raw()+ivec3{ix,iy,iz}},
-                palette.leaves
-            );
-
-        });
-        tryBlockWrite(
-            OverwritePolicy::OnlyAir, 
-            WorldBlockPos{iwpos.raw()+ivec3{-1,2,0}},
-            palette.leaves
-        );
-        tryBlockWrite(
-            OverwritePolicy::OnlyAir, 
-            WorldBlockPos{iwpos.raw()+ivec3{1,2,0}},
-            palette.leaves
-        );
-        tryBlockWrite(
-            OverwritePolicy::OnlyAir, 
-            WorldBlockPos{iwpos.raw()+ivec3{0,2,1}},
-            palette.leaves
-        );
-        tryBlockWrite(
-            OverwritePolicy::OnlyAir, 
-            WorldBlockPos{iwpos.raw()+ivec3{0,2,-1}},
-            palette.leaves
-        );
-        tryBlockWrite(
-            OverwritePolicy::OnlyAir, 
-            WorldBlockPos{iwpos.raw()+ivec3{0,2,0}},
-            palette.leaves
-        );
-    };
-
-//    treeDensityNoise.setScale(1.5);
-
-    ForEachInRangeEx(chunkLocalMin2,chunkLocalMax2,[&](i32 cx, i32 cz){
-        i32 cy = chunk_heightmap.at_chunk(cx,cz);
-        i32 wx{chunkCoord.x*Chunk::Extents.x + cx};
-        i32 wz{chunkCoord.z*Chunk::Extents.z + cz};
-        i32 w_top_block_y = chunk_heightmap.at_world(cx,cz);
-        i32 wy = chunkCoord.y*Chunk::Extents.y;
-        srand(job.worldSeed+wx+wz);
-        i32 dist_to_top_block = w_top_block_y - wy;
-        if (cy>=1 && chunk.at(cx,cy-1,cz)==BlockType::GRASS_BLOCK){
-            f32 noise = treeDensityNoise.sample(wx,wz);
-
-            if (noise > gen_cfg.tree_distribution_threshold){
-                if (noise > gen_cfg.tree_place_threshold){
-                    placeTree(noise, cx,cy+1,cz);
-                }
-            }
-
-        }
-
     });
 
     return res;

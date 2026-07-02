@@ -11,6 +11,7 @@
 #include "Chunk.hpp"
 #include "ChunkStorage.hpp"
 #include "PendingBlockWrites.hpp"
+#include "glm/gtx/hash.hpp"
 #include "cppslop.hpp"
 
 
@@ -42,7 +43,6 @@ struct GenJob{
 struct GenResult{
     WorldChunkCoord chunkCoord;
     ChunkStore chunkBlocks;
-    ChunkMetadata meta;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
 };
 
@@ -55,7 +55,6 @@ struct MeshJob{
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
-    ChunkMetadata meta;
     const TextureAtlas* atlas;
 
     MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
@@ -63,7 +62,6 @@ struct MeshJob{
         meshRevisionID(_meshRevisionID),
         chunkCoord(key),
         blocks(&entry->block_data),
-        meta(entry->metadata),
         atlas(_atlas)
     {
         surroundingChunks.append_range(neighbourChunks);
@@ -95,29 +93,3 @@ struct MeshResult{
 };
 
 
-
-STD_HASH_SPECIALIZATION(MeshJob, job, 
-    return std::hash<glm::ivec3>{}(job.chunkCoord.raw());
-)
-STD_HASH_SPECIALIZATION(MeshResult, res, 
-    return std::hash<glm::ivec3>{}(res.chunkCoord.raw());
-)
-STD_HASH_SPECIALIZATION(GenJob, job, 
-    return std::hash<glm::ivec3>{}(job.chunkCoord.raw());
-)
-STD_HASH_SPECIALIZATION(GenResult, res, 
-    return std::hash<glm::ivec3>{}(res.chunkCoord.raw());
-)
-
-inline bool operator==(const MeshJob& a, const MeshJob& b) noexcept {
-    return a.chunkCoord == b.chunkCoord;
-}
-inline bool operator==(const MeshResult& a, const MeshResult& b) noexcept {
-    return a.chunkCoord == b.chunkCoord;
-}
-inline bool operator==(const GenJob& a, const GenJob& b) noexcept {
-    return a.chunkCoord == b.chunkCoord;
-}
-inline bool operator==(const GenResult& a, const GenResult& b) noexcept {
-    return a.chunkCoord == b.chunkCoord;
-}

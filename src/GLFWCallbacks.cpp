@@ -9,8 +9,8 @@ void glfw_ResizeCallback(GLFWwindow* win_ptr, int width, int height) {
     ctx->rend.updateViewport(0, 0, width, height);
     ctx->win.px_w = width;
     ctx->win.px_h = height;
-    ctx->playerCam.aspectRatio = ctx->win.aspect();
-    ctx->droneCam.aspectRatio = ctx->win.aspect();
+    ctx->player_cam.aspectRatio = ctx->win.aspect();
+    ctx->drone_cam.aspectRatio = ctx->win.aspect();
 }
 void glfw_MoveCallback(GLFWwindow* win_ptr, int xpos, int ypos) {
     auto* ctx = (Engine*)glfwGetWindowUserPointer(win_ptr);

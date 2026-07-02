@@ -3,6 +3,7 @@
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
+#include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
@@ -14,7 +15,6 @@
 #include <functional>
 
 FORWARD_DECL_STRUCT(Engine)
-void init_state_transition_logger(Engine* _sim);
 
 #define GEN_STATE_LIST \
 X(on_queue)\
@@ -57,10 +57,8 @@ void gen_enqueue (ChunkState* e);
 void gen_dequeue (ChunkState* e);
 void mesh_enqueue(ChunkState* e);
 void mesh_dequeue(ChunkState* e);
+void delete_mesh(ChunkState* e);
 
-static constexpr u8 ChunkDebugFillOpacity = 12;
-static constexpr f32 ChunkDebugOutlineOpacity = 0.9f;
-static constexpr f32 ChunkDebugFillOpacitySpecial = 0.10f;
 
 
 
@@ -80,8 +78,7 @@ struct ChunkEntry{
     state(chunkCoord){}
 
     AABB bounding_box; 
-    ChunkMetadata metadata;
-    std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(6,std::nullopt);
+    std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(N_NEIGHBOURS,std::nullopt);
     Chunk block_data;
     ChunkState state;
     bool is_mesh_dirty()const noexcept{
@@ -90,7 +87,12 @@ struct ChunkEntry{
     bool is_mesh_clean()const noexcept{
         return loaded_mesh_revision==target_mesh_revision;
     }
-    void mark_mesh_dirty()noexcept{
+    void mark_mesh_dirty(std::string_view reason = "n/a")noexcept{
+        log_to_chunk("mesh_endirtying",state.coord, 
+                     "Mesh dirtied ({}->{}). Reason:{}",
+                     target_mesh_revision,
+                     target_mesh_revision+1,
+                     reason);
         target_mesh_revision++;
     }
     bool qualifies_for_gen_dequeue() const noexcept{
@@ -118,6 +120,12 @@ struct ChunkEntry{
     bool mark_gen_dirty() noexcept{
         // NOTE: currently unused
         return target_gen_revision++;
+    }
+    void mark_mesh_deleted(){
+        state_transition(delete_mesh);
+//        target_mesh_revision = 0;
+        inflight_mesh_revision = 0;
+        loaded_mesh_revision = 0;
     }
     template<typename Fn>
     void state_transition(Fn&& fn) {

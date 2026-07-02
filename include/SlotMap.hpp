@@ -70,6 +70,21 @@ public:
         }
         return victim_keys.size();
     }
+
+    template<typename Fn, typename Fn2>
+    auto erase_if(Fn&& pred, Fn2&& on_each){
+        std::vector<Key> victim_keys;
+        for (const auto&[key, dense_idx]: sparse){
+            if (pred(AT(buf,dense_idx))){
+                victim_keys.push_back(key);
+            }
+        }
+        for (const auto& key: victim_keys){
+            on_each(this->at(key));
+            erase(key);
+        }
+        return victim_keys.size();
+    }
     template<typename Fn>
     auto for_each(Fn&& action){
         for (const auto&[key, dense_idx]: sparse){

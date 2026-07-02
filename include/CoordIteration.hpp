@@ -14,7 +14,7 @@
 
 
 template<typename IntVec2, typename Fn>
-    requires IVec2<IntVec2> && callable_with<Fn,IntVec2>
+    requires is_ivec2<IntVec2> && callable_with<Fn,IntVec2>
 void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
 
@@ -35,7 +35,7 @@ _break:
 }
 
 template<typename IntVec2, typename Fn>
-    requires IVec2<IntVec2> && callable_with<Fn,val_t<IntVec2>,val_t<IntVec2>>
+    requires is_ivec2<IntVec2> && callable_with<Fn,val_t<IntVec2>,val_t<IntVec2>>
 void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
 
@@ -56,7 +56,7 @@ _break:
 }
 
 template<typename IntVec3, typename Fn>
-    requires IVec3<IntVec3> && callable_with<Fn,IntVec3>
+    requires is_ivec3<IntVec3> && callable_with<Fn,IntVec3>
 void ForEachInRangeEx(IntVec3 min, IntVec3 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
     for (ScalarType x = min.x; x<max.x; x++){
@@ -77,7 +77,7 @@ _break:
 }
 
 template<typename IntVec3, typename Fn>
-    requires IVec3<IntVec3> && has_3_scalar_params<Fn,IntVec3>
+    requires is_ivec3<IntVec3> && has_3_scalar_params<Fn,IntVec3>
 void ForEachInRangeEx(IntVec3 min, IntVec3 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
     for (ScalarType x = min.x; x<max.x; x++){
@@ -105,30 +105,9 @@ void ForEachInRangeEx(Integer min, Integer max, Fn&& task){
     }
 }
 
-// Overload for the function below it, with 
-// -> Each spiral begins at `center`, and continues outwards in a clockwise pattern, which approximates nearest to farthest ordering. 
-//    NOTE: (clockwise when viewed from above, assuming y is the vertical axis)
-// -> The iteration begins at the top slice (center.y+radius), and continues downwards by 1 after each spiral.
-// -> It is guaranteed to reach every coordinate (if `MAX_COUNT` permits), in the range:
-//   [C.x-R, C.x+R]
-//   [C.y-R, C.y+R]
-//   [C.z-R, C.z+R]
-template<typename IntVec3, typename Integer, typename Fn>
-    requires IVec3Like<IntVec3>
-void SpiralIterateRange(IntVec3 center, Integer vertRadius, Integer hozRadius, Fn&& task){
-    SpiralIterateRange(numeric_max<std::size_t>(), center, vertRadius,hozRadius, std::forward<Fn>(task));
-}
-// runs task(x,y,z) in a particular order: a series of horizontal spirals.
-// -> Each spiral begins at `center`, and continues outwards in a clockwise pattern, which approximates nearest to farthest ordering. 
-//    NOTE: (clockwise when viewed from above, assuming y is the vertical axis)
-// -> The iteration begins at the top slice (center.y+radius), and continues downwards by 1 after each spiral.
-// -> It is guaranteed to reach every coordinate (if `MAX_COUNT` permits), in the range:
-//   [C.x-R, C.x+R]
-//   [C.y-R, C.y+R]
-//   [C.z-R, C.z+R]
-template<typename IntVec3, typename Integer, typename Fn>
-    requires IVec3Like<IntVec3> && Integral<Integer>
-void SpiralIterateRange(std::size_t MAX_COUNT, IntVec3 center, Integer vertRadius, Integer hozRadius, Fn&& task){
+template<typename IVEC2, typename Fn>
+    requires is_ivec2<IVEC2>
+void for_each_spiral(std::size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task){
     using namespace std;
     using namespace glm;
     size_t count = {0};
@@ -136,54 +115,35 @@ void SpiralIterateRange(std::size_t MAX_COUNT, IntVec3 center, Integer vertRadiu
     if (MAX_COUNT == 0){
         return;
     }
-    const Integer& R = hozRadius;
-    const IntVec3& C = center;
-    i32 minY = C.y-static_cast<i32>(vertRadius);
-    i32 maxY = C.y+static_cast<i32>(vertRadius);
-    std::unordered_set<ivec3> expected;
-    std::unordered_set<ivec3> unique;
+    const IVEC2& C = center;
 
 
-    for (i32 y = maxY; y>=minY; y--){
-        for (i32 x = C.x-hozRadius; x<=C.x+hozRadius; x++){
-            for (i32 z = C.x-hozRadius; z<=C.x+hozRadius; z++){
-                expected.emplace(x,y,z);
-            }
-        }
-    }
-
-    auto should_continue = [&count, &task, MAX_COUNT, &unique](i32 x, i32 y, i32 z) {
+    auto should_continue = [&](i32 x,i32 z) {
         if (count >= MAX_COUNT){
             return false; // shouldnt continue
         }
-        auto shouldAdd = invoke(task, x,y,z);
-        if (shouldAdd){
-            count++;
-            unique.emplace(x,y,z);
-        }
-        assert(unique.size()==count);
+        auto should_add = invoke(task, x,z);
+        count += should_add;
         return count < MAX_COUNT;
     };
 
-    for (i32 y = maxY; y>=minY; y--){
-        Integer x{C.x}, z{C.z};
-		if(!should_continue(x,y,z)) return;
-        for (i32 r = 1; r <= R; r++){
-            const i32 extent = 2*r;
-            // break out of the prior spiral  (off to the 'left')
-			if(!should_continue(--x,y,z)) return; 
-            for (int j = 0; j<extent - 1;j++)    {
-				if(!should_continue(x,y,++z)) return;
-			} // traverse the remaining (-X) edge 'upwards'
-            for (int j = 0; j<extent ; j++)     {
-				if(!should_continue(++x,y,z)) return;
-			}  // traverse the whole     (Z+) edge 'right'
-            for (int j = 0; j<extent ; j++)     {
-				if(!should_continue(x,y,--z)) return;
-			}  // traverse the whole     (+X) edge 'down'
-            for (int j = 0; j<extent ; j++)     {
-				if(!should_continue(--x,y,z)) return;
-			}  // traverse the whole     (+X) edge 'left'
-        }
+    i32 x{C.x}, z{C.z};
+    if(!should_continue(x,z)) return;
+    for (i32 r = 1; r <= radius; r++){
+        const i32 extent = 2*r;
+        // break out of the prior spiral  (off to the 'left')
+        if(!should_continue(--x,z)) return; 
+        for (int j = 0; j<extent - 1;j++)    {
+            if(!should_continue(x,++z)) return;
+        } // traverse the remaining (-X) edge 'upwards'
+        for (int j = 0; j<extent ; j++)     {
+            if(!should_continue(++x,z)) return;
+        }  // traverse the whole     (Z+) edge 'right'
+        for (int j = 0; j<extent ; j++)     {
+            if(!should_continue(x,--z)) return;
+        }  // traverse the whole     (+X) edge 'down'
+        for (int j = 0; j<extent ; j++)     {
+            if(!should_continue(--x,z)) return;
+        }  // traverse the whole     (+X) edge 'left'
     }
 }

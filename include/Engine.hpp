@@ -27,8 +27,8 @@ struct Engine {
     Window   win;
     Profiler profiler;
     Input    input;
-    Camera   playerCam;
-    Camera   droneCam;
+    Camera   player_cam;
+    Camera   drone_cam;
     TextureTarget fixedCamTarget{{0,0},{640,480}};
     Renderer rend;
     DebugUI  ui;
@@ -36,8 +36,12 @@ struct Engine {
     ChunkDirector director;
 
 
+    void set_debug_params();
+    void refresh_visible_chunks();
+    void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
+
     static constexpr i64 maxGenUploadsPerFrame= 16;
-    static constexpr i64 maxGenJobsPerFrame = 16;
+    static constexpr i64 maxGenJobsPerFrame = 128;
     static constexpr i64 maxMeshUploadsPerFrame= 64;
     static constexpr i64 maxMeshEnqueueAttempts = 64;
     static constexpr i64 maxMeshDequeueAttempts = 64;
@@ -45,12 +49,12 @@ struct Engine {
 
 
 
-    RenderTargetView screenView();
+    RenderTargetView screen_view();
     RenderTargetView secondaryView();
     auto construct_mesh_job(WorldChunkCoord candidateCoord);
     void count_states();
     bool is_chunk_in_frustum(const Frustum& frustum, WorldChunkCoord coord)const;
-    void cullMeshes(bool enableFrustumCulling);
+    void evict_meshes_outside_radius(i32 radius);
     void unMeshAllChunks();
     void unGenerateAllChunks();
 
@@ -58,19 +62,19 @@ struct Engine {
     void draw_scene();
     void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
     bool paused{false};
+    bool chunk_updates_paused{false};
 
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 6;
-    static constexpr i32 SIMULATION_DIST = RENDER_DIST+2; //controls chunk gen
+    static constexpr i32 RENDER_DIST = 32;
+    static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;
     
     // =========
     // Meshing 
     // =========
-    static constexpr glm::ivec3 RENDER_EXTENTS(){return  {RENDER_DIST,4, RENDER_DIST};}
-    static constexpr i32 MESH_CULL_DIST = RENDER_DIST+2;
+    static constexpr i32 MESH_CULL_DIST(){return RENDER_DIST+2;}
     // =========
     // telemetry
     // =========
@@ -104,12 +108,12 @@ private:
     std::vector<WorldChunkCoord> findChunksForGeneration(i64 maxJobs);
     std::vector<MeshJob> findMeshJobs(i64 maxJobs);
 
-    i64 enqueueGenerationJobs(i64 maxJobs);
-    i64 enqueueMeshingJobs(i64 maxJobs);
+    i64 submit_gen_jobs(i64 maxJobs);
+    i64 submit_mesh_jobs(i64 maxJobs);
 
 
-    i64 drainAndUploadGenResults(i64 maxUploads);
-    i64 drainAndUploadMeshResults(i64 maxUploads);
+    i64 upload_gen_results(i64 maxUploads);
+    i64 upload_mesh_results(i64 maxUploads);
 };
 
 // Input::Key definitions (based on glfw3)

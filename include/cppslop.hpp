@@ -120,7 +120,7 @@ constexpr inline const auto EachInRange(
     return iota(x0,x1);
 }
 template<typename IntVec3>
-requires IVec3<IntVec3>
+requires is_ivec3<IntVec3>
 constexpr inline const auto EachInRange(IntVec3 min, IntVec3 max){
     using std::views::iota;
     using std::views::cartesian_product;
@@ -128,7 +128,7 @@ constexpr inline const auto EachInRange(IntVec3 min, IntVec3 max){
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y), iota(min.z,max.z));
 }
 template<typename IntVec2>
-requires IVec2<IntVec2>
+requires is_ivec2<IntVec2>
 constexpr inline const auto EachInRange(IntVec2 min, IntVec2 max){
     using std::views::iota;
     using std::views::cartesian_product;

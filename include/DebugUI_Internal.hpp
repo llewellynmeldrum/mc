@@ -174,5 +174,22 @@ struct WindowConfig{
         if (IG::CollapsingHeader(name.c_str()))
             std::invoke(std::forward<Fn>(section));
     };
+    template <typename Fn>
+    inline void open_section(std::string name, Fn&& section){
+        auto flags = ImGuiTreeNodeFlags_CollapsingHeader ^ ImGuiTreeNodeFlags_DefaultOpen;
+        if (IG::CollapsingHeader(name.c_str(),flags))
+            std::invoke(std::forward<Fn>(section));
+    };
+    inline void checkbox(std::string name, bool* on){
+        // NOTE: we cant use a default argument on the below function and must instead overload,
+        // as Fn is a universal reference (deduced&&), which cannot bind to lambdas (as they are prvalues)
+        checkbox(name,on,[]{});
+    }
+    template <typename Fn>
+    inline void checkbox(std::string name, bool* on, Fn&& on_click){
+        auto flags = ImGuiTreeNodeFlags_CollapsingHeader ^ ImGuiTreeNodeFlags_DefaultOpen;
+        if (IG::Checkbox(name.c_str(),on))
+            std::invoke(std::forward<Fn>(on_click));
+    };
     DropDown<std::string,7> dropdown ={"combo 2", { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG"}};
 };

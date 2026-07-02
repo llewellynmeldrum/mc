@@ -9,6 +9,17 @@ using namespace glm;
 Camera::Camera(WorldFloatPos pos, f32 pitch, f32 yaw) {
     set_pos_ori(pos,pitch,yaw);
 }
+void Camera::set_pos(WorldFloatPos pos) {
+    this-> pos = pos;
+    cached_viewMatrix.invalidate();
+    cached_frustum.invalidate();
+}
+void Camera::set_orientation(f32 pitch, f32 yaw) {
+    this->pitch = pitch;
+    this->yaw = yaw;
+    cached_viewMatrix.invalidate();
+    cached_frustum.invalidate();
+}
 void Camera::set_pos_ori(WorldFloatPos pos, f32 pitch, f32 yaw) {
     this-> pos = pos;
     this->pitch = pitch;
