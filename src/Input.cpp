@@ -17,7 +17,8 @@ void Input::handle(
     Renderer& rend, 
     bool& paused,
     bool& chunk_updates_paused,
-    bool& dbg_modify_chunks
+    bool& dbg_modify_chunks,
+    bool& dirty_current_chunk
 ) {
     profiler.bench_start("input");
     poll();
@@ -58,6 +59,9 @@ void Input::handle(
     });
     mapToggleKey(KEY_L, [&]{
         pause_logging = !pause_logging;
+    });
+    mapToggleKey(KEY_X, [&]{
+        dirty_current_chunk = !dirty_current_chunk;
     });
 
     if (paused) return; // WARNING: Anything below here is ignored during paused frames

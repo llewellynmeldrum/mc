@@ -30,7 +30,8 @@ struct Input {
 	    Renderer& rend,
 	    bool& paused,
 	    bool& chunk_updates_paused,
-        bool& dbg_modify_chunks
+        bool& dbg_modify_chunks,
+        bool& dirty_current_chunk
     );
 
     Input() = default;

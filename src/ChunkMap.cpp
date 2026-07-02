@@ -1,5 +1,6 @@
 
 #include "ChunkEntry.hpp"
+#include "DebugChunkLog.hpp"
 #include "FormatSpecs.hpp"
 #include "NothrowLookup.hpp"
 
@@ -102,26 +103,19 @@ void ChunkMap::update_neighbour_map(WorldChunkCoord chunkCoord) {
         const auto neighbourChunkCoord = chunkCoord + ChunkOffset{offset};
         entries.if_contains(
             neighbourChunkCoord,
-            [&](ChunkEntry& neighbourEntry){
+            [&](ChunkEntry& neighbour_entry){
                 // 1. assign NEIGHBOUR to OUR NeighbourList @dir
                 my_neighbours[dir_idx] = std::make_optional(neighbourChunkCoord);
-
-                entries.if_contains(
-                    neighbourChunkCoord,
-                    [](ChunkEntry& neighbour_entry){
                         // 2. INVALIDATE THEIR MESH, we have just generated next to them,
                         // and they need to be made aware of our blocks to correctly cull faces.
-                        neighbour_entry.mark_mesh_dirty("BA BA IM A SHEEP Neighbour is newly generated.");
-                    }
-                );
+                    neighbour_entry.mark_mesh_dirty("Neighbour is newly generated. (update_neighbour_map)");
+
 
                 // 3. assign OURSELVES to NEIGHBOUR.dir @inverseDir
                 const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
                 
                 auto& neighbours_neighbours = entries[neighbourChunkCoord]->neighbours;
-                if (neighbours_neighbours[inverseDir_idx]){
-                    neighbours_neighbours[inverseDir_idx] = std::make_optional(chunkCoord);
-                }
+                neighbours_neighbours[inverseDir_idx] = std::make_optional(chunkCoord);
             }
         );
     }

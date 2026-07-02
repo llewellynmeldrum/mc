@@ -34,7 +34,8 @@ void Engine::loop(){
         profiler.bench_start("frame");
 
         bool dbg_modify_chunks = false;
-        input.handle(profiler,ui,win,player_cam,drone_cam,rend,paused,chunk_updates_paused,dbg_modify_chunks); 
+        bool dirty_current_chunk = false;
+        input.handle(profiler,ui,win,player_cam,drone_cam,rend,paused,chunk_updates_paused,dbg_modify_chunks,dirty_current_chunk); 
         if (dbg_modify_chunks){
             dbg_modify_chunks = false;
             auto cur_chunk = toWorldChunkCoord(player_cam.pos);
@@ -48,6 +49,15 @@ void Engine::loop(){
                             block = (BlockType::AIR);
                         }
                     }
+                }
+            );
+        }
+        if (dirty_current_chunk){
+            auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+            world.chunkMap.entries.if_contains(
+                cur_chunk,
+                [](ChunkEntry& entry){
+                    entry.mark_mesh_dirty();
                 }
             );
         }
@@ -370,6 +380,8 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
         if (entry->is_mesh_on_queue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
                 log_to_chunk(chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
+                log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
                 if (rend.opaqueChunkMeshes.contains(chunk_coord)){
                     log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
                 }
