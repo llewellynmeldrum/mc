@@ -39,6 +39,18 @@ struct ChunkMap {
     HashMap<WorldChunkCoord, MeshRevisionID> current_mesh_revision;
 
 
+    inline void mark_neighbours_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
+        auto lo = key.raw() + glm::ivec2{-1};
+        auto hi = key.raw() + glm::ivec2{2};
+        ForEachInRangeEx(lo,hi,[&](i32 x, i32 z){
+            entries.if_contains(
+                WorldChunkCoord{x,z},
+                [&](ChunkEntry& neighbour_entry){
+                    neighbour_entry.mark_mesh_dirty(reason);
+                }
+            );
+        });
+    }
 
     // NOTE: ENTRY MADE: Either on GenData upload, or when a chunk tries to write to it
     // NOTE: ENTRY DELETED: When the queue for a chunk is empty. Not sure how i feel about this.
@@ -80,7 +92,7 @@ struct ChunkMap {
 
 private:
     void           update_neighbour_map(WorldChunkCoord chunkCoord);
-    void           updateBoundingBoxesMap(WorldChunkCoord chunkCoord);
+    void           update_bounding_boxes_map(WorldChunkCoord chunkCoord);
 
 
 };

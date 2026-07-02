@@ -22,6 +22,8 @@
 #include "Logger.hpp"
 #include "Assertion.hpp"
 
+
+#include <tracy/Tracy.hpp>
 using std::views::enumerate;
 
 
@@ -212,6 +214,7 @@ MeshDataType meshChunk(const MeshJob& job){
 std::atomic<std::size_t> thread_id;
 void ChunkMesher::meshChunks
 (std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue){
+    tracy::SetThreadName("chunk mesher");
     const std::size_t id = thread_id.fetch_add(1);
     while (!stopToken.stop_requested()){
         

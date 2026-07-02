@@ -61,5 +61,6 @@ struct IndexedMesh {
                         // Meaning that they exist, and are maybe clean, but dont need to be sent to gpu
 };
 
+
 // by default, im using indexed meshes
 using Mesh = IndexedMesh;

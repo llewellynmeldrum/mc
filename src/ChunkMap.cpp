@@ -26,7 +26,8 @@ void ChunkMap::upload_generated_chunk(GenResult gen_res) {
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
     std::ranges::copy(generatedBlocks, entry->block_data.begin());
     update_neighbour_map(chunkCoord);
-    updateBoundingBoxesMap(chunkCoord);
+    update_bounding_boxes_map(chunkCoord);
+    mark_neighbours_dirty(chunkCoord,"Neighbour generated");
     entry->mark_mesh_dirty("Newly generated"); // allow for meshing
 }
 void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
@@ -39,21 +40,12 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
                 if (srcBlocks.tryWrite(write)){
                     // TODO: add pending writes to queue -> requests and fulfillments
                     pendingWritesSuccessful ++;
-                    auto lo = chunkCoord.raw() + ivec2{-1};
-                    auto hi = chunkCoord.raw() + ivec2{1};
                     // NOTE:
                     // We make all adjacent chunks meshes dirty, as a block change has occured
                     // potentially on the border.
                     // In future, it might be good to distinguish this, i.e only endirty
                     // the actual chunks it impacts (if on border/corner it impacts however many)
-                    ForEachInRangeEx(lo,hi,[&](i32 x, i32 z){
-                        entries.if_contains(
-                            WorldChunkCoord{x,z},
-                            [](ChunkEntry& neighbour_entry){
-                                neighbour_entry.mark_mesh_dirty("Existing neighbour had pending write");
-                            }
-                        );
-                    });
+                    mark_neighbours_dirty(chunkCoord);
                 }
                 pendingWritesAttempted++;
             }
@@ -77,17 +69,7 @@ void ChunkMap::handlePendingWrites(const WorldChunkCoord chunkCoord, ChunkSpan s
                     // also mark the target as dirty,
                     // alongside all its neighbours, since 
                     // ... since what
-                    auto lo = targetChunkCoord.raw() + ivec2{-1};
-                    auto hi = targetChunkCoord.raw() + ivec2{1};
-                    // NOTE: We endirty all neighbours of the chunk that gets the write applied to it
-                    ForEachInRangeEx(lo,hi,[&](i32 x, i32 z){
-                        entries.if_contains(
-                            WorldChunkCoord{x,z},
-                            [](ChunkEntry& neigh_entry){
-                                neigh_entry.mark_mesh_dirty("Newgen neighbour had pending writes");
-                            }
-                        );
-                    });
+                    mark_neighbours_dirty(targetChunkCoord);
                 }
                 pendingWritesAttempted++;
             },
@@ -129,7 +111,7 @@ void ChunkMap::update_neighbour_map(WorldChunkCoord chunkCoord) {
                     [](ChunkEntry& neighbour_entry){
                         // 2. INVALIDATE THEIR MESH, we have just generated next to them,
                         // and they need to be made aware of our blocks to correctly cull faces.
-                        neighbour_entry.mark_mesh_dirty("Neighbour is newly generated.");
+                        neighbour_entry.mark_mesh_dirty("BA BA IM A SHEEP Neighbour is newly generated.");
                     }
                 );
 
@@ -150,7 +132,7 @@ void ChunkMap::update_neighbour_map(WorldChunkCoord chunkCoord) {
 
 }
 
-void ChunkMap::updateBoundingBoxesMap(WorldChunkCoord chunkCoord) {
+void ChunkMap::update_bounding_boxes_map(WorldChunkCoord chunkCoord) {
     const auto min = toWorldOrigin(chunkCoord).raw();
     const auto max = min + Chunk::Extents;
     AT(entries,chunkCoord)->bounding_box = {min, max};

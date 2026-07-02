@@ -19,6 +19,9 @@
 #include <print>
 #include <queue>
 
+#include <tracy/Tracy.hpp>
+
+
 //          |?         swamp       jungle
 // humidity |spruce    plains      acacia
 //          |snow      mesa?       desert
@@ -246,6 +249,8 @@ static GenResult generateChunk(GenJob job){
 
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
+
+    tracy::SetThreadName("chunk mesher");
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
         GenResult res = generateChunk(job);

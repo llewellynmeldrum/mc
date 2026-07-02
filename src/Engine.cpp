@@ -1,3 +1,4 @@
+
 #include "ChunkStorage.hpp"
 #include "DebugOptions.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -8,7 +9,6 @@
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
-#include "FormatSpecs.hpp"
 #include "CoordIteration.hpp"
 
 #include "Engine.hpp"
@@ -24,14 +24,33 @@
 #include <algorithm>
 #include <optional>
 #include <print>
+#include <tracy/Tracy.hpp>
 
 
+#include "FormatSpecs.hpp"
 void Engine::loop(){
     while (!win.shouldClose()) {
         profiler.start_frame();
         profiler.bench_start("frame");
 
-        input.handle(profiler,ui,win,player_cam,drone_cam,rend,paused,chunk_updates_paused); 
+        bool dbg_modify_chunks = false;
+        input.handle(profiler,ui,win,player_cam,drone_cam,rend,paused,chunk_updates_paused,dbg_modify_chunks); 
+        if (dbg_modify_chunks){
+            dbg_modify_chunks = false;
+            auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+            world.chunkMap.mark_neighbours_dirty(cur_chunk, "test");
+            world.chunkMap.entries.if_contains(
+                cur_chunk,
+                [](ChunkEntry& entry){
+                    entry.mark_mesh_dirty();
+                    for (auto& block : entry.block_data){
+                        if (block.type == BlockType::GRASS_BLOCK){
+                            block = (BlockType::AIR);
+                        }
+                    }
+                }
+            );
+        }
 
         ui.update();
         if (!paused){
@@ -44,7 +63,10 @@ void Engine::loop(){
         }
 
         profiler.bench_start("render");
-        win.swapBuffers();
+        {
+            ZoneScopedN("Swap");
+            win.swapBuffers();
+        }
         profiler.bench_end("render");
 
         profiler.bench_end("frame");
@@ -104,6 +126,7 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
 void Engine::update_scene() {
     profiler.bench_start("update");
+    ZoneScoped;
     if (DebugOption::fill_chunk_boundaries){
         rend.dbg_rend.update(player_cam,this);
     }
@@ -346,13 +369,17 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
 
         if (entry->is_mesh_on_queue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
+                log_to_chunk(chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                if (rend.opaqueChunkMeshes.contains(chunk_coord)){
+                    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
+                }
                 if (opaque.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(opaque));
                 } 
                 if (transparent.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(transparent));
                 } 
-                log_to_chunk(chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
             }else{
                 log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
                                 candidate_revision,entry->loaded_mesh_revision));
@@ -422,6 +449,7 @@ void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
     rend.draw_3DLines_to(cam,rend.dbg_rend.chunk_outlines,target);
 }
 void Engine::draw_scene() {
+    ZoneScoped;
     profiler.bench_start("draw");
 
 

@@ -41,7 +41,6 @@ struct VertexArray {
         apply_layout_impl(layout.stride, VertexAttrSpan(layout.attrs));
     }
 
-  private:
     void apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs);
     u32  id;
 };
@@ -75,7 +74,6 @@ struct VertexBuffer {
         load_bytes(data, c.size_bytes(), usage);
     }
 
-  private:
     void load_bytes(const void* data, std::size_t size_bytes, gl::GLenum usage);
     constexpr static gl::GLenum DefaultBufferUsage();
     constexpr static gl::GLenum BufferTarget();
@@ -107,7 +105,6 @@ struct ElementBuffer {
 
     void load(std::span<const u32> indices, i32 offset = 0);
 
-  private:
     constexpr static gl::GLenum BufferUsage();
     constexpr static gl::GLenum BufferTarget();
     u32                         id{};

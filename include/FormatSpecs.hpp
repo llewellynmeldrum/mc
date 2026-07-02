@@ -1,8 +1,6 @@
 #pragma once
+#include "Mesh.hpp"
 #include "PendingBlockWrites.hpp"
-#ifdef INCLUDE_LOGGER_LAST
-#error "Logger.hpp must be included AFTER DebugFormat* headers!"
-#endif
 
 #include <format>
 
@@ -339,5 +337,26 @@ struct std::formatter<std::optional<T>>{
         }else{
             return format_to(ctx.out(), "nullopt");
         }
+    }
+};
+
+template<>
+struct std::formatter<IndexedMesh>{
+
+	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
+	auto format(const IndexedMesh& val, std::format_context& ctx)const {
+		return std::format_to(
+            ctx.out(), 
+            "vao:{}\n"
+            "vbo:{}\n"
+            "ebo:{}\n"
+            "offset_count:{}\n"
+            "vertex_count:{}\n"
+            ,
+            val.vao.id,
+            val.vbo.id,
+            val.ebo.id,
+    val.offset_count,
+    val.vertex_count);
     }
 };

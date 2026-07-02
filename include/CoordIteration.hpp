@@ -34,6 +34,7 @@ _break:
 
 }
 
+// EXCLUSIVE!!!!!!!!!!!! EX!!!! YOU LITERALLY NAMED THE FUCKING FUNCTION EXCLUSIVE!!!!!!!!!!! THE SECOND VARIABLE IS EX-CLU-SIVE. HOW THE FUCK DO YOU FORGET THAT. HOW MANY FUCKING TIMES. YOU PIECE OF SHIT 
 template<typename IntVec2, typename Fn>
     requires is_ivec2<IntVec2> && callable_with<Fn,val_t<IntVec2>,val_t<IntVec2>>
 void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){

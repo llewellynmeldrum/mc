@@ -190,6 +190,7 @@ public:
             buf.emplace_back(std::forward<Args>(vargs)...);
         }else{
             DenseIdx idx = it->second;
+            dense.at(idx) = key;
             std::destroy_at(&buf[idx]);
             std::construct_at(&buf[idx], std::forward<Args>(vargs)...);
         }

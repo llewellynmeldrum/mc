@@ -2,6 +2,7 @@
 #include "Timer.hpp"
 #include "GLFW/glfw3.h"
 #include "Logger.hpp"
+#include <tracy/Tracy.hpp>
 
 i64  program_epoch_ns = 0;
 
@@ -31,4 +32,5 @@ void Profiler::end_frame(){
     f64 now = glfwGetTime();
     f64 before = start_of_frame;
     dt_s = now - before;
+    FrameMark;
 }

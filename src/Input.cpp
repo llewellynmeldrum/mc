@@ -16,7 +16,8 @@ void Input::handle(
     Camera& drone_cam, 
     Renderer& rend, 
     bool& paused,
-    bool& chunk_updates_paused
+    bool& chunk_updates_paused,
+    bool& dbg_modify_chunks
 ) {
     profiler.bench_start("input");
     poll();
@@ -67,6 +68,9 @@ void Input::handle(
         player_cam.rotateByMouse(diff, profiler.dt_s);
     }
 
+    mapToggleKey(KEY_B, [&]{
+        dbg_modify_chunks = !dbg_modify_chunks;
+    });
     mapToggleKey(KEY_T, [&]{
         rend.debug.wireframe = !rend.debug.wireframe;
     });
