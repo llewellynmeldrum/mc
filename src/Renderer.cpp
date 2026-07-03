@@ -78,14 +78,14 @@ void Renderer::beginOpaquePass(){
 
 void Renderer::update_player_cam_frustum_lines(Engine* sim){
     // always update the debug rends' radius and chunks with the player camera
-    auto make_frustum_lines_for = [](Camera& cam){
-        auto frustum = cam.getFrustum();
+    auto make_frustum_lines_for = [](const Frustum& frustum, glm::vec4 color){
         std::vector<Line3D> frustum_lines;
-        frustum.path.publish(frustum_lines);
+        frustum.path.publish(frustum_lines,color);
         frustum_lines.append_range(frustum.extra_lines);
         return frustum_lines;
     };
-    player_cam_frustum_lines = make_frustum_lines_for(sim->player_cam);
+    player_cam_frustum_lines = make_frustum_lines_for(sim->player_cam.getCullFrustum(),glm::vec4{1,1,1,1});
+    player_cam_frustum_lines.append_range(make_frustum_lines_for(sim->player_cam.getViewFrustum(),glm::vec4{1,1,1,0.5}));
 }
 void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();

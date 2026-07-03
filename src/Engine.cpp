@@ -94,7 +94,7 @@ void Engine::refresh_visible_chunks(){
     };
     auto inside_frustum = [](Engine* eng){
         return [eng](IndexedMesh& mesh){
-            return eng->is_chunk_in_frustum(eng->player_cam.getFrustum(), mesh.chunkCoord);
+            return eng->is_chunk_in_frustum(eng->player_cam.getCullFrustum(), mesh.chunkCoord);
         };
     };
     // load meshes inside frustum, unload meshes outside frustum
@@ -237,7 +237,7 @@ i64 Engine::submit_gen_jobs(i64 maxJobs){
     return count;
 }
 
-std::vector<MeshJob> Engine::findMeshJobs(i64 maxJobs){
+std::vector<MeshJob> Engine::find_mesh_jobs(i64 maxJobs){
     
     const auto camChunkCoord = toWorldChunkCoord(player_cam.pos);
     auto meshReadyChunksInRad = [&](WorldChunkCoord chunkCoord, i32 radius, i32 maxChunks=0) {
@@ -247,6 +247,12 @@ std::vector<MeshJob> Engine::findMeshJobs(i64 maxJobs){
             bool added = world.chunkMap.entries.if_contains_else(
                 key,
                 [&](ChunkEntry& entry){
+                    // TODO: Figure out if this is correct.
+                    // Maybe mesh chunks in a wider frustum?
+                    // Add an option to generate a frustum with a given FOV, say 180 for wider range
+                    if (!is_chunk_in_frustum(player_cam.getCullFrustum(),key)){
+                        return false;
+                    }
                     if (entry.qualifies_for_mesh_enqueue() ){
                         return true;
                     }else{
@@ -320,7 +326,7 @@ std::vector<MeshJob> Engine::findMeshJobs(i64 maxJobs){
 
 i64 Engine::submit_mesh_jobs(i64 maxJobs){
     profiler.bench_start("enqueueMesh");
-    auto candidates = findMeshJobs(maxJobs);
+    auto candidates = find_mesh_jobs(maxJobs);
 
     i64 count = 0;
     for (const auto& job: candidates){

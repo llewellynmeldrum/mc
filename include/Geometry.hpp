@@ -53,10 +53,10 @@ struct AABB {
 struct Frustum {
     Frustum ()=default;
     ~Frustum ()=default;
-    Frustum (const Camera * cam);
+    Frustum (const Camera * cam, f32 v_fov);
+    void update(const Camera* cam, f32 v_fov);
     Path3D path{};
     std::vector<Line3D> extra_lines;
-    void update(this auto& self, const Camera* cam);
 
     inline bool isAABBInside(const AABB& v)const {
         return  v.testForwardIntersection(far)   && 

@@ -28,6 +28,11 @@ struct Path3D{
             dst.emplace_back(segments[i],segments[i+1],thickness,color);
         }
     }
+    void publish(std::vector<Line3D>& dst, glm::vec4 color_override)const noexcept{
+        for (auto i = 0uz; i<segments.size()-1; i++){
+            dst.emplace_back(segments[i],segments[i+1],thickness,color_override);
+        }
+    }
     void clear(){ segments.clear(); }
     
 };

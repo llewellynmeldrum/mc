@@ -106,7 +106,7 @@ struct Engine {
     i64 n_mesh_done                  {};
 private:
     std::vector<WorldChunkCoord> findChunksForGeneration(i64 maxJobs);
-    std::vector<MeshJob> findMeshJobs(i64 maxJobs);
+    std::vector<MeshJob> find_mesh_jobs(i64 maxJobs);
 
     i64 submit_gen_jobs(i64 maxJobs);
     i64 submit_mesh_jobs(i64 maxJobs);

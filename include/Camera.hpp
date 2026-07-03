@@ -68,12 +68,18 @@ struct Camera {
         enable_mouse_panning = false;
     }
 
-    inline const Frustum& getFrustum() const {
-        return cached_frustum.get(
-            [this](){
-                return Frustum(this);  // NOLINT
-            }
-        );
+    Frustum getFrustum(f32 vfov) const {
+        return Frustum(this,vfov);  // NOLINT
+//        return cached_frustum.get(
+//            [this, vfov](){
+//            }
+//        );
+    }
+    Frustum getCullFrustum() const {
+        return getFrustum(this->frustum_vertical_fov());
+    }
+    Frustum getViewFrustum() const {
+        return getFrustum(this->vertical_fov);
     }
     inline glm::vec3 getFacing() const{
         using namespace glm;
@@ -108,6 +114,7 @@ struct Camera {
     f32 keyboard_sensitivity = BASE_KEYBOARD_SENSITIVITY;
 
     f32 vertical_fov = 70.0f;
+    f32 frustum_vertical_fov() const noexcept {return vertical_fov*1.5f;}
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
     f32 moveSpeed = Camera::BASE_MOVESPEED;
