@@ -39,11 +39,11 @@ void Engine::loop(){
         if (dbg_modify_chunks){
             dbg_modify_chunks = false;
             auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-            world.chunkMap.mark_neighbours_dirty(cur_chunk, "test");
+            director.mark_neighbours_dirty(cur_chunk, "test");
             world.chunkMap.entries.if_contains(
                 cur_chunk,
-                [](ChunkEntry& entry){
-                    entry.mark_mesh_dirty();
+                [&](ChunkEntry& entry){
+                    director.mark_mesh_dirty(entry);
                     for (auto& block : entry.block_data){
                         if (block.type == BlockType::GRASS_BLOCK){
                             block = (BlockType::AIR);
@@ -56,8 +56,8 @@ void Engine::loop(){
             auto cur_chunk = toWorldChunkCoord(player_cam.pos);
             world.chunkMap.entries.if_contains(
                 cur_chunk,
-                [](ChunkEntry& entry){
-                    entry.mark_mesh_dirty();
+                [&](ChunkEntry& entry){
+                    director.mark_mesh_dirty(entry);
                 }
             );
         }
@@ -128,6 +128,7 @@ void Engine::evict_meshes_outside_radius(i32 radius){
     };
 
     // erase all elements which are out of bounds:
+    // TODO: perhaps prune the for_meshing uniqueQueue?
     rend.opaqueChunkMeshes.erase_if(outside_range(world.chunkMap,lo,hi));
     rend.transparentChunkMeshes.erase_if(outside_range(world.chunkMap, lo,hi));
 
@@ -237,113 +238,34 @@ i64 Engine::submit_gen_jobs(i64 maxJobs){
     return count;
 }
 
-std::vector<MeshJob> Engine::find_mesh_jobs(i64 maxJobs){
-    
-    const auto camChunkCoord = toWorldChunkCoord(player_cam.pos);
-    auto meshReadyChunksInRad = [&](WorldChunkCoord chunkCoord, i32 radius, i32 maxChunks=0) {
-        std::vector<WorldChunkCoord> candidates;
-        auto add = [&](i32 x, i32 z){
-            const auto key = WorldChunkCoord{x,z};
-            bool added = world.chunkMap.entries.if_contains_else(
-                key,
-                [&](ChunkEntry& entry){
-                    // TODO: Figure out if this is correct.
-                    // Maybe mesh chunks in a wider frustum?
-                    // Add an option to generate a frustum with a given FOV, say 180 for wider range
-                    if (!is_chunk_in_frustum(player_cam.getCullFrustum(),key)){
-                        return false;
-                    }
-                    if (entry.qualifies_for_mesh_enqueue() ){
-                        return true;
-                    }else{
-                        return false;
-                    }
-                },
-                [&](){
-                    // no entry, no enqueue
-                    return false;
-                }
-            );
-            if (added){
-                candidates.emplace_back(key);
-            }
-            return added;
-        };
-        for_each_spiral(maxChunks, chunkCoord, radius, add);
-        return candidates;
-    };
-    const auto candidateList = meshReadyChunksInRad(camChunkCoord, RENDER_DIST, maxJobs);
-
-    std::vector<MeshJob> res;
-    for (const auto candidateCoord: candidateList){
-        auto* entry = AT(world.chunkMap.entries,candidateCoord);
-        std::vector<std::optional<ChunkSlice2D>> neighbours_copy;
-        for (const auto& [dir, dir_idx]: eachDirIndex2D){
-            const auto& neighbour_coord = entry->neighbours[dir_idx];
-            if (!neighbour_coord){
-                neighbours_copy.emplace_back(std::nullopt);
-                continue;
-            }
-            ChunkBlockPos p0{}, p1{};
-            constexpr auto XE = CHUNK_XWIDTH;
-            constexpr auto YE = CHUNK_HEIGHT;
-            constexpr auto ZE = CHUNK_ZWIDTH;
-            SliceType slice_type = {};
-            switch (dir){
-                // -Z
-                case Direction ::BACKWARD: p0 = {0,0,0}; p1 ={XE,YE,1}; slice_type = SliceType::Z; break;
-                // +Z
-                case Direction ::FORWARD: p0 = {0,0,ZE-1}; p1 ={XE,YE,ZE}; slice_type = SliceType::Z; break;
-
-                // -X
-                case Direction ::RIGHT: p0 = {0,0,0}; p1 ={1,YE,ZE}; slice_type = SliceType::X; break;
-                // +X
-                case Direction ::LEFT   : p0 = {XE-1,0,0}; p1 ={XE,YE,ZE}; slice_type = SliceType::X; break;
-
-                default:
-                    break;
-            }
-            world.chunkMap.entries.if_contains_else(
-                neighbour_coord.value(),
-                [&](ChunkEntry& neighbour){
-                    std::optional<ChunkSlice2D> copy = std::make_optional<ChunkSlice2D>(
-                       &neighbour.block_data,
-                        slice_type,
-                        p0,
-                        p1
-                    );
-                    neighbours_copy.emplace_back(copy);
-                },
-                [&](){
-                    neighbours_copy.emplace_back(std::nullopt);
-                }
-            );
-        }
-        res.emplace_back(entry->target_mesh_revision,candidateCoord,&rend.atlas,entry,neighbours_copy);
-    }
-    return res;
-}
 
 i64 Engine::submit_mesh_jobs(i64 maxJobs){
     profiler.bench_start("enqueueMesh");
-    auto candidates = find_mesh_jobs(maxJobs);
+    auto candidates = director.find_mesh_jobs(maxJobs);
 
     i64 count = 0;
-    for (const auto& job: candidates){
-
+    for (const auto& coord: candidates){
+//        if (!is_chunk_in_frustum(player_cam.getCullFrustum(),coord)){
+//            continue;
+//        }
         auto& meshQ = rend.meshers.meshJobQueue;
-        bool success = meshQ.try_emplace(job);
+        auto* entry = world.chunkMap.entries.at(coord);
+
+        assert(entry);
+        if (!entry->qualifies_for_mesh_enqueue()){
+            continue;
+        }
+        bool success = meshQ.try_emplace(
+            coord,
+            &rend.atlas,
+            &world.chunkMap,
+            entry
+        );
+        // MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
         if (success){
-            world.chunkMap.entries.if_contains_else(
-                job.chunkCoord, 
-                [&](ChunkEntry& entry){
-                    entry.inflight_mesh_revision = entry.target_mesh_revision;
-                    entry.state_transition(mesh_enqueue);
-                },
-                [&](){
-       //             LOG_WARN("(mesh_enqueue): Homeless mesh not enqueued because it has no chunk entry");
-                }
-            );
+            director.mark_mesh_enqueue(*entry);
+            entry->inflight_mesh_revision = entry->target_mesh_revision;
+            entry->state_transition(mesh_enqueue);
             count++;
         }
     }
@@ -452,7 +374,7 @@ i64 Engine::upload_gen_results(i64 maxUploads){
             }
         );
         if (success){
-            world.chunkMap.upload_generated_chunk(newGen);
+            director.upload_generated_chunk(newGen);
 
         }else{
  //           LOG_DEBUG("(gen_upload): Discarded homeless chunk gen data @{}.", newGen.chunkCoord);
@@ -512,9 +434,11 @@ void Engine::unGenerateAllChunks(){
     world.chunkMap.entries.clear();
 }
 void Engine::unMeshAllChunks(){
-    world.chunkMap.entries.for_each([](WorldChunkCoord coord, ChunkEntry& entry){
-        entry.mark_mesh_dirty();
-    });
+    world.chunkMap.entries.for_each(
+        [&](WorldChunkCoord coord, ChunkEntry& entry){
+            director.mark_mesh_dirty(entry);
+        }
+    );
     rend.opaqueChunkMeshes.clear();
     rend.transparentChunkMeshes.clear();
 }

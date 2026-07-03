@@ -50,6 +50,7 @@ struct GenResult{
 // PRODUCER: Main Thread
 // CONSUMER: Mesher thread.
 FORWARD_DECL_STRUCT(TextureAtlas)
+FORWARD_DECL_STRUCT(ChunkMap)
 struct MeshJob{
     std::size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
@@ -57,16 +58,12 @@ struct MeshJob{
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
     const TextureAtlas* atlas;
 
-    MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
-
-        meshRevisionID(_meshRevisionID),
-        chunkCoord(key),
-        blocks(&entry->block_data),
-        atlas(_atlas)
-    {
-        surroundingChunks.append_range(neighbourChunks);
-        assert(surroundingChunks.size()==N_NEIGHBOURS);
-    }
+    MeshJob(
+        WorldChunkCoord key, 
+        const TextureAtlas* _atlas, 
+        ChunkMap* chunk_map,
+        const ChunkEntry* entry
+    );
     // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
     // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
     // i.e the ones bordering the actual chunk in question.

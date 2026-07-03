@@ -1,0 +1,51 @@
+#include "ChunkConcurrency.hpp"
+#include "ChunkMap.hpp"
+
+MeshJob::MeshJob(
+        WorldChunkCoord key, 
+        const TextureAtlas* _atlas, 
+        ChunkMap* chunk_map,
+        const ChunkEntry* entry
+    ):
+        meshRevisionID(entry->target_mesh_revision),
+        chunkCoord(key),
+        blocks(&entry->block_data),
+        atlas(_atlas)
+{
+    for (const auto& [dir, dir_idx]: eachDirIndex2D){
+        const auto& neighbour_coord = entry->neighbours[dir_idx];
+        if (!neighbour_coord){
+            surroundingChunks.emplace_back(std::nullopt);
+        }else{
+            ChunkBlockPos p0{}, p1{};
+            constexpr auto XE = CHUNK_XWIDTH;
+            constexpr auto YE = CHUNK_HEIGHT;
+            constexpr auto ZE = CHUNK_ZWIDTH;
+            SliceType slice_type = {};
+            switch (dir){
+                // -Z
+                case Direction ::BACKWARD: p0 = {0,0,0}; p1 ={XE,YE,1}; slice_type = SliceType::Z; break;
+                // +Z
+                case Direction ::FORWARD: p0 = {0,0,ZE-1}; p1 ={XE,YE,ZE}; slice_type = SliceType::Z; break;
+
+                // -X
+                case Direction ::RIGHT: p0 = {0,0,0}; p1 ={1,YE,ZE}; slice_type = SliceType::X; break;
+                // +X
+                case Direction ::LEFT   : p0 = {XE-1,0,0}; p1 ={XE,YE,ZE}; slice_type = SliceType::X; break;
+
+                default:
+                    break;
+            }
+            chunk_map->entries.if_contains_else(
+                neighbour_coord.value(),
+                [&](ChunkEntry& neighbour){
+                    surroundingChunks.emplace_back(std::in_place, &neighbour.block_data,slice_type,p0,p1);
+                },
+                [&](){
+                    surroundingChunks.emplace_back(std::nullopt);
+                }
+            );
+        }
+    }
+    assert(surroundingChunks.size()==N_NEIGHBOURS);
+}

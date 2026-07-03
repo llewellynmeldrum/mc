@@ -113,6 +113,8 @@ private:
     std::vector<Block> buf={};
     i32 locked_axis_val{};
 public:
+    ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2);
+    ~ChunkSlice2D() = default;
     using key_type = ChunkBlockPos;
     using mapped_type = Block;
     std::size_t size()const noexcept{
@@ -145,8 +147,6 @@ public:
     }
 
     SliceType slice_type;
-    ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2);
-    ~ChunkSlice2D() = default;
     inline auto data(this auto& self){
         return self.buf.data(); 
     }

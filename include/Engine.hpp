@@ -17,7 +17,7 @@
 // src/Simulation.cpp
 struct Engine {
   public:
-    Engine() = default;
+    Engine() : director(world.chunkMap){}
     ~Engine() = default;
     void setup();
     void loop();
