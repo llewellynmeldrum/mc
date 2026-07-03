@@ -77,9 +77,17 @@ set_target_properties( mc PROPERTIES
 
 
 
+# -- Tracy (benchmarking/profiling)
+option(TRACY_ENABLE "" OFF)
+option(TRACY_ONLY_LOCALHOST "" ON)
+set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "" FORCE)
+option(TRACY_ON_DEMAND "" OFF)
+add_subdirectory(external/tracy)
+#target_include_directories( mc       PRIVATE    external/tracy)
+target_link_libraries(mc PUBLIC Tracy::TracyClient)
 
 
-# -- GLFW
+# -- GLFW (window management/platform)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW3 REQUIRED glfw3)
 
@@ -90,11 +98,11 @@ target_compile_options(     imgui    PRIVATE    ${GLFW3_CFLAGS_OTHER})
 target_link_libraries(      imgui    PUBLIC     ${GLFW3_LIBRARIES})
 target_link_directories(    imgui    PUBLIC     ${GLFW3_LIBRARY_DIRS})
 
-# -- CPPTRACE
+# -- CPPTRACE (stack traces)
 target_link_libraries(mc PRIVATE cpptrace::cpptrace)
 
 
-# -GLBINDING
+# -GLBINDING (gl function loader)
 target_link_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build"
 )
