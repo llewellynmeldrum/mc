@@ -12,6 +12,7 @@ inline std::unordered_map<std::string /*i.e DebugLog::LogType*/, bool> is_log_ty
     {"mesh_state_change",false},
     {"gen_state_change",false},
     {"mesh_endirtying",true},
+    {"pending_write",true},
 
 };
 

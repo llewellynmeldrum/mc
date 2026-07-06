@@ -10,6 +10,7 @@
 
 #define OVERWRITE_POLICY_LIST   \
     X(OnlyAir)                  \
+    X(Everything)                  \
     X(OnlyGrass)
 enum class OverwritePolicy: u8{
 #define X(var) var,
@@ -21,7 +22,7 @@ struct PendingBlockWrite{
     OverwritePolicy overwritePolicy;
     WorldChunkCoord sourceChunkCoord;
     WorldBlockPos targetWorldBlockPos;
-    BlockType source_block;
+    BlockType new_block;
 };
 inline auto operator<=>(PendingBlockWrite lhs, PendingBlockWrite rhs){
     return lhs.sourceChunkCoord<=>rhs.sourceChunkCoord;
@@ -35,7 +36,7 @@ inline PendingBlockWrite makePendingWrite(OverwritePolicy pol, WorldChunkCoord s
         .overwritePolicy = pol,
         .sourceChunkCoord = src_coord,
         .targetWorldBlockPos = dst_pos,
-        .source_block = src_type,
+        .new_block = src_type,
 
     };
 }
@@ -48,6 +49,9 @@ inline bool canMakeWrite(const OverwritePolicy& policy, const Block& target){
 
         case OverwritePolicy::OnlyGrass:
             return target.type==BlockType::GRASS_BLOCK;
+        break;
+        case OverwritePolicy::Everything:
+            return true;
         break;
 
         default:

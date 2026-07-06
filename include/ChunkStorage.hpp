@@ -25,6 +25,14 @@ struct ChunkSpan{
         return self.span()[x,y,z];
     }
     inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
+        assert(p.x>=0);
+        assert(p.x<Chunk_Extents.x);
+
+        assert(p.y>=0);
+        assert(p.y<Chunk_Extents.y);
+
+        assert(p.z>=0);
+        assert(p.z<Chunk_Extents.z);
         return self.span()[p.x,p.y,p.z];
     }
 
@@ -77,6 +85,14 @@ public:
     }
 
     inline void set(this auto& self, i16 x, i16 y, i16 z, BlockType bt) {
+        assert(x>=0);
+        assert(x<Chunk_Extents.x);
+
+        assert(y>=0);
+        assert(y<Chunk_Extents.y);
+
+        assert(z>=0);
+        assert(z<Chunk_Extents.z);
         self.span()[x, y, z] = {bt};
     }
     constexpr void setColumn(glm::ivec3 min, i32 ymax, BlockType bt){

@@ -114,6 +114,9 @@ public:
     inline void setFreq(f32 f){ 
         obj.SetFrequency(f); 
     }
+    inline void set_lacunarity(f32 f){ 
+        obj.SetFractalLacunarity(f); 
+    }
     inline void setAmplitude(f32 f){ 
         amplitude = f;
     }

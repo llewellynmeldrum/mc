@@ -126,6 +126,14 @@ struct Chunk{
     }
 
     inline decltype(auto) at(this auto& self, ChunkBlockPos pos) {
+        assert(pos.x>=0);
+        assert(pos.x<Chunk_Extents.x);
+
+        assert(pos.y>=0);
+        assert(pos.y<Chunk_Extents.y);
+
+        assert(pos.z>=0);
+        assert(pos.z<Chunk_Extents.z);
         return self.at(pos.x, pos.y, pos.z); 
     }
 

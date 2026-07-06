@@ -46,14 +46,28 @@ struct BlockPalette {
 template<typename value_type, std::size_t extentX, std::size_t extentZ>
 struct Array2D{
     std::array<value_type, extentX*extentZ> buf;
+    using mapped_type = value_type;
+    using key_type = glm::ivec2;
+    auto contains(key_type p) const noexcept{
+        return p[0]>=0 && p[0]<static_cast<i32>(extentX)
+            && p[1]>=0 && p[1]<static_cast<i32>(extentZ);
+    }
+    auto size()const noexcept{
+        return buf.size();
+    }
 
     decltype(auto) span(this auto& self){
         return std::mdspan(self.buf.data(),CHUNK_XWIDTH, CHUNK_ZWIDTH);
+    }
+    decltype(auto) at(this auto& self, glm::ivec2 v){
+        return self.span()[v.x,v.y]; 
     }
     decltype(auto) operator[](this auto& self, size_t x, size_t z){
         return self.span()[x,z]; 
     }
 };
+
+static_assert(map_like<const Array2D<i32, Chunk::Extents.x, Chunk::Extents.z>>);
 
 struct HeightMap{
 private:
@@ -101,7 +115,8 @@ public:
         }
     }
     i32 at_chunk(i32 cx, i32 cz)const {
-        return chunk_buf[cx,cz];
+        auto v = glm::ivec2{cx,cz};
+        return AT(chunk_buf,v);
     }
     i32 at_world(i32 wx, i32 wz)const {
         return world_buf[wx,wz];
@@ -113,6 +128,24 @@ public:
 // Ideally, i would like to adjust generation params and get reloads of all chunks.
 //
 
+// from https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
+u32 pcg_hash(u32 input) {
+    u32 state = input * 747796405u + 2891336453u;
+    u32 word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+u32 pcg_hash(std::pair<i32, i32> both) {
+    return (pcg_hash(both.first) << 4) ^ pcg_hash(both.second);
+}
+f32 wpos_seeded_rand01(i32 wx, i32 wz){
+    static constexpr u32 big_prime = 120'067;
+    u32 hash = pcg_hash({wx, wz});
+    hash = hash%big_prime;
+    f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
+    assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);
+    return zero_to_one;
+}
 
 static GenResult generateChunk(GenJob job){
     GenResult res{
@@ -120,7 +153,7 @@ static GenResult generateChunk(GenJob job){
         .chunkBlocks = {},
         .deferredWrites = {},
     };
-    auto& [chunkCoord, chunk, pendingWrites] = res;
+    auto& [chunk_coord, chunk, pendingWrites] = res;
 
     constexpr glm::ivec2 chunkLocalMin2 = {0,0};
     constexpr  glm::ivec2 chunkLocalMax2 =ivec2{Chunk::Extents.x, Chunk::Extents.z};
@@ -137,21 +170,29 @@ static GenResult generateChunk(GenJob job){
     heightNoise2.setFractalType(FractalType::FBm);
     heightNoise2.setFreq(0.005);
     heightNoise2.setScale(0.8f);
-    heightNoise2.setFractalOctaves(3);
+    heightNoise2.setFractalOctaves(5);
 
     Noise3D caveNoise{NoiseType::Perlin};
     caveNoise.setSeed(job.worldSeed+1000);
     caveNoise.setFractalType(FractalType::FBm);
     caveNoise.setFractalOctaves(3);
 
+    Noise2D tree_density{NoiseType::Perlin};
+    tree_density.setFractalType(FractalType::FBm);
+    tree_density.setFreq(0.0020);
+    tree_density.setScale(1.0f);
+    tree_density.setFractalOctaves(2);
+
 
     const auto world_block_origin = toWorldOrigin(job.chunkCoord);
     const auto& world_block_lo = world_block_origin;
     const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{Chunk::Extents};
+    auto chunk_to_world = [world_block_origin](i32 cx, i32 cz){
+        const auto& [wx_offset, wy_offset,wz_offset] = world_block_origin;
+        return std::make_pair(cx + wx_offset, cz+wz_offset);
+    };
 
-    // BUG: This is broken, pending writes dont apply properly.
-    auto tryBlockWrite = [&chunk, world_block_lo, world_block_hi, chunkCoord, &pendingWrites]
-        (OverwritePolicy policy, WorldBlockPos wpos, BlockType bt){
+    auto try_place_block = [world_block_lo, world_block_hi, &chunk, &pendingWrites, chunk_coord] (OverwritePolicy policy, WorldBlockPos wpos, BlockType bt){
         bool writeIsWithinChunkBounds = LM::isVecInBounds(wpos, world_block_lo, world_block_hi);
         if (writeIsWithinChunkBounds){
             // do it immediately
@@ -162,20 +203,29 @@ static GenResult generateChunk(GenJob job){
                 chunk.set(cx,cy,cz, bt);
             }
         }else{
-            pendingWrites.emplace_back(policy, chunkCoord, wpos, bt);
+            pendingWrites.emplace_back(policy, chunk_coord, wpos, bt);
+        }
+    };
+
+    auto try_place_blocks = [try_place_block] (OverwritePolicy policy, WorldBlockPos min, WorldBlockPos max, BlockType bt){
+        for (i32 y = min.y; y<max.y; y++){
+            for (i32 x = min.x; x<max.x; x++){
+                for (i32 z = min.z; z<max.z; z++){
+                    try_place_block(policy, {x,y,z},bt);
+                }
+            }
         }
     };
 
 
 
 
-    const HeightMap chunk_heightmap{heightNoise1, heightNoise2, gen_cfg, chunkCoord, job.worldSeed};
+    const HeightMap chunk_heightmap{heightNoise1, heightNoise2, gen_cfg, chunk_coord, job.worldSeed};
 
 
 
     // 1. Generate heightmap and set max height per xz column.
     {
-        Array2D<i32, Chunk::Extents.x, Chunk::Extents.y> heightAt;
         const glm::ivec2 chunkLocalMin = {0,0};
         const glm::ivec2 chunkLocalMax =ivec2{Chunk::Extents.x, Chunk::Extents.z};
         ForEachInRangeEx(chunkLocalMin,chunkLocalMax,[&](i32 cx, i32 cz){
@@ -201,7 +251,7 @@ static GenResult generateChunk(GenJob job){
                     if(chunk.at(cx,cy,cz)==BlockType::AIR){
                         chunk.set(cx,cy,cz,BlockType::WATER_BLOCK);
                         auto wpos_below = WorldBlockPos{wx,wy-1,wz};
-                        tryBlockWrite(
+                        try_place_block(
                             OverwritePolicy::OnlyGrass, 
                             wpos_below, 
                             palette.river_bed
@@ -241,6 +291,47 @@ static GenResult generateChunk(GenJob job){
             }
         }
     });
+    // 4. TREES:
+    {
+        auto place_tree  = [chunk_coord, try_place_blocks](i32 cx,i32 cy, i32 cz){
+            auto wpos = toWorldBlockPos(chunk_coord, {cx,cy,cz});
+//            log_to_chunk(chunk_coord,"Placing tree @{}",wpos);
+            try_place_blocks(
+                OverwritePolicy::OnlyAir, 
+                wpos, 
+                wpos + BlockOffset{1,5,1}, 
+                palette.wood_log
+            );
+            try_place_blocks(
+                OverwritePolicy::OnlyAir, 
+                wpos + BlockOffset{-1,4,-1}, 
+                wpos + BlockOffset{2,6,2}, 
+                palette.leaves
+            );
+        };
+        const glm::ivec2 chunk_local_min = {0,0};
+        const glm::ivec2 chunk_local_max = ivec2{Chunk::Extents.x, Chunk::Extents.z};
+        ForEachInRangeEx(chunk_local_min, chunk_local_max,[&](i32 cx, i32 cz){
+            const auto [wx, wz] = chunk_to_world(cx,cz);
+            f32 density = tree_density.sample(wx,wz);
+            // 1. find the max roll in a 3x3 area to prevent touching trees
+            std::array<f32, 3*3> rolls;
+            f32 max_adjacent_roll = 0.0f;
+            for (i32 x = -1; x<=1; x++){
+                for (i32 z = -1; z<=1; z++){
+                    max_adjacent_roll = std::max(max_adjacent_roll, wpos_seeded_rand01(wx+x,wz+z));
+                }
+            }
+            f32 roll = wpos_seeded_rand01(wx,wz);
+            if (roll < max_adjacent_roll) return;
+            if (roll < density * gen_cfg.tree_place_threshold){
+                log_to_chunk(chunk_coord,"{} -> density:{}, roll:{}", WorldChunkCoord{wx,wz},density,roll);
+                i32 cy = chunk_heightmap.at_chunk(cx,cz);
+                if (cy <= gen_cfg.SEA_LEVEL) return; // skip underwater trees
+                place_tree(cx,cy,cz);
+            }
+        });
+    }
 
     return res;
     // 4. Paint ores in stone blocks below certain point
