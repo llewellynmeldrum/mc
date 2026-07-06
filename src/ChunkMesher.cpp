@@ -23,7 +23,7 @@
 #include "Assertion.hpp"
 
 
-#include <tracy/Tracy.hpp>
+#include "tracy/Tracy.hpp"
 using std::views::enumerate;
 
 
@@ -35,80 +35,7 @@ static const auto& get_default_face_vertices(Direction dir) {
 }
 
 
-std::array<Block, DirectionCount> 
-get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
-    // BUG: We are reporting neighbours as opaque when they should be reported as transparent (air)
-    std::array<Block, DirectionCount> res{};
-    constexpr glm::ivec3 lo = glm::ivec3(0);
-    constexpr glm::ivec3 hi = Chunk::Extents;
-    for (const auto& dir : each_horizontal_direction){
-        const i32   dir_idx = static_cast<i32>(dir);
-        const auto neigh_offset = Direction_offset[dir_idx];
-        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
-        const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
-        
-        if (neighbour_inside_my_chunk) [[likely]]{
-            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
-        } else [[unlikely]] {
-            // The adjacent chunk, if it exists, has our neighbour. else its air
-            bool other_chunk_exists = job.surroundingChunks.at(dir_idx).has_value();
-            if (other_chunk_exists){
-                const auto& other_chunk = job.surroundingChunks[dir_idx].value();
-                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
-                AT(res,dir_idx) = AT(other_chunk,neighbour_block_pos);
-            }else{
-                // treat all blocks of a missing chunk as air
-                AT(res,dir_idx) = Block(BlockType::AIR);
-            }
-        }
-
-    }
-    for (const auto& dir : each_vertical_direction){
-        // if neighbour is within 0 - 256, then return that block. It exists in our chunk. It cannot be in another 
-        const i32   dir_idx = static_cast<i32>(dir);
-        const auto neigh_offset = Direction_offset[dir_idx];
-        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
-        const bool neighbour_outside_world = neighbour_block_pos.y>=WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
-        if (neighbour_outside_world) {
-            AT(res,dir_idx) = Block(BlockType::AIR);
-            continue;
-        }else{
-            // out of bounds       V
-            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
-        }
-    }
-
-//    for (const auto& [face_dir, neighbour_block_offset] : eachDirOffset) {
-//        const i32   face_dir_idx = static_cast<i32>(face_dir);
-//        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neighbour_block_offset};
-//        const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
-//        const bool neighbour_outside_world = neighbour_block_pos.y>WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
-//        if (neighbour_outside_world) {
-//            AT(res,face_dir_idx) = Block(BlockType::AIR);
-//            continue;
-//        }
-//
-//        // TODO: investigate whether attributes are helping or not here. 
-//        // Likely branch should run ~95% of the time by my math
-//        if (neighbour_inside_my_chunk) [[likely]]{
-//            const auto& p = neighbour_block_pos;
-//            AT(res,face_dir_idx) = AT(job.blocks,neighbour_block_pos);
-//        } else [[unlikely]] {
-//            // The adjacent chunk, if it exists, has our neighbour. else its air
-//            bool other_chunk_exists = job.surroundingChunks.at(face_dir_idx).has_value();
-//            if (other_chunk_exists){
-//                const auto& other_chunk = job.surroundingChunks[face_dir_idx].value();
-//                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
-//                AT(res,face_dir_idx) = AT(other_chunk,neighbour_block_pos);
-//            }else{
-//                // treat all blocks of a missing chunk as air
-//                AT(res,face_dir_idx) = Block(BlockType::AIR);
-//            }
-//        }
-//
-//    }
-    return res;
-}
+std::array<Block, DirectionCount> get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block);
 
 
 
@@ -210,22 +137,102 @@ MeshDataType meshChunk(const MeshJob& job){
     }
     return {out_vertices,out_indices};
 }
+std::array<Block, DirectionCount> 
+get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
+    std::array<Block, DirectionCount> res{};
+    constexpr glm::ivec3 lo = glm::ivec3(0);
+    constexpr glm::ivec3 hi = Chunk::Extents;
+    for (const auto& dir : each_horizontal_direction){
+        const i32   dir_idx = static_cast<i32>(dir);
+        const auto neigh_offset = Direction_offset[dir_idx];
+        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
+        const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
+        
+        if (neighbour_inside_my_chunk) [[likely]]{
+            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
+        } else [[unlikely]] {
+            // The adjacent chunk, if it exists, has our neighbour. else its air
+            bool other_chunk_exists = job.surroundingChunks.at(dir_idx).has_value();
+            if (other_chunk_exists){
+                const auto& other_chunk = job.surroundingChunks[dir_idx].value();
+                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
+                AT(res,dir_idx) = AT(other_chunk,neighbour_block_pos);
+            }else{
+                // treat all blocks of a missing chunk as air
+                AT(res,dir_idx) = Block(BlockType::AIR);
+            }
+        }
 
-std::atomic<std::size_t> thread_id;
+    }
+    for (const auto& dir : each_vertical_direction){
+        // if neighbour is within 0 - 256, then return that block. It exists in our chunk. It cannot be in another 
+        const i32   dir_idx = static_cast<i32>(dir);
+        const auto neigh_offset = Direction_offset[dir_idx];
+        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
+        const bool neighbour_outside_world = neighbour_block_pos.y>=WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
+        if (neighbour_outside_world) {
+            AT(res,dir_idx) = Block(BlockType::AIR);
+            continue;
+        }else{
+            // out of bounds       V
+            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
+        }
+    }
+
+//    for (const auto& [face_dir, neighbour_block_offset] : eachDirOffset) {
+//        const i32   face_dir_idx = static_cast<i32>(face_dir);
+//        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neighbour_block_offset};
+//        const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
+//        const bool neighbour_outside_world = neighbour_block_pos.y>WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
+//        if (neighbour_outside_world) {
+//            AT(res,face_dir_idx) = Block(BlockType::AIR);
+//            continue;
+//        }
+//
+//        // TODO: investigate whether attributes are helping or not here. 
+//        // Likely branch should run ~95% of the time by my math
+//        if (neighbour_inside_my_chunk) [[likely]]{
+//            const auto& p = neighbour_block_pos;
+//            AT(res,face_dir_idx) = AT(job.blocks,neighbour_block_pos);
+//        } else [[unlikely]] {
+//            // The adjacent chunk, if it exists, has our neighbour. else its air
+//            bool other_chunk_exists = job.surroundingChunks.at(face_dir_idx).has_value();
+//            if (other_chunk_exists){
+//                const auto& other_chunk = job.surroundingChunks[face_dir_idx].value();
+//                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
+//                AT(res,face_dir_idx) = AT(other_chunk,neighbour_block_pos);
+//            }else{
+//                // treat all blocks of a missing chunk as air
+//                AT(res,face_dir_idx) = Block(BlockType::AIR);
+//            }
+//        }
+//
+//    }
+    return res;
+}
+
 void ChunkMesher::meshChunks
 (std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue){
     tracy::SetThreadName("chunk mesher");
-    const std::size_t id = thread_id.fetch_add(1);
     while (!stopToken.stop_requested()){
         
         auto job = input_queue.wait_dequeue();
 
 
         MeshResult res{job.meshRevisionID, job.chunkCoord};
-        res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
-        res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
+        { 
+            ZoneScopedN("transparent_mesh_chunks")
+            res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
+        }
+        { 
+            ZoneScopedN("opaque_mesh_chunks")
+            res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
+        }
 
-       output_queue.wait_emplace(res);
+        { 
+            ZoneScopedN("mesh_await_output")
+            output_queue.wait_emplace(res);
+        }
     }
 
 }

@@ -24,53 +24,24 @@
 #include <algorithm>
 #include <optional>
 #include <print>
-#include <tracy/Tracy.hpp>
+#include "tracy/Tracy.hpp"
 
 
 #include "FormatSpecs.hpp"
+
 void Engine::loop(){
     while (!win.shouldClose()) {
         profiler.start_frame();
         profiler.bench_start("frame");
 
-        bool dbg_modify_chunks = false;
-        bool dirty_current_chunk = false;
-        input.handle(profiler,ui,win,player_cam,drone_cam,rend,paused,chunk_updates_paused,dbg_modify_chunks,dirty_current_chunk); 
-        if (dbg_modify_chunks){
-            dbg_modify_chunks = false;
-            auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-            director.mark_neighbours_dirty(cur_chunk, "test");
-            world.chunkMap.entries.if_contains(
-                cur_chunk,
-                [&](ChunkEntry& entry){
-                    director.mark_mesh_dirty(entry);
-                    for (auto& block : entry.block_data){
-                        if (block.type == BlockType::GRASS_BLOCK){
-                            block = (BlockType::AIR);
-                        }
-                    }
-                }
-            );
-        }
-        if (dirty_current_chunk){
-            auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-            world.chunkMap.entries.if_contains(
-                cur_chunk,
-                [&](ChunkEntry& entry){
-                    director.mark_mesh_dirty(entry);
-                }
-            );
-        }
+        input.poll({this}); 
+        handle_input();
 
+        if (!paused){ update_scene(); }
         ui.update();
-        if (!paused){
-            update_scene();
-        }
 
         draw_scene(); 
-        if (DebugOption::showDebugUI){
-            ui.draw(); 
-        }
+        if (DebugOption::showDebugUI){ ui.draw(); }
 
         profiler.bench_start("render");
         {
@@ -137,7 +108,9 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
 void Engine::update_scene() {
     profiler.bench_start("update");
+    director.start_frame(player_cam.pos);
     ZoneScoped;
+
     if (DebugOption::fill_chunk_boundaries){
         rend.dbg_rend.update(player_cam,this);
     }
@@ -146,30 +119,30 @@ void Engine::update_scene() {
     }
 
     if (!chunk_updates_paused){
-        if (director.did_player_cross_chunk_boundary(player_cam.pos)){
-            genJobsThisFrame = submit_gen_jobs(maxGenJobsPerFrame);
-            // we need this to probably not run every frame, but also we need to check it more often.
-            // TODO: move chunk reordering here (for transparency, maybe also for opaque to reduce overdraw)
-        }else{
-            genJobsThisFrame = 0;
-        }
+        
+
+        n_chunks_discovered = director.discover_candidates(max_gen_discovery_pf, GENERATION_DIST,RENDER_DIST);
+
+        genJobsThisFrame = submit_gen_jobs(maxGenJobsPerFrame);
 
         genResultsThisFrame = upload_gen_results(maxGenUploadsPerFrame);
 
+
         evict_meshes_outside_radius(MESH_CULL_DIST());
         refresh_visible_chunks();
+
+
         meshJobsThisFrame = submit_mesh_jobs(maxMeshJobsPerFrame);
 
         meshResultsThisFrame = upload_mesh_results(maxMeshUploadsPerFrame);
+        count_states();
     }
 
 
-    count_states();
 
     update_drone_cam(drone_cam, player_cam.pos);
 
 
-    director.start_frame(player_cam.pos);
     director.end_frame();
     profiler.bench_end("update");
 }
@@ -180,38 +153,10 @@ void Engine::update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 f
     drone_cam.set_pos_ori(follow_pos, -89.0, 0.0);
 }
 
-std::vector<WorldChunkCoord> Engine::findChunksForGeneration(i64 maxJobs){
-    std::vector<WorldChunkCoord> candidates;
-    const auto chunkCoord = toWorldChunkCoord(player_cam.pos);
-    // enumerate them based on their range to the player, such that nearest chunks come first.
-
-    for_each_spiral(
-        maxJobs,
-        chunkCoord, 
-        GENERATION_DIST, 
-        [&](i32 x, i32 z) -> bool {
-            const auto key = WorldChunkCoord{x,z};
-            bool candidate_qualifies = world.chunkMap.entries.if_contains_else(
-                key,
-                [&](ChunkEntry& entry){
-                    // 1. if an entry exists, check if it needs regeneration.
-                    return entry.is_gen_dirty();
-                },
-                [&](){
-                    // 2. if no entry exists; then the chunk hasnt been generated => it qualifies.
-                    return true;
-                }
-            );
-            if (candidate_qualifies) candidates.emplace_back(key);
-            return candidate_qualifies;
-        }
-    );
-    return candidates;
-}
 
 i64 Engine::submit_gen_jobs(i64 maxJobs){
     profiler.bench_start("enqueueGen");
-    const auto candidates = findChunksForGeneration(maxJobs);
+    const auto candidates = director.find_gen_jobs(maxJobs);
     i64 count = 0;
     auto& genQ = world.chunkMap.generator.genJobQueue;
     for (const auto& candidate_coord: candidates){
@@ -228,7 +173,8 @@ i64 Engine::submit_gen_jobs(i64 maxJobs){
                     entry.state_transition(gen_enqueue);
                 },
                 [&](){
-                    world.make_chunk_entry(candidate_coord);
+                    auto* entry = world.make_chunk_entry(candidate_coord);
+                    director.mark_gen_enqueue(*entry);
                 }
             );
             count++;
@@ -252,21 +198,18 @@ i64 Engine::submit_mesh_jobs(i64 maxJobs){
         auto* entry = world.chunkMap.entries.at(coord);
 
         assert(entry);
-        if (!entry->qualifies_for_mesh_enqueue()){
-            continue;
-        }
-        bool success = meshQ.try_emplace(
-            coord,
-            &rend.atlas,
-            &world.chunkMap,
-            entry
-        );
-        // MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
-        if (success){
-            director.mark_mesh_enqueue(*entry);
-            entry->inflight_mesh_revision = entry->target_mesh_revision;
-            entry->state_transition(mesh_enqueue);
-            count++;
+        if (director.qualifies_for_mesh_enqueue(*entry)){
+            bool success = meshQ.try_emplace(
+                coord,
+                &rend.atlas,
+                &world.chunkMap,
+                entry
+            );
+            // MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
+            if (success){
+                director.mark_mesh_enqueue(*entry);
+                count++;
+            }
         }
     }
 
@@ -514,6 +457,33 @@ i32 Engine::exit(i32 exit_code) {
 // =========
 // Helpers 
 // =========
+void Engine::handle_input(){
+    if (dbg_modify_chunks){
+        dbg_modify_chunks = false;
+        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+        director.mark_neighbours_dirty(cur_chunk, "test");
+        world.chunkMap.entries.if_contains(
+            cur_chunk,
+            [&](ChunkEntry& entry){
+                director.mark_mesh_dirty(entry);
+                for (auto& block : entry.block_data){
+                    if (block.type == BlockType::GRASS_BLOCK){
+                        block = (BlockType::AIR);
+                    }
+                }
+            }
+        );
+    }
+    if (dirty_current_chunk){
+        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+        world.chunkMap.entries.if_contains(
+            cur_chunk,
+            [&](ChunkEntry& entry){
+                director.mark_mesh_dirty(entry);
+            }
+        );
+    }
+}
 bool Engine::is_chunk_in_frustum(const Frustum& frustum, WorldChunkCoord coord) const{
     return frustum.isAABBInside(world.chunkMap.getBoundingBox(coord));
 }

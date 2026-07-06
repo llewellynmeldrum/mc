@@ -11,12 +11,10 @@
 using namespace glm;
 // returns the origin (0,0,0) of whichever chunk *worldPos* is in.
 
-void World::make_chunk_entry(WorldChunkCoord key){
-    bool inserted = chunkMap.entries.try_emplace(key,key);
-    if (!inserted){
-        std::println(stderr,"Tried to make duplicate chunk_entry for chunk @{}",key);
-        std::abort();
-    }
+ChunkEntry* World::make_chunk_entry(WorldChunkCoord key){
+    auto* res = chunkMap.entries.try_emplace(return_policy::return_ptr{}, key,key);
+    assert(res);
+    return res;
 }
 
 Block World::getBlock(WorldBlockPos worldPos) const {

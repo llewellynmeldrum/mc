@@ -21,18 +21,25 @@ FORWARD_DECL_STRUCT(Window)
 FORWARD_DECL_STRUCT(Camera)
 FORWARD_DECL_STRUCT(Renderer)
 FORWARD_DECL_STRUCT(DebugUI)
+FORWARD_DECL_STRUCT(Engine)
+
+struct InputContext{
+    InputContext(Engine* e);
+    Engine* e;
+    Profiler& profiler;
+    DebugUI& ui;
+    Window& win;
+    Camera& player_cam;
+    Camera& drone_cam;
+    Renderer& rend;
+    bool& paused;
+    bool& chunk_updates_paused;
+    bool& dbg_modify_chunks;
+    bool& dirty_current_chunk;
+};
+
 struct Input {
-    void handle(Profiler& profiler,
-	    DebugUI& dbg_ui,
-	    Window& win,
-	    Camera& player_cam,
-	    Camera& drone_cam,
-	    Renderer& rend,
-	    bool& paused,
-	    bool& chunk_updates_paused,
-        bool& dbg_modify_chunks,
-        bool& dirty_current_chunk
-    );
+    void poll(InputContext ctx);
 
     Input() = default;
     ~Input() = default;

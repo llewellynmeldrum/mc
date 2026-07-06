@@ -7,6 +7,11 @@
 #include "CommonConcepts.hpp"
 #include "NothrowLookup.hpp"
 
+    
+struct return_policy{
+    
+    struct return_ptr{};
+};
 // lookup functions: 
 // nullptr = no match.
 // TODO: make all lookup functions return nullptr on missing, regular pointer on success
@@ -35,6 +40,12 @@ public:
     bool try_emplace(const key_type& key, Args&& ...vargs){
         auto [it, inserted] = map.try_emplace(key, std::forward<Args>(vargs)...);
         return inserted;
+    }
+    template<typename ...Args>
+    decltype(auto) try_emplace(return_policy::return_ptr, const key_type& key, Args&& ...vargs){
+        auto [it, inserted] = map.try_emplace(key, std::forward<Args>(vargs)...);
+        if (!inserted) return null_result();
+        else return addr_of(it->second);
     }
 
     // @BRIEF: Returns true if insertion occured, false if not (assignment).

@@ -208,6 +208,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("chunk local: {: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
                  cl_pos.x,cl_pos.y,cl_pos.z,std::floor(cl_pos.x),std::floor(cl_pos.y),std::floor(cl_pos.z));
         UI::Separator();
+        UI::Text("ready4gen :{}",ctx->director.ready_for_gen.size());
+        UI::Text("ready4mesh:{}",ctx->director.ready_for_mesh.size());
+        UI::Separator();
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;

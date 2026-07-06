@@ -24,7 +24,7 @@ struct World {
     inline void setup(){
         chunkMap.launchGenerator();
     }
-    void make_chunk_entry(WorldChunkCoord key);
+    ChunkEntry* make_chunk_entry(WorldChunkCoord key);
     decltype(auto) try_get_chunk_entry(WorldChunkCoord key){
         return chunkMap.entries.try_get(key);
     }

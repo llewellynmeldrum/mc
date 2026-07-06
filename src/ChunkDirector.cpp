@@ -1,4 +1,41 @@
 #include "ChunkDirector.hpp"
+std::size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius){
+    // if we come across a chunk which:
+    // - has an entry
+    // - has been generated
+    // - mesh=ready_for_enqueue
+    // - its NOT on ready_for_mesh, 
+    // ADD it to ready_for_mesh.
+    const auto chunkCoord = cur_chunk_pos;
+    // enumerate them based on their range to the player, such that nearest chunks come first.
+
+    auto count = for_each_spiral(
+        max_jobs,
+        chunkCoord, 
+        gen_radius, 
+        [&](i32 x, i32 z) -> bool {
+            const auto key = WorldChunkCoord{x,z};
+            bool candidate_qualifies = chunk_map.entries.if_contains_else(
+                key,
+                [&](ChunkEntry& entry){
+                    if (LM::sq_dist(chunkCoord, key) < std::pow(mesh_radius,2)
+                    && entry.state.mesh == MeshState::ready_for_enqueue){
+                        ready_for_mesh.push(key);
+                    }
+                    // 1. if an entry exists, check if it needs regeneration.
+                    return entry.is_gen_dirty();
+                },
+                [&](){
+                    // 2. if no entry exists; then the chunk hasnt been generated => it qualifies.
+                    return true;
+                }
+            );
+            if (candidate_qualifies) ready_for_gen.push(key);
+            return candidate_qualifies;
+        }
+    );
+    return count;
+}
 void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     ChunkStore& generatedBlocks = gen_res.chunkBlocks;
     const auto& deferredWrites = gen_res.deferredWrites;

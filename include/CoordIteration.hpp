@@ -108,13 +108,13 @@ void ForEachInRangeEx(Integer min, Integer max, Fn&& task){
 
 template<typename IVEC2, typename Fn>
     requires is_ivec2<IVEC2>
-void for_each_spiral(std::size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task){
+std::size_t for_each_spiral(std::size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task){
     using namespace std;
     using namespace glm;
     size_t count = {0};
 
     if (MAX_COUNT == 0){
-        return;
+        return 0;
     }
     const IVEC2& C = center;
 
@@ -129,22 +129,23 @@ void for_each_spiral(std::size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task)
     };
 
     i32 x{C.x}, z{C.z};
-    if(!should_continue(x,z)) return;
+    if(!should_continue(x,z)) return count;
     for (i32 r = 1; r <= radius; r++){
         const i32 extent = 2*r;
         // break out of the prior spiral  (off to the 'left')
-        if(!should_continue(--x,z)) return; 
+        if(!should_continue(--x,z)) return count; 
         for (int j = 0; j<extent - 1;j++)    {
-            if(!should_continue(x,++z)) return;
+            if(!should_continue(x,++z)) return count;
         } // traverse the remaining (-X) edge 'upwards'
         for (int j = 0; j<extent ; j++)     {
-            if(!should_continue(++x,z)) return;
+            if(!should_continue(++x,z)) return count;
         }  // traverse the whole     (Z+) edge 'right'
         for (int j = 0; j<extent ; j++)     {
-            if(!should_continue(x,--z)) return;
+            if(!should_continue(x,--z)) return count;
         }  // traverse the whole     (+X) edge 'down'
         for (int j = 0; j<extent ; j++)     {
-            if(!should_continue(--x,z)) return;
+            if(!should_continue(--x,z)) return count;
         }  // traverse the whole     (+X) edge 'left'
     }
+    return count;
 }

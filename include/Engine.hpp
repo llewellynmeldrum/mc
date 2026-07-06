@@ -37,10 +37,12 @@ struct Engine {
 
 
     void set_debug_params();
+void handle_input();
     void refresh_visible_chunks();
     void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
 
     static constexpr i64 maxGenUploadsPerFrame= 16;
+    static constexpr i64 max_gen_discovery_pf= 128;
     static constexpr i64 maxGenJobsPerFrame = 128;
     static constexpr i64 maxMeshUploadsPerFrame= 64;
     static constexpr i64 maxMeshEnqueueAttempts = 64;
@@ -63,11 +65,13 @@ struct Engine {
     void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
     bool paused{false};
     bool chunk_updates_paused{false};
+    bool dbg_modify_chunks{false};
+    bool dirty_current_chunk{false};
 
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 32;
+    static constexpr i32 RENDER_DIST = 16;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     static constexpr u64 WORLD_SEED = 1237;
     
@@ -92,6 +96,7 @@ struct Engine {
     i64 n_meshing{};
     MirroredRingBuf<f32, RB_SZ> rb_meshing;
 
+    i64 n_chunks_discovered = 0;
     i64 genJobsThisFrame = 0;
     i64 genResultsThisFrame = 0;
 
