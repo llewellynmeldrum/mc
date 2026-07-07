@@ -97,10 +97,8 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     // solid geometry
     updateInstances(cam,sim);
     // lines
-    const bool show_chunk_boundaries = DebugOption::fill_chunk_boundaries;
-    const bool highlight_neighbours = DebugOption::showNeighbours;
     chunk_outlines.clear();
-    if (show_chunk_boundaries){
+    if (DebugOption::outline_all_boundaries){
         sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
             if (sim->is_chunk_in_frustum(sim->player_cam.getCullFrustum(), key)){
                 if (DebugOption::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
@@ -110,7 +108,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
                     return;
                 }
                 const auto& state = entry.state;
-                auto color = DebugOption::showGenState
+                auto color = DebugOption::gen_state_mode
                         ? GenDebugOutlineColor(state.gen)
                         : MeshDebugOutlineColor(state.mesh);
 
@@ -118,7 +116,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
             }
         });
     }
-    if (highlight_neighbours){
+    if (DebugOption::outline_neighbour_boundaries){
         auto cam_chunk = toWorldChunkCoord(sim->player_cam.pos);
         for (const auto& [dir, offset]: eachDirOffset2D){
             const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
@@ -126,20 +124,20 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
                 neighbour,
                 [&](ChunkEntry& entry){
                     const auto& state = entry.state;
-                    auto color = DebugOption::showGenState
+                    auto color = DebugOption::gen_state_mode
                             ? GenDebugOutlineColor(state.gen)
                             : MeshDebugOutlineColor(state.mesh);
-                    chunk_outlines.append_range(entry.bounding_box.getLines(color,true));
+                    chunk_outlines.append_range(entry.bounding_box.getLines(color));
                 });
         }
         sim->world.chunkMap.entries.if_contains(
             cam_chunk,
             [&](ChunkEntry& entry){
                     const auto& state = entry.state;
-                    auto color = DebugOption::showGenState
+                    auto color = DebugOption::gen_state_mode
                             ? GenDebugOutlineColor(state.gen)
                             : MeshDebugOutlineColor(state.mesh);
-                chunk_outlines.append_range(entry.bounding_box.getLines(color,true));
+                chunk_outlines.append_range(entry.bounding_box.getLines(color));
             });
     }
 
@@ -151,13 +149,22 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
     auto cam_chunk = toWorldChunkCoord(cam.pos);
     const auto& inRadius = sim->world.chunksStatesInRadius(cam_chunk,cam.DebugChunkRenderDistance);
     instances.clear();
-    if (DebugOption::showNeighbours){
+    if (DebugOption::fill_neighbour_boundaries){
         for (const auto& [dir, offset]: eachDirOffset2D){
             const auto neighbour = WorldChunkCoord{cam_chunk.raw()+offset};
-//            instances.emplace_back(toWorldBlockPos(neighbour,{0,0,0}).raw(), NeighbourDebugColor());
+            sim->world.chunkMap.entries.if_contains(
+                neighbour,
+                [&](ChunkEntry& entry){
+                        const auto& state = entry.state;
+                        auto color = DebugOption::gen_state_mode
+                                ? GenDebugColor(state.gen)
+                                : MeshDebugColor(state.mesh);
+                    instances.emplace_back(toWorldBlockPos(neighbour,{0,0,0}).raw(), color);
+            });
         }
     }
-    bool showGenState = DebugOption::showGenState;
+    bool showGenState = DebugOption::gen_state_mode;
+    if(DebugOption::fill_all_boundaries)
     for (const auto& [hasStateEntry, entryCoord]: inRadius){
         auto entryColor = DefaultDebugColor();
         if (hasStateEntry){

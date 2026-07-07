@@ -7,130 +7,62 @@
 #include "glmWrapper.hpp"
 #include "CoordIteration.hpp"
 #include "Assertion.hpp"
-struct GLFWwindow;
+#include "VariadicConcepts.hpp"
+FORWARD_DECL_STRUCT(GLFWwindow)
 // src/Input.cpp
-enum struct InputSignal{
-    CONTINUE=0,
-    RETURN=1,
-};
 
-
-FORWARD_DECL_STRUCT(Profiler)
-FORWARD_DECL_STRUCT(Input)
-FORWARD_DECL_STRUCT(Window)
-FORWARD_DECL_STRUCT(Camera)
-FORWARD_DECL_STRUCT(Renderer)
-FORWARD_DECL_STRUCT(DebugUI)
-FORWARD_DECL_STRUCT(Engine)
-
-struct InputContext{
-    InputContext(Engine* e);
-    Engine* e;
-    Profiler& profiler;
-    DebugUI& ui;
-    Window& win;
-    Camera& player_cam;
-    Camera& drone_cam;
-    Renderer& rend;
-    bool& paused;
-    bool& chunk_updates_paused;
-    bool& dbg_modify_chunks;
-    bool& dirty_current_chunk;
-};
 
 struct Input {
-    void poll(InputContext ctx);
-
-    Input() = default;
-    ~Input() = default;
-    void set_callbacks(GLFWwindow* ptr);
+    void update();
     void poll();
+    void set_clipboard(std::string str);
+    std::string get_clipboard();
+
+    bool get_key_state(KeyCode code);
+    void end_frame();
+    Input(GLFWwindow* _win_ptr);
+    Input() = delete;
+    ~Input() = default;
 
     f32 default_key_CD_s= 0.15f;
-    inline bool isPressed(KeyCode code) {
-        if (code < KEY_MIN || code > KEY_MAX) {
-            return false;
-        }
-        return pressed[code];
+
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
+    bool is_down(Args... args){
+        return (is_down_impl(args) && ...);
+    }
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
+    bool just_pressed(Args... args){
+        return (just_pressed_impl(args) && ...);
+    }
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
+    bool just_released(Args... args){
+        return (just_released_impl(args) && ...);
     }
 
-    inline KeyState getKey(KeyCode code) {
-        if (code < KEY_MIN || code > KEY_MAX) {
-            return KeyState::INVALID;
-        }
-        return keyState[code];
+    bool is_down_impl(KeyCode code);
+    bool just_pressed_impl(KeyCode code);
+    bool just_released(KeyCode code);
+
+
+    std::array<bool, KEY_MAX+1> pressed{};
+    std::array<bool, KEY_MAX+1> prev_pressed{};
+
+    bool no_mods(){
+        return !(mods.alt || mods.caps || mods.ctrl || mods.super || mods.num_lock || mods.shift);
     }
-    std::array<bool, KEY_MAX + 1> pressed;
-    // refers to key state, relative to the last 2 poll calls. If KEY_RELEASED,
-    std::array<KeyState, KEY_MAX + 1> keyState{};
-    std::array<f32,KEY_MAX> keyRepeatCooldown{};
-
-    inline void updateCooldowns(f32 dt_s){
-        for (auto& cd: keyRepeatCooldown) {
-            if (cd > 0.0f) {
-                cd -= dt_s;
-            }
-        }
-    }
-
-
-
-    // DEFAULTED COOLDOWN VERSION 
-    template <typename Fn, typename ...Args>
-        requires return_type_is<void,Fn&&,Args&&...>
-    inline void mapToggleKey(KeyCode k, Fn&& callable, Args&&... vargs){
-        mapToggleKeyImpl<void>( k, default_key_CD_s, std::forward<Fn>(callable), std::forward<Args>(vargs)...
-        );
-    }
-
-    // DEFAULTED COOLDOWN VERSION (signal returning)
-    template <typename Fn, typename ...Args>
-        requires return_type_is<InputSignal, Fn&&,Args...>
-    [[nodiscard]] 
-    inline InputSignal mapToggleKey(KeyCode k, Fn&& callable, Args&&... vargs){
-        return mapToggleKeyImpl<InputSignal>(k, default_key_CD_s, std::forward<Fn>(callable),std::forward<Args>(vargs)...);
-    }
-
-    template <typename Fn>
-    inline void mapHeldKey(KeyCode key, Fn&& callable){
-        assert(KEY_MAX>=key && key>KEY_MIN);
-        bool held = getKey(key)==KeyState::Held;
-        if constexpr(std::is_invocable_v<decltype(callable), bool>){
-            std::invoke(std::forward<Fn>(callable),held); 
-        } else{
-            if (held){
-                std::invoke(std::forward<Fn>(callable)); 
-            }
-        }
-    }
+    KeyModifiers mods;
 
     glm::vec2 mousepos = { 0.0, 0.0 };  // mapped to ndc like coords
-    glm::vec2 scroll = { 0.0, 0.0 };  // mapped to ndc like coords
     glm::vec2 prevmousepos = { 0.0, 0.0 };
+
+    glm::vec2 scroll = { 0.0, 0.0 };  
     glm::vec2 prevscroll = { 0.0, 0.0 };
+    static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 private:
-    template <typename ReturnT, typename Fn, typename ...Args>
-        requires return_type_is<void, Fn&&,Args&&...> || return_type_is<InputSignal,Fn&&,Args&&...>
-    inline ReturnT mapToggleKeyImpl(Key key, f32 s_cooldown, Fn&& callable, Args&&... vargs){
-        assert(KEY_MAX>=key && key>KEY_MIN);
-        std::size_t idx= key - KEY_MIN;
-        if (getKey(key) == KeyState::Held) {
-            auto& cd = keyRepeatCooldown[idx];
-            if (cd <= 0.0f) {
-                cd = s_cooldown;
-                if constexpr(std::same_as<void,ReturnT>){
-                    callable(std::forward<Args>(vargs)...);
-                } else{
-                    return std::invoke(callable,std::forward<Args>(vargs)...);
-                }
-            }
-        }
-        if constexpr(std::same_as<void,ReturnT>){
-            return;
-        } else {
-            return InputSignal::CONTINUE;
-        }
-    }
+    GLFWwindow* win_ptr{};
 
 
 };

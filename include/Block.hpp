@@ -2,53 +2,66 @@
 
 #include "Types.h"
 #include <array>
-#define BLOCK_TYPE_LIST \
-    X(AIR)              \
-    X(DIRT_BLOCK)       \
-    X(GRASS_BLOCK)      \
-    X(STONE_BLOCK)      \
-    X(WATER_BLOCK)      \
-    X(OAK_LOG)          \
-    X(OAK_LEAF)
+#include <string_view>
+#include <utility>
 
-#define X(var) var, // test
+
+
+// We use an X-macro here to keep the definition of all attributes centralized.
+// It is the most flexible means to do this; later we could even swap to SOA instead of AOS if that is 
+// necessary for performance (extremely doubtful but still). Main benefit is in serialization + reducing the
+// amount of times names have to be repeated.
+//
+// Check the definition of `block_defs` array to see an application of this.
+#define BLOCK_TYPE_LIST \
+    X(AIR, .opacity = 0.0f)              \
+    X(DIRT_BLOCK, .opacity = 1.0f)       \
+    X(GRASS_BLOCK, .opacity = 1.0f)      \
+    X(STONE_BLOCK, .opacity = 1.0f)      \
+    X(WATER_BLOCK, .opacity = 0.6f)      \
+    X(OAK_LOG, .opacity = 1.0f)          \
+    X(OAK_LEAF, .opacity = 1.0f) 
+
+// HACK: for the time being set OAK_LEAF to 0% transparency as i fix up some issues with pending writes
+
 enum class BlockType : u8 {
+#define X(var, ...) var,
     BLOCK_TYPE_LIST
+#undef X
     COUNT,
 };
-#undef X
-template <typename Attr_t>
-using BlockAttribArray = std::array<Attr_t, static_cast<size_t>(BlockType::COUNT)>;
 
-inline BlockAttribArray<f32> blockOpacity = {
-    0.0,
-    1.0,
-    1.0,
-    1.0,
-    0.60, 
-    1.0,
-    0.90, 
+struct BlockDef{
+    const std::string_view name; // defined by macro
+    const BlockType block_type;       // defined by macro
+    const f32 opacity{1.0f};
 };
-static_assert(blockOpacity.size() == static_cast<size_t>(BlockType::COUNT));
+inline constexpr std::array<BlockDef, std::to_underlying(BlockType::COUNT)> block_defs{
+#define X(var, ...) BlockDef {.name=#var, .block_type=BlockType:: var __VA_OPT__(,) __VA_ARGS__},
+    BLOCK_TYPE_LIST
+#undef X
+};
+// i would like to have some list of blocks which contains all of their data, for example:
+
+
+
+
+
+
 
 struct Block {
-    Block (): type(BlockType::AIR){} //NOLINT
-    Block (BlockType bt): type(bt){}
+    Block ():type(BlockType::AIR){}; // NOLINT
+    Block (BlockType rhs):type(rhs){}; // NOLINT
     Block (const Block& rhs) = default;
-    Block (Block&& rhs) = default;
-    BlockType            type{ BlockType::AIR };
-    constexpr inline u64 idx() const noexcept { return static_cast<i64>(type); }
-    constexpr inline i64 texture_id() const noexcept {
-        return idx() - 1;  // this is hacky idk why i have to do this
-    }
-    constexpr inline float getOpacity() const noexcept { return blockOpacity[idx()]; }
-    constexpr inline bool isOpaque() const noexcept { return blockOpacity[idx()] >= 1.0; }
-    constexpr inline bool isTransparent() const noexcept { return blockOpacity[idx()] < 1.0; }
-    constexpr inline bool isAir() const noexcept { return type == BlockType::AIR; }
 
-    constexpr auto operator<=>(const Block& other) const = default;
+    Block (Block&& rhs) = default;
+
+    BlockType type{ BlockType::AIR };
+
+
 
     Block& operator=(const Block& rhs)= default;
+
     Block& operator=(Block&& rhs){
         if (this->type==rhs.type) {
             return *this;
@@ -56,16 +69,46 @@ struct Block {
         this->type = std::move(rhs.type);
         return *this;
     }
-    Block& operator=(BlockType rhs){
-        // BUG: segfault here, this is invalid
 
+    Block& operator=(BlockType rhs){
         if (this->type==rhs) {
             return *this;
         }
         this->type = rhs;
         return *this;
     }
+    auto operator<=>(const Block& rhs)const noexcept = default;
 
+    // =========
+    // Helpers
+    // =========
+    constexpr inline i64 texture_id() const noexcept {
+        return idx() - 1;  // this is hacky idk why i have to do this
+    }
+    constexpr float getOpacity() const noexcept {
+        return def().opacity; 
+    }
+    constexpr bool isOpaque() const noexcept {
+        return getOpacity() >= 1.0f;
+    }
+    constexpr bool isTransparent() const noexcept {
+        return getOpacity() < 1.0; 
+    }
+    constexpr bool isAir() const noexcept {
+       return type==BlockType::AIR; 
+    }
+
+    // =========
+    // Meta-Helpers
+    // =========
+    constexpr const BlockDef& def() const noexcept{
+        return block_defs[idx()]; 
+    }
+    constexpr inline u64 idx() const noexcept { 
+        return std::to_underlying(type); 
+    }
+    constexpr inline std::string_view to_string() const noexcept{
+        return def().name;
+    }
 };
 
-const inline auto AIR_BLOCK = Block{ BlockType::AIR };

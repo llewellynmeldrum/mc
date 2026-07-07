@@ -11,6 +11,25 @@
 
 namespace IG =ImGui;
 
+
+
+template<typename T>
+inline constexpr ImGuiDataType IG_DataType = []{
+    static_assert(sizeof(T) == 0, "No ImGuiDataType mapping for this type");
+    return ImGuiDataType_COUNT;
+}();
+
+template<> ImGuiDataType IG_DataType<i8> =     ImGuiDataType_S8;        // signed char / char (with sensible compilers)
+template<> ImGuiDataType IG_DataType<u8> =     ImGuiDataType_U8;        // unsigned char
+template<> ImGuiDataType IG_DataType<i16> =     ImGuiDataType_S16;      // short
+template<> ImGuiDataType IG_DataType<u16> =     ImGuiDataType_U16;      // unsigned short
+template<> ImGuiDataType IG_DataType<i32> =     ImGuiDataType_S32;      // int
+template<> ImGuiDataType IG_DataType<u32> =     ImGuiDataType_U32;      // unsigned int
+template<> ImGuiDataType IG_DataType<i64> =     ImGuiDataType_S64;      // long long / __int64
+template<> ImGuiDataType IG_DataType<u64> =     ImGuiDataType_U64;      // unsigned long long / unsigned __int64
+template<> ImGuiDataType IG_DataType<f32> =     ImGuiDataType_Float;    // float
+template<> ImGuiDataType IG_DataType<f64> =     ImGuiDataType_Double;   // double
+
 using ScreenPos = ImVec2;
 // UV positions range between [0.0,1.0] on x and y, with a top left origin 
 using UVPos = glm::vec2;
@@ -180,15 +199,28 @@ struct WindowConfig{
         if (IG::CollapsingHeader(name.c_str(),flags))
             std::invoke(std::forward<Fn>(section));
     };
-    inline void checkbox(std::string name, bool* on){
+    template<typename T, std::size_t N=1>
+    inline void slider(std::string_view name, T* val, T min=numeric_min<T>(), T max=numeric_min<T>()){
+        std::string name_str = std::string(name);
+        if constexpr (N > 1 && is_vec_N<T, N>){
+            using element_t = vec_traits<T>::element;
+            int count = vec_traits<T>::length;
+            IG::SliderScalarN(name_str.c_str(), IG_DataType<element_t>, count, val, &min, &max);
+        }else{
+            IG::SliderScalar(name_str.c_str(), IG_DataType<T>, val, &min, &max);
+        }
+    }
+
+    inline void checkbox(std::string_view name, bool* on){
         // NOTE: we cant use a default argument on the below function and must instead overload,
         // as Fn is a universal reference (deduced&&), which cannot bind to lambdas (as they are prvalues)
         checkbox(name,on,[]{});
     }
     template <typename Fn>
-    inline void checkbox(std::string name, bool* on, Fn&& on_click){
+    inline void checkbox(std::string_view name, bool* on, Fn&& on_click){
         auto flags = ImGuiTreeNodeFlags_CollapsingHeader ^ ImGuiTreeNodeFlags_DefaultOpen;
-        if (IG::Checkbox(name.c_str(),on))
+        std::string name_str = std::string(name);
+        if (IG::Checkbox(name_str.c_str(),on))
             std::invoke(std::forward<Fn>(on_click));
     };
     DropDown<std::string,7> dropdown ={"combo 2", { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG"}};

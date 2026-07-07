@@ -89,12 +89,18 @@ void Renderer::update_player_cam_frustum_lines(Engine* sim){
 }
 void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1.0f, -1.0f); // Fix z-fighting 
+
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     beginTransparentPass();
     dbg_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
+
+    glPolygonOffset(0.0f, 0.0f);
+    glDisable(GL_POLYGON_OFFSET_FILL);
     target.stop();
 
 }

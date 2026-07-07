@@ -8,6 +8,7 @@
 #include "DebugChunkLog.hpp"
 #include "DebugFormat.hpp"
 
+#include "DebugOptions.hpp"
 #include "FmtStyle.hpp"
 #include "PendingBlockWrites.hpp"
 #define DISABLE_STYLE
@@ -82,6 +83,40 @@ void DebugUI::update() {
     auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
 }
 
+void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
+//    inline bool showGenState                    = ON;
+//    inline bool outline_neighbour_boundaries    = ON;
+//    inline bool fill_neighbour_boundaries       = ON;
+//    inline bool fill_all_chunk_boundaries       = OFF;
+//    inline bool outline_all_chunk_boundaries    = ON;
+//    inline bool showDebugUI                     = ON;
+//    inline bool HIDE_AIR_CHUNKS                 = OFF;
+//    inline bool HIDE_CLEAN_CHUNKS               = OFF;
+    self.setAlpha(0.9f);
+    self.setup();
+    self.setSize(UVSize{0.4,0.4});
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+        auto& window = self;
+
+        
+        window.open_section("DebugOption::",[&]{
+            window.checkbox("Show gen state", &DebugOption::gen_state_mode);
+            window.checkbox("outline neighbour boundaries", &DebugOption::outline_neighbour_boundaries);
+            window.checkbox("fill    neighbour boundaries", &DebugOption::fill_neighbour_boundaries);
+            window.checkbox("outline ALL boundaries", &DebugOption::outline_all_boundaries);
+            window.checkbox("fill    ALL boundaries", &DebugOption::fill_all_boundaries);
+
+
+            window.checkbox("show debug ui", &DebugOption::show_debug_ui);
+            window.checkbox("Hide Air Chunks", &DebugOption::HIDE_AIR_CHUNKS);
+            window.checkbox("Hide Clean Chunks", &DebugOption::HIDE_CLEAN_CHUNKS);
+            window.slider<u8>("Boundary fill opacity", &DebugOption::ChunkDebugFillOpacity, 0, 255);
+            window.slider<f32>("Boundary outline opacity",&DebugOption::ChunkDebugOutlineOpacity, 0.0f, 1.0f);
+        });
+    });
+}
 void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
@@ -90,8 +125,6 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setFlags();
     self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
         auto& window = self;
-        static bool on = false;
-//        for ()
         for (auto& [key, val]: is_log_type_enabled ){
             window.checkbox(key, &val);
         }
@@ -113,9 +146,9 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
 
 void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
     auto io = IG::GetIO();
+    auto* d = IG::GetForegroundDrawList();
+    auto display_size = io.DisplaySize;
     if (ctx->paused){
-        auto* d = IG::GetForegroundDrawList();
-        auto display_size = io.DisplaySize;
         d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 64));
         const char* text = "PAUSED";
         ScreenPos text_size = IG::CalcTextSize(text) * 2.5f; // default font size
@@ -127,8 +160,6 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
 
         d->AddText(text_pos, IM_COL32_WHITE, text);
     }else if (ctx->chunk_updates_paused){
-        auto* d = IG::GetForegroundDrawList();
-        auto display_size = io.DisplaySize;
         d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 6));
         const char* text = "CHUNK UPDATES PAUSED";
         ScreenPos text_size = IG::CalcTextSize(text) * 2.5f; // default font size
@@ -139,6 +170,39 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
         );
 
         d->AddText(text_pos, IM_COL32_WHITE, text);
+    }
+    {
+        constexpr f32 default_font_size = 13.0f;
+        f32 font_scale = 2.0f;
+        f32 font_size = default_font_size * font_scale;
+
+        _notif_logger.log.update();
+        ScreenPos offset = {0, display_size.y * 0.9f};
+        for (const auto& entry: _notif_logger.log){
+            auto& [_, elapsed, msg] = entry;
+            
+            
+            const char* text = msg.c_str();
+            ScreenPos text_size = IG::CalcTextSize(text) * font_scale / ctx->ui.UI_SCALE;
+
+//            LOG_DEBUG("text_size:{},{}",text_size.x,text_size.y);
+//            LOG_DEBUG("display_size:{},{}",display_size.x,display_size.y);
+            ScreenPos text_pos = ScreenPos(
+                (display_size.x*0.5f - text_size.x*.5f),
+                (-text_size.y)
+            );
+            text_pos += offset;
+            auto red = IM_COL32(255,0,0,255);
+            auto opacity = static_cast<i32>(std::lerp(0.0f,255.0f,_notif_logger.log.fading_entry_opacity01(entry)));
+            d->AddText(io.FontDefault, font_size, text_pos,IM_COL32(255,255,255,opacity), text);
+
+//            d->AddLine({text_pos.x,0},{text_pos.x,display_size.y},IM_COL32_WHITE);
+//            d->AddLine({0,text_pos.y},{display_size.x,text_pos.y},IM_COL32_BLACK);
+//
+//            d->AddLine(text_pos,text_pos+text_size,red);
+            offset.y -= text_size.y*1.5f; // line spacing
+        }
+
     }
 }
 
@@ -237,7 +301,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
-            bool showGenState = DebugOption::showGenState;
+            bool showGenState = DebugOption::gen_state_mode;
             std::string gen_state_str{"No state entry."};
             std::string mesh_state_str{"No state entry."};
             auto target_mesh_id = 0uz;
@@ -501,6 +565,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
             {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
+            {"DBG OPTS", UI::WinFlagGroup::MovableOverlay,drawDebugSettingsWindow,this},
         }
     );
 }

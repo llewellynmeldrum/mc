@@ -153,7 +153,7 @@ struct std::formatter<BlockType>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const BlockType& val, std::format_context& ctx)const {
         std::string s{"INVALID_BLOCK_TYPE"};
-        #define X(var) case BlockType:: var: s=#var; break;
+        #define X(var, ...) case BlockType:: var: s=#var; break;
         switch (val) {
             BLOCK_TYPE_LIST
         default:
@@ -169,7 +169,7 @@ struct std::formatter<OverwritePolicy>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const OverwritePolicy& val, std::format_context& ctx)const {
         std::string s{"INVALID_overwrite_policy"};
-        #define X(var) case OverwritePolicy:: var: s=#var; break;
+        #define X(var, ...) case OverwritePolicy:: var: s=#var; break;
         switch (val) {
             OVERWRITE_POLICY_LIST
         default:
@@ -337,6 +337,34 @@ struct std::formatter<std::optional<T>>{
         }else{
             return format_to(ctx.out(), "nullopt");
         }
+    }
+};
+template<>
+struct std::formatter<KeyModifiers>{
+    inline constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format specifier for ChunkState.");
+        }
+        return it;
+    }
+    inline auto format(KeyModifiers s, std::format_context& ctx) const{
+        std::string_view str = "?ChunkState?";
+		return std::format_to( ctx.out(), 
+            "shift:{}\n"
+            "ctrl:{}\n"
+            "alt:{}\n"
+            "super:{}\n"
+            "caps:{}\n"
+            "num_lock:{}\n"
+            ,
+            s.shift,
+            s.ctrl,
+            s.alt,
+            s.super,
+            s.caps,
+            s.num_lock
+        );
     }
 };
 

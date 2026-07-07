@@ -17,8 +17,20 @@
 // src/Simulation.cpp
 struct Engine {
   public:
-    Engine() : director(world.chunkMap){}
+    Engine() : 
+        win(), 
+        profiler(),
+        input(win.ptr), 
+        player_cam({+24.315,+154.162,+71.009}, -38.100,-49.203),
+        drone_cam(),
+        fixedCamTarget({0,0},{640,480}),
+        rend(),
+        ui(),
+        world(),
+        director(world.chunkMap)
+    {}
     ~Engine() = default;
+
     void setup();
     void loop();
     i32 exit(i32 exit_code);
@@ -29,7 +41,7 @@ struct Engine {
     Input    input;
     Camera   player_cam;
     Camera   drone_cam;
-    TextureTarget fixedCamTarget{{0,0},{640,480}};
+    TextureTarget fixedCamTarget;
     Renderer rend;
     DebugUI  ui;
     World    world;
@@ -37,7 +49,7 @@ struct Engine {
 
 
     void set_debug_params();
-void handle_input();
+    void handle_input();
     void refresh_visible_chunks();
     void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
 

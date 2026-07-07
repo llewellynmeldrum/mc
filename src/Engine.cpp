@@ -28,28 +28,40 @@
 
 
 #include "FormatSpecs.hpp"
+// TODO: 
+// 1. add coordinate copy command CMD+SHIFT+C gives you set_pos_ori params
+// 2. Fix pending writes
+//
 
 void Engine::loop(){
     while (!win.shouldClose()) {
         profiler.start_frame();
         profiler.bench_start("frame");
 
-        input.poll({this}); 
+        profiler.bench_start("input");
+        input.poll(); 
         handle_input();
+        profiler.bench_end("input");
 
         if (!paused){ update_scene(); }
+        rend.dbg_rend.update(player_cam,this);
+    
+        if (DebugOption::show_debug_ui){
+            rend.update_player_cam_frustum_lines(this);
+        }
         ui.update();
 
         draw_scene(); 
-        if (DebugOption::showDebugUI){ ui.draw(); }
+        if (DebugOption::show_debug_ui){ ui.draw(); }
 
-        profiler.bench_start("render");
         {
+            profiler.bench_start("render");
             ZoneScopedN("Swap");
             win.swapBuffers();
+            profiler.bench_end("render");
         }
-        profiler.bench_end("render");
 
+        input.end_frame();
         profiler.bench_end("frame");
         profiler.end_frame();
     }
@@ -111,12 +123,6 @@ void Engine::update_scene() {
     director.start_frame(player_cam.pos);
     ZoneScoped;
 
-    if (DebugOption::fill_chunk_boundaries){
-        rend.dbg_rend.update(player_cam,this);
-    }
-    if (DebugOption::showDebugUI){
-        rend.update_player_cam_frustum_lines(this);
-    }
 
     if (!chunk_updates_paused){
         
@@ -250,11 +256,11 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
 
         if (entry->is_mesh_on_queue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
-                log_to_chunk(chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
-                log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
-                log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
+                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
+                //log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
                 if (rend.opaqueChunkMeshes.contains(chunk_coord)){
-                    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
+                //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
                 }
                 if (opaque.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(opaque));
@@ -262,7 +268,7 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
                 if (transparent.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(transparent));
                 } 
-                log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
+                //log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
             }else{
                 log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
                                 candidate_revision,entry->loaded_mesh_revision));
@@ -349,10 +355,10 @@ void Engine::draw_scene() {
     // Drone cam sees players' frustum lines 
     rend.draw_3DLines_to(drone_cam, rend.player_cam_frustum_lines, secondaryView());
     
-    if(DebugOption::fill_chunk_boundaries){
+    if(DebugOption::fill_all_boundaries || DebugOption::fill_neighbour_boundaries || DebugOption::outline_all_boundaries || DebugOption::outline_neighbour_boundaries){
         draw_chunk_boundaries(player_cam, screen_view());
         draw_chunk_boundaries(drone_cam, secondaryView());
-    }
+   }
 
 
 
@@ -413,8 +419,6 @@ void Engine::setup() {
     win.set_callbacks(static_cast<void*>(this));
     LOG_DEBUG("Finished setting window callbacks.");
 
-    input.set_callbacks(win.ptr);
-    LOG_DEBUG("Finished Input setup.");
 
     profiler.init(
         "frame",
@@ -431,7 +435,6 @@ void Engine::setup() {
 
     player_cam.is_main_camera=true;
     drone_cam.vertical_fov = 50.0f;
-    player_cam.set_pos_ori({0, 168, 0}, -23.4, 56.3);
     director.init(player_cam.pos);
     LOG_DEBUG("Finished Camera setup.");
 
@@ -458,6 +461,133 @@ i32 Engine::exit(i32 exit_code) {
 // Helpers 
 // =========
 void Engine::handle_input(){
+    if (input.just_pressed(KEY_ESCAPE)){
+        if (paused){
+            // unpause
+            paused = false; 
+        } else{
+            win.scheduleClose();
+            return;
+        }
+    }
+    if(input.just_pressed(KEY_GRAVE_ACCENT)){
+        ui.is_ui_expanded = !ui.is_ui_expanded;
+    }
+    if(input.just_pressed(KEY_C) && input.mods.shift && input.mods.super){
+        const auto& pos=player_cam.pos;
+        const auto& yaw=player_cam.yaw;
+        const auto& pitch=player_cam.pitch;
+        auto str = 
+            std::format(
+                "{{{:+2.3f},{:+2.3f},{:+2.3f}}}, {:+2.3f},{:+2.3f}",
+                pos.x,pos.y,pos.z, pitch, yaw
+            );
+        input.set_clipboard(
+            str
+        );
+    }
+    if (input.scroll.y != input.prevscroll.y){
+        static constexpr f32 base = 1.1f;
+        const f32 exponent = -1 * (input.scroll.y * drone_cam.zoom_sens * profiler.dt_s);
+        drone_cam.ortho_zoom *= pow(base,exponent);
+    }
+    if(input.just_pressed(KEY_P)){
+        paused = !paused;
+        if (!paused){
+            win.captureCursor();
+            player_cam.enableMousePanning();
+        }else{ 
+            win.freeCursor();
+            player_cam.disableMousePanning();
+        }
+    }
+    if(input.just_pressed(KEY_G)){
+        chunk_updates_paused= !chunk_updates_paused;
+    }
+    if(input.just_pressed(KEY_L)){
+        pause_logging = !pause_logging;
+    }
+    if(input.just_pressed(KEY_X)){
+        dirty_current_chunk = !dirty_current_chunk;
+    }
+
+    if (paused) return; // WARNING: Anything below here is ignored during paused frames
+
+
+    if (input.mousepos != input.prevmousepos) {
+        const glm::vec2 diff = input.prevmousepos - input.mousepos;
+        player_cam.rotateByMouse(diff, profiler.dt_s);
+    }
+
+    if(input.just_pressed(KEY_B)){
+        dbg_modify_chunks = !dbg_modify_chunks;
+    }
+    if(input.just_pressed(KEY_T)){
+        rend.debug.wireframe = !rend.debug.wireframe;
+    }
+    if(input.just_pressed(KEY_H)){
+        DebugOption::show_debug_ui = !DebugOption::show_debug_ui;
+    }
+    if(input.just_pressed(KEY_C) && input.no_mods()){
+        DebugOption::fill_all_boundaries = !DebugOption::fill_all_boundaries;
+        bool b =         DebugOption::fill_all_boundaries;
+        LOG_DEBUG("{}->{}",!b,b);
+    }
+//    if(input.just_pressed(KEY_R)){
+//        unMeshAllChunks();
+//        unGenerateAllChunks();
+//    }
+//
+//    if(input.just_pressed(KEY_M)){
+//        unMeshAllChunks();
+//    }
+
+    if(input.is_down(KEY_LEFT_SHIFT)){
+            player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
+            player_cam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
+    }else if(input.is_down(KEY_LEFT_CONTROL)){
+        player_cam.moveSpeed = Camera::WALK_MOVESPEED;
+    }else{
+        player_cam.moveSpeed = Camera::BASE_MOVESPEED;
+        player_cam.keyboard_sensitivity= Camera::BASE_KEYBOARD_SENSITIVITY;
+    }
+
+    if(input.is_down(KEY_W)){
+		player_cam.move(Direction::FORWARD, profiler.dt_s);
+	}
+    if(input.is_down(KEY_S)){
+		player_cam.move(Direction::BACKWARD, profiler.dt_s);
+	}
+    if(input.is_down(KEY_A)){
+		player_cam.move(Direction::LEFT, profiler.dt_s);
+	}
+    if(input.is_down(KEY_D)){
+		player_cam.move(Direction::RIGHT, profiler.dt_s);
+	}
+    if(input.is_down(KEY_SPACE)){
+		player_cam.move(Direction::UP, profiler.dt_s);
+	    drone_cam.move(Direction::UP, profiler.dt_s);
+	}
+    if(input.is_down(KEY_E)){
+		player_cam.move(Direction::UP, profiler.dt_s);
+	}
+    if(input.is_down(KEY_Q)){
+		player_cam.move(Direction::DOWN, profiler.dt_s);
+	}
+
+    if(input.is_down(KEY_LEFT)){
+		player_cam.rotate(Direction::LEFT, profiler.dt_s);
+	}
+    if(input.is_down(KEY_RIGHT)){
+		player_cam.rotate(Direction::RIGHT, profiler.dt_s);
+	}
+    if(input.is_down(KEY_UP)){
+		player_cam.rotate(Direction::UP, profiler.dt_s);
+	}
+    if(input.is_down(KEY_DOWN)){
+		player_cam.rotate(Direction::DOWN, profiler.dt_s);
+	}
+
     if (dbg_modify_chunks){
         dbg_modify_chunks = false;
         auto cur_chunk = toWorldChunkCoord(player_cam.pos);

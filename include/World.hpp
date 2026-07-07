@@ -58,5 +58,4 @@ struct World {
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;
 
-    Block getBlock(WorldBlockPos world_pos) const;
 };

@@ -325,7 +325,7 @@ static GenResult generateChunk(GenJob job){
             f32 roll = wpos_seeded_rand01(wx,wz);
             if (roll < max_adjacent_roll) return;
             if (roll < density * gen_cfg.tree_place_threshold){
-                log_to_chunk(chunk_coord,"{} -> density:{}, roll:{}", WorldChunkCoord{wx,wz},density,roll);
+                //log_to_chunk(chunk_coord,"{} -> density:{}, roll:{}", WorldChunkCoord{wx,wz},density,roll);
                 i32 cy = chunk_heightmap.at_chunk(cx,cz);
                 if (cy <= gen_cfg.SEA_LEVEL) return; // skip underwater trees
                 place_tree(cx,cy,cz);
