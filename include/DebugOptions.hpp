@@ -9,11 +9,13 @@ namespace DebugOption{
     inline bool fill_neighbour_boundaries       = ON;
     inline bool fill_all_boundaries             = OFF;
     inline bool outline_all_boundaries          = OFF;
-    inline bool show_debug_ui                     = ON;
+    inline bool show_debug_ui                   = ON;
     inline bool HIDE_AIR_CHUNKS                 = OFF;
     inline bool HIDE_CLEAN_CHUNKS               = OFF;
+    inline bool enable_opaque_sorting           = OFF;
 
     inline u8   ChunkDebugFillOpacity           = 38;
     inline f32  ChunkDebugOutlineOpacity        = 0.9f;
     inline i32  compiler_optimisation_level     = 0; 
+    inline f32  player_cam_vfov = 70.0f;
 } // namesapce DebugOption

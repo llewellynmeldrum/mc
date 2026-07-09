@@ -27,11 +27,14 @@ struct Renderer {
     std::vector<Line3D> player_cam_frustum_lines;
     glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};
 
-    slot_map<WorldChunkCoord,Mesh> opaqueChunkMeshes;
-    slot_map<WorldChunkCoord, Mesh> transparentChunkMeshes;
+    slot_map<WorldChunkCoord,Mesh> opaque_chunk_meshes;
+    std::vector<WorldChunkCoord> sorted_opaque_coords;
 
-    std::vector<WorldChunkCoord> sorted_opaque(Camera& cam);
-    std::vector<WorldChunkCoord> sorted_transparent(Camera& cam);
+    slot_map<WorldChunkCoord, Mesh> transparent_chunk_meshes;
+    std::vector<WorldChunkCoord> sorted_transparent_coords;
+
+    void sort_opaque_chunks(WorldFloatPos cam_pos);
+    void sort_transparent_chunks(WorldFloatPos cam_pos);
     void draw_to(Camera& cam, RenderTargetView target);
     void drawOpaque(Camera& cam);
     void drawTransparent(Camera& cam);
@@ -42,15 +45,21 @@ struct Renderer {
 
     void update_player_cam_frustum_lines(Engine* sim);
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
-        opaqueChunkMeshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        opaque_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        sorted_opaque_coords.emplace_back(coord);
     }
 
     inline void uploadMesh(WorldChunkCoord coord, TransparentMeshData mesh_data) {
-        transparentChunkMeshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        transparent_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        sorted_transparent_coords.emplace_back(coord);
     }
 
 
-    void uploadMeshListToGpu(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
+    // overload for unsorted meshes
+    void draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
+
+    // overload for sorted meshes
+    void draw_meshes(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
 
     struct {
         bool        wireframe{ false };

@@ -81,8 +81,8 @@ void Engine::refresh_visible_chunks(){
         };
     };
     // load meshes inside frustum, unload meshes outside frustum
-    rend.opaqueChunkMeshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
-    rend.transparentChunkMeshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
+    rend.opaque_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
+    rend.transparent_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
 }
 
 void Engine::evict_meshes_outside_radius(i32 radius){
@@ -112,8 +112,8 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
     // erase all elements which are out of bounds:
     // TODO: perhaps prune the for_meshing uniqueQueue?
-    rend.opaqueChunkMeshes.erase_if(outside_range(world.chunkMap,lo,hi));
-    rend.transparentChunkMeshes.erase_if(outside_range(world.chunkMap, lo,hi));
+    rend.opaque_chunk_meshes.erase_if(outside_range(world.chunkMap,lo,hi));
+    rend.transparent_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
 
 
 }
@@ -125,27 +125,31 @@ void Engine::update_scene() {
 
 
     if (!chunk_updates_paused){
-        
 
         n_chunks_discovered = director.discover_candidates(max_gen_discovery_pf, GENERATION_DIST,RENDER_DIST);
 
-        genJobsThisFrame = submit_gen_jobs(maxGenJobsPerFrame);
+        submit_gen_jobs(maxGenJobsPerFrame);
 
-        genResultsThisFrame = upload_gen_results(maxGenUploadsPerFrame);
+        upload_gen_results(maxGenUploadsPerFrame);
 
 
         evict_meshes_outside_radius(MESH_CULL_DIST());
         refresh_visible_chunks();
 
 
-        meshJobsThisFrame = submit_mesh_jobs(maxMeshJobsPerFrame);
+        submit_mesh_jobs(maxMeshJobsPerFrame);
 
-        meshResultsThisFrame = upload_mesh_results(maxMeshUploadsPerFrame);
+        upload_mesh_results(maxMeshUploadsPerFrame);
+
+        //NOTE: We must perform mesh sorting AFTER mesh upload this frame,
+        // otherwise the size of sorted_keys diverges from the mesh_lists.
+        director.handle_mesh_sorting(rend,player_cam.pos);
         count_states();
     }
 
 
 
+    update_player_cam(player_cam);
     update_drone_cam(drone_cam, player_cam.pos);
 
 
@@ -154,13 +158,16 @@ void Engine::update_scene() {
 }
 
 
+void Engine::update_player_cam(Camera& player_cam){
+    player_cam.vertical_fov = DebugOption::player_cam_vfov;
+}
 void Engine::update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height){
     auto follow_pos = WorldFloatPos{player_cam.pos.raw()+glm::vec3{0,100,0}};
     drone_cam.set_pos_ori(follow_pos, -89.0, 0.0);
 }
 
 
-i64 Engine::submit_gen_jobs(i64 maxJobs){
+void Engine::submit_gen_jobs(i64 maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = director.find_gen_jobs(maxJobs);
     i64 count = 0;
@@ -187,11 +194,11 @@ i64 Engine::submit_gen_jobs(i64 maxJobs){
         }
     }
     profiler.bench_end("enqueueGen");
-    return count;
+    gen_jobs_this_frame = count;
 }
 
 
-i64 Engine::submit_mesh_jobs(i64 maxJobs){
+void Engine::submit_mesh_jobs(i64 maxJobs){
     profiler.bench_start("enqueueMesh");
     auto candidates = director.find_mesh_jobs(maxJobs);
 
@@ -223,12 +230,12 @@ i64 Engine::submit_mesh_jobs(i64 maxJobs){
     if (count>0 || candidates.size()>0){
     //    std::println("found {} mesh-ready candidates. {} uploaded.", candidates.size(),count);
     }
-    return count;
+    mesh_jobs_this_frame =count;
 
 }
 
 
-i64 Engine::upload_mesh_results(i64 maxUploads){
+void Engine::upload_mesh_results(i64 maxUploads){
     profiler.bench_start("drainMesh");
     i64 count = 0;
     auto drain_mesh_results = [](auto& queue,auto maxUploads)->std::vector<MeshResult>{
@@ -259,7 +266,7 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
                 log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
                 //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
                 //log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
-                if (rend.opaqueChunkMeshes.contains(chunk_coord)){
+                if (rend.opaque_chunk_meshes.contains(chunk_coord)){
                 //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
                 }
                 if (opaque.vertices.size()>0){
@@ -284,12 +291,11 @@ i64 Engine::upload_mesh_results(i64 maxUploads){
         
     }
     profiler.bench_end("drainMesh");
-    return count;
-
+    mesh_results_this_frame = count;
 }
 
 
-i64 Engine::upload_gen_results(i64 maxUploads){
+void Engine::upload_gen_results(i64 maxUploads){
     profiler.bench_start("drainGen");
     auto drain_gen_results = [](Queue<GenResult>& queue, i64 maxUploads){
         std::vector<GenResult> output; output.reserve(maxUploads);
@@ -305,7 +311,6 @@ i64 Engine::upload_gen_results(i64 maxUploads){
         return output;
     };
     auto genResults = drain_gen_results(world.chunkMap.generator.genResultQueue,maxUploads);
-    auto count = genResults.size();
     for (const auto& newGen : genResults){
         bool success = world.chunkMap.entries.if_contains_else(
             newGen.chunkCoord,
@@ -314,7 +319,6 @@ i64 Engine::upload_gen_results(i64 maxUploads){
                     entry.state_transition(gen_dequeue);
                     return true;
                 }else{
-//                    LOG_DEBUG("(gen_upload): Discarded homeless chunk gen data @{}.", newGen.chunkCoord);
                     return false;
                 }
             },
@@ -324,13 +328,11 @@ i64 Engine::upload_gen_results(i64 maxUploads){
         );
         if (success){
             director.upload_generated_chunk(newGen);
-
-        }else{
- //           LOG_DEBUG("(gen_upload): Discarded homeless chunk gen data @{}.", newGen.chunkCoord);
         }
+
     }
     profiler.bench_end("drainGen");
-    return genResults.size();
+    gen_res_this_frame = genResults.size();
 }
 
 void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
@@ -388,8 +390,8 @@ void Engine::unMeshAllChunks(){
             director.mark_mesh_dirty(entry);
         }
     );
-    rend.opaqueChunkMeshes.clear();
-    rend.transparentChunkMeshes.clear();
+    rend.opaque_chunk_meshes.clear();
+    rend.transparent_chunk_meshes.clear();
 }
 
 void Engine::set_debug_params() {
@@ -446,7 +448,7 @@ void Engine::setup() {
     LOG_DEBUG("Finished World setup.");
 
     // enqueue the starting chunks
-    genJobsThisFrame = submit_gen_jobs(maxGenJobsPerFrame);
+    submit_gen_jobs(maxGenJobsPerFrame);
 }
 
 
@@ -529,18 +531,9 @@ void Engine::handle_input(){
         DebugOption::show_debug_ui = !DebugOption::show_debug_ui;
     }
     if(input.just_pressed(KEY_C) && input.no_mods()){
-        DebugOption::fill_all_boundaries = !DebugOption::fill_all_boundaries;
-        bool b =         DebugOption::fill_all_boundaries;
-        LOG_DEBUG("{}->{}",!b,b);
+        DebugOption::fill_neighbour_boundaries = !DebugOption::fill_neighbour_boundaries;
+        DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
-//    if(input.just_pressed(KEY_R)){
-//        unMeshAllChunks();
-//        unGenerateAllChunks();
-//    }
-//
-//    if(input.just_pressed(KEY_M)){
-//        unMeshAllChunks();
-//    }
 
     if(input.is_down(KEY_LEFT_SHIFT)){
             player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
@@ -631,17 +624,17 @@ RenderTargetView Engine::secondaryView() {
 // debugging
 // ========
 void Engine::count_states(){
-    rb_genJobsAdded.write(genJobsThisFrame);
-    rb_genResultsAdded.write(genResultsThisFrame);
-    rb_meshJobsAdded.write(meshJobsThisFrame);
-    rb_meshResultsAdded.write(meshResultsThisFrame);
+    rb_genJobsAdded.write(gen_jobs_this_frame);
+    rb_genResultsAdded.write(gen_res_this_frame);
+    rb_meshJobsAdded.write(mesh_jobs_this_frame);
+    rb_meshResultsAdded.write(mesh_results_this_frame);
 
     sizeof(long long int);
     sizeof(i64);
-    n_generating = std::max(0ll,n_generating + genJobsThisFrame - genResultsThisFrame);
+    n_generating = std::max(0ll,n_generating + gen_jobs_this_frame - gen_res_this_frame);
     rb_generating.write(n_generating);
 
-    n_meshing = n_meshing + meshJobsThisFrame - meshResultsThisFrame;
+    n_meshing = n_meshing + mesh_jobs_this_frame - mesh_results_this_frame;
     rb_meshing.write(n_meshing);
 
     n_gen_on_queue               ={};

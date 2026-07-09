@@ -38,9 +38,12 @@ template<typename C, typename K>
 template<typename T>
 [[gnu::always_inline]]inline auto make_variable(const T& var, std::string_view name){
     std::string var_str{"?"};
-    if constexpr(std::formattable<T,char>){ 
+    if constexpr(std::same_as<T,int>){ 
         var_str = std::format("{}",var);
     }
+//    if constexpr(std::formattable<T,char>){ 
+//        var_str = std::format("{}",var);
+//    }
     return refl::variable{
         .type_str = pretty_type_name<T>(),
         .val_str =  var_str,

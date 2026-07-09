@@ -13,11 +13,12 @@
 
 template<typename Key, typename Mapped>
 struct slot_map{
-private:
+public:
     using DenseIdx = std::size_t;
+    using mapped_type = Mapped;
+    using key_type = Key;
 
     static constexpr std::size_t NULL_INDEX = std::numeric_limits<std::size_t>::max();
-public:
 
     auto size()const noexcept{
         return dense.size();
@@ -33,7 +34,7 @@ public:
         std::ranges::sort(all_keys,std::forward<Fn>(compar));
         return all_keys;
     }
-    auto all_keys(){
+    auto all_keys()const{
         return std::views::keys(sparse) | std::ranges::to<std::vector>();
     }
     void erase(Key victim_key){
@@ -177,6 +178,12 @@ public:
     auto end(){
         return buf.end();
     }
+    auto begin()const{
+        return buf.begin();
+    }
+    auto end()const{
+        return buf.end();
+    }
     void clear(){
         buf.clear();
         dense.clear();
@@ -197,7 +204,7 @@ public:
         return inserted;
     }
 
-    bool contains(Key victim_key){
+    bool contains(Key victim_key)const noexcept{
         return sparse.contains(victim_key);
     }
 

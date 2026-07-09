@@ -2,6 +2,7 @@
 #include "CommonUtils.hpp"
 #include "glbindingWrapper.hpp"
 #include "Breakpoints.hpp"
+#include "ChunkInvariants.hpp"
 #include "FormatSpecs.hpp"
 #include "Logger.hpp"
 #include <unordered_map>
@@ -28,7 +29,6 @@ static std::unordered_map<Direction, size_t> directionTexOffset = {
     // clang-format on
 };
 constexpr const i64 PER_BLOCK_TEX_COUNT = 3;
-constexpr const i64 CUBE_VTX_PER_FACE = 4;
 
 glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
     i64 dir_offset = directionTexOffset[dir];
@@ -44,7 +44,7 @@ std::array<vec2, 4> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
     std::array<vec2, 4> res;
 
     vec2 uvmin = getTexOffset(texture_idx, dir);
-    for (i64 vtx = 0; vtx < CUBE_VTX_PER_FACE; vtx++) {
+    for (std::size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
         f32 u = vertices[vtx].txCoords.x;
         f32 v = vertices[vtx].txCoords.y;
         u = uvmin.x + u * abs_sprite_w;

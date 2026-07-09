@@ -11,6 +11,7 @@
 #define OVERWRITE_POLICY_LIST   \
     X(OnlyAir)                  \
     X(Everything)                  \
+    X(OnlyLeaves)                  \
     X(OnlyGrass)
 enum class OverwritePolicy: u8{
 #define X(var) var,
@@ -49,6 +50,9 @@ inline bool canMakeWrite(const OverwritePolicy& policy, const Block& target){
 
         case OverwritePolicy::OnlyGrass:
             return target.type==BlockType::GRASS_BLOCK;
+        break;
+        case OverwritePolicy::OnlyLeaves:
+            return target.type==BlockType::OAK_LEAF;
         break;
         case OverwritePolicy::Everything:
             return true;

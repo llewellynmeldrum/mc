@@ -51,7 +51,6 @@ struct Engine {
     void set_debug_params();
     void handle_input();
     void refresh_visible_chunks();
-    void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
 
     static constexpr i64 maxGenUploadsPerFrame= 16;
     static constexpr i64 max_gen_discovery_pf= 128;
@@ -71,6 +70,9 @@ struct Engine {
     void evict_meshes_outside_radius(i32 radius);
     void unMeshAllChunks();
     void unGenerateAllChunks();
+
+    void update_player_cam(Camera& player_cam);
+    void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
 
     void update_scene();
     void draw_scene();
@@ -109,11 +111,11 @@ struct Engine {
     MirroredRingBuf<f32, RB_SZ> rb_meshing;
 
     i64 n_chunks_discovered = 0;
-    i64 genJobsThisFrame = 0;
-    i64 genResultsThisFrame = 0;
+    i64 gen_jobs_this_frame = 0;
+    i64 gen_res_this_frame = 0;
 
-    i64 meshJobsThisFrame = 0;
-    i64 meshResultsThisFrame = 0;
+    i64 mesh_jobs_this_frame = 0;
+    i64 mesh_results_this_frame = 0;
     i64 n_gen_on_queue               {};
     i64 n_gen_done                   {};
 
@@ -125,12 +127,12 @@ private:
     std::vector<WorldChunkCoord> findChunksForGeneration(i64 maxJobs);
     std::vector<MeshJob> find_mesh_jobs(i64 maxJobs);
 
-    i64 submit_gen_jobs(i64 maxJobs);
-    i64 submit_mesh_jobs(i64 maxJobs);
+    void submit_gen_jobs(i64 maxJobs);
+    void submit_mesh_jobs(i64 maxJobs);
 
 
-    i64 upload_gen_results(i64 maxUploads);
-    i64 upload_mesh_results(i64 maxUploads);
+    void upload_gen_results(i64 maxUploads);
+    void upload_mesh_results(i64 maxUploads);
 };
 
 // Input::Key definitions (based on glfw3)

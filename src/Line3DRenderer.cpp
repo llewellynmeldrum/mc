@@ -7,8 +7,6 @@
 #include <concepts>
 using namespace gl;
 
-static constexpr std::size_t VERTICES_PER_QUAD = 4;
-static constexpr std::size_t INDICES_PER_QUAD = 6;
 
 
 // we create a 'line segment' base quad, shared among all instances.
@@ -31,7 +29,7 @@ static constexpr std::size_t INDICES_PER_QUAD = 6;
 // for a (closer to at least) branchless vtx shader.
 // i.e we can get the current pos of any vertex with mix(w_start, w_end, t)
 
-constexpr std::array<Line3DVertex, VERTICES_PER_QUAD> Line3DVertices={
+constexpr std::array<Line3DVertex, VTX_PER_QUAD> Line3DVertices={
     Line3DVertex{{0, -1}},
     Line3DVertex{{1, -1}},
     Line3DVertex{{1,  1}},
@@ -97,6 +95,4 @@ void Line3DRenderer::updateInstances(Camera& cam, std::span<Line3D> lines){
 //        line.color=cam.lineColor;
         instances.emplace_back(makeLine3DInstance(line));
     }
-
-
 }

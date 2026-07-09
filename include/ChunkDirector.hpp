@@ -11,11 +11,15 @@
 #include <queue>
 #include <span>
 #include <unordered_set>
+#include "cppslop.hpp"
 #include "glm/gtx/norm.hpp"
 
+FORWARD_DECL_STRUCT(Renderer)
 struct ChunkDirector{
 
     ChunkMap& chunk_map;
+    WorldBlockPos prev_block_pos{};
+    WorldBlockPos cur_block_pos{};
     WorldChunkCoord prev_chunk_pos{};
     WorldChunkCoord cur_chunk_pos{};
     // pushed to by mark_mesh_dirty()
@@ -25,6 +29,7 @@ struct ChunkDirector{
     // Meshing 
     // ============
 
+    void handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos);
     bool qualifies_for_mesh_enqueue(ChunkEntry& entry){
         if (!entry.qualifies_for_mesh_enqueue()){
             return false;
@@ -110,8 +115,11 @@ struct ChunkDirector{
         start_frame(player_pos);
         end_frame();
     }
-    bool did_player_cross_chunk_boundary() const noexcept{
+    bool player_crossed_chunk_boundary() const noexcept{
         return prev_chunk_pos != cur_chunk_pos;
+    }
+    bool player_crossed_block_boundary() const noexcept{
+        return prev_block_pos != cur_block_pos;
     }
 
     bool is_chunk_inside_cull_distance(WorldChunkCoord coord, i32 cull_dist)const noexcept{
@@ -128,8 +136,10 @@ struct ChunkDirector{
 
     void start_frame(WorldFloatPos player_pos){
         cur_chunk_pos = toWorldChunkCoord(player_pos);
+        cur_block_pos = toWorldBlockPos(player_pos);
     }
     void end_frame(){
+        prev_block_pos = cur_block_pos;
         prev_chunk_pos = cur_chunk_pos;
     }
 private:

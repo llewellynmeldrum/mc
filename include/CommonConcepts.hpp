@@ -14,6 +14,7 @@
 // STD template wrappers
 // ========================
 
+
 template<typename Fn, typename ...Args>
 concept callable_with = std::invocable<Fn, Args...>;
 
@@ -40,8 +41,6 @@ concept explicit_convertible_to = requires(T t, V v){
     {static_cast<V>(t)};
 };
 
-template<typename T>
-concept has_default_ctor = std::is_default_constructible_v<T>;
 
 
 template<typename T1, typename T2>
@@ -91,6 +90,18 @@ template <typename T, typename Fn, typename ...Args>
 concept return_type_is =  
     std::invocable<Fn, Args...> &&
     std::same_as<std::invoke_result_t<Fn, Args...>, T>;
+
+
+// =========================
+// STD Type traits missing a concept
+// ========================
+
+// Ensures predictable contiguous memory layout (and no virtual methods)
+template<typename T>
+concept c_style_layout = std::is_standard_layout_v<T>;
+
+template<typename T>
+concept has_default_ctor = std::is_default_constructible_v<T>;
 
 template <typename Fn, typename ...Args>
 using return_type = std::invoke_result_t<Fn, Args...>;

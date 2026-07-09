@@ -26,7 +26,7 @@ bool Chunk::tryWrite(PendingBlockWrite write){
     Block old_block = this->at(targetChunkLocal);
     bool success{};
     if (canMakeWrite(write,old_block)){
-        this->at(targetChunkLocal) = overwrite_block;
+        this->at(targetChunkLocal) = write.new_block;
         success = true;
     }else{
         success = false;
@@ -42,10 +42,7 @@ bool ChunkSpan::tryWrite(PendingBlockWrite write){
     bool success{};
     // the higher 'priority' block wins.
     if (canMakeWrite(write,old_block)){
-        // HACK: in order to see pending writes easier:
-        //
-        this->at(targetChunkLocal) = overwrite_block;
-        //targetBlock = write.source_block;
+        this->at(targetChunkLocal) = write.new_block;
         success = true;
     }else{
         success = false;

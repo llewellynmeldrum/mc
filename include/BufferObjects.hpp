@@ -104,6 +104,7 @@ struct ElementBuffer {
     void destroy();
 
     void load(std::span<const u32> indices, i32 offset = 0);
+    void load(std::size_t size, const void* indices_ptr, i32 offset=0);
 
     constexpr static gl::GLenum BufferUsage();
     constexpr static gl::GLenum BufferTarget();

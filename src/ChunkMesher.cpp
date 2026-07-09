@@ -27,8 +27,8 @@
 using std::views::enumerate;
 
 
-extern const std::array<std::array<Vertex, VTX_PER_FACE>, FACES_PER_CUBE> cube_vertices;
-extern const std::array<u32, INDICES_PER_FACE>                   cube_indices;
+extern const std::array<std::array<Vertex, VTX_PER_QUAD>, FACES_PER_CUBE> cube_vertices;
+extern const std::array<u32, INDICES_PER_QUAD>                   quad_indices;
 
 static const auto& get_default_face_vertices(Direction dir) {
     return cube_vertices[static_cast<i8>(dir)];
@@ -113,8 +113,8 @@ MeshDataType meshChunk(const MeshJob& job){
             const auto& vtx_data = get_default_face_vertices(faceDir);
             const auto& uv_tex_coords = atlas->remapUVs(block.texture_id(), faceDir, vtx_data);
 
-            for (std::size_t i = 0; i < INDICES_PER_FACE; i++) {
-                i32 mapped_index = vtx_count + cube_indices[i];
+            for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
+                i32 mapped_index = vtx_count + quad_indices[i];
                 out_indices.push_back(mapped_index);
             }
 
@@ -246,8 +246,8 @@ static constexpr glm::vec3 PPN{ 1.0, 1.0,0.0};
 static constexpr glm::vec3 PNP{ 1.0,0.0, 1.0};
 static constexpr glm::vec3 NPP{0.0, 1.0, 1.0};
 static constexpr glm::vec3 PPP{ 1.0, 1.0, 1.0};
-using Face = std::array<Vertex,VTX_PER_FACE>;
-constexpr std::array<std::array<Vertex,VTX_PER_FACE>, FACES_PER_CUBE> cube_vertices = {
+using Face = std::array<Vertex,VTX_PER_QUAD>;
+constexpr std::array<std::array<Vertex,VTX_PER_QUAD>, FACES_PER_CUBE> cube_vertices = {
     // Direction::forward
     Face{
         Vertex{PNN,glm::vec2(0,1),glm::vec3(1.0f),0},
@@ -292,7 +292,47 @@ constexpr std::array<std::array<Vertex,VTX_PER_FACE>, FACES_PER_CUBE> cube_verti
         Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),5},
     },
 };
-constexpr std::array<u32,INDICES_PER_FACE> cube_indices{
+// NOTE: I forgot how this works once so im writing it out here properly so i cant forget again
+// We use an index buffer, which is basically just a memory conscious way to define the 'order' of vertices in some 
+// set of triangles.
+// ---
+// The vertices we defined in the `cube_vertices` array contains each corner of each quad that forms a cube.
+// ---
+// For each of these quads, or `Face`'s, the corners are in the following order:
+// (CCW winding:)
+//   3   <━━    2
+//   ┏━━━━━━━━━━┓
+//   ┃ ╲        ┃
+//  ┃┃   ╲      ┃ Λ
+//  V┃     ╲    ┃ ┃
+//   ┃       ╲  ┃
+//   ┗━━━━━━━━━━┛
+//   0   ━━>    1
+//---
+// (In case the unicode is weird, the bottom left=0, bottom right=1, top right=2, and top left=3)
+// 
+//
+// The INDICES that we define below describe TWO triangles, which make up our 'unit quad' so to speak.
+// The first 3 vertices define the bottom left triangle ( 3, 0, 1 ), and the latter 3 define the bottom right.
+// The last connection is implied by openGL spec, i.e it is assumed that the last vertex connects to the first, importantly FOR EACH TRIANGLE. Not for each quad, FOR EACH TRIANGLE.
+//
+// First triangle (bot left)
+// 3 ━━> 0 ━━> 1 ┅┅> 3
+//               ^
+//            (implied)
+//
+// Second triangle (top right)
+// 1 ━━> 2 ━━> 3 ┅┅> 1
+//               ^
+//            (implied)
+//
+// NOTE: 
+// Important stuff summary:
+// -> indices 0,1,2,3 describe corners
+// -> Winding order is CCW for the triangles, and also for the indices.
+// -> quad_indices describes two SEPARATE triangles.
+//
+constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
     { 3, 0, 1, 1, 2, 3,},
 };
 static_assert(cube_vertices.size()==6);

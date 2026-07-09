@@ -340,6 +340,13 @@ struct std::formatter<std::optional<T>>{
     }
 };
 template<>
+struct std::formatter<QuadIndices>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    inline auto format(const QuadIndices& s, std::format_context& ctx) const{
+            return format_to(ctx.out(), "??");
+    }
+};
+template<>
 struct std::formatter<KeyModifiers>{
     inline constexpr auto parse(std::format_parse_context& ctx) {
         auto it = ctx.begin();

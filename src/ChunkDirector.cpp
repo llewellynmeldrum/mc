@@ -1,4 +1,75 @@
 #include "ChunkDirector.hpp"
+#include "Renderer.hpp"
+
+void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos){
+    // NOTE: 
+    // The reordering process is decently complex, but for good reason:
+    // -> If we were broad and heavy-handed about this, we could just resort every single chunk, every single frame,
+    // and every single face/quad within every single chunk mesh.
+    // -> In a large enough scene, (say 16 chunk render dist, superflat world), 
+    // that is AT LEAST: 
+    // -> 1089 O(log(n)) sorts, each around 256 faces. Thats 278'784 total ops. >1m ops on 64 render dist. 
+    // -> + the 1089 chunks, which also need to be sorted.
+    // Thats every single frame. And we barely even gain anything. the cost will almost definitely dominate any savings from overdraw if we are doing opaque sorting. So thats out the window.
+    // Second off, something like 90% of the work we do sorting the transparent faces is COMPLETELY useless.
+    // The player is not realistically able to make out per-quad draw order issues on most textures from >~30 blocks away. So all this work to make everything correct, and we lose a potential optimisation, AND gain little to no correctness.
+
+
+
+    // Anyways, this is the process, two main steps:
+    // 1. Perform chunk-wise sorting (resort the draw order of entire CHUNK meshes)
+    // -> This can occur entirely CPU side, as we are deciding simply the order of 
+    //    glDraw() commands. 
+    // -> It is also not too expensive, and is at worst O(log(C)), where C = number of chunks meshed
+    // -> Thus, we can be more broad. This is like the broad phase of a collision detection system
+    //
+    bool transparent_sorted_mismatch = rend.transparent_chunk_meshes.size() != rend.sorted_transparent_coords.size();
+    if (player_crossed_chunk_boundary() ||
+        transparent_sorted_mismatch)
+    {
+        rend.sort_transparent_chunks(player_cam_pos);
+    }
+
+    if(DebugOption::enable_opaque_sorting){
+        bool opaque_sorted_mismatch = rend.opaque_chunk_meshes.size() != rend.sorted_opaque_coords.size();
+        if (player_crossed_chunk_boundary() || opaque_sorted_mismatch) {
+            rend.sort_opaque_chunks(player_cam_pos);
+        }
+    }
+
+    // 2. Perform quad-wise sorting (resort the draw order of EACH QUAD.)
+    // -> This requires a reupload of the EBO to handle the reordered vertices WITHIN a mesh
+    // -> This is more expensive, being around O(log(B)), where B is the number of BLOCKS TOTAL we are re-sorting.
+    // -> Thus, we cannot be as broad. We only do this for a subset of chunks in a small radius around the player.
+    //
+    // -> It is hard to notice individual quads out of order if they are a few chunks away - it is VERY easy to notice
+    //    if the entire CHUNKS draw order is wrong.
+    
+    // The radius of chunks AROUND the players chunk that will have every single mesh resorted 
+    // after a block boundary cross.
+    static constexpr i32 per_quad_resort_chunk_radius = {2};
+    if (player_crossed_block_boundary()){
+        // first, lets just try resorting only the current chunks mesh
+        std::vector<WorldChunkCoord> resort_every_quad_victims{
+            cur_chunk_pos
+        };
+        const auto& R = per_quad_resort_chunk_radius;
+        for (i32 x = -R; x<=R; x++){
+        for (i32 z = -R; z<=R; z++){
+            resort_every_quad_victims.push_back(cur_chunk_pos + ChunkOffset{x,z});
+        }
+        }
+        for (const auto& chunk_coord: resort_every_quad_victims){
+            rend.transparent_chunk_meshes.if_contains(
+                chunk_coord,
+                [&](IndexedMesh& mesh){
+                    mesh.resort_quad_indices(player_cam_pos,false);
+                }
+            );
+        }
+    }
+}
+
 std::size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius){
     // if we come across a chunk which:
     // - has an entry
@@ -60,7 +131,6 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
             while (!writesForMe.empty()){
                 const auto write = writesForMe.top(); writesForMe.pop();
                 if (srcBlocks.tryWrite(write)){
-                    // TODO: add pending writes to queue -> requests and fulfillments
                     chunk_map.pendingWritesSuccessful ++;
                     // NOTE:
                     // We make all adjacent chunks meshes dirty, as a block change has occured
@@ -81,27 +151,26 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
     
     // 2. Apply any NEW pending writes TO OTHER chunks from pwl
     for (const auto& write: newWriteList){
-        // a.) if the TARGET chunk exists, apply the write IMMEDIATELY to the TARGET chunk
+        // a.) if the TARGET chunk IS GENERATED, apply the write IMMEDIATELY to the TARGET chunk
         const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
-        chunk_map.entries.if_contains_else(
-            targetChunkCoord,
-            [&](ChunkEntry& entry){
-                if (entry.block_data.tryWrite(write)){
-                    chunk_map.pendingWritesSuccessful++;
-                    // also mark the target as dirty,
-                    // alongside all its neighbours, since 
-                    // ... since what
-                    mark_neighbours_dirty(targetChunkCoord);
-                }
-                chunk_map.pendingWritesAttempted++;
-            },
-            [&](){
-                // b.) if the TARGET chunk DOESNT exist, create an entry in the pending writes map,
-                // and then enqueue the write.
-                auto* target_queue = chunk_map.pending_writes.get_or_emplace(targetChunkCoord,std::priority_queue<PendingBlockWrite>{});
-                target_queue->push(write);
+        auto* target_entry = chunk_map.entries.try_get(targetChunkCoord);
+        bool target_chunk_is_generated = target_entry && target_entry->state.gen == GenState::done;
+        if (target_entry && target_chunk_is_generated){
+            // if target exists, and is generated, attempt the write
+            if (target_entry->block_data.tryWrite(write)){
+                chunk_map.pendingWritesSuccessful++;
+                // also mark the target as dirty,
+                // alongside all its neighbours
+                mark_neighbours_dirty(targetChunkCoord);
             }
-        );
+            chunk_map.pendingWritesAttempted++;
+        }else{
+            // B -> entry either doesnt exist or is on gen queue, 
+            // regardless we must push the write to the chunks queue 
+            auto* target_queue = chunk_map.pending_writes.get_or_emplace(targetChunkCoord,std::priority_queue<PendingBlockWrite>{});
+            target_queue->push(write);
+
+        }
     }
 }
 

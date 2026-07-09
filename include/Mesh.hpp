@@ -4,11 +4,14 @@
 #include "CoordTypes.hpp"
 #include "Types.h"
 #include "CommonUtils.hpp"
+#include "CommonConcepts.hpp"
 #include "cppslop.hpp"
+#include "ChunkInvariants.hpp"
 
 #include "BufferObjects.hpp"
 #include "Shaders.hpp"
 #include "Vertex.hpp"
+#include "glm/gtx/norm.hpp"
 
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 
@@ -31,21 +34,37 @@ struct MeshBase {
     constexpr static auto PrimitiveType() -> gl::GLenum;
 };
 
+struct QuadIndices{
+    std::array<u32,INDICES_PER_QUAD> arr;
+    auto begin(){return arr.begin();};
+    auto end(){return arr.end();};
+};
+static_assert(c_style_layout<QuadIndices>);
+
 struct IndexedMesh {
     DECL_MOVE_ONLY(IndexedMesh);
     WorldChunkCoord chunkCoord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
-    IndexedMesh(WorldChunkCoord _chunkCoord, std::vector<Vertex> vertices, std::vector<u32> offsets) {
-        chunkCoord = _chunkCoord;
-        IndexedMesh::setupMesh(vertices, offsets);
-    }
+    IndexedMesh(WorldChunkCoord _chunkCoord, std::span<const Vertex> vertices, std::span<const u32> offsets);
 
-    void setupMesh(std::vector<Vertex> vertices, std::vector<u32> offsets);
-    void draw() const;
     inline void unload() noexcept{loaded=false; }
     inline void load() noexcept{loaded=true; }
     inline bool isLoaded()const noexcept{return loaded; }
+
+
+    // =========
+    // cpu side cache of the vertices and offsets, for the purpose of sorting transparent faces
+    // =========
+    std::vector<QuadIndices> ebo_cache; // this has the same byte layout as a regular ebo (std::span<u32>).
+    std::vector<glm::vec3> center_points; 
+
+    // sort the cpu side ebo cache
+    void resort_quad_indices(WorldFloatPos src_world, bool near_to_far=false);
+
+    void setup_mesh(std::span<const Vertex> vertices, std::span<const u32> offsets);
+    void reupload_indices(std::span<const QuadIndices> new_offsets);
+    void draw() const;
 
     i32             offset_count{ 0 };
     i32             vertex_count{ 0 };

@@ -20,7 +20,7 @@
     X(STONE_BLOCK, .opacity = 1.0f)      \
     X(WATER_BLOCK, .opacity = 0.6f)      \
     X(OAK_LOG, .opacity = 1.0f)          \
-    X(OAK_LEAF, .opacity = 1.0f) 
+    X(OAK_LEAF, .opacity = 0.8f) 
 
 // HACK: for the time being set OAK_LEAF to 0% transparency as i fix up some issues with pending writes
 

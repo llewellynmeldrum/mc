@@ -39,6 +39,7 @@
 using namespace glm;
 namespace IG = ImGui;  // namespace alias for convinience
 
+f32 g_UI_SCALE = 1.0f;
 std::vector<WindowConfig> win_configs;
 
 
@@ -84,14 +85,6 @@ void DebugUI::update() {
 }
 
 void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
-//    inline bool showGenState                    = ON;
-//    inline bool outline_neighbour_boundaries    = ON;
-//    inline bool fill_neighbour_boundaries       = ON;
-//    inline bool fill_all_chunk_boundaries       = OFF;
-//    inline bool outline_all_chunk_boundaries    = ON;
-//    inline bool showDebugUI                     = ON;
-//    inline bool HIDE_AIR_CHUNKS                 = OFF;
-//    inline bool HIDE_CLEAN_CHUNKS               = OFF;
     self.setAlpha(0.9f);
     self.setup();
     self.setSize(UVSize{0.4,0.4});
@@ -114,9 +107,11 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
             window.checkbox("Hide Clean Chunks", &DebugOption::HIDE_CLEAN_CHUNKS);
             window.slider<u8>("Boundary fill opacity", &DebugOption::ChunkDebugFillOpacity, 0, 255);
             window.slider<f32>("Boundary outline opacity",&DebugOption::ChunkDebugOutlineOpacity, 0.0f, 1.0f);
+            window.slider<f32>("Cam vertical fov",&DebugOption::player_cam_vfov, 10.0f, 90.0f);
         });
     });
 }
+
 void drawLogWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
@@ -143,67 +138,144 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
     });
 }
 
+inline ImColor stroke_color{0,0,0,255};
+inline ImColor fill_color{255,255,255,255};
+
+inline bool enable_stroke{false};
+inline bool enable_fill{true};
+
+inline f32 font_scale {1.0f};
+
+
+struct DrawContext{
+    ImGuiIO& io = IG::GetIO();
+    ImDrawList* d = IG::GetForegroundDrawList();
+    ImVec2 screen_size = io.DisplaySize;
+    static inline ImU32 fill(){
+        if (enable_fill) return ImU32(fill_color);
+        else return 0x00'00'00'00;
+    }
+    static inline ImU32 stroke(){
+        if (enable_stroke) return ImU32(stroke_color);
+        else return 0x00'00'00'00;
+    }
+    inline f32 width(){
+        return screen_size.width();
+    }
+    inline f32 height(){
+        return screen_size.height();
+    }
+    static inline f32 font_size(){
+        return font_scale * 13.0f;
+    }
+};
+void draw_rect(ImVec2 tl_pos, ImVec2 size, f32 thick=1.0f){
+    DrawContext ctx;
+    ImVec2 min = tl_pos;
+    ImVec2 max = tl_pos+size;
+    ctx.d->AddRect(min, max, DrawContext::stroke(),0.0f,0,thick);
+    ctx.d->AddRectFilled(min, max, DrawContext::fill(),0.0f,0);
+}
+
+void draw_text(std::string text, ImVec2 pos, bool left_align=true){
+    DrawContext ctx;
+    // if left_align = false, center is true
+    ctx.d->AddText(ctx.io.FontDefault, DrawContext::font_size(), pos, DrawContext::stroke(), text.c_str());
+}
+
+void set_stroke_rgba( u8 r, u8 g, u8 b, u8 a=255){
+    enable_stroke = true;
+    stroke_color = {r,g,b,a};
+}
+void set_fill_rgba( u8 r, u8 g, u8 b, u8 a=255){
+    enable_fill = true;
+    fill_color = {r,g,b,a};
+}
+
+void draw_line(ImVec2 p1, ImVec2 p2, f32 thick=1.0f){
+    DrawContext ctx;
+    ctx.d->AddLine(p1, p2, DrawContext::stroke(),thick);
+}
+void draw_guides(){
+    DrawContext ctx;
+    auto w = ctx.width();
+    auto h = ctx.height();
+    auto hh = h * 0.5f;
+    auto hw = w * 0.5f;
+    auto old_stroke = stroke_color;
+    set_stroke_rgba(255,0,0);
+    draw_line({0,hh},{w,hh}, 1.0f);
+    draw_line({hw,0},{hw,h}, 1.0f);
+    stroke_color = old_stroke;
+}
+ImVec2 calc_text_size(std::string str){
+    DrawContext ctx;
+    return IG::CalcTextSize(str.c_str()) * font_scale / g_UI_SCALE;
+}
 
 void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
+    // TODO: 
+    // 1. refactor this slightly to make it less horrific and ugly
+    //  - eg. UI::DrawText(str, pos, font_size, bool show_outlines=true)
+    // 2. fix pending writes
     auto io = IG::GetIO();
     auto* d = IG::GetForegroundDrawList();
-    auto display_size = io.DisplaySize;
+    auto screen_size = io.DisplaySize;
+    font_scale = 2.0f;
     if (ctx->paused){
-        d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 64));
-        const char* text = "PAUSED";
-        ScreenPos text_size = IG::CalcTextSize(text) * 2.5f; // default font size
+        set_fill_rgba(20,20,20,64);
+        enable_stroke = false;
+        draw_rect({0,0},screen_size);
+        enable_stroke = true;
 
-        ScreenPos text_pos = ScreenPos(
-            (display_size.x - text_size.x) * 0.5f,
-            (display_size.y - text_size.y) * 0.5f
+        std::string paused_str = "PAUSED";
+        ImVec2 text_size = calc_text_size(paused_str);
+
+        ImVec2 text_pos = ImVec2(
+            (screen_size.x - text_size.x) * 0.5f,
+            (screen_size.y - text_size.y) * 0.5f
         );
 
-        d->AddText(text_pos, IM_COL32_WHITE, text);
+        set_stroke_rgba(255,255,255);
+        draw_text(paused_str,text_pos);
     }else if (ctx->chunk_updates_paused){
-        d->AddRectFilled({0,0}, display_size, IM_COL32(20, 20, 20, 6));
-        const char* text = "CHUNK UPDATES PAUSED";
-        ScreenPos text_size = IG::CalcTextSize(text) * 2.5f; // default font size
 
-        ScreenPos text_pos = ScreenPos(
-            (display_size.x - text_size.x) * 0.5f,
-            (display_size.y - text_size.y) * 0.1f
+        set_fill_rgba(20,20,20,16);
+        enable_stroke = false;
+        draw_rect({0,0},screen_size);
+        enable_stroke = true;
+        std::string ch_upd_paused_str = "CHUNK UPDATES PAUSED";
+        ImVec2 text_size = calc_text_size(ch_upd_paused_str);
+
+        ImVec2 text_pos = ImVec2(
+            (screen_size.x - text_size.x) * 0.5f,
+            (screen_size.y - text_size.y) * 0.8f
         );
 
-        d->AddText(text_pos, IM_COL32_WHITE, text);
+        set_stroke_rgba(255,255,255);
+        draw_text(ch_upd_paused_str,text_pos);
     }
-    {
-        constexpr f32 default_font_size = 13.0f;
-        f32 font_scale = 2.0f;
-        f32 font_size = default_font_size * font_scale;
 
-        _notif_logger.log.update();
-        ScreenPos offset = {0, display_size.y * 0.9f};
-        for (const auto& entry: _notif_logger.log){
-            auto& [_, elapsed, msg] = entry;
-            
-            
-            const char* text = msg.c_str();
-            ScreenPos text_size = IG::CalcTextSize(text) * font_scale / ctx->ui.UI_SCALE;
+    _notif_logger.log.update();
+    ImVec2 offset = {0, screen_size.y * 0.9f};
+    for (const auto& entry: _notif_logger.log){
+        auto& [_, __, msg] = entry;
+        ImVec2 text_size = calc_text_size(msg);
 
-//            LOG_DEBUG("text_size:{},{}",text_size.x,text_size.y);
-//            LOG_DEBUG("display_size:{},{}",display_size.x,display_size.y);
-            ScreenPos text_pos = ScreenPos(
-                (display_size.x*0.5f - text_size.x*.5f),
-                (-text_size.y)
-            );
-            text_pos += offset;
-            auto red = IM_COL32(255,0,0,255);
-            auto opacity = static_cast<i32>(std::lerp(0.0f,255.0f,_notif_logger.log.fading_entry_opacity01(entry)));
-            d->AddText(io.FontDefault, font_size, text_pos,IM_COL32(255,255,255,opacity), text);
-
-//            d->AddLine({text_pos.x,0},{text_pos.x,display_size.y},IM_COL32_WHITE);
-//            d->AddLine({0,text_pos.y},{display_size.x,text_pos.y},IM_COL32_BLACK);
-//
-//            d->AddLine(text_pos,text_pos+text_size,red);
-            offset.y -= text_size.y*1.5f; // line spacing
-        }
-
+        ImVec2 text_pos = {
+            (screen_size.x*0.5f - text_size.x*.5f),
+            (-text_size.y)
+        };
+        text_pos += offset;
+        auto red = IM_COL32(255,0,0,255);
+        auto opacity01= _notif_logger.log.fading_entry_opacity01(entry);
+        auto opacity = static_cast<i32>(std::lerp(0.0f,255.0f,opacity01));
+        set_stroke_rgba(255,255,255,opacity);
+        draw_text(msg,text_pos);
+        offset.y -= text_size.y*1.5f; // line spacing
     }
+
+//    draw_guides();
 }
 
 
@@ -246,7 +318,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
         const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
 
-        const auto n_chunks_loaded = ctx->rend.opaqueChunkMeshes.size();
+        const auto n_chunks_loaded = ctx->rend.opaque_chunk_meshes.size();
         const auto n_chunks_meshing = ctx->n_meshing;
         const auto n_chunks_genning = ctx->n_generating;
 
@@ -346,14 +418,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     mesh_clean = entry.is_mesh_clean();
 
                     
-                    ctx->rend.opaqueChunkMeshes.if_contains(
+                    ctx->rend.opaque_chunk_meshes.if_contains(
                         ch_pos,
                         [&](Mesh& mesh){
                             opaque_empty = mesh.vertex_count==0;
                             opaque_loaded = mesh.isLoaded();
                         }
                     );
-                    ctx->rend.transparentChunkMeshes.if_contains(
+                    ctx->rend.transparent_chunk_meshes.if_contains(
                         ch_pos,
                         [&](Mesh& mesh){
                             transp_empty = mesh.vertex_count==0;
@@ -397,8 +469,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto loaded_opaque  =0uz;
             auto total_trans    =0uz;
             auto loaded_trans   =0uz;
-            ctx->rend.opaqueChunkMeshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_opaque](auto& mesh){loaded_opaque++;});
-            ctx->rend.transparentChunkMeshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_trans](auto& mesh){loaded_trans++;});
+            ctx->rend.opaque_chunk_meshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_opaque](auto& mesh){loaded_opaque++;});
+            ctx->rend.transparent_chunk_meshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_trans](auto& mesh){loaded_trans++;});
             UI::Text("Loaded opaque:{}/{}",loaded_opaque,total_opaque);
             UI::Text("Loaded trans:{}/{}",loaded_trans,total_trans);
         });
@@ -536,11 +608,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                 
             IG::Separator();
 
-            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->genJobsThisFrame, ctx->rb_genJobsAdded);
-            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->genResultsThisFrame,ctx->rb_genJobsAdded);
+            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->gen_jobs_this_frame, ctx->rb_genJobsAdded);
+            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->gen_res_this_frame,ctx->rb_genJobsAdded);
 
-            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.meshJobQueue,ctx->meshJobsThisFrame,ctx->rb_meshJobsAdded);
-            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->meshResultsThisFrame,ctx->rb_meshResultsAdded);
+            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.meshJobQueue,ctx->mesh_jobs_this_frame,ctx->rb_meshJobsAdded);
+            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->mesh_results_this_frame,ctx->rb_meshResultsAdded);
 
             });
         window.section("Padding:",[ctx]{
@@ -552,9 +624,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
 
     });
 }
-
 void DebugUI::init(GLFWwindow* _win_ptr) {
     this->win_ptr = _win_ptr;
+    g_UI_SCALE = UI_SCALE;
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(win_ptr, true);
     // Second param install_callback=true will install GLFW callbacks and chain to existing ones.

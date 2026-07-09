@@ -39,6 +39,7 @@ struct BlockPalette {
     BlockType river_bed = BlockType::DIRT_BLOCK;  // i.e stone for plains, stone for desert.
     BlockType wood_log = BlockType::OAK_LOG;
     BlockType leaves = BlockType::OAK_LEAF;
+    BlockType air = BlockType::AIR;
 } palette;
 
 
@@ -138,9 +139,30 @@ u32 pcg_hash(u32 input) {
 u32 pcg_hash(std::pair<i32, i32> both) {
     return (pcg_hash(both.first) << 4) ^ pcg_hash(both.second);
 }
-f32 wpos_seeded_rand01(i32 wx, i32 wz){
+u32 pcg_hash(WorldBlockPos v) {
+    return (pcg_hash(v[0]) << 4) ^ (pcg_hash(v[1]) << 5) ^ pcg_hash(v[2]) ;
+}
+enum struct RandOffset: u32{
+    None = 0,
+    TreeHeight = 69,
+    TreeJitter = 123,
+    TreeDecay = 1337,
+};
+// We have named values to offset the seed of the rng by, 
+// st. we can get world position deterministic RNG, but make it vary for different feature types
+f32 wpos_seeded_rand01(i32 wx, i32 wz, RandOffset offset=RandOffset::None){
     static constexpr u32 big_prime = 120'067;
-    u32 hash = pcg_hash({wx, wz});
+    u32 offset_hash = pcg_hash(std::to_underlying(offset));
+    u32 hash = offset_hash + pcg_hash({wx, wz});
+    hash = hash%big_prime;
+    f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
+    assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);
+    return zero_to_one;
+}
+f32 wpos_seeded_rand01(WorldBlockPos wpos, RandOffset offset=RandOffset::None){
+    static constexpr u32 big_prime = 120'067;
+    u32 offset_hash = pcg_hash(std::to_underlying(offset));
+    u32 hash = offset_hash + pcg_hash(wpos);
     hash = hash%big_prime;
     f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
     assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);
@@ -293,21 +315,64 @@ static GenResult generateChunk(GenJob job){
     });
     // 4. TREES:
     {
-        auto place_tree  = [chunk_coord, try_place_blocks](i32 cx,i32 cy, i32 cz){
+        auto place_tree  = [chunk_coord, try_place_blocks, try_place_block](i32 cx,i32 cy, i32 cz){
             auto wpos = toWorldBlockPos(chunk_coord, {cx,cy,cz});
-//            log_to_chunk(chunk_coord,"Placing tree @{}",wpos);
+            f32 log_height01 = wpos_seeded_rand01(wpos, RandOffset::TreeHeight);
+            static constexpr i32 log_height_min = 5;
+            static constexpr i32 log_height_max = 8;
+            i32 log_height = std::round(std::lerp(log_height_min,log_height_max,log_height01));
             try_place_blocks(
                 OverwritePolicy::OnlyAir, 
                 wpos, 
-                wpos + BlockOffset{1,5,1}, 
+                wpos + BlockOffset{1,log_height+1,1}, 
                 palette.wood_log
             );
-            try_place_blocks(
-                OverwritePolicy::OnlyAir, 
-                wpos + BlockOffset{-1,4,-1}, 
-                wpos + BlockOffset{2,6,2}, 
-                palette.leaves
-            );
+            std::vector<BlockOffset> leaf_offsets;
+
+            static constexpr auto TREE_DECAY_CHANCE = 0.75f;
+            // y= LH -2,LH-1 get a full, 5x5 square. 
+            // the corners have a 25% chance of spawning
+            for (auto y = -2; y<=-1; y++){
+                for (auto x = -2; x<=2; x++){
+                    for (auto z = -2; z<=2; z++){
+                        bool corner = std::abs(x) + std::abs(z) == 4;
+                        bool should_place = true;
+                        if (corner){
+                            auto corner_wpos = wpos + BlockOffset{x,log_height+y,z};
+                            f32 roll = wpos_seeded_rand01(corner_wpos, RandOffset::TreeDecay);
+
+                            should_place = (roll > TREE_DECAY_CHANCE);
+                        }
+                        if (should_place){
+                            leaf_offsets.emplace_back(x,log_height+y,z);
+                        }
+                    }
+                }
+            }
+            for (auto y = 0; y<=1; y++){
+                for (auto x = -1; x<=1; x++){
+                    for (auto z = -1; z<=1; z++){
+                        bool corner = std::abs(x) + std::abs(z) == 2;
+                        bool should_place = true;
+                        if (corner){
+                            auto corner_wpos = wpos + BlockOffset{x,log_height+y,z};
+                            f32 roll = wpos_seeded_rand01(corner_wpos, RandOffset::TreeDecay);
+
+                            should_place = (roll > TREE_DECAY_CHANCE);
+                        }
+                        if (should_place){
+                            leaf_offsets.emplace_back(x,log_height+y,z);
+                        }
+                    }
+                }
+            }
+            for (const auto& offset: leaf_offsets){
+                try_place_block(
+                    OverwritePolicy::OnlyAir,
+                    wpos + offset,
+                    palette.leaves
+                );
+            }
         };
         const glm::ivec2 chunk_local_min = {0,0};
         const glm::ivec2 chunk_local_max = ivec2{Chunk::Extents.x, Chunk::Extents.z};
@@ -317,12 +382,14 @@ static GenResult generateChunk(GenJob job){
             // 1. find the max roll in a 3x3 area to prevent touching trees
             std::array<f32, 3*3> rolls;
             f32 max_adjacent_roll = 0.0f;
+            // 
             for (i32 x = -1; x<=1; x++){
                 for (i32 z = -1; z<=1; z++){
-                    max_adjacent_roll = std::max(max_adjacent_roll, wpos_seeded_rand01(wx+x,wz+z));
+                    f32 roll = wpos_seeded_rand01(wx+x,wz+z,RandOffset::TreeJitter);
+                    max_adjacent_roll = std::max(max_adjacent_roll, roll);
                 }
             }
-            f32 roll = wpos_seeded_rand01(wx,wz);
+            f32 roll = wpos_seeded_rand01(wx,wz,RandOffset::TreeJitter);
             if (roll < max_adjacent_roll) return;
             if (roll < density * gen_cfg.tree_place_threshold){
                 //log_to_chunk(chunk_coord,"{} -> density:{}, roll:{}", WorldChunkCoord{wx,wz},density,roll);
