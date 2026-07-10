@@ -19,9 +19,10 @@ struct Vertex {
     glm::vec3 overlayColor{ 1.0f };
     i32  face_direction;
     float faceOpacity;
+    i32 block_shape;
 
     static constexpr auto layout() {
-        return VertexLayout<5>{ 
+        return VertexLayout<6>{ 
             .stride = sizeof(Vertex),
             .attrs = {
                make_attr<glm::vec3>(0, offsetof(Vertex, pos)),
@@ -29,6 +30,7 @@ struct Vertex {
                make_attr<glm::vec3>(2, offsetof(Vertex, overlayColor)),
                make_attr<i32>      (3, offsetof(Vertex, face_direction)),
                make_attr<f32>      (4, offsetof(Vertex, faceOpacity)),
+               make_attr<i32>      (5, offsetof(Vertex, block_shape)),
             }, 
         };
     }

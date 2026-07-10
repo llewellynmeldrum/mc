@@ -67,7 +67,7 @@ struct Chunk{
     }
     constexpr inline bool isAllAir()const noexcept{
         for (const auto& block: data){
-            if (!block.isAir()) return false;
+            if (!block.is_air()) return false;
         }
         return true;
     }

@@ -25,7 +25,7 @@ constexpr GLenum ElementBuffer::BufferTarget() {
 constexpr GLenum VertexBuffer::BufferTarget() {
     return GL_ARRAY_BUFFER;
 }
-void ElementBuffer::load(std::span<const u32> indices, i32 offset) {
+void ElementBuffer::load(const_span<u32> indices, i32 offset) {
     this->bind();
     assert(indices.size() != 0);
     glBufferData(BufferTarget(), indices.size_bytes(), indices.data() + offset, BufferUsage());
@@ -47,7 +47,7 @@ void VertexBuffer::load_bytes(const void* data, std::size_t size_bytes,gl::GLenu
     glBufferData(BufferTarget(), size_bytes, data, usage);
 }
 
-void VertexArray::apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs) {
+void VertexArray::apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs) {
     int i = 0;
     for (const auto& attr : attrs) {
         if (attr.is_integer) {

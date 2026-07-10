@@ -1,16 +1,17 @@
 #include "ChunkConcurrency.hpp"
 #include "ChunkMap.hpp"
+#include "TextureAtlas.hpp"
 
 MeshJob::MeshJob(
         WorldChunkCoord key, 
-        const TextureAtlas* _atlas, 
+        const_span<TextureAtlas*> _atlas_list, 
         ChunkMap* chunk_map,
         const ChunkEntry* entry
     ):
         meshRevisionID(entry->target_mesh_revision),
         chunkCoord(key),
         blocks(&entry->block_data),
-        atlas(_atlas)
+        atlas_map(_atlas_list)
 {
     for (const auto& [dir, dir_idx]: eachDirIndex2D){
         const auto& neighbour_coord = entry->neighbours[dir_idx];

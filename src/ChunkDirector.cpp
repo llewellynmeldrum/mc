@@ -35,6 +35,10 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
         if (player_crossed_chunk_boundary() || opaque_sorted_mismatch) {
             rend.sort_opaque_chunks(player_cam_pos);
         }
+        bool cutout_sorted_mismatch = rend.cutout_chunk_meshes.size() != rend.sorted_cutout_coords.size();
+        if (player_crossed_chunk_boundary() || cutout_sorted_mismatch) {
+            rend.sort_cutout_chunks(player_cam_pos);
+        }
     }
 
     // 2. Perform quad-wise sorting (resort the draw order of EACH QUAD.)

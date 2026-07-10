@@ -22,7 +22,7 @@ constexpr GLenum IndexedMesh::PrimitiveType() {
     return GL_TRIANGLES;
 }
 
-IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, std::span<const Vertex> vertices, std::span<const u32> offsets) :
+IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets) :
     chunkCoord(_chunkCoord)
 {
     IndexedMesh::setup_mesh(vertices, offsets);
@@ -104,12 +104,12 @@ void IndexedMesh::resort_quad_indices(WorldFloatPos src_world, bool near_to_far)
     center_points = std::move(new_center_points);
     reupload_indices(ebo_cache);
 }
-void IndexedMesh::reupload_indices(std::span<const QuadIndices> new_indices){
+void IndexedMesh::reupload_indices(const_span<QuadIndices> new_indices){
     vao.bind();
     ebo.load(new_indices.size_bytes(), new_indices.data());
     vao.unbind();
 }
-void IndexedMesh::setup_mesh(std::span<const Vertex> vertices, std::span<const u32> indices) {
+void IndexedMesh::setup_mesh(const_span<Vertex> vertices, const_span<u32> indices) {
     offset_count = indices.size();
     vertex_count = vertices.size();
     vao.bind();

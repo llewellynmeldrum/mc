@@ -17,57 +17,178 @@
 #include "LM.hpp"
 #include <ranges>
 #include <tuple>
+#include <utility>
 #include "Concurrency.hpp"
 
 #include "Logger.hpp"
 #include "Assertion.hpp"
 
+#include "Vertex.hpp"
 
 #include "tracy/Tracy.hpp"
-using std::views::enumerate;
+#include "ChunkMesher_RawData.hpp"
 
 
-extern const std::array<std::array<Vertex, VTX_PER_QUAD>, FACES_PER_CUBE> cube_vertices;
-extern const std::array<u32, INDICES_PER_QUAD>                   quad_indices;
+struct BlockMeshContext{
+    u32& vtx_count;
+    std::vector<Vertex>& out_vertices;
+    std::vector<u32>& out_indices;
+    const Block& block;
+    const ChunkBlockPos& chunk_local_block;
+    const TextureAtlas* atlas;
+    const ChunkStore& blocks;
+    const_span<std::optional<ChunkSlice2D>> surrounding_chunks;
+};
 
-static const auto& get_default_face_vertices(Direction dir) {
-    return cube_vertices[static_cast<i8>(dir)];
+std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext& ctx);
+
+
+const auto& get_cross_quad_data(BlockShape shape, i8 idx) {
+    return cross_vtx::quads[idx];
+}
+const auto& get_cube_quad_data(BlockShape shape, Direction dir) {
+    return cube_vtx::quads[std::to_underlying(dir)];
 }
 
 
-std::array<Block, DirectionCount> get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block);
+template<BlockShape block_shape>
+void make_quad_vertices(std::vector<Vertex>& out_vertices, f32 quad_opacity, QuadVertexData quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
+    for (const auto& [idx, vtx] : std::views::enumerate(quad_vertices)) {
+        using VertexPos = decltype(Vertex::pos);
+        VertexPos chunk_offsetted_vtx_pos =
+            static_cast<VertexPos>(vtx.pos)
+            +
+            static_cast<VertexPos>(chunk_local.raw());
+        if constexpr(block_shape == BlockShape::CROSS){
+            out_vertices.emplace_back(
+                chunk_offsetted_vtx_pos,
+                uvs[idx], 
+                glm::vec3{1.0f,1.0f,1.0f}, 
+                static_cast<i32>(5), //HACK: until we make the separate shader, this gives us zero shadow. See vs.glsl
+                quad_opacity,
+                std::to_underlying(block_shape)
+            );
+        }else if constexpr(block_shape == BlockShape::CUBE){
+            out_vertices.emplace_back(
+                chunk_offsetted_vtx_pos,
+                uvs[idx], 
+                glm::vec3{1.0f,1.0f,1.0f}, 
+                static_cast<i32>(face_idx), //HACK: until we make the separate shader, this gives us zero shadow. See vs.glsl
+                quad_opacity,
+                std::to_underlying(block_shape)
+            );
 
-
-
-// TODO: Implement transperant meshing.
-// Correct transperancy requires that the transparent meshes are 
-// rendered furthest to closest.
-// But not only does this have to happen in chunk order, it also has to happen in block order.
-//
-// TODO: 
-// The draw order must be:
-//  1. Enable depth mask, disable blending, enable backface culling
-//  2. Draw opaque meshes 
-//  3. Disable depth mask, enable blending, disable backface culling
-//  4. draw transperant meshes in sorted order (furthest first)
-//  5. 
-
-template<typename MeshDataType>
-auto meshTypePredicate(ChunkStore& chunk){
-    if constexpr(same_as_nocvref<OpaqueMeshData,MeshDataType>){
-        return [&chunk](auto xyz){
-            auto [x,y,z]=xyz;
-            return chunk.at(x,y,z).isOpaque();
-        };
-    }else{
-        return[&chunk](auto xyz){
-            auto [x,y,z]=xyz;
-            return chunk.at(x,y,z).isTransparent();
-        };
+        }else{
+            out_vertices.emplace_back(
+                chunk_offsetted_vtx_pos,
+                uvs[idx], 
+                glm::vec3{1.0f,1.0f,1.0f}, 
+                static_cast<i32>(idx),
+                quad_opacity,
+                std::to_underlying(block_shape)
+            );
+        }
     }
 }
 template<typename MeshDataType>
-MeshDataType meshChunk(const MeshJob& job){
+auto mesh_type_predicate(ChunkStore& chunk){
+    if constexpr(std::same_as<MeshDataType,OpaqueMeshData>){
+        return [&chunk](auto xyz){
+            auto [x,y,z]=xyz;
+            return chunk.at(x,y,z).is_opaque();
+        };
+    }else if constexpr(std::same_as<MeshDataType,BlendedMeshData>){
+        return[&chunk](auto xyz){
+            auto [x,y,z]=xyz;
+            return chunk.at(x,y,z).is_blended();
+        };
+    }else if constexpr(std::same_as<MeshDataType,CutoutMeshData>){
+        return[&chunk](auto xyz){
+            auto [x,y,z]=xyz;
+            return chunk.at(x,y,z).is_cutout();
+        };
+    }else {
+        static_assert(false,"Unknown mesh type.");
+    }
+}
+
+template<typename MeshDataType>
+void mesh_cube(BlockMeshContext& ctx){
+    const f32 block_opacity = ctx.block.get_opacity();
+    const auto& block = ctx.block;
+    const auto& atlas = ctx.atlas;
+    const auto& chunk_local_block = ctx.chunk_local_block;
+
+    for (const auto& [face_idx, adjacentBlock] : std::views::enumerate(get_surrounding_blocks(ctx))) {
+        const auto faceDir = static_cast<Direction>(face_idx);
+        if constexpr (same_as_nocvref<MeshDataType,OpaqueMeshData>){
+            // for opaque blocks, skip quads which face opaque neighbours
+            if (adjacentBlock.is_opaque()) {
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MeshDataType,BlendedMeshData>){
+            // for transparent blocks, skip quads which face same-block neighbours
+            if (adjacentBlock.type==block.type){
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MeshDataType,CutoutMeshData>){
+            // skip ZERO quads for cutout. All sides always (i think?)
+        }else {
+            static_assert(false, "Unrecognized MeshDataType");
+        }
+
+
+        const auto& quad_vertices = get_cube_quad_data(block.get_shape(),faceDir);
+        const auto& quad_tex_coords = atlas->apply_texture_uvs_cube(block.texture_id(), faceDir, quad_vertices);
+
+        for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
+            i32 mapped_index = ctx.vtx_count + quad_indices[i];
+            ctx.out_indices.push_back(mapped_index);
+        }
+
+        ctx.vtx_count+= quad_vertices.size();
+        make_quad_vertices<BlockShape::CUBE>(ctx.out_vertices, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+    }
+}
+template<typename MeshDataType>
+void mesh_cross(BlockMeshContext ctx){
+    const f32 block_opacity = ctx.block.get_opacity();
+
+    const auto& block = ctx.block;
+    const auto& atlas = ctx.atlas;
+    const auto& chunk_local_block = ctx.chunk_local_block;
+
+
+    const auto directions = {Direction::FORWARD, Direction::BACKWARD};
+
+    for (i8 quad_idx = 0; quad_idx < 2; quad_idx++){
+        const auto& quad_vertices = get_cross_quad_data(block.get_shape(), quad_idx);
+        const auto& quad_tex_coords = atlas->apply_texture_uvs_cross(block.texture_id(), quad_vertices);
+
+        for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
+            i32 mapped_index = ctx.vtx_count + quad_indices[i];
+            ctx.out_indices.push_back(mapped_index);
+        }
+
+        ctx.vtx_count+= quad_vertices.size();
+        make_quad_vertices<BlockShape::CROSS>(ctx.out_vertices, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords);
+    }
+}
+
+template<typename MeshDataType>
+void mesh_shape(BlockShape shape, BlockMeshContext& ctx){
+    switch (ctx.block.get_shape()){
+        case BlockShape::CUBE:
+            mesh_cube<MeshDataType>(ctx);
+            break;
+        case BlockShape::CROSS:
+            mesh_cross<MeshDataType>(ctx);
+            break;
+    }
+}
+
+template<typename MeshDataType>
+MeshDataType mesh_chunk(const MeshJob& job){
     MeshDataType mesh_data{};
     auto& out_indices = mesh_data.indices;
     auto& out_vertices = mesh_data.vertices;
@@ -77,68 +198,63 @@ MeshDataType meshChunk(const MeshJob& job){
     out_indices.reserve(MAX_INDICES_PER_CHUNK);
 
     const WorldBlockPos world_pos = toWorldOrigin(job.chunkCoord);
-    auto chunk = job.blocks;
-    const auto atlas= job.atlas;
+    auto blocks = job.blocks;
+    const auto atlas_map = job.atlas_map;
     const auto& surrounding_chunks = job.surroundingChunks;
 
     u32 vtx_count = 0;
-    for (const auto& [x, y, z] : EachBlockInChunk(meshTypePredicate<MeshDataType>(chunk))) {
+    for (const auto& [x, y, z] : EachBlockInChunk(mesh_type_predicate<MeshDataType>(blocks))) {
         const ChunkBlockPos chunk_local_block = { x, y, z };
-        // TODO: UNUSED ATM
-        const glm::vec3 overlayRBG = {0,0,0}; 
-
-        Block block = chunk[x, y, z];
-        if (block.isAir()) {
+        Block block = blocks[x, y, z];
+        if (block.is_air()) {
             continue;
         }
 
-        const f32 block_opacity = block.getOpacity();
-        auto adjacent_blocks = get_surrounding_blocks(job,chunk_local_block);
-
-        for (const auto& [face_idx, adjacentBlock] : enumerate(adjacent_blocks)) {
-            const auto faceDir = static_cast<Direction>(face_idx);
-            if constexpr (same_as_nocvref<OpaqueMeshData,MeshDataType>){
-                // skip opaque blocks in the opaque meshing function
-                if (adjacentBlock.isOpaque()) {
-                    continue;
-                }
-            }else {
-                // for transparent blocks, skip meshing faces which touch identical neighbours
-                if (adjacentBlock.type==block.type){
-                    continue;
-                }
-            }
-
-
-            const auto& vtx_data = get_default_face_vertices(faceDir);
-            const auto& uv_tex_coords = atlas->remapUVs(block.texture_id(), faceDir, vtx_data);
-
-            for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
-                i32 mapped_index = vtx_count + quad_indices[i];
-                out_indices.push_back(mapped_index);
-            }
-
-            for (const auto& [vertex_idx, vtx] : enumerate(vtx_data)) {
-                decltype(Vertex::pos) chunk_offsetted_vtx_pos =
-                    static_cast<decltype(Vertex::pos)>(vtx.pos)
-                    +
-                    static_cast<decltype(Vertex::pos)>(chunk_local_block.raw());
-                glm::vec2 texture_coords = uv_tex_coords[vertex_idx];
-                out_vertices.emplace_back(
-                    chunk_offsetted_vtx_pos,
-                    texture_coords, 
-                    overlayRBG, 
-                    static_cast<i32>(faceDir),
-                    block_opacity
-                );
-                vtx_count++;
-            }
-        }
+        auto block_shape = block.get_shape();
+        const auto& atlas = atlas_map[std::to_underlying(block_shape)];
+        auto ctx = BlockMeshContext{
+            vtx_count,out_vertices,out_indices,block,chunk_local_block,atlas,blocks,surrounding_chunks
+        };
+        mesh_shape<MeshDataType>(block_shape,ctx);
     }
     return {out_vertices,out_indices};
 }
-std::array<Block, DirectionCount> 
-get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
+
+
+void ChunkMesher::mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue){
+    tracy::SetThreadName("chunk mesher");
+    while (!stopToken.stop_requested()){
+        
+        auto job = in_queue.wait_dequeue();
+
+
+        MeshResult res{job.meshRevisionID, job.chunkCoord};
+        { 
+            ZoneScopedN("transparent_mesh_chunks")
+            res.blended = mesh_chunk<BlendedMeshData>(job); // mandatory copy elision on job i think
+        }
+        { 
+            ZoneScopedN("opaque_mesh_chunks")
+            res.opaque = mesh_chunk<OpaqueMeshData>(job); // mandatory copy elision on job i think
+        }
+        { 
+            ZoneScopedN("opaque_mesh_chunks")
+            res.cutout = mesh_chunk<CutoutMeshData>(job); // mandatory copy elision on job i think
+        }
+
+        { 
+            ZoneScopedN("mesh_await_output")
+            out_queue.wait_emplace(res);
+        }
+    }
+
+}
+
+std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext& ctx) {
+    const auto& block = ctx.block;
+    const auto& atlas = ctx.atlas;
+    const auto& chunk_local_block = ctx.chunk_local_block;
+
     std::array<Block, DirectionCount> res{};
     constexpr glm::ivec3 lo = glm::ivec3(0);
     constexpr glm::ivec3 hi = Chunk::Extents;
@@ -149,12 +265,12 @@ get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
         const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
         
         if (neighbour_inside_my_chunk) [[likely]]{
-            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
+            AT(res,dir_idx) = AT(ctx.blocks,neighbour_block_pos);
         } else [[unlikely]] {
             // The adjacent chunk, if it exists, has our neighbour. else its air
-            bool other_chunk_exists = job.surroundingChunks.at(dir_idx).has_value();
+            bool other_chunk_exists = ctx.surrounding_chunks[dir_idx].has_value();
             if (other_chunk_exists){
-                const auto& other_chunk = job.surroundingChunks[dir_idx].value();
+                const auto& other_chunk = ctx.surrounding_chunks[dir_idx].value();
                 neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
                 AT(res,dir_idx) = AT(other_chunk,neighbour_block_pos);
             }else{
@@ -162,7 +278,6 @@ get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
                 AT(res,dir_idx) = Block(BlockType::AIR);
             }
         }
-
     }
     for (const auto& dir : each_vertical_direction){
         // if neighbour is within 0 - 256, then return that block. It exists in our chunk. It cannot be in another 
@@ -174,165 +289,9 @@ get_surrounding_blocks(const MeshJob& job, ChunkBlockPos chunk_local_block) {
             AT(res,dir_idx) = Block(BlockType::AIR);
             continue;
         }else{
-            // out of bounds       V
-            AT(res,dir_idx) = AT(job.blocks,neighbour_block_pos);
+            AT(res,dir_idx) = AT(ctx.blocks,neighbour_block_pos);
         }
     }
 
-//    for (const auto& [face_dir, neighbour_block_offset] : eachDirOffset) {
-//        const i32   face_dir_idx = static_cast<i32>(face_dir);
-//        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neighbour_block_offset};
-//        const bool neighbour_inside_my_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
-//        const bool neighbour_outside_world = neighbour_block_pos.y>WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
-//        if (neighbour_outside_world) {
-//            AT(res,face_dir_idx) = Block(BlockType::AIR);
-//            continue;
-//        }
-//
-//        // TODO: investigate whether attributes are helping or not here. 
-//        // Likely branch should run ~95% of the time by my math
-//        if (neighbour_inside_my_chunk) [[likely]]{
-//            const auto& p = neighbour_block_pos;
-//            AT(res,face_dir_idx) = AT(job.blocks,neighbour_block_pos);
-//        } else [[unlikely]] {
-//            // The adjacent chunk, if it exists, has our neighbour. else its air
-//            bool other_chunk_exists = job.surroundingChunks.at(face_dir_idx).has_value();
-//            if (other_chunk_exists){
-//                const auto& other_chunk = job.surroundingChunks[face_dir_idx].value();
-//                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
-//                AT(res,face_dir_idx) = AT(other_chunk,neighbour_block_pos);
-//            }else{
-//                // treat all blocks of a missing chunk as air
-//                AT(res,face_dir_idx) = Block(BlockType::AIR);
-//            }
-//        }
-//
-//    }
     return res;
 }
-
-void ChunkMesher::meshChunks
-(std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue){
-    tracy::SetThreadName("chunk mesher");
-    while (!stopToken.stop_requested()){
-        
-        auto job = input_queue.wait_dequeue();
-
-
-        MeshResult res{job.meshRevisionID, job.chunkCoord};
-        { 
-            ZoneScopedN("transparent_mesh_chunks")
-            res.transparent = meshChunk<TransparentMeshData>(job); // mandatory copy elision i think
-        }
-        { 
-            ZoneScopedN("opaque_mesh_chunks")
-            res.opaque = meshChunk<OpaqueMeshData>(job); // mandatory copy elision i think
-        }
-
-        { 
-            ZoneScopedN("mesh_await_output")
-            output_queue.wait_emplace(res);
-        }
-    }
-
-}
-// clang-format off
-// 
-static constexpr glm::vec3 NNN{0.0,0.0,0.0};
-static constexpr glm::vec3 NPN{0.0, 1.0,0.0};
-static constexpr glm::vec3 NNP{0.0,0.0, 1.0};
-static constexpr glm::vec3 PNN{ 1.0,0.0,0.0};
-static constexpr glm::vec3 PPN{ 1.0, 1.0,0.0};
-static constexpr glm::vec3 PNP{ 1.0,0.0, 1.0};
-static constexpr glm::vec3 NPP{0.0, 1.0, 1.0};
-static constexpr glm::vec3 PPP{ 1.0, 1.0, 1.0};
-using Face = std::array<Vertex,VTX_PER_QUAD>;
-constexpr std::array<std::array<Vertex,VTX_PER_QUAD>, FACES_PER_CUBE> cube_vertices = {
-    // Direction::forward
-    Face{
-        Vertex{PNN,glm::vec2(0,1),glm::vec3(1.0f),0},
-        Vertex{NNN,glm::vec2(1,1),glm::vec3(1.0f),0},
-        Vertex{NPN,glm::vec2(1,0),glm::vec3(1.0f),0},
-        Vertex{PPN,glm::vec2(0,0),glm::vec3(1.0f),0},
-    },
-    // Direction::Backward
-    Face{
-        Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),1},
-        Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
-        Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
-        Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),1},
-    },
-    // Direction:: Left
-    Face{
-        Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),2},
-        Vertex{NNP,glm::vec2(1,1),glm::vec3(1.0f),2},
-        Vertex{NPP,glm::vec2(1,0),glm::vec3(1.0f),2},
-        Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),2},
-    },
-
-    // Direction::Right
-    Face{
-        Vertex{PNP,glm::vec2(0,1),glm::vec3(1.0f),3},
-        Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),3},
-        Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),3},
-        Vertex{PPP,glm::vec2(0,0),glm::vec3(1.0f),3},
-    },
-    // Direction::Down
-    Face{
-        Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),4},
-        Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),4},
-        Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),4},
-        Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),4},
-    },
-    // Direction::Up
-    Face{
-        Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),5},
-        Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),5},
-        Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),5},
-        Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),5},
-    },
-};
-// NOTE: I forgot how this works once so im writing it out here properly so i cant forget again
-// We use an index buffer, which is basically just a memory conscious way to define the 'order' of vertices in some 
-// set of triangles.
-// ---
-// The vertices we defined in the `cube_vertices` array contains each corner of each quad that forms a cube.
-// ---
-// For each of these quads, or `Face`'s, the corners are in the following order:
-// (CCW winding:)
-//   3   <━━    2
-//   ┏━━━━━━━━━━┓
-//   ┃ ╲        ┃
-//  ┃┃   ╲      ┃ Λ
-//  V┃     ╲    ┃ ┃
-//   ┃       ╲  ┃
-//   ┗━━━━━━━━━━┛
-//   0   ━━>    1
-//---
-// (In case the unicode is weird, the bottom left=0, bottom right=1, top right=2, and top left=3)
-// 
-//
-// The INDICES that we define below describe TWO triangles, which make up our 'unit quad' so to speak.
-// The first 3 vertices define the bottom left triangle ( 3, 0, 1 ), and the latter 3 define the bottom right.
-// The last connection is implied by openGL spec, i.e it is assumed that the last vertex connects to the first, importantly FOR EACH TRIANGLE. Not for each quad, FOR EACH TRIANGLE.
-//
-// First triangle (bot left)
-// 3 ━━> 0 ━━> 1 ┅┅> 3
-//               ^
-//            (implied)
-//
-// Second triangle (top right)
-// 1 ━━> 2 ━━> 3 ┅┅> 1
-//               ^
-//            (implied)
-//
-// NOTE: 
-// Important stuff summary:
-// -> indices 0,1,2,3 describe corners
-// -> Winding order is CCW for the triangles, and also for the indices.
-// -> quad_indices describes two SEPARATE triangles.
-//
-constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
-    { 3, 0, 1, 1, 2, 3,},
-};
-static_assert(cube_vertices.size()==6);

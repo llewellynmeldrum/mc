@@ -37,11 +37,11 @@ struct VertexArray {
 
     template <std::size_t AttrCount>
     void apply_layout(const VertexLayout<AttrCount>& layout) {
-        using VertexAttrSpan = std::span<const VertexAttribute, AttrCount>;
+        using VertexAttrSpan = const_span<VertexAttribute, AttrCount>;
         apply_layout_impl(layout.stride, VertexAttrSpan(layout.attrs));
     }
 
-    void apply_layout_impl(i32 stride, std::span<const VertexAttribute> attrs);
+    void apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs);
     u32  id;
 };
 
@@ -69,7 +69,7 @@ struct VertexBuffer {
 
 
     template<typename T>
-    void load(std::span<const T>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
+    void load(const_span<T>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
         const void* data = static_cast<const void*>(c.data() + offset);
         load_bytes(data, c.size_bytes(), usage);
     }
@@ -103,7 +103,7 @@ struct ElementBuffer {
     void unbind() const;
     void destroy();
 
-    void load(std::span<const u32> indices, i32 offset = 0);
+    void load(const_span<u32> indices, i32 offset = 0);
     void load(std::size_t size, const void* indices_ptr, i32 offset=0);
 
     constexpr static gl::GLenum BufferUsage();

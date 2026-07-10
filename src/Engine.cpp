@@ -10,6 +10,8 @@
 #include "CoordTypes.hpp"
 #include "DebugFormat.hpp"
 #include "CoordIteration.hpp"
+#include "Renderer.hpp"
+#include "TextureAtlas.hpp"
 
 #include "Engine.hpp"
 
@@ -212,9 +214,12 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
 
         assert(entry);
         if (director.qualifies_for_mesh_enqueue(*entry)){
+            // BlockShape 
+            static_assert(BlockShape::CUBE == static_cast<BlockShape>(0));
+            static_assert(BlockShape::CROSS == static_cast<BlockShape>(1));
             bool success = meshQ.try_emplace(
                 coord,
-                &rend.atlas,
+                rend.atlas_list,
                 &world.chunkMap,
                 entry
             );
@@ -246,7 +251,7 @@ void Engine::upload_mesh_results(i64 maxUploads){
         return {};
     };
     auto candidate_results = drain_mesh_results(rend.meshers.meshResultQueue,maxUploads);
-    for (const auto& [candidate_revision, chunk_coord, opaque, transparent] : candidate_results){
+    for (const auto& [candidate_revision, chunk_coord, opaque, transparent, cutout] : candidate_results){
         auto log_fail_upload = [&](std::string_view str){
             log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
         };
@@ -263,7 +268,8 @@ void Engine::upload_mesh_results(i64 maxUploads){
 
         if (entry->is_mesh_on_queue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
-                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success! ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+                log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),transparent.vertices.size(),cutout.vertices.size());
                 //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
                 //log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
                 if (rend.opaque_chunk_meshes.contains(chunk_coord)){
@@ -274,6 +280,9 @@ void Engine::upload_mesh_results(i64 maxUploads){
                 } 
                 if (transparent.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(transparent));
+                } 
+                if (cutout.vertices.size()>0){
+                    rend.uploadMesh(chunk_coord, std::move(cutout));
                 } 
                 //log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
             }else{
@@ -411,6 +420,9 @@ void Engine::set_debug_params() {
 }
 
 void Engine::setup() {
+    for (auto& v: block_defs){
+        std::println("{}",v);
+    }
     cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
     set_debug_params();                 
 

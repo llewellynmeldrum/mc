@@ -132,6 +132,12 @@ void ShaderProgram::setUniform(const std::string& name, const f64& val) {
 void ShaderProgram::setUniform(const std::string& name, const i32& val) {
     glUniform1i(getUniformLoc(name), val);
 }
+void ShaderProgram::setUniform(const std::string& name, bool val) {
+    glUniform1i(getUniformLoc(name), val);
+}
+void ShaderProgram::setUniform(const std::string& name, std::vector<i32> val) {
+    glUniform1iv(getUniformLoc(name), val.size(), val.data());
+}
 
 i32 ShaderProgram::getUniformLoc(const std::string& name) {
     i32 location = 0;
@@ -142,7 +148,7 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
         check_uniform(name);
 #endif
         auto [iter, inserted ]= uniformLocationsCache.insert({ name, glGetUniformLocation(id, name.c_str()) });
-        //            LOG_DEBUG("Cached unform type of '{} {}'.",pretty_type_name<T>(), name);
+        LOG_DEBUG("Cached unform type of '{}'", name);
         location = iter->second;
     }
     if (location == -1) {

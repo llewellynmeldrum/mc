@@ -14,6 +14,9 @@
 // STD template wrappers
 // ========================
 
+// this should be in the standard library
+template<typename T, size_t E = std::dynamic_extent>
+using const_span = std::span<const T,E>;
 
 template<typename Fn, typename ...Args>
 concept callable_with = std::invocable<Fn, Args...>;

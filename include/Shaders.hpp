@@ -66,6 +66,8 @@ struct ShaderProgram{
     void setUniform(const std::string& name, const glm::vec2& val);
     void setUniform(const std::string& name, const f32& val);
     void setUniform(const std::string& name, const f64& val);
+    void setUniform(const std::string& name, std::vector<i32> val);
+    void setUniform(const std::string& name, bool val);
 
 private:
   bool has_error(i32 param_name);

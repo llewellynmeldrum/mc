@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <ranges>
+#include <utility>
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
@@ -11,12 +14,17 @@
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "World.hpp"
-#include <algorithm>
-#include <ranges>
 #include "LM.hpp"
 
 using namespace gl;
 using namespace glm;
+
+static bool is_mesh_loaded (const Mesh& mesh){
+    return mesh.isLoaded(); 
+};
+static bool is_mesh_non_empty (const Mesh& mesh){ 
+    return mesh.vertex_count>0; 
+};
 
 void Renderer::updateViewport(int x, int y, int w, int h) {
     glViewport(x, y, w, h);
@@ -25,15 +33,26 @@ void Renderer::updateViewport(int x, int y, int w, int h) {
 Renderer::Renderer() {
     prog.setup("shaders/vs.glsl", "shaders/fs.glsl");
     prog.use();
-    prog.setUniform("texture1", (int)0);
+
+    cube_atlas.load_texture("resources/textures/cube_atlas.png");
+    cross_atlas.load_texture("resources/textures/cross_atlas.png");
+
+    atlas_list.push_back(&cube_atlas);
+    atlas_list.push_back(&cross_atlas);
+
+    prog.setUniform(
+        "textures", 
+        std::vector{
+            std::to_underlying(BlockShape::CUBE),
+            std::to_underlying(BlockShape::CROSS)
+        }
+    );
     prog.stop();
     meshers.launch();
 
     dbg_rend.setup();
     line3d_rend.setup();
 
-    enableDepthTesting();
-    enableBackfaceCulling();
 }
 
 void Renderer::enableDepthTesting(){
@@ -64,17 +83,32 @@ void enableDepthMask(){
 void disableDepthMask(){
     glDepthMask(GL_FALSE);
 }
-void Renderer::beginTransparentPass(){
+void Renderer::prepare_transparent_pass(){
     enableDepthTesting();
+    disableDepthMask();
+
+  //  prog.setUniform("u_cutout",false);
 
     enableColorBlending();
-    disableDepthMask();
+    enableBackfaceCulling();
 }
-void Renderer::beginOpaquePass(){
+void Renderer::prepare_opaque_pass(){
     enableDepthTesting();
-
     enableDepthMask();
+
+ //   prog.setUniform("u_cutout",false);
+
     disableColorBlending();
+    enableBackfaceCulling();
+}
+void Renderer::prepare_cutout_pass(){
+    enableDepthTesting();
+    enableDepthMask();
+
+//    prog.setUniform("u_cutout",true);
+
+    disableColorBlending();
+    disableBackfaceCulling();
 }
 
 void Renderer::update_player_cam_frustum_lines(Engine* sim){
@@ -88,6 +122,7 @@ void Renderer::update_player_cam_frustum_lines(Engine* sim){
     player_cam_frustum_lines = make_frustum_lines_for(sim->player_cam.getCullFrustum(),glm::vec4{1,1,1,1});
     player_cam_frustum_lines.append_range(make_frustum_lines_for(sim->player_cam.getViewFrustum(),glm::vec4{1,1,1,0.5}));
 }
+
 void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();
     glEnable(GL_POLYGON_OFFSET_FILL);
@@ -95,7 +130,7 @@ void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView ta
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    beginTransparentPass();
+    prepare_transparent_pass();
     dbg_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
@@ -111,7 +146,7 @@ void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTarge
     line3d_rend.update(cam,lines);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    beginTransparentPass();
+    prepare_transparent_pass();
     line3d_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
@@ -128,28 +163,39 @@ void Renderer::draw_to(Camera& cam, RenderTargetView target){
     target.use();
 
     prog.use();
-    atlas.texture.bind();
+    cube_atlas.texture.bind();
     prog.setUniform("view", cam.getViewMatrix());
     prog.setUniform("proj", cam.getProjectionMatrix());
+    {
+        prepare_opaque_pass();
+        draw_opaque_pass(cam);
 
-        beginOpaquePass();
-        drawOpaque(cam);
+        prepare_cutout_pass();
+        draw_cutout_pass(cam);
 
-        beginTransparentPass();
-        drawTransparent(cam);
+        prepare_transparent_pass();
+        draw_transparent_pass(cam);
 
+    }
     prog.stop();
 
     target.stop();
 
 }
 
-void Renderer::drawTransparent(Camera& cam){
+void Renderer::draw_transparent_pass(Camera& cam){
     draw_meshes(transparent_chunk_meshes,sorted_transparent_coords);
 }
 
-void Renderer::drawOpaque(Camera& cam){
+void Renderer::draw_cutout_pass(Camera& cam){
+    if (DebugOption::enable_opaque_sorting){
+        draw_meshes(cutout_chunk_meshes, sorted_cutout_coords);
+    }else{
+        draw_meshes_unsorted(cutout_chunk_meshes);
+    }
+}
 
+void Renderer::draw_opaque_pass(Camera& cam){
     if (DebugOption::enable_opaque_sorting){
         draw_meshes(opaque_chunk_meshes,sorted_opaque_coords);
     }else{
@@ -162,7 +208,6 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
     static_assert(map_like<slot_map<WorldChunkCoord,Mesh>>);
     using std::views::filter;
     using std::views::transform;
-//    if (sorted_coords.empty() || meshList.size() != sorted_coords.size()){
     if (sorted_coords.empty()){
         draw_meshes_unsorted(mesh_list);
         return;
@@ -170,12 +215,6 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
     assert_eq(mesh_list.size(),sorted_coords.size());
 
 
-    auto is_mesh_loaded = [](const Mesh& mesh){
-        return mesh.isLoaded(); 
-    };
-    auto is_mesh_non_empty = [](const Mesh& mesh){ 
-        return mesh.vertex_count>0; 
-    };
     auto get_mesh_at_coord = [&mesh_list](WorldChunkCoord coord)->const Mesh& {
         return AT(mesh_list,coord); 
     };
@@ -185,40 +224,41 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
             filter(is_mesh_non_empty);
 
     for (const auto& mesh : filtered_meshes) {
-        auto model = mat4(1.0f);
-        const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
-        model = glm::translate(model, chunkFloatWorldPos);
-        prog.setUniform("model", model);
-        mesh.draw();
-        debug.vertex_count += mesh.offset_count;
-        debug.mesh_count++;
-        debug.draw_calls++;
+        draw_mesh(mesh);
     }
 }
+
+void Renderer::draw_mesh(const Mesh& mesh){
+    auto model = mat4(1.0f);
+    const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
+    model = glm::translate(model, chunkFloatWorldPos);
+    prog.setUniform("model", model);
+    mesh.draw();
+    debug.vertex_count += mesh.offset_count;
+    debug.mesh_count++;
+    debug.draw_calls++;
+}
+
 void Renderer::draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList){
     using std::views::filter;
-    using std::views::transform;
 
-    auto is_mesh_loaded = [](const Mesh& mesh){
-        return mesh.isLoaded(); 
-    };
-    auto is_mesh_non_empty = [](const Mesh& mesh){ 
-        return mesh.vertex_count>0; 
-    };
     auto filtered_meshes = meshList |
                         filter(is_mesh_loaded) |
                         filter(is_mesh_non_empty);
 
     for (const auto& mesh : filtered_meshes) {
-        auto model = mat4(1.0f);
-        const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
-        model = glm::translate(model, chunkFloatWorldPos);
-        prog.setUniform("model", model);
-        mesh.draw();
-        debug.vertex_count += mesh.offset_count;
-        debug.mesh_count++;
-        debug.draw_calls++;
+        draw_mesh(mesh);
     }
+}
+
+void Renderer::sort_cutout_chunks(WorldFloatPos cam_pos){
+    // we want nearest -> furthest for early Z culling
+    auto source_chunk = toWorldChunkCoord(cam_pos);
+    using LM::sq_dist;
+    auto closer = [source_chunk](const WorldChunkCoord& lhs, const WorldChunkCoord& rhs){
+        return sq_dist(source_chunk,lhs) < sq_dist(source_chunk,rhs);
+    };
+    sorted_cutout_coords = cutout_chunk_meshes.sorted_keys(closer);
 }
 
 void Renderer::sort_opaque_chunks(WorldFloatPos cam_pos){
@@ -241,9 +281,6 @@ void Renderer::sort_transparent_chunks(WorldFloatPos cam_pos){
 
     sorted_transparent_coords = transparent_chunk_meshes.sorted_keys(further);
     assert(sorted_transparent_coords.size()==transparent_chunk_meshes.size());
-    //BUG: 
-    //Optimizations are disabled and the meshes are not being correctly marked as completed on the mesh queue.
-    // Add a debug ui thing to track the mesh generation of the current mesh. See how that moves
 }
 
 

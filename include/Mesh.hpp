@@ -46,7 +46,7 @@ struct IndexedMesh {
     WorldChunkCoord chunkCoord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
-    IndexedMesh(WorldChunkCoord _chunkCoord, std::span<const Vertex> vertices, std::span<const u32> offsets);
+    IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets);
 
     inline void unload() noexcept{loaded=false; }
     inline void load() noexcept{loaded=true; }
@@ -62,8 +62,8 @@ struct IndexedMesh {
     // sort the cpu side ebo cache
     void resort_quad_indices(WorldFloatPos src_world, bool near_to_far=false);
 
-    void setup_mesh(std::span<const Vertex> vertices, std::span<const u32> offsets);
-    void reupload_indices(std::span<const QuadIndices> new_offsets);
+    void setup_mesh(const_span<Vertex> vertices, const_span<u32> offsets);
+    void reupload_indices(const_span<QuadIndices> new_offsets);
     void draw() const;
 
     i32             offset_count{ 0 };

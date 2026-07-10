@@ -1,3 +1,5 @@
+
+#include "CommonConcepts.hpp"
 #include "TextureAtlas.hpp"
 #include "CommonUtils.hpp"
 #include "glbindingWrapper.hpp"
@@ -9,16 +11,16 @@
 #include "Assertion.hpp"
 
 using namespace glm;
-TextureAtlas::TextureAtlas(const char* tex_img_path):
-    texture(tex_img_path, to_i32(gl::GL_RGBA), { 0, 1, 0, 1 })
-{
-    LOG_DEBUG("Set up texture atlas");
-    spriteCols = texture.pxwidth / this->spriteSize;
-    spriteRows = texture.pxheight / this->spriteSize;
-    abs_sprite_w = spriteSize / (f32)texture.pxwidth;
-    abs_sprite_h = spriteSize / (f32)texture.pxheight;
+
+void TextureAtlas::load_texture(const char* tex_img_path){
+    texture.load(tex_img_path, to_i32(gl::GL_RGBA), { 0, 1, 0, 1 });
+    LOG_DEBUG("Set up texture atlas ({})",tex_img_path);
+    spriteCols = texture.pxwidth / this->sprite_sz_px;
+    spriteRows = texture.pxheight / this->sprite_sz_px;
+    abs_sprite_w = sprite_sz_px / (f32)texture.pxwidth;
+    abs_sprite_h = sprite_sz_px / (f32)texture.pxheight;
 }
-static std::unordered_map<Direction, size_t> directionTexOffset = {
+static std::unordered_map<Direction, size_t> cube_tex_offset_per_direction = {
     // clang-format off
     {Direction::FORWARD, 0},
     {Direction::BACKWARD,0},
@@ -30,20 +32,36 @@ static std::unordered_map<Direction, size_t> directionTexOffset = {
 };
 constexpr const i64 PER_BLOCK_TEX_COUNT = 3;
 
-glm::vec2 TextureAtlas::getTexOffset(i64 tex_idx, Direction dir) const {
-    i64 dir_offset = directionTexOffset[dir];
-    i64 idx = tex_idx * PER_BLOCK_TEX_COUNT + dir_offset;
+glm::vec2 TextureAtlas::get_base_cube_uv(i64 tex_idx, Direction dir) const {
+    i64 offset = cube_tex_offset_per_direction[dir];
+    i64 idx = tex_idx * PER_BLOCK_TEX_COUNT + offset;
     i64 x = idx % spriteCols;
     i64 y = (idx / spriteCols);
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
-// modifies a vector of 6 vertices,
-std::array<vec2, 4> TextureAtlas::remapUVs(i64 texture_idx, Direction dir,
-                                           std::span<const Vertex, 4> vertices) const {
-    //    assert(texture_idx > 0 && texture_idx < 4);
-    std::array<vec2, 4> res;
+glm::vec2 TextureAtlas::get_base_cross_uv(i64 idx) const {
+    i64 x = idx % spriteCols;
+    i64 y = (idx / spriteCols);
+    return { x / (f32)spriteCols, y / (f32)spriteRows };
+}
 
-    vec2 uvmin = getTexOffset(texture_idx, dir);
+QuadUVList TextureAtlas::apply_texture_uvs_cube(i64 texture_idx, Direction dir, const_span<Vertex, 4> vertices) const {
+    vec2 uvmin = get_base_cube_uv(texture_idx, dir);
+    std::array<vec2, 4> res;
+    for (std::size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
+        f32 u = vertices[vtx].txCoords.x;
+        f32 v = vertices[vtx].txCoords.y;
+        u = uvmin.x + u * abs_sprite_w;
+        v = 1 - (uvmin.y + v * abs_sprite_h);
+        res[vtx] = { u, v };
+    }
+    return res;
+}
+
+QuadUVList TextureAtlas::apply_texture_uvs_cross(i64 texture_idx, const_span<Vertex, 4> vertices) const {
+    QuadUVList res;
+
+    vec2 uvmin = get_base_cross_uv(texture_idx);
     for (std::size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
         f32 u = vertices[vtx].txCoords.x;
         f32 v = vertices[vtx].txCoords.y;

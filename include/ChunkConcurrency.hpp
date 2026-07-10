@@ -56,11 +56,11 @@ struct MeshJob{
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
-    const TextureAtlas* atlas;
+    const_span<TextureAtlas*> atlas_map;
 
     MeshJob(
         WorldChunkCoord key, 
-        const TextureAtlas* _atlas, 
+        const_span<TextureAtlas*> _atlas_list, 
         ChunkMap* chunk_map,
         const ChunkEntry* entry
     );
@@ -74,7 +74,12 @@ struct OpaqueMeshData{
     std::vector<u32> indices{};
 };
 
-struct TransparentMeshData{
+struct BlendedMeshData{
+    std::vector<Vertex> vertices{};
+    std::vector<u32> indices{};
+};
+
+struct CutoutMeshData{
     std::vector<Vertex> vertices{};
     std::vector<u32> indices{};
 };
@@ -86,7 +91,8 @@ struct MeshResult{
     std::size_t revisionID;
     WorldChunkCoord chunkCoord;
     OpaqueMeshData opaque;
-    TransparentMeshData transparent;
+    BlendedMeshData blended;
+    CutoutMeshData cutout;
 };
 
 

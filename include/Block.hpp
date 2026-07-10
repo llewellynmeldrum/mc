@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Types.h"
 #include <array>
+#include <print>
 #include <string_view>
 #include <utility>
 
-
+#include "CommonConcepts.hpp"
+#include "Types.h"
 
 // We use an X-macro here to keep the definition of all attributes centralized.
 // It is the most flexible means to do this; later we could even swap to SOA instead of AOS if that is 
@@ -14,13 +15,18 @@
 //
 // Check the definition of `block_defs` array to see an application of this.
 #define BLOCK_TYPE_LIST \
-    X(AIR, .opacity = 0.0f)              \
-    X(DIRT_BLOCK, .opacity = 1.0f)       \
-    X(GRASS_BLOCK, .opacity = 1.0f)      \
-    X(STONE_BLOCK, .opacity = 1.0f)      \
-    X(WATER_BLOCK, .opacity = 0.6f)      \
-    X(OAK_LOG, .opacity = 1.0f)          \
-    X(OAK_LEAF, .opacity = 0.8f) 
+    X(AIR, .rend_layer=BlockRenderLayer::NONE)              \
+    X(DIRT_BLOCK,  .shape=BlockShape::CUBE, .tex_idx=0)       \
+    X(GRASS_BLOCK, .shape=BlockShape::CUBE, .tex_idx=1)      \
+    X(STONE_BLOCK, .shape=BlockShape::CUBE, .tex_idx=2)      \
+    X(WATER_BLOCK, .shape=BlockShape::CUBE, .tex_idx=3, .rend_layer=BlockRenderLayer::BLENDED, .opacity = 0.6f)      \
+    X(OAK_LOG,     .shape=BlockShape::CUBE, .tex_idx=4)          \
+    X(OAK_LEAF,    .shape=BlockShape::CUBE, .tex_idx=5, .rend_layer=BlockRenderLayer::CUTOUT)       \
+    \
+    X(GRASS_TUFT0, .shape=BlockShape::CROSS, .tex_idx=0, .rend_layer=BlockRenderLayer::CUTOUT)       \
+    X(GRASS_TUFT1, .shape=BlockShape::CROSS, .tex_idx=1, .rend_layer=BlockRenderLayer::CUTOUT)       \
+    X(GRASS_TUFT2, .shape=BlockShape::CROSS, .tex_idx=2, .rend_layer=BlockRenderLayer::CUTOUT)       \
+    X(GRASS_TUFT3, .shape=BlockShape::CROSS, .tex_idx=3, .rend_layer=BlockRenderLayer::CUTOUT)       \
 
 // HACK: for the time being set OAK_LEAF to 0% transparency as i fix up some issues with pending writes
 
@@ -31,18 +37,42 @@ enum class BlockType : u8 {
     COUNT,
 };
 
+// Each BlockShape has its own TextureAtlas, and thus its own tex_idx
+enum struct BlockShape: i32{
+    CUBE,
+    CROSS, 
+};
+enum struct BlockRenderLayer : u8{
+    OPAQUE,             // Everything else
+    CUTOUT,             // Contains 0 opacity texels which should be discarded by shader, e.g GLASS, OAK_DOOR
+    BLENDED,            // Blends with background, i.e stained glass
+    NONE,               // Skipped by mesher, e.g AIR
+};
+
 struct BlockDef{
-    const std::string_view name; // defined by macro
-    const BlockType block_type;       // defined by macro
+    const std::string_view name;   // DEFINED BY MACRO
+    const BlockType block_type;    // DEFINED BY MACRO
+    const BlockShape shape{BlockShape::CUBE};
+    const i32 tex_idx{numeric_min<i32>()};
+    const BlockRenderLayer rend_layer{BlockRenderLayer::OPAQUE};
     const f32 opacity{1.0f};
 };
+
 inline constexpr std::array<BlockDef, std::to_underlying(BlockType::COUNT)> block_defs{
-#define X(var, ...) BlockDef {.name=#var, .block_type=BlockType:: var __VA_OPT__(,) __VA_ARGS__},
+#define X(var, ...) BlockDef {.name=#var, .block_type=BlockType:: var __VA_OPT__(,) __VA_ARGS__}, 
     BLOCK_TYPE_LIST
 #undef X
 };
-// i would like to have some list of blocks which contains all of their data, for example:
 
+
+// blocks which are opaque must have opacity = 1.0f, i.e opacity=1 || blended
+#define block_def(var) block_defs[std::to_underlying(BlockType:: var)]
+#define X(var, ...) static_assert(block_def(var).opacity == 1.0f ||                         \
+                                  block_def(var).rend_layer == BlockRenderLayer::BLENDED);
+
+    BLOCK_TYPE_LIST
+#undef X
+#undef block_def
 
 
 
@@ -82,19 +112,34 @@ struct Block {
     // =========
     // Helpers
     // =========
-    constexpr inline i64 texture_id() const noexcept {
-        return idx() - 1;  // this is hacky idk why i have to do this
+    constexpr BlockRenderLayer render_layer() const noexcept {
+        return def().rend_layer;
     }
-    constexpr float getOpacity() const noexcept {
+    constexpr BlockShape shape() const noexcept {
+        return def().shape;
+    }
+
+    constexpr auto texture_id() const noexcept {
+        return def().tex_idx;
+    }
+    constexpr auto get_opacity() const noexcept {
         return def().opacity; 
     }
-    constexpr bool isOpaque() const noexcept {
-        return getOpacity() >= 1.0f;
+    constexpr auto get_shape() const noexcept {
+        return def().shape; 
     }
-    constexpr bool isTransparent() const noexcept {
-        return getOpacity() < 1.0; 
+
+    constexpr auto is_opaque() const noexcept {
+        return def().rend_layer==BlockRenderLayer::OPAQUE;
     }
-    constexpr bool isAir() const noexcept {
+    constexpr auto is_blended() const noexcept {
+        return def().rend_layer==BlockRenderLayer::BLENDED;
+    }
+    constexpr auto is_cutout() const noexcept {
+        return def().rend_layer==BlockRenderLayer::CUTOUT;
+    }
+
+    constexpr auto is_air() const noexcept {
        return type==BlockType::AIR; 
     }
 

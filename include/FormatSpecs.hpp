@@ -164,6 +164,20 @@ struct std::formatter<BlockType>{
     }
 };
 template<>
+struct std::formatter<BlockDef>{
+  constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
+  auto format(const BlockDef& val, std::format_context& ctx)const {
+    return std::format_to(ctx.out(),
+      "BlockDef{{name={}, block_type={}, shape={}, tex_idx={}, rend_layer={}, opacity={}}}",
+      val.name,
+      val.block_type,
+      std::to_underlying(val.shape),
+      val.tex_idx,
+      std::to_underlying(val.rend_layer),
+      val.opacity);
+    }
+};
+template<>
 struct std::formatter<OverwritePolicy>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}

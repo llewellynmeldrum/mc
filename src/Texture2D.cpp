@@ -8,9 +8,7 @@ i64 texture_count = 0;
 
 using namespace glm;
 
-Texture2D::Texture2D(const char* tex_path, 
-                          i32 image_fmt = to_i32(GL_RGB),
-                          vec4 border_color = { 1, 0, 1, 1 }) {
+void Texture2D::load(const char* tex_path, i32 image_fmt, vec4 border_color){
     u8* tex_pixels = stbi_load(tex_path, &pxwidth, &pxheight, &nchannels, 0);
     if (!tex_pixels) {
         LOG_ERROR("Failed to load texture file '{}'.", tex_path);
@@ -21,6 +19,7 @@ Texture2D::Texture2D(const char* tex_path,
 //    LOG_EXPR(pxheight);
 //    LOG_EXPR(nchannels);
 //    LOG_EXPR(tex_pixels);
+    idx = texture_count++;
     Texture2D::init();
     Texture2D::bind();
     Texture2D::setMinifyMode(to_i32(GL_NEAREST));
@@ -34,11 +33,13 @@ Texture2D::Texture2D(const char* tex_path,
     Texture2D::unbind();
 
     stbi_image_free(tex_pixels);
-    idx = texture_count++;
-    LOG_EXPR(idx);
+    LOG_DEBUG("{} bound to texture from {}",idx,tex_path);
+}
+Texture2D::Texture2D(const char* tex_path, i32 image_fmt = to_i32(GL_RGB), vec4 border_color = { 1, 0, 1, 1 }) {
+    load(tex_path, image_fmt, border_color);
 }
 void Texture2D::load_empty(i32 w, i32 h) {
-    glTexImage2D(GL_TEXTURE_2D,0, GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,0 );
+    glTexImage2D(GL_TEXTURE_2D,0, GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,nullptr );
 }
 void Texture2D::bind() {
     glActiveTexture(GL_TEXTURE0 + idx);

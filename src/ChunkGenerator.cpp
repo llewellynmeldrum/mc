@@ -269,6 +269,9 @@ static GenResult generateChunk(GenJob job){
             i32 dist_to_top_block = w_top_block_y - wy;
 
             if (dist_to_top_block<0){ // we are above the top block
+                if (dist_to_top_block == -1){
+                    chunk.set(cx,cy,cz,BlockType::GRASS_TUFT3);
+                }
                 if (wy < gen_cfg.SEA_LEVEL){
                     if(chunk.at(cx,cy,cz)==BlockType::AIR){
                         chunk.set(cx,cy,cz,BlockType::WATER_BLOCK);
