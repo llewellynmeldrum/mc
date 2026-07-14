@@ -3,6 +3,7 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+#include "WorldGen_BiomeClassification.hpp"
 #include "cpp23_ranges.hpp"
 
 #include "ChunkEntry.hpp"
@@ -329,7 +330,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto cl_pos = pos.raw() - 
             glm::vec3{
                 ch_pos.x * Chunk::Extents.x,
-                round_pos.y,
+                0,
                 ch_pos.z * Chunk::Extents.z,
             };
 
@@ -348,6 +349,21 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("ready4gen :{}",ctx->director.ready_for_gen.size());
         UI::Text("ready4mesh:{}",ctx->director.ready_for_mesh.size());
         UI::Separator();
+        auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
+        std::string biome_str = "N/A (no chunk entry)";
+        std::optional<NoiseParams> params;
+        if (cur_chunk_entry){
+            params = cur_chunk_entry->noise[cl_pos.x, cl_pos.z];
+            auto biome = classify_biome(*params);
+            biome_str = std::format("{}", biome);
+            UI::Text("{} topsoil = {}",biome,get_palette(biome).topsoil);
+            UI::Text("Block at cam: {}",cur_chunk_entry->block_data[cl_pos.x,cl_pos.y, cl_pos.z]);
+        }
+        UI::Text("biome: {}",biome_str);
+        UI::Text("H: {:4.2f}", params ? (*params).heat : -1.00f);
+        UI::Text("R: {:4.2f}", params ? (*params).rain : -1.00f);
+        UI::Text("G: {:4.2f}", params ? (*params).grad : -1.00f);
+        UI::Text("C: {:4.2f}", params ? (*params).cont : -1.00f);
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;

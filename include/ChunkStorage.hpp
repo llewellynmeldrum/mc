@@ -84,7 +84,7 @@ public:
         return self.span()[p.x, p.y, p.z];
     }
 
-    inline void set(this auto& self, i16 x, i16 y, i16 z, BlockType bt) {
+    inline void set(this auto& self, i32 x, i32 y, i32 z, BlockType bt) {
         assert(x>=0);
         assert(x<Chunk_Extents.x);
 

@@ -1,4 +1,5 @@
 #pragma once 
+#include "NumericConcepts.hpp"
 #include "Types.h"
 template<typename value_type, std::size_t extentX, std::size_t extentZ>
 struct Array2D{
@@ -22,6 +23,41 @@ struct Array2D{
     }
     decltype(auto) operator[](this auto& self, size_t x, size_t z){
         return self.span()[x,z]; 
+    }
+    auto begin(this auto& self){
+        return self.buf.begin();
+    }
+    auto end(this auto& self){
+        return self.buf.end();
+    }
+};
+
+template<typename value_type>
+struct ArrayList2D{
+    std::size_t extentX{0};
+    std::size_t extentZ{0};
+    std::vector<value_type> buf;
+
+    ArrayList2D(std::size_t _extentX, std::size_t _extentZ):
+        extentX(_extentX),
+        extentZ(_extentZ),
+        buf(_extentX*_extentZ)
+    {}
+    template<typename Vec2>
+        requires is_ivec2<Vec2>
+    ArrayList2D(const Vec2& extents):ArrayList2D(extents[0],extents[1]){}
+
+    decltype(auto) span(this auto& self){
+        return std::mdspan(self.buf.data(),self.extentX, self.extentZ);
+    }
+    decltype(auto) operator[](this auto& self, size_t x, size_t z){
+        return self.span()[x,z]; 
+    }
+    auto begin(this auto& self){
+        return self.buf.begin();
+    }
+    auto end(this auto& self){
+        return self.buf.end();
     }
 };
 

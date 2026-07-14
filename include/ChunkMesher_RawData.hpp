@@ -28,29 +28,29 @@ namespace cross_vtx{
     inline constexpr ShapeQuads<QUADS_PER_CROSS> quads = {
         // Blue 
         Quad{
-            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),0},
-            Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),0},
-            Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),0},
-            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),0},
+            Vertex{NNP,glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{PNN,glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{PPN,glm::vec2(1,0),glm::vec4(0.0f),0},
+            Vertex{NPP,glm::vec2(0,0),glm::vec4(0.0f),0},
         },
         Quad{
-            Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),0},
-            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),0},
-            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),0},
-            Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),0},
+            Vertex{PNN,glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{NNP,glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{NPP,glm::vec2(0,0),glm::vec4(0.0f),0},
+            Vertex{PPN,glm::vec2(1,0),glm::vec4(0.0f),0},
         },
         // Red
         Quad{
-            Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),1},
-            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
-            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
-            Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),1},
+            Vertex{NNN,glm::vec2(0,1),glm::vec4(0.0f),1},
+            Vertex{PNP,glm::vec2(1,1),glm::vec4(0.0f),1},
+            Vertex{PPP,glm::vec2(1,0),glm::vec4(0.0f),1},
+            Vertex{NPN,glm::vec2(0,0),glm::vec4(0.0f),1},
         },
         Quad{
-            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
-            Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),1},
-            Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),1},
-            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
+            Vertex{PNP,glm::vec2(1,1),glm::vec4(0.0f),1},
+            Vertex{NNN,glm::vec2(0,1),glm::vec4(0.0f),1},
+            Vertex{NPN,glm::vec2(0,0),glm::vec4(0.0f),1},
+            Vertex{PPP,glm::vec2(1,0),glm::vec4(0.0f),1},
         },
     };
 }
@@ -68,46 +68,46 @@ namespace cube_vtx{
     inline constexpr ShapeQuads<QUADS_PER_CUBE> quads = {
         // Direction::forward
         Quad{
-            Vertex{PNN,glm::vec2(0,1),glm::vec3(1.0f),0},
-            Vertex{NNN,glm::vec2(1,1),glm::vec3(1.0f),0},
-            Vertex{NPN,glm::vec2(1,0),glm::vec3(1.0f),0},
-            Vertex{PPN,glm::vec2(0,0),glm::vec3(1.0f),0},
+            Vertex{PNN,glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{NNN,glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{NPN,glm::vec2(1,0),glm::vec4(0.0f),0},
+            Vertex{PPN,glm::vec2(0,0),glm::vec4(0.0f),0},
         },
         // Direction::Backward
         Quad{
-            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),1},
-            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
-            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
-            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),1},
+            Vertex{NNP,glm::vec2(0,1),glm::vec4(0.0f),1},
+            Vertex{PNP,glm::vec2(1,1),glm::vec4(0.0f),1},
+            Vertex{PPP,glm::vec2(1,0),glm::vec4(0.0f),1},
+            Vertex{NPP,glm::vec2(0,0),glm::vec4(0.0f),1},
         },
         // Direction:: Left
         Quad{
-            Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),2},
-            Vertex{NNP,glm::vec2(1,1),glm::vec3(1.0f),2},
-            Vertex{NPP,glm::vec2(1,0),glm::vec3(1.0f),2},
-            Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),2},
+            Vertex{NNN,glm::vec2(0,1),glm::vec4(0.0f),2},
+            Vertex{NNP,glm::vec2(1,1),glm::vec4(0.0f),2},
+            Vertex{NPP,glm::vec2(1,0),glm::vec4(0.0f),2},
+            Vertex{NPN,glm::vec2(0,0),glm::vec4(0.0f),2},
         },
 
         // Direction::Right
         Quad{
-            Vertex{PNP,glm::vec2(0,1),glm::vec3(1.0f),3},
-            Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),3},
-            Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),3},
-            Vertex{PPP,glm::vec2(0,0),glm::vec3(1.0f),3},
+            Vertex{PNP,glm::vec2(0,1),glm::vec4(0.0f),3},
+            Vertex{PNN,glm::vec2(1,1),glm::vec4(0.0f),3},
+            Vertex{PPN,glm::vec2(1,0),glm::vec4(0.0f),3},
+            Vertex{PPP,glm::vec2(0,0),glm::vec4(0.0f),3},
         },
         // Direction::Down
         Quad{
-            Vertex{NNN,glm::vec2(0,0),glm::vec3(1.0f),4},
-            Vertex{PNN,glm::vec2(1,0),glm::vec3(1.0f),4},
-            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),4},
-            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),4},
+            Vertex{NNN,glm::vec2(0,0),glm::vec4(0.0f),4},
+            Vertex{PNN,glm::vec2(1,0),glm::vec4(0.0f),4},
+            Vertex{PNP,glm::vec2(1,1),glm::vec4(0.0f),4},
+            Vertex{NNP,glm::vec2(0,1),glm::vec4(0.0f),4},
         },
         // Direction::Up
         Quad{
-            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),5},
-            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),5},
-            Vertex{PPN,glm::vec2(1,1),glm::vec3(1.0f),5},
-            Vertex{NPN,glm::vec2(0,1),glm::vec3(1.0f),5},
+            Vertex{NPP,glm::vec2(0,0),glm::vec4(0.0f),5},
+            Vertex{PPP,glm::vec2(1,0),glm::vec4(0.0f),5},
+            Vertex{PPN,glm::vec2(1,1),glm::vec4(0.0f),5},
+            Vertex{NPN,glm::vec2(0,1),glm::vec4(0.0f),5},
         },
     };
 }

@@ -123,10 +123,9 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
     ranges::copy(generatedBlocks, entry->block_data.begin());
-    #ifdef CHUNK_NOISE_DEBUG
-        ranges::copy(gen_res.moist_noise, entry->moist_noise.begin());
-        ranges::copy(gen_res.temp_noise, entry->temp_noise.begin());
-    #endif
+#ifdef CHUNK_NOISE_DEBUG
+        ranges::copy(gen_res.noise, entry->noise.begin());
+#endif
     update_neighbour_map(chunkCoord);
     update_bounding_boxes_map(chunkCoord);
     mark_neighbours_dirty(chunkCoord,"Neighbour generated");

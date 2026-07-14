@@ -6,6 +6,7 @@
 #include "ChunkInvariants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkNoiseDebug.hpp"
+#include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"
 
@@ -16,7 +17,7 @@
 #include "cppslop.hpp"
 #include "LM.hpp"
 
-#include "ChunkGen_config.hpp"
+#include "WorldGen_Config.hpp"
 
 
 
@@ -27,7 +28,7 @@
 // CONSUMER: Generator Thread
 struct GenJob{
     WorldChunkCoord chunkCoord;
-    GenConfig cfg;
+    const GenConfig& cfg;
 };
 
 // QUEUE: GenResultQueue
@@ -37,10 +38,9 @@ struct GenResult{
     WorldChunkCoord chunkCoord;
     ChunkStore chunkBlocks;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
-    #ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<f32> moist_noise{};
-    PerColumnDebugStore<f32> temp_noise{};
-    #endif // CHUNK_NOISE_DEBUG
+#ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<NoiseParams> noise{};
+#endif 
 };
 
 // QUEUE: MeshJobQueue
@@ -54,10 +54,9 @@ struct MeshJob{
     ChunkStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
     const_span<TextureAtlas*> atlas_map;
-    #ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<f32> moist_noise;
-    PerColumnDebugStore<f32> temp_noise;
-    #endif 
+#ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<NoiseParams> noise;
+#endif 
 
 
     MeshJob(

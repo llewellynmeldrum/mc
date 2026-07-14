@@ -1,6 +1,7 @@
 
 #include <tuple>
 #include <utility>
+#include "DebugOptions.hpp"
 #include "cpp23_ranges.hpp"
 
 #include "tracy/Tracy.hpp"
@@ -44,9 +45,7 @@ struct BlockMeshContext{
     const ChunkStore& blocks;
     const_span<std::optional<ChunkSlice2D>> surrounding_chunks;
 #ifdef CHUNK_NOISE_DEBUG
-    // NOISE DEBUG STOPPED WORKING
-    const PerColumnDebugStore<f32>& moist_noise;
-    const PerColumnDebugStore<f32>& temp_noise;
+    PerColumnDebugStore<NoiseParams> noise{};
 #endif
 };
 
@@ -74,18 +73,21 @@ void make_quad_vertices(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexData 
             ctx.out_vertices.emplace_back(
                 chunk_offsetted_vtx_pos,
                 uvs[idx], 
-                glm::vec3{1.0f,1.0f,1.0f}, 
+                glm::vec4{0.0f}, 
                 static_cast<i32>(5), //HACK: until we make the separate shader, this gives us zero shadow. See vs.glsl
                 quad_opacity,
                 std::to_underlying(block_shape)
             );
         }else if constexpr(block_shape == BlockShape::CUBE){
             #ifdef CHUNK_NOISE_DEBUG
-                constexpr static glm::vec3 CYAN = {40, 55, 225};
-                constexpr static glm::vec3 RED = {255, 55, 55};
-                auto red = (ctx.temp_noise[chunk_local.x,chunk_local.z]) * RED;
-                auto cyan = (ctx.temp_noise[chunk_local.x,chunk_local.z]) * CYAN;
-                auto dbg_noise_overlay = (red + cyan) / 2.0f;
+                glm::vec4 dbg_noise_overlay{0.0f};
+                if (DebugOption::show_noise_debug){
+                    constexpr static glm::vec4 CYAN = {40, 55, 225,255};
+                    constexpr static glm::vec4 RED = {255, 55, 55,255};
+                    auto red = (ctx.noise[chunk_local.x,chunk_local.z].heat) * RED;
+                    auto cyan = (ctx.noise[chunk_local.x,chunk_local.z].rain) * CYAN;
+                    dbg_noise_overlay = (red + cyan) / 2.0f;
+                }
             #endif
             // 0.5-1.0 = 0.0 red to 1.0 red
             // 0.0 = 0.0 red
@@ -97,7 +99,7 @@ void make_quad_vertices(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexData 
                 #ifdef CHUNK_NOISE_DEBUG
                     dbg_noise_overlay,
                 #else 
-                {1.0f,1.0f,1.0f,1.0f},
+                {0.0f,0.0f,0.0f,0.0f},
                 #endif
                 static_cast<i32>(face_idx),
                 quad_opacity,
@@ -108,7 +110,7 @@ void make_quad_vertices(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexData 
             ctx.out_vertices.emplace_back(
                 chunk_offsetted_vtx_pos,
                 uvs[idx], 
-                glm::vec3{1.0f,1.0f,1.0f}, 
+                glm::vec4{0.0f}, 
                 static_cast<i32>(idx),
                 quad_opacity,
                 std::to_underlying(block_shape)
@@ -243,9 +245,9 @@ MeshDataType mesh_chunk(const MeshJob& job){
         const auto& atlas = atlas_map[std::to_underlying(block_shape)];
         auto ctx = BlockMeshContext{
             vtx_count,out_vertices,out_indices,block,chunk_local_block,atlas,blocks,surrounding_chunks
-            #ifdef CHUNK_NOISE_DEBUG
-            ,job.moist_noise,job.temp_noise
-            #endif
+#ifdef CHUNK_NOISE_DEBUG
+            ,job.noise
+#endif
         };
         mesh_shape<MeshDataType>(block_shape,ctx);
     }

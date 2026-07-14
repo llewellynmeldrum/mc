@@ -16,7 +16,7 @@ struct Vertex {
     // which conditionally compiles or something.
     glm::vec3 pos;  // local
     glm::vec2 txCoords;
-    glm::vec3 overlayColor{ 1.0f };
+    glm::vec4 overlayColor;
     i32  face_direction;
     float faceOpacity;
     i32 block_shape;
@@ -27,7 +27,7 @@ struct Vertex {
             .attrs = {
                make_attr<glm::vec3>(0, offsetof(Vertex, pos)),
                make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),
-               make_attr<glm::vec3>(2, offsetof(Vertex, overlayColor)),
+               make_attr<glm::vec4>(2, offsetof(Vertex, overlayColor)),
                make_attr<i32>      (3, offsetof(Vertex, face_direction)),
                make_attr<f32>      (4, offsetof(Vertex, faceOpacity)),
                make_attr<i32>      (5, offsetof(Vertex, block_shape)),

@@ -16,8 +16,7 @@ MeshJob::MeshJob(
         atlas_map(_atlas_list)
 {
 #ifdef CHUNK_NOISE_DEBUG
-    std::ranges::copy(entry->moist_noise.buffer(), this->moist_noise.buffer().begin());
-    std::ranges::copy(entry->temp_noise.buffer(), this->temp_noise.buffer().begin());
+    std::ranges::copy(entry->noise.buffer(), this->noise.buffer().begin());
 #endif 
     for (const auto& [dir, dir_idx]: eachDirIndex2D){
         const auto& neighbour_coord = entry->neighbours[dir_idx];

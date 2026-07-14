@@ -14,6 +14,8 @@ namespace DebugOption{
     inline bool HIDE_CLEAN_CHUNKS               = OFF;
     inline bool enable_opaque_sorting           = OFF;
 
+    inline bool show_noise_debug                = OFF;
+
     inline u8   ChunkDebugFillOpacity           = 38;
     inline f32  ChunkDebugOutlineOpacity        = 0.9f;
     inline i32  compiler_optimisation_level     = 0; 

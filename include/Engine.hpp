@@ -7,12 +7,12 @@
 #include "Input.hpp"
 #include "DebugUI.hpp"
 #include "Renderer.hpp"
+#include "WorldGen_Config.hpp"
 #include "cppslop.hpp"
 #include "Profiler.hpp"
 #include "ChunkDirector.hpp"
 
 #include "World.hpp"
-
 #include "Concurrency.hpp"
 // src/Simulation.cpp
 struct Engine {
@@ -26,7 +26,7 @@ struct Engine {
         rend(),
         fixedCamTarget({0,0},{640,480}),
         ui(),
-        world(),
+        world(default_world_seed),
         director(world.chunkMap)
     {}
     ~Engine() = default;

@@ -1,33 +1,38 @@
 #pragma once 
+#include <algorithm>
+#include <memory>
+#include <print>
+
+#include "Camera.hpp"
 #include "Chunk.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "CoordTypes.hpp"
 #include "glmWrapper.hpp"
-#include <algorithm>
-#include <memory>
-#include <print>
-
-#include "Camera.hpp"
+#include "WorldGen_NoiseGeneration.hpp"
 
 struct World {
-    World() = default;
+    World(i32 _world_seed):
+        world_seed(_world_seed),
+        noise_gen(world_seed),
+        genConfig(noise_gen)
+    {}
+    World() = delete;
     ~World() = default;
     World(World const&) = delete;
     World& operator=(World const&) = delete;
     World(World&&) = delete;
     World& operator=(World&&) = delete;
 
-    ChunkMap chunkMap;
+    const i32 world_seed;
+    const NoiseGenerator noise_gen{default_world_seed};
     GenConfig genConfig;
+    ChunkMap chunkMap;
     inline void setup(){
         chunkMap.launchGenerator();
     }
     ChunkEntry* make_chunk_entry(WorldChunkCoord key);
-    decltype(auto) try_get_chunk_entry(WorldChunkCoord key){
-        return chunkMap.entries.try_get(key);
-    }
 
 
     inline std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist) {

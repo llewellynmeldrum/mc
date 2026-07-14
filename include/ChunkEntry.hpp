@@ -8,6 +8,7 @@
 #include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
 #include "Types.h"
+#include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
 #include "BitwiseOps.hpp"
 #include "glm/vec4.hpp"
@@ -80,10 +81,9 @@ struct ChunkEntry{
     ),
     state(chunkCoord){}
 
-    #ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<f32> moist_noise{};
-    PerColumnDebugStore<f32> temp_noise{};
-    #endif 
+#ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<NoiseParams> noise{};
+#endif 
     AABB bounding_box; 
     std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(N_NEIGHBOURS,std::nullopt);
     Chunk block_data;
