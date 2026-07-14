@@ -1,5 +1,4 @@
 #pragma once
-#include "Types.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -7,7 +6,9 @@
 #include <print>
 #include <unistd.h>
 #include <valarray>
+#include "cpp23_ranges.hpp"
 
+#include "Types.h"
 #include "Assertion.hpp"
 template <class T, size_t Q_SIZE>
 struct MirroredRingBuf {
@@ -47,7 +48,7 @@ struct MirroredRingBuf {
         assert(k <= size());
         auto v = buf;
         // quick select k lowest elements
-        std::ranges::nth_element(v, v.begin() + k);
+        ranges::nth_element(v, v.begin() + k);
         size_t sum = std::accumulate(v.begin(), v.begin() + k, f32(0));
         return sum / k;
     }

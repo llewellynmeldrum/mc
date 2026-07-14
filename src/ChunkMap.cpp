@@ -12,7 +12,7 @@
 #include "Logger.hpp"
 #include <memory>
 #include <optional>
-#include <ranges>
+#include "cpp23_ranges.hpp"
 
 using namespace glm;
 

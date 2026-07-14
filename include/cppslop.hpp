@@ -2,7 +2,7 @@
 
 #include "NumericConcepts.hpp"
 #include "Types.h"
-#include <ranges>
+#include <range/v3/view/cartesian_product.hpp>
 
 // NOTE:
 // I dont like how similar `default` and `delete` look when glazing over classes.
@@ -78,7 +78,7 @@ namespace std{                                                      \
 
 
 
-
+#include "cpp23_ranges.hpp"
 
 
 
@@ -88,8 +88,8 @@ constexpr inline const auto EachInRange(
     i64 x0, i64 x1,
     i64 y0, i64 y1,
     i64 z0, i64 z1) {
-    using std::views::iota;
-    using std::views::cartesian_product;
+    using ranges::views::iota;
+    using ranges::views::cartesian_product;
 
     return cartesian_product(iota(x0,x1), iota(y0,y1), iota(z0,z1));
 }
@@ -98,8 +98,8 @@ constexpr inline const auto EachInRange(
 constexpr inline const auto EachInRange(
     i64 x0, i64 x1,
     i64 z0, i64 z1) {
-    using std::views::iota;
-    using std::views::cartesian_product;
+    using ranges::views::iota;
+    using ranges::views::cartesian_product;
 
     return cartesian_product(iota(x0,x1), iota(z0,z1));
 }
@@ -107,31 +107,31 @@ constexpr inline const auto EachInRange(
 constexpr inline const auto EachInRangeEx(
     i64 x0, i64 x1,
     i64 z0, i64 z1) {
-    using std::views::iota;
-    using std::views::cartesian_product;
+    using ranges::views::iota;
+    using ranges::views::cartesian_product;
 
     return cartesian_product(iota(x0+1,x1), iota(z0+1,z1));
 }
 
 constexpr inline const auto EachInRange(
     i64 x0, i64 x1){
-    using std::views::iota;
+    using ranges::views::iota;
 
     return iota(x0,x1);
 }
 template<typename IntVec3>
 requires is_ivec3<IntVec3>
 constexpr inline const auto EachInRange(IntVec3 min, IntVec3 max){
-    using std::views::iota;
-    using std::views::cartesian_product;
+    using ranges::views::iota;
+    using ranges::views::cartesian_product;
 
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y), iota(min.z,max.z));
 }
 template<typename IntVec2>
 requires is_ivec2<IntVec2>
 constexpr inline const auto EachInRange(IntVec2 min, IntVec2 max){
-    using std::views::iota;
-    using std::views::cartesian_product;
+    using ranges::views::iota;
+    using ranges::views::cartesian_product;
 
     return cartesian_product(iota(min.x,max.x), iota(min.y,max.y));
 }

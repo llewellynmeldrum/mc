@@ -2,8 +2,8 @@
 #include <format>
 #include <concepts>
 #include <map>
-#include <map>
-#include <ranges>
+#include <span>
+#include "cpp23_ranges.hpp"
 #include <memory>
 #include <type_traits>
 #include <string>
@@ -78,7 +78,7 @@ concept is_unique_ptr = is_a_unique_ptr_v<T>;
 
 
 template <typename T>
-concept sequential_container = std::ranges::range<T>;
+concept sequential_container = ranges::range<T>;
 
 //NOTE: We use numeric_limits<T>::lowest(), as floating points types ::min() returns the minimum possible POSITIVE value, which is not what most would expect.
 template<typename T>
@@ -169,7 +169,7 @@ concept map_like = requires(C c){
 };
 
 template <typename C>
-concept array_like = !map_like<C> && std::ranges::contiguous_range<C> && requires(C c){
+concept array_like = !map_like<C> && ranges::contiguous_range<C> && requires(C c){
     {c.size()} -> std::same_as<std::size_t>;
 };
 

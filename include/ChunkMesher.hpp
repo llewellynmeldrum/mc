@@ -6,6 +6,7 @@
 #include "TextureAtlas.hpp"
 #include "cppslop.hpp"
 #include "Assertion.hpp"
+#include <stop_token>
 
 FORWARD_DECL_STRUCT(World)
 struct ChunkMesher {
@@ -22,6 +23,6 @@ struct ChunkMesher {
     Queue<MeshJob> meshJobQueue;
     Queue<MeshResult> meshResultQueue;
 private:
-    ThreadPool mesherThreads{1};
+    ThreadPool mesherThreads{7};
     static void mesh_chunks(std::stop_token stopToken, Queue<MeshJob>& input_queue, Queue<MeshResult>& output_queue);
 };

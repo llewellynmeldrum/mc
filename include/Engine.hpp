@@ -23,8 +23,8 @@ struct Engine {
         input(win.ptr), 
         player_cam({+24.315,+154.162,+71.009}, -38.100,-49.203),
         drone_cam(),
-        fixedCamTarget({0,0},{640,480}),
         rend(),
+        fixedCamTarget({0,0},{640,480}),
         ui(),
         world(),
         director(world.chunkMap)
@@ -41,8 +41,8 @@ struct Engine {
     Input    input;
     Camera   player_cam;
     Camera   drone_cam;
-    TextureTarget fixedCamTarget;
     Renderer rend;
+    TextureTarget fixedCamTarget;
     DebugUI  ui;
     World    world;
     ChunkDirector director;
@@ -85,9 +85,8 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 16;
+    static constexpr i32 RENDER_DIST = 22;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
-    static constexpr u64 WORLD_SEED = 1237;
     
     // =========
     // Meshing 

@@ -1,4 +1,6 @@
 #pragma once 
+#include <functional>
+
 #include "Breakpoints.hpp"
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
@@ -11,8 +13,9 @@
 #include "glm/vec4.hpp"
 #include "Colors01.hpp"
 
+#include "ChunkNoiseDebug.hpp"
+
 #include "Assertion.hpp"
-#include <functional>
 
 FORWARD_DECL_STRUCT(Engine)
 
@@ -77,6 +80,10 @@ struct ChunkEntry{
     ),
     state(chunkCoord){}
 
+    #ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<f32> moist_noise{};
+    PerColumnDebugStore<f32> temp_noise{};
+    #endif 
     AABB bounding_box; 
     std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(N_NEIGHBOURS,std::nullopt);
     Chunk block_data;

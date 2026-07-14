@@ -5,12 +5,12 @@
 #include "stb_image.hpp"
 extern i64 texture_count;
 struct Texture2D {
-    Texture2D(){init();}
-    ~Texture2D(){destroy();}
+    Texture2D()= default;
+    ~Texture2D()= default;
 
     // Loads a specified image into a texture object.
-    void load(const char* tex_path, i32 image_fmt, glm::vec4 border_color);
-    Texture2D(const char* tex_dir, i32 image_fmt, glm::vec4 border_color);
+    void load(const char* tex_path, glm::vec4 border_color, bool has_alpha);
+    Texture2D(const char* tex_path, glm::vec4 border_color, bool has_alpha);
     void bind();
     void unbind();
     void load_empty(i32 w, i32 h) ;
@@ -24,7 +24,6 @@ struct Texture2D {
     u32         idx = 0;
     i32         pxwidth, pxheight, nchannels;
 
-  private:
     void init();
     void destroy();
 

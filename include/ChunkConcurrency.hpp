@@ -5,6 +5,7 @@
 
 #include "ChunkInvariants.hpp"
 #include "ChunkEntry.hpp"
+#include "ChunkNoiseDebug.hpp"
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"
 
@@ -13,19 +14,12 @@
 #include "PendingBlockWrites.hpp"
 #include "glm/gtx/hash.hpp"
 #include "cppslop.hpp"
+#include "LM.hpp"
+
+#include "ChunkGen_config.hpp"
 
 
 
-
-struct GenConfig{
-    i32 SEA_LEVEL = 140;
-    f32 cave_air_threshold = -0.55;
-    i32 cave_y_threshold = 150;
-    i32 MAX_ELEVATION_DELTA = 32;
-    f32 tree_distribution_threshold=0.0f;
-    f32 tree_place_threshold=1.2f;
-    i32 TERRAIN_HEIGHT(){return SEA_LEVEL+16;}
-};
 
 
 // QUEUE: GenJobQueue
@@ -33,7 +27,6 @@ struct GenConfig{
 // CONSUMER: Generator Thread
 struct GenJob{
     WorldChunkCoord chunkCoord;
-    u64 worldSeed;
     GenConfig cfg;
 };
 
@@ -44,6 +37,10 @@ struct GenResult{
     WorldChunkCoord chunkCoord;
     ChunkStore chunkBlocks;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
+    #ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<f32> moist_noise{};
+    PerColumnDebugStore<f32> temp_noise{};
+    #endif // CHUNK_NOISE_DEBUG
 };
 
 // QUEUE: MeshJobQueue
@@ -57,6 +54,11 @@ struct MeshJob{
     ChunkStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
     const_span<TextureAtlas*> atlas_map;
+    #ifdef CHUNK_NOISE_DEBUG
+    PerColumnDebugStore<f32> moist_noise;
+    PerColumnDebugStore<f32> temp_noise;
+    #endif 
+
 
     MeshJob(
         WorldChunkCoord key, 

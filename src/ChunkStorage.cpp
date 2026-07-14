@@ -1,3 +1,5 @@
+#include "cpp23_ranges.hpp"
+
 #include "ChunkStorage.hpp"
 #include "Chunk.hpp"
 #include "CoordIteration.hpp"
@@ -24,11 +26,11 @@ ChunkSlice2D::ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1
 }
 ChunkStore::ChunkStore(const Chunk& chunk){
     buf.resize(CHUNK_SIZE);
-    std::ranges::copy(chunk.data,buf.begin());
+    ranges::copy(chunk.data,buf.begin());
 }
 ChunkStore::ChunkStore(const Chunk* chunk){
     buf.resize(CHUNK_SIZE);
-    std::ranges::copy(chunk->data,buf.begin());
+    ranges::copy(chunk->data,buf.begin());
 }
 ChunkStore::ChunkStore(){
     buf.resize(CHUNK_SIZE);

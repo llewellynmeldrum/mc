@@ -1,3 +1,10 @@
+
+#include <tuple>
+#include <utility>
+#include "cpp23_ranges.hpp"
+
+#include "tracy/Tracy.hpp"
+
 #include "Chunk.hpp"
 #include "CoordIteration.hpp"
 #include "Breakpoints.hpp"
@@ -15,9 +22,6 @@
 #include "Engine.hpp"
 #include "Profiler.hpp"
 #include "LM.hpp"
-#include <ranges>
-#include <tuple>
-#include <utility>
 #include "Concurrency.hpp"
 
 #include "Logger.hpp"
@@ -25,9 +29,10 @@
 
 #include "Vertex.hpp"
 
-#include "tracy/Tracy.hpp"
 #include "ChunkMesher_RawData.hpp"
 
+
+#include "ChunkNoiseDebug.hpp"
 
 struct BlockMeshContext{
     u32& vtx_count;
@@ -38,29 +43,35 @@ struct BlockMeshContext{
     const TextureAtlas* atlas;
     const ChunkStore& blocks;
     const_span<std::optional<ChunkSlice2D>> surrounding_chunks;
+#ifdef CHUNK_NOISE_DEBUG
+    // NOISE DEBUG STOPPED WORKING
+    const PerColumnDebugStore<f32>& moist_noise;
+    const PerColumnDebugStore<f32>& temp_noise;
+#endif
 };
 
 std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext& ctx);
 
 
-const auto& get_cross_quad_data(BlockShape shape, i8 idx) {
-    return cross_vtx::quads[idx];
+const auto& get_cross_quad_data(i8 idx) {
+    return AT(cross_vtx::quads,idx);
 }
-const auto& get_cube_quad_data(BlockShape shape, Direction dir) {
-    return cube_vtx::quads[std::to_underlying(dir)];
+const auto& get_cube_quad_data(Direction dir) {
+    return AT(cube_vtx::quads,std::to_underlying(dir));
 }
 
 
 template<BlockShape block_shape>
-void make_quad_vertices(std::vector<Vertex>& out_vertices, f32 quad_opacity, QuadVertexData quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
-    for (const auto& [idx, vtx] : std::views::enumerate(quad_vertices)) {
-        using VertexPos = decltype(Vertex::pos);
-        VertexPos chunk_offsetted_vtx_pos =
-            static_cast<VertexPos>(vtx.pos)
+void make_quad_vertices(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexData quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
+    using vec3 = glm::vec3;
+    for (const auto& [idx, vtx] : views::enumerate(quad_vertices)) {
+        // Vertex
+        vec3 chunk_offsetted_vtx_pos =
+            static_cast<vec3>(vtx.pos)
             +
-            static_cast<VertexPos>(chunk_local.raw());
+            static_cast<vec3>(chunk_local.raw());
         if constexpr(block_shape == BlockShape::CROSS){
-            out_vertices.emplace_back(
+            ctx.out_vertices.emplace_back(
                 chunk_offsetted_vtx_pos,
                 uvs[idx], 
                 glm::vec3{1.0f,1.0f,1.0f}, 
@@ -69,17 +80,32 @@ void make_quad_vertices(std::vector<Vertex>& out_vertices, f32 quad_opacity, Qua
                 std::to_underlying(block_shape)
             );
         }else if constexpr(block_shape == BlockShape::CUBE){
-            out_vertices.emplace_back(
+            #ifdef CHUNK_NOISE_DEBUG
+                constexpr static glm::vec3 CYAN = {40, 55, 225};
+                constexpr static glm::vec3 RED = {255, 55, 55};
+                auto red = (ctx.temp_noise[chunk_local.x,chunk_local.z]) * RED;
+                auto cyan = (ctx.temp_noise[chunk_local.x,chunk_local.z]) * CYAN;
+                auto dbg_noise_overlay = (red + cyan) / 2.0f;
+            #endif
+            // 0.5-1.0 = 0.0 red to 1.0 red
+            // 0.0 = 0.0 red
+            // 0.5 = 0.0 red
+            // 1.0 = 1.0 red
+            ctx.out_vertices.emplace_back(
                 chunk_offsetted_vtx_pos,
                 uvs[idx], 
-                glm::vec3{1.0f,1.0f,1.0f}, 
-                static_cast<i32>(face_idx), //HACK: until we make the separate shader, this gives us zero shadow. See vs.glsl
+                #ifdef CHUNK_NOISE_DEBUG
+                    dbg_noise_overlay,
+                #else 
+                {1.0f,1.0f,1.0f,1.0f},
+                #endif
+                static_cast<i32>(face_idx),
                 quad_opacity,
                 std::to_underlying(block_shape)
             );
 
         }else{
-            out_vertices.emplace_back(
+            ctx.out_vertices.emplace_back(
                 chunk_offsetted_vtx_pos,
                 uvs[idx], 
                 glm::vec3{1.0f,1.0f,1.0f}, 
@@ -90,6 +116,7 @@ void make_quad_vertices(std::vector<Vertex>& out_vertices, f32 quad_opacity, Qua
         }
     }
 }
+
 template<typename MeshDataType>
 auto mesh_type_predicate(ChunkStore& chunk){
     if constexpr(std::same_as<MeshDataType,OpaqueMeshData>){
@@ -112,33 +139,34 @@ auto mesh_type_predicate(ChunkStore& chunk){
     }
 }
 
-template<typename MeshDataType>
+template<typename MaterialType>
 void mesh_cube(BlockMeshContext& ctx){
     const f32 block_opacity = ctx.block.get_opacity();
     const auto& block = ctx.block;
     const auto& atlas = ctx.atlas;
     const auto& chunk_local_block = ctx.chunk_local_block;
 
-    for (const auto& [face_idx, adjacentBlock] : std::views::enumerate(get_surrounding_blocks(ctx))) {
+    auto surrounding = get_surrounding_blocks(ctx);
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(surrounding)) {
         const auto faceDir = static_cast<Direction>(face_idx);
-        if constexpr (same_as_nocvref<MeshDataType,OpaqueMeshData>){
+        if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
             // for opaque blocks, skip quads which face opaque neighbours
             if (adjacentBlock.is_opaque()) {
                 continue;
             }
-        }else if constexpr(same_as_nocvref<MeshDataType,BlendedMeshData>){
+        }else if constexpr(same_as_nocvref<MaterialType,BlendedMeshData>){
             // for transparent blocks, skip quads which face same-block neighbours
             if (adjacentBlock.type==block.type){
                 continue;
             }
-        }else if constexpr(same_as_nocvref<MeshDataType,CutoutMeshData>){
+        }else if constexpr(same_as_nocvref<MaterialType,CutoutMeshData>){
             // skip ZERO quads for cutout. All sides always (i think?)
         }else {
             static_assert(false, "Unrecognized MeshDataType");
         }
 
 
-        const auto& quad_vertices = get_cube_quad_data(block.get_shape(),faceDir);
+        const auto& quad_vertices = get_cube_quad_data(faceDir);
         const auto& quad_tex_coords = atlas->apply_texture_uvs_cube(block.texture_id(), faceDir, quad_vertices);
 
         for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
@@ -147,10 +175,11 @@ void mesh_cube(BlockMeshContext& ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::CUBE>(ctx.out_vertices, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+        make_quad_vertices<BlockShape::CUBE>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
     }
 }
-template<typename MeshDataType>
+
+template<typename MaterialType>
 void mesh_cross(BlockMeshContext ctx){
     const f32 block_opacity = ctx.block.get_opacity();
 
@@ -161,8 +190,8 @@ void mesh_cross(BlockMeshContext ctx){
 
     const auto directions = {Direction::FORWARD, Direction::BACKWARD};
 
-    for (i8 quad_idx = 0; quad_idx < 2; quad_idx++){
-        const auto& quad_vertices = get_cross_quad_data(block.get_shape(), quad_idx);
+    for (i8 quad_idx = 0; quad_idx < QUADS_PER_CROSS; quad_idx++){
+        const auto& quad_vertices = get_cross_quad_data(quad_idx);
         const auto& quad_tex_coords = atlas->apply_texture_uvs_cross(block.texture_id(), quad_vertices);
 
         for (std::size_t i = 0; i < INDICES_PER_QUAD; i++) {
@@ -171,7 +200,7 @@ void mesh_cross(BlockMeshContext ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::CROSS>(ctx.out_vertices, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords);
+        make_quad_vertices<BlockShape::CROSS>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords);
     }
 }
 
@@ -214,6 +243,9 @@ MeshDataType mesh_chunk(const MeshJob& job){
         const auto& atlas = atlas_map[std::to_underlying(block_shape)];
         auto ctx = BlockMeshContext{
             vtx_count,out_vertices,out_indices,block,chunk_local_block,atlas,blocks,surrounding_chunks
+            #ifdef CHUNK_NOISE_DEBUG
+            ,job.moist_noise,job.temp_noise
+            #endif
         };
         mesh_shape<MeshDataType>(block_shape,ctx);
     }

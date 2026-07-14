@@ -2,11 +2,34 @@
 
 #include "BitwiseOps.hpp"
 #include "CommonConcepts.hpp"
+#include "NumericConcepts.hpp"
 #include "Types.h"
 #include "glm/vec3.hpp"
+#include <random>
 #include <string_view>
 #include <type_traits>
+
+
+
+
 namespace LM {
+
+template<typename T>
+    requires Numeric<T>
+constexpr inline T random(T min = numeric_min<T>(), T max = numeric_max<T>()){
+    auto get_seed = [](){
+        std::random_device rd;
+        auto seed = rd();
+        return ((seed == 0) ? 1uz : seed);
+    };
+    thread_local std::minstd_rand0 gen(get_seed());
+    std::uniform_int_distribution dist{min,max};
+    return dist(gen);
+}
+
+
+
+
 constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
     i32 r = a % b;
     return r<0 ? r+b : r;

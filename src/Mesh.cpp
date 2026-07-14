@@ -1,8 +1,9 @@
 
+#include <memory>
+#include "cpp23_ranges.hpp"
 
 #include "Breakpoints.hpp"
 #include "FormatSpecs.hpp"
-#include <memory>
 #include "Engine.hpp"
 #include "Vertex.hpp"
 #include "Shaders.hpp"
@@ -45,11 +46,11 @@ IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertice
 
     ebo_cache.reserve(n_quads);
     auto range = offsets 
-        | std::views::chunk(INDICES_PER_QUAD) 
-        | std::views::transform(
+        | views::chunk(INDICES_PER_QUAD) 
+        | views::transform(
             [](auto&& rg){
                 QuadIndices q;
-                std::ranges::copy(rg,q.arr.begin());
+                ranges::copy(rg,q.arr.begin());
                 return q;
             }
         );
@@ -57,7 +58,6 @@ IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertice
 }
 
 void IndexedMesh::resort_quad_indices(WorldFloatPos src_world, bool near_to_far){
-    using namespace std;
     i32 n_quads = ebo_cache.size();
     if (n_quads==0) return;
 

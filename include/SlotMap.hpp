@@ -1,15 +1,16 @@
 #pragma once 
+#include <print>
+#include <type_traits>
+#include <functional>
+#include <vector>
+#include <limits>
 
 #include "ChunkInvariants.hpp"
 #include "CommonConcepts.hpp"
 #include "Assertion.hpp"
 #include "NothrowLookup.hpp"
-#include <print>
-#include <type_traits>
-#include <functional>
-#include <vector>
-#include <ranges>
 
+#include "cpp23_ranges.hpp"
 
 template<typename Key, typename Mapped>
 struct slot_map{
@@ -17,8 +18,6 @@ public:
     using DenseIdx = std::size_t;
     using mapped_type = Mapped;
     using key_type = Key;
-
-    static constexpr std::size_t NULL_INDEX = std::numeric_limits<std::size_t>::max();
 
     auto size()const noexcept{
         return dense.size();
@@ -30,12 +29,12 @@ public:
 
     template<typename Fn>
     auto sorted_keys(Fn&& compar){
-        auto all_keys = std::views::keys(sparse) | std::ranges::to<std::vector>();
-        std::ranges::sort(all_keys,std::forward<Fn>(compar));
+        auto all_keys = views::keys(sparse) | ranges::to<std::vector>();
+        ranges::sort(all_keys,std::forward<Fn>(compar));
         return all_keys;
     }
     auto all_keys()const{
-        return std::views::keys(sparse) | std::ranges::to<std::vector>();
+        return views::keys(sparse) | ranges::to<std::vector>();
     }
     void erase(Key victim_key){
         auto it = sparse.find(victim_key);
@@ -246,15 +245,15 @@ struct std::formatter<slot_map<K,V>>{
     inline auto format(const slot_map<K,V>& s, std::format_context& ctx) const{
         std::string str{};
         str+="slot_map::buf:\n";
-        for (const auto& [idx, val]: std::views::enumerate(s.buf)){
+        for (const auto& [idx, val]: views::enumerate(s.buf)){
             str+=std::format("\t[{}]->{}\n",idx,val);
         }
         str+="slot_map::dense:\n";
-        for (const auto& [idx, val]: std::views::enumerate(s.dense)){
+        for (const auto& [idx, val]: views::enumerate(s.dense)){
             str+=std::format("\t[{}]->{}\n",idx,val);
         }
         str+="slot_map::sparse:\n";
-        for (const auto& [idx, val]: std::views::enumerate(s.sparse)){
+        for (const auto& [idx, val]: views::enumerate(s.sparse)){
             const auto& [key, v] = val;
             str+=std::format("\t[{}]->{}\n",idx,val);
         }

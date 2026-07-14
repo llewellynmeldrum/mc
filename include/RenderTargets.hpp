@@ -29,7 +29,6 @@ struct ScreenTarget{
 };
 struct TextureTarget{
     TextureTarget(glm::vec2 _pos, glm::vec2 _size);
-    TextureTarget();
     ~TextureTarget()=default;
 
     Texture2D texture;

@@ -5,7 +5,6 @@
 #include "Assertion.hpp"
 #include "Breakpoints.hpp"
 #include "UnixHelpers.hpp"
-using namespace std;
 
 #include <cstdio>
 #include <string>
@@ -25,6 +24,7 @@ inline auto val_fmt = fmt::style(fmt::ansi::fg_rgb(255, 165, 119));
 inline auto bg_code = fmt::style(fmt::ansi::bg_code_blocks);
 
 
+using namespace std;
 std::string report_location(refl::source_location loc,std::string_view msg=""){
     return std::format( "{} {} {} {} {} {}\n",
            fmt::styled(intense_red_fmt,    msg),

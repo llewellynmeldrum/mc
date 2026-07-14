@@ -1,5 +1,6 @@
 #include "ChunkDirector.hpp"
 #include "Renderer.hpp"
+#include "ChunkNoiseDebug.hpp"
 
 void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos){
     // NOTE: 
@@ -121,7 +122,11 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     handle_pending_writes(chunkCoord, static_cast<ChunkSpan>(generatedBlocks), deferredWrites);
     
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
-    std::ranges::copy(generatedBlocks, entry->block_data.begin());
+    ranges::copy(generatedBlocks, entry->block_data.begin());
+    #ifdef CHUNK_NOISE_DEBUG
+        ranges::copy(gen_res.moist_noise, entry->moist_noise.begin());
+        ranges::copy(gen_res.temp_noise, entry->temp_noise.begin());
+    #endif
     update_neighbour_map(chunkCoord);
     update_bounding_boxes_map(chunkCoord);
     mark_neighbours_dirty(chunkCoord,"Neighbour generated");

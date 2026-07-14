@@ -2,7 +2,7 @@
 #include <functional>
 #include <mdspan>
 #include <queue>
-#include <ranges>
+#include "cpp23_ranges.hpp"
 #include <unordered_map>
 #include <utility>
 #include <atomic>
@@ -61,7 +61,7 @@ struct Chunk{
     std::array<Block,CHUNK_SIZE>data{};
 
     Chunk(std::span<Block> sp){
-        for (const auto& [i, val]: std::views::enumerate(sp)){
+        for (const auto& [i, val]: ranges::views::enumerate(sp)){
             data[i] = std::move(val);
         }
     }

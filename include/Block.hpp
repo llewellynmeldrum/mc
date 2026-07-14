@@ -14,19 +14,40 @@
 // amount of times names have to be repeated.
 //
 // Check the definition of `block_defs` array to see an application of this.
-#define BLOCK_TYPE_LIST \
-    X(AIR, .rend_layer=BlockRenderLayer::NONE)              \
-    X(DIRT_BLOCK,  .shape=BlockShape::CUBE, .tex_idx=0)       \
-    X(GRASS_BLOCK, .shape=BlockShape::CUBE, .tex_idx=1)      \
-    X(STONE_BLOCK, .shape=BlockShape::CUBE, .tex_idx=2)      \
-    X(WATER_BLOCK, .shape=BlockShape::CUBE, .tex_idx=3, .rend_layer=BlockRenderLayer::BLENDED, .opacity = 0.6f)      \
-    X(OAK_LOG,     .shape=BlockShape::CUBE, .tex_idx=4)          \
-    X(OAK_LEAF,    .shape=BlockShape::CUBE, .tex_idx=5, .rend_layer=BlockRenderLayer::CUTOUT)       \
-    \
-    X(GRASS_TUFT0, .shape=BlockShape::CROSS, .tex_idx=0, .rend_layer=BlockRenderLayer::CUTOUT)       \
-    X(GRASS_TUFT1, .shape=BlockShape::CROSS, .tex_idx=1, .rend_layer=BlockRenderLayer::CUTOUT)       \
-    X(GRASS_TUFT2, .shape=BlockShape::CROSS, .tex_idx=2, .rend_layer=BlockRenderLayer::CUTOUT)       \
-    X(GRASS_TUFT3, .shape=BlockShape::CROSS, .tex_idx=3, .rend_layer=BlockRenderLayer::CUTOUT)       \
+inline constexpr i32 MISSING_CUBE_TEX = 0;
+inline constexpr i32 MISSING_CROSS_TEX = 0;
+#define BLOCK_TYPE_LIST                                                                            \
+    X(AIR, .rend_layer = BlockRenderLayer::NONE)                                                   \
+    X(DIRT_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 1)                                         \
+    X(GRASS_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 2)                                        \
+    X(STONE_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 3)                                        \
+    X(OAK_LOG, .shape = BlockShape::CUBE, .tex_idx = 4)                                            \
+    X(OAK_LEAF, .shape = BlockShape::CUBE, .tex_idx = 5, .rend_layer = BlockRenderLayer::CUTOUT)   \
+    X(WATER_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 6, .rend_layer = BlockRenderLayer::BLENDED, .opacity = 0.6)\
+    X(SAND_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 7)                                         \
+    X(SANDSTONE, .shape = BlockShape::CUBE, .tex_idx = 8)                                          \
+    X(DBG_OUTLINE, .shape = BlockShape::CUBE, .tex_idx = 9)                                        \
+    X(SNOW_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 10)                                        \
+    X(PALM_LEAF, .shape = BlockShape::CUBE, .tex_idx = 11, .rend_layer = BlockRenderLayer::CUTOUT) \
+    X(PALM_LOG, .shape = BlockShape::CUBE, .tex_idx = 12)                                          \
+    X(SPRUCE_LEAF, .shape = BlockShape::CUBE, .tex_idx = 13, .rend_layer = BlockRenderLayer::CUTOUT)\
+    X(SPRUCE_LOG, .shape = BlockShape::CUBE, .tex_idx = 14)                                        \
+    X(SNOW_GRASS_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 15)                                  \
+                                                                                                   \
+    X(GRASS_TUFT0, .shape = BlockShape::CROSS, .tex_idx = 1,                                       \
+      .rend_layer = BlockRenderLayer::CUTOUT)                                                      \
+    X(GRASS_TUFT1, .shape = BlockShape::CROSS, .tex_idx = 2,                                       \
+      .rend_layer = BlockRenderLayer::CUTOUT)                                                      \
+    X(GRASS_TUFT2, .shape = BlockShape::CROSS, .tex_idx = 3,                                       \
+      .rend_layer = BlockRenderLayer::CUTOUT)                                                      \
+    X(GRASS_TUFT3, .shape = BlockShape::CROSS, .tex_idx = 4,                                       \
+      .rend_layer = BlockRenderLayer::CUTOUT)                                                      \
+                                                                                                   \
+    X(DEAD_BUSH, .shape = BlockShape::CROSS, .tex_idx = 5, .rend_layer = BlockRenderLayer::CUTOUT) \
+    X(OAK_SAPLING, .shape = BlockShape::CROSS, .tex_idx = 6,                                       \
+      .rend_layer = BlockRenderLayer::CUTOUT)                                                      \
+    X(BUSH, .shape = BlockShape::CROSS, .tex_idx = 7, .rend_layer = BlockRenderLayer::CUTOUT)      \
+    X(CACTUS, .shape = BlockShape::CROSS, .tex_idx = 8, .rend_layer = BlockRenderLayer::CUTOUT)
 
 // HACK: for the time being set OAK_LEAF to 0% transparency as i fix up some issues with pending writes
 

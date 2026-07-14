@@ -13,7 +13,7 @@
 using namespace glm;
 
 void TextureAtlas::load_texture(const char* tex_img_path){
-    texture.load(tex_img_path, to_i32(gl::GL_RGBA), { 0, 1, 0, 1 });
+    texture.load(tex_img_path, { 0, 1, 0, 1 },true);
     LOG_DEBUG("Set up texture atlas ({})",tex_img_path);
     spriteCols = texture.pxwidth / this->sprite_sz_px;
     spriteRows = texture.pxheight / this->sprite_sz_px;

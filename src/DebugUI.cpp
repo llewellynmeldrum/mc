@@ -3,6 +3,7 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+#include "cpp23_ranges.hpp"
 
 #include "ChunkEntry.hpp"
 #include "DebugChunkLog.hpp"
@@ -127,7 +128,7 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
             // Shown in most->least recent vertical order
             WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->player_cam.pos);
             if (per_chunk_log.contains(cur_chunk)){
-                for (const auto& entry: per_chunk_log.at(cur_chunk) | std::views::reverse){
+                for (const auto& entry: per_chunk_log.at(cur_chunk) | ranges::views::reverse){
                     auto [log_type, duration, contents] = entry;
                     if (is_log_type_enabled.at(log_type)){
                         UI::Text(DebugLog::entry_tostr(entry));

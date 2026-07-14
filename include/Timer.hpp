@@ -2,6 +2,7 @@
 #include "Types.h"
 #include "MirroredRingBuf.hpp"
 #include <map>
+#include <string_view>
 // src/Timer.cpp
 struct Profiler {
 public:

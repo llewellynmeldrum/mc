@@ -8,8 +8,11 @@ i64 texture_count = 0;
 
 using namespace glm;
 
-void Texture2D::load(const char* tex_path, i32 image_fmt, vec4 border_color){
-    u8* tex_pixels = stbi_load(tex_path, &pxwidth, &pxheight, &nchannels, 0);
+// assumes 8 bit rgb or rgba
+void Texture2D::load(const char* tex_path, vec4 border_color, bool has_alpha){
+    auto gpu_pixel_fmt = has_alpha ? GL_RGBA8 : GL_RGB8;
+    auto cpu_pixel_fmt = has_alpha ? GL_RGBA : GL_RGB;
+    u8* tex_pixels = stbi_load(tex_path, &pxwidth, &pxheight, &nchannels, STBI_rgb_alpha);
     if (!tex_pixels) {
         LOG_ERROR("Failed to load texture file '{}'.", tex_path);
         LOG_EXIT(EXIT_FAILURE);
@@ -20,6 +23,15 @@ void Texture2D::load(const char* tex_path, i32 image_fmt, vec4 border_color){
 //    LOG_EXPR(nchannels);
 //    LOG_EXPR(tex_pixels);
     idx = texture_count++;
+    u8 min_alpha = 255;
+    u8 max_alpha = 0;
+
+    for (int i = 0; i < pxwidth * pxheight; ++i) {
+        u8 alpha = tex_pixels[i * 4 + 3];
+        min_alpha = min(min_alpha, alpha);
+        max_alpha = max(max_alpha, alpha);
+    }
+    LOG_DEBUG("img: '{}' loaded with {}x{}, channels:{}, min/max alpha: {}/{}",tex_path,pxwidth,pxheight,nchannels,min_alpha,max_alpha);
     Texture2D::init();
     Texture2D::bind();
     Texture2D::setMinifyMode(to_i32(GL_NEAREST));
@@ -27,16 +39,14 @@ void Texture2D::load(const char* tex_path, i32 image_fmt, vec4 border_color){
     Texture2D::setWrapMode(to_i32(GL_CLAMP_TO_BORDER));
     Texture2D::setBorderColor(border_color);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, pxwidth, pxheight, 0, to_glenum(image_fmt),
-                 GL_UNSIGNED_BYTE, (const void*)tex_pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, gpu_pixel_fmt, pxwidth, pxheight, 0, cpu_pixel_fmt, GL_UNSIGNED_BYTE, (const void*)tex_pixels); 
     glGenerateMipmap(GL_TEXTURE_2D);
-    Texture2D::unbind();
 
     stbi_image_free(tex_pixels);
     LOG_DEBUG("{} bound to texture from {}",idx,tex_path);
 }
-Texture2D::Texture2D(const char* tex_path, i32 image_fmt = to_i32(GL_RGB), vec4 border_color = { 1, 0, 1, 1 }) {
-    load(tex_path, image_fmt, border_color);
+Texture2D::Texture2D(const char* tex_path, vec4 border_color, bool has_alpha){
+    load(tex_path, border_color, has_alpha);
 }
 void Texture2D::load_empty(i32 w, i32 h) {
     glTexImage2D(GL_TEXTURE_2D,0, GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,nullptr );

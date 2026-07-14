@@ -121,7 +121,7 @@ struct DropDown{
         }
     }
 };
-auto plotRingBuf (const auto& rb,std::size_t max, const std::string key="????", const std::string fmt="p??", bool printValue=false){
+auto plotRingBuf (const auto& rb,f32 max, const std::string key="????", const std::string fmt="p??", bool printValue=false){
     
     if (printValue){
         std::string _fmt = std::string("%-12s: %")+fmt;

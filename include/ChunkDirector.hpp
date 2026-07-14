@@ -77,7 +77,7 @@ struct ChunkDirector{
             auto d2 = LM::sq_dist(cur_chunk_pos,p2);
             return d1<d2;
         };
-        std::ranges::sort(copy, nearest_to_player); // TODO: swap with a partial sort of the nearest N elements
+        ranges::sort(copy, nearest_to_player); // TODO: swap with a partial sort of the nearest N elements
         copy.resize(std::min(N,copy.size()));
         return copy;
     }

@@ -29,8 +29,6 @@ void FrameBuffer::attach_texture2d(Texture2D& texture2d, i32 idx){
     texture2d.bind();
     constexpr i32 mipmap_lvl = 0;
     glFramebufferTexture(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0+idx,texture2d.id, mipmap_lvl);
-    texture2d.unbind();
-
 }
 
 void DepthBuffer::bind(){
@@ -90,6 +88,7 @@ static void checkStatus() {
 // for textures
 TextureTarget::TextureTarget(glm::vec2 _pos, glm::vec2 _size): depthbuffer(_size), pos(_pos), size(_size){
     framebuffer.bind();
+    texture.init();
     texture.bind();
     texture.load_empty(size.x,size.y);
 //    LOG_EXPR(size);

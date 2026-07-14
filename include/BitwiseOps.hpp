@@ -45,7 +45,7 @@ inline constexpr bool SignsDiffer(IntA a, IntB b){
 
 
 template<typename Cont>
-requires std::ranges::contiguous_range<Cont> && Integral<val_t<Cont>>
+requires ranges::contiguous_range<Cont> && Integral<val_t<Cont>>
 inline constexpr std::size_t pop_count(Cont& cont){
     for (const auto& val: cont){
         std::popcount(val);

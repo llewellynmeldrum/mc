@@ -1,6 +1,7 @@
 #include <algorithm>
-#include <ranges>
+#include "cpp23_ranges.hpp"
 #include <utility>
+
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
@@ -55,11 +56,12 @@ Renderer::Renderer() {
 
 }
 
+// enables depth test, i.e early discard of fragments which are occluded by nearer frags already present
 void Renderer::enableDepthTesting(){
     glEnable(GL_DEPTH_TEST);
 }
 
-// NOTE: ONLY REQUIRED TO DISABLE FOR XRAY LIKE DRAWS
+// enables depth test, i.e early discard of fragments which are occluded by nearer frags already present
 void Renderer::disableDepthTesting(){
     glDisable(GL_DEPTH_TEST);
 }
@@ -77,15 +79,17 @@ void enableColorBlending(){
 void disableColorBlending(){
     glDisable(GL_BLEND);
 }
+// Disables writes to the depth buffer
 void enableDepthMask(){
     glDepthMask(GL_TRUE);
 }
+// Disables writes to the depth buffer
 void disableDepthMask(){
     glDepthMask(GL_FALSE);
 }
 void Renderer::prepare_transparent_pass(){
     enableDepthTesting();
-    disableDepthMask();
+    enableDepthMask();
 
   //  prog.setUniform("u_cutout",false);
 
@@ -108,7 +112,32 @@ void Renderer::prepare_cutout_pass(){
 //    prog.setUniform("u_cutout",true);
 
     disableColorBlending();
-    disableBackfaceCulling();
+    enableBackfaceCulling();
+}
+void Renderer::draw_to(Camera& cam, RenderTargetView target){
+    target.use();
+
+    prog.use();
+    for (auto* atlas: atlas_list){
+        atlas->texture.bind();
+    }
+    prog.setUniform("view", cam.getViewMatrix());
+    prog.setUniform("proj", cam.getProjectionMatrix());
+    {
+        prepare_opaque_pass();
+        draw_opaque_pass(cam);
+
+        prepare_cutout_pass();
+        draw_cutout_pass(cam);
+
+        prepare_transparent_pass();
+        draw_transparent_pass(cam);
+
+    }
+    prog.stop();
+
+    target.stop();
+
 }
 
 void Renderer::update_player_cam_frustum_lines(Engine* sim){
@@ -159,29 +188,6 @@ void Renderer::clear_to(RenderTargetView target){
     target.stop();
 }
 
-void Renderer::draw_to(Camera& cam, RenderTargetView target){
-    target.use();
-
-    prog.use();
-    cube_atlas.texture.bind();
-    prog.setUniform("view", cam.getViewMatrix());
-    prog.setUniform("proj", cam.getProjectionMatrix());
-    {
-        prepare_opaque_pass();
-        draw_opaque_pass(cam);
-
-        prepare_cutout_pass();
-        draw_cutout_pass(cam);
-
-        prepare_transparent_pass();
-        draw_transparent_pass(cam);
-
-    }
-    prog.stop();
-
-    target.stop();
-
-}
 
 void Renderer::draw_transparent_pass(Camera& cam){
     draw_meshes(transparent_chunk_meshes,sorted_transparent_coords);
@@ -206,8 +212,8 @@ void Renderer::draw_opaque_pass(Camera& cam){
 void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list, 
                                    std::span<WorldChunkCoord>sorted_coords){
     static_assert(map_like<slot_map<WorldChunkCoord,Mesh>>);
-    using std::views::filter;
-    using std::views::transform;
+    using views::filter;
+    using views::transform;
     if (sorted_coords.empty()){
         draw_meshes_unsorted(mesh_list);
         return;
@@ -240,7 +246,7 @@ void Renderer::draw_mesh(const Mesh& mesh){
 }
 
 void Renderer::draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList){
-    using std::views::filter;
+    using views::filter;
 
     auto filtered_meshes = meshList |
                         filter(is_mesh_loaded) |

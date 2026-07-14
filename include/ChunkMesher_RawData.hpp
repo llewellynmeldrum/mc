@@ -12,45 +12,45 @@ using ShapeQuads = std::array<QuadVertexData, T>;
 // clang-format off
 using Quad = std::array<Vertex,VTX_PER_QUAD>;
 namespace cross_vtx{
-    static inline constexpr glm::vec3 NNN{ -1.0, -1.0, -1.0};
-    static inline constexpr glm::vec3 NPN{ -1.0, +1.0, -1.0};
-    static inline constexpr glm::vec3 NNP{ -1.0, -1.0, +1.0};
-    static inline constexpr glm::vec3 PNN{ +1.0, -1.0, -1.0};
-    static inline constexpr glm::vec3 PPN{ +1.0, +1.0, -1.0};
-    static inline constexpr glm::vec3 PNP{ +1.0, -1.0, +1.0};
-    static inline constexpr glm::vec3 NPP{ -1.0, +1.0, +1.0};
-    static inline constexpr glm::vec3 PPP{ +1.0, +1.0, +1.0};
+    static inline constexpr f32 P = +1.0;
+    static inline constexpr f32 N = 0.0;
+    static inline constexpr glm::vec3 NNN{ N, N, N};
+    static inline constexpr glm::vec3 NPN{ N, P, N};
+    static inline constexpr glm::vec3 NNP{ N, N, P};
+    static inline constexpr glm::vec3 PNN{ P, N, N};
+    static inline constexpr glm::vec3 PPN{ P, P, N};
+    static inline constexpr glm::vec3 PNP{ P, N, P};
+    static inline constexpr glm::vec3 NPP{ N, P, P};
+    static inline constexpr glm::vec3 PPP{ P, P, P};
 
-    static inline constexpr glm::vec3 ZNN{ -1.0, -1.0,  0.0};
-    static inline constexpr glm::vec3 ZPN{ -1.0, +1.0,  0.0};
-    static inline constexpr glm::vec3 ZNP{ -1.0, -1.0,  0.0};
-    static inline constexpr glm::vec3 ZPP{ -1.0, +1.0,  0.0};
-
-    static inline constexpr glm::vec3 NZN{ -1.0,  0.0, -1.0};
-    static inline constexpr glm::vec3 NZP{ -1.0,  0.0, +1.0};
-    static inline constexpr glm::vec3 PZN{ +1.0,  0.0, -1.0};
-    static inline constexpr glm::vec3 PZP{ +1.0,  0.0, +1.0};
-
-    static inline constexpr glm::vec3 NNZ{  0.0, -1.0, -1.0};
-    static inline constexpr glm::vec3 NPZ{  0.0, +1.0, -1.0};
-    static inline constexpr glm::vec3 PNZ{  0.0, -1.0, -1.0};
-    static inline constexpr glm::vec3 PPZ{  0.0, +1.0, -1.0};
 
     // see docs/deriving_cross_geometry.md if interested
     inline constexpr ShapeQuads<QUADS_PER_CROSS> quads = {
         // Blue 
         Quad{
-            Vertex{NNZ,glm::vec2(0,0),glm::vec3(1.0f),0},
-            Vertex{PNZ,glm::vec2(1,0),glm::vec3(1.0f),0},
-            Vertex{PPZ,glm::vec2(1,1),glm::vec3(1.0f),0},
-            Vertex{NPZ,glm::vec2(0,1),glm::vec3(1.0f),0},
+            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),0},
+            Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),0},
+            Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),0},
+            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),0},
+        },
+        Quad{
+            Vertex{PNN,glm::vec2(1,1),glm::vec3(1.0f),0},
+            Vertex{NNP,glm::vec2(0,1),glm::vec3(1.0f),0},
+            Vertex{NPP,glm::vec2(0,0),glm::vec3(1.0f),0},
+            Vertex{PPN,glm::vec2(1,0),glm::vec3(1.0f),0},
         },
         // Red
         Quad{
-            Vertex{ZNP,glm::vec2(0,0),glm::vec3(1.0f),1},
-            Vertex{NNN,glm::vec2(1,0),glm::vec3(1.0f),1},
-            Vertex{NPN,glm::vec2(1,1),glm::vec3(1.0f),1},
-            Vertex{ZPP,glm::vec2(0,1),glm::vec3(1.0f),1},
+            Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),1},
+            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
+            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
+            Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),1},
+        },
+        Quad{
+            Vertex{PNP,glm::vec2(1,1),glm::vec3(1.0f),1},
+            Vertex{NNN,glm::vec2(0,1),glm::vec3(1.0f),1},
+            Vertex{NPN,glm::vec2(0,0),glm::vec3(1.0f),1},
+            Vertex{PPP,glm::vec2(1,0),glm::vec3(1.0f),1},
         },
     };
 }
@@ -155,4 +155,4 @@ inline constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
     { 3, 0, 1, 1, 2, 3,},
 };
 static_assert(cube_vtx::quads.size()==6, "Cube must have 6 faces");
-static_assert(cross_vtx::quads.size()==2, "Cross must have 2 faces");
+static_assert(cross_vtx::quads.size()==4, "Cross must have 4 faces");

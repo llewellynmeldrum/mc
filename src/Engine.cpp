@@ -178,7 +178,6 @@ void Engine::submit_gen_jobs(i64 maxJobs){
 
         bool success = genQ.try_emplace(
             candidate_coord, 
-            WORLD_SEED,
             world.genConfig
         );
         if (success){
