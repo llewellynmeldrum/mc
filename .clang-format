@@ -1,4 +1,4 @@
-DisableFormat: true
+#DisableFormat: true
 BasedOnStyle: LLVM
 
 ColumnLimit: 100                  # LLVM uses 80

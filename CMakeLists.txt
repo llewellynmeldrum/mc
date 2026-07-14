@@ -37,16 +37,15 @@ target_compile_options(mc PRIVATE
     -Wno-unused
     -Wfatal-errors
     -fdiagnostics-color=always
-    -fmax-errors=2
-    -ftemplate-backtrace-limit=0
     -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. # gives stack traces a relative path to cwd
 )
+
 
 # --  gcc specific flags --
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(mc PRIVATE
-        -fdiagnostics-color=always
-        -fdiagnostics-color=always
+        -fmax-errors=2
+        -ftemplate-backtrace-limit=0
         -fdiagnostics-show-template-tree
     )
 endif()
@@ -76,6 +75,16 @@ set_target_properties( mc PROPERTIES
 #target_compile_options(mc PRIVATE -ftime-report)
 
 
+# ===========
+# range-v3 : to get some missing c++23 ranges in clang22
+# ===========
+include(FetchContent)
+FetchContent_Declare(range-v3
+  GIT_REPOSITORY https://github.com/ericniebler/range-v3.git
+  GIT_TAG master)          # 0.12.0 is old (2022); master is friendlier to clang-22/C++23
+FetchContent_MakeAvailable(range-v3)
+target_link_libraries(mc PRIVATE range-v3::range-v3)
+target_include_directories(mc SYSTEM PRIVATE ${range-v3_SOURCE_DIR}/include)
 
 # -- Tracy (benchmarking/profiling)
 option(TRACY_ENABLE "" OFF)

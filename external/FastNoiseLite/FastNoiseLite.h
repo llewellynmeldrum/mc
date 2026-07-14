@@ -21,76 +21,106 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-//    VERSION : 1.1.1
+//    VERSION : 1.1.1LM
 // https://github.com/Auburn/FastNoiseLite
+// NOTE: 
+// Modified to use some more modern c++ features (eg concepts, std::numbers named constants)
+// Also added a ctor and changed a couple names
+// And moved the enums out of the class. Writing FastNoiseLite::NoiseType is a bit much for me.
 
 #ifndef FASTNOISELITE_H
 #define FASTNOISELITE_H
 
 #include <cmath>
+#include <numbers>
+#include "LM.hpp"
+#include "Types.h"
 
-class FastNoiseLite
+enum struct NoiseType
 {
+    OpenSimplex2,
+    OpenSimplex2S,
+    Cellular,
+    Perlin,
+    ValueCubic,
+    Value
+};
+
+enum struct RotationType3D
+{
+    None,
+    ImproveXYPlanes,
+    ImproveXZPlanes
+};
+
+enum struct FractalType
+{
+    None,
+    FBm,
+    Ridged,
+    PingPong,
+    DomainWarpProgressive,
+    DomainWarpIndependent
+};
+
+enum struct CellularDistanceFunction
+{
+    Euclidean,
+    EuclideanSq,
+    Manhattan,
+    Hybrid
+};
+
+enum struct CellularReturnType
+{
+    CellValue,
+    Distance,
+    Distance2,
+    Distance2Add,
+    Distance2Sub,
+    Distance2Mul,
+    Distance2Div
+};
+
+enum struct DomainWarpType
+{
+    OpenSimplex2,
+    OpenSimplex2Reduced,
+    BasicGrid
+};
+
+// NOTE: comments pertain to the use of a 2d noise function for terrain generation
+struct NoiseConfig{
+    NoiseType type;
+    i32 seed;
+    f32 freq{}; // horizontal 'scale' of features
+    FractalType frac_type = FractalType::None;
+    i32 frac_octaves = {3};  
+    f32 frac_lacunarity = {2.0f}; // frequency multiplier across octaves
+    f32 frac_persistence = {0.5f}; // amplitude multiplier across octaves
+};
+
+class NoiseGen {
 public:
-    enum struct NoiseType
-    {
-        OpenSimplex2,
-        OpenSimplex2S,
-        Cellular,
-        Perlin,
-        ValueCubic,
-        Value
-    };
+    NoiseGen(NoiseConfig cfg) {
+        assign_defaults();
+        apply(cfg);
+    }
 
-    enum struct RotationType3D
-    {
-        None,
-        ImproveXYPlanes,
-        ImproveXZPlanes
-    };
+    /// Create new FastNoise object with configuration struct
+    void apply(NoiseConfig cfg){
+        SetNoiseType(cfg.type);//type;
+        SetSeed(cfg.seed);
+        SetFrequency(cfg.freq);
+        SetFractalType(cfg.frac_type);
+        SetFractalOctaves(cfg.frac_octaves);
+        SetFractalLacunarity(cfg.frac_lacunarity); 
+        SetFractalGain(cfg.frac_persistence); // gain == persistence (multiplier of the octaves amplitude)
+    }
 
-    enum struct FractalType
-    {
-        None,
-        FBm,
-        Ridged,
-        PingPong,
-        DomainWarpProgressive,
-        DomainWarpIndependent
-    };
 
-    enum struct CellularDistanceFunction
-    {
-        Euclidean,
-        EuclideanSq,
-        Manhattan,
-        Hybrid
-    };
-
-    enum struct CellularReturnType
-    {
-        CellValue,
-        Distance,
-        Distance2,
-        Distance2Add,
-        Distance2Sub,
-        Distance2Mul,
-        Distance2Div
-    };
-
-    enum struct DomainWarpType
-    {
-        OpenSimplex2,
-        OpenSimplex2Reduced,
-        BasicGrid
-    };
-
-    /// <summary>
-    /// Create new FastNoise object with optional seed
-    /// </summary>
-    FastNoiseLite(int seed = 1337)
-    {
-        mSeed = seed;
+    void assign_defaults(){
+        mSeed = 1337;
         mFrequency = 0.01f;
         mNoiseType = NoiseType::OpenSimplex2;
         mRotationType3D = RotationType3D::None;
@@ -114,41 +144,25 @@ public:
         mDomainWarpAmp = 1.0f;
     }
 
-    /// <summary>
     /// Sets seed used for all noise types
-    /// </summary>
-    /// <remarks>
     /// Default: 1337
-    /// </remarks>
-    void SetSeed(int seed) { mSeed = seed; }
+    void SetSeed(i32 seed) { mSeed = seed; }
 
-    /// <summary>
     /// Sets frequency for all noise types
-    /// </summary>
-    /// <remarks>
     /// Default: 0.01
-    /// </remarks>
-    void SetFrequency(float frequency) { mFrequency = frequency; }
+    void SetFrequency(f32 frequency) { mFrequency = frequency; }
 
-    /// <summary>
     /// Sets noise algorithm used for GetNoise(...)
-    /// </summary>
-    /// <remarks>
     /// Default: OpenSimplex2
-    /// </remarks>
     void SetNoiseType(NoiseType noiseType)
     {
         mNoiseType = noiseType;
         UpdateTransformType3D();
     }
 
-    /// <summary>
     /// Sets domain rotation type for 3D Noise and 3D DomainWarp.
     /// Can aid in reducing directional artifacts when sampling a 2D plane in 3D
-    /// </summary>
-    /// <remarks>
     /// Default: None
-    /// </remarks>
     void SetRotationType3D(RotationType3D rotationType3D)
     {
         mRotationType3D = rotationType3D;
@@ -156,97 +170,57 @@ public:
         UpdateWarpTransformType3D();
     }
 
-    /// <summary>
     /// Sets method for combining octaves in all fractal noise types
-    /// </summary>
-    /// <remarks>
     /// Default: None
     /// Note: FractalType::DomainWarp... only affects DomainWarp(...)
-    /// </remarks>
     void SetFractalType(FractalType fractalType) { mFractalType = fractalType; }
 
-    /// <summary>
     /// Sets octave count for all fractal noise types
-    /// </summary>
-    /// <remarks>
     /// Default: 3
-    /// </remarks>
-    void SetFractalOctaves(int octaves)
+    void SetFractalOctaves(i32 octaves)
     {
         mOctaves = octaves;
         CalculateFractalBounding();
     }
 
-    /// <summary>
     /// Sets octave lacunarity for all fractal noise types
-    /// </summary>
-    /// <remarks>
     /// Default: 2.0
-    /// </remarks>
-    void SetFractalLacunarity(float lacunarity) { mLacunarity = lacunarity; }
+    void SetFractalLacunarity(f32 lacunarity) { mLacunarity = lacunarity; }
 
-    /// <summary>
     /// Sets octave gain for all fractal noise types
-    /// </summary>
-    /// <remarks>
     /// Default: 0.5
-    /// </remarks>
-    void SetFractalGain(float gain)
+    void SetFractalGain(f32 gain)
     {
         mGain = gain;
         CalculateFractalBounding();
     }
 
-    /// <summary>
-    /// Sets octave weighting for all none DomainWarp fratal types
-    /// </summary>
-    /// <remarks>
+    /// Sets octave weighting for all fractal types (EXCEPT DomainWarp )
     /// Default: 0.0
     /// Note: Keep between 0...1 to maintain -1...1 output bounding
-    /// </remarks>
-    void SetFractalWeightedStrength(float weightedStrength) { mWeightedStrength = weightedStrength; }
+    void SetFractalWeightedStrength(f32 weightedStrength) { mWeightedStrength = weightedStrength; }
 
-    /// <summary>
     /// Sets strength of the fractal ping pong effect
-    /// </summary>
-    /// <remarks>
     /// Default: 2.0
-    /// </remarks>
-    void SetFractalPingPongStrength(float pingPongStrength) { mPingPongStrength = pingPongStrength; }
+    void SetFractalPingPongStrength(f32 pingPongStrength) { mPingPongStrength = pingPongStrength; }
 
 
-    /// <summary>
     /// Sets distance function used in cellular noise calculations
-    /// </summary>
-    /// <remarks>
     /// Default: Distance
-    /// </remarks>
     void SetCellularDistanceFunction(CellularDistanceFunction cellularDistanceFunction) { mCellularDistanceFunction = cellularDistanceFunction; }
 
-    /// <summary>
     /// Sets return type from cellular noise calculations
-    /// </summary>
-    /// <remarks>
     /// Default: EuclideanSq
-    /// </remarks>
     void SetCellularReturnType(CellularReturnType cellularReturnType) { mCellularReturnType = cellularReturnType; }
 
-    /// <summary>
     /// Sets the maximum distance a cellular point can move from it's grid position
-    /// </summary>
-    /// <remarks>
     /// Default: 1.0
     /// Note: Setting this higher than 1 will cause artifacts
-    /// </remarks>
-    void SetCellularJitter(float cellularJitter) { mCellularJitterModifier = cellularJitter; }
+    void SetCellularJitter(f32 cellularJitter) { mCellularJitterModifier = cellularJitter; }
 
 
-    /// <summary>
     /// Sets the warp algorithm when using DomainWarp(...)
-    /// </summary>
-    /// <remarks>
     /// Default: OpenSimplex2
-    /// </remarks>
     void SetDomainWarpType(DomainWarpType domainWarpType)
     {
         mDomainWarpType = domainWarpType;
@@ -254,25 +228,29 @@ public:
     }
 
 
-    /// <summary>
     /// Sets the maximum warp distance from original position when using DomainWarp(...)
-    /// </summary>
-    /// <remarks>
     /// Default: 1.0
-    /// </remarks>
-    void SetDomainWarpAmp(float domainWarpAmp) { mDomainWarpAmp = domainWarpAmp; }
+    void SetDomainWarpAmp(f32 domainWarpAmp) { mDomainWarpAmp = domainWarpAmp; }
 
 
-    /// <summary>
+    static inline f32 remap(f32 noise, f32 min, f32 max){
+        const auto t = (noise + 1) * 0.5f; // t-(out_min-in_min) * (in_range/out_range)
+        return Lerp(min,max,t);
+    }
+    i32 sample_remap(f32 x, f32 y, f32 min, f32 max) const{
+        return static_cast<i32>(std::round(remap(GetNoise(x,y), min, max)));
+    }
+    // 0-1 range
+    f32 sample(i32 x, i32 y)const {
+        return (GetNoise(static_cast<f32>(x),static_cast<f32>(y)) + 1.0f) * 0.5f;
+    }
     /// 2D noise at given position using current settings
-    /// </summary>
-    /// <returns>
     /// Noise output bounded between -1...1
-    /// </returns>
     template <typename FNfloat>
-    float GetNoise(FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 GetNoise(FNfloat x, FNfloat y) const
     {
-        Arguments_must_be_floating_point_values<FNfloat>();
+        
 
         TransformNoiseCoordinate(x, y);
 
@@ -289,16 +267,13 @@ public:
         }
     }
 
-    /// <summary>
     /// 3D noise at given position using current settings
-    /// </summary>
-    /// <returns>
     /// Noise output bounded between -1...1
-    /// </returns>
     template <typename FNfloat>
-    float GetNoise(FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 GetNoise(FNfloat x, FNfloat y, FNfloat z) const
     {
-        Arguments_must_be_floating_point_values<FNfloat>();
+        
 
         TransformNoiseCoordinate(x, y, z);
 
@@ -316,18 +291,14 @@ public:
     }
 
 
-    /// <summary>
     /// 2D warps the input position using current domain warp settings
-    /// </summary>
-    /// <example>
     /// Example usage with GetNoise
-    /// <code>DomainWarp(x, y)
     /// noise = GetNoise(x, y)</code>
-    /// </example>
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarp(FNfloat& x, FNfloat& y) const
     {
-        Arguments_must_be_floating_point_values<FNfloat>();
+        
 
         switch (mFractalType)
         {
@@ -343,18 +314,14 @@ public:
         }
     }
 
-    /// <summary>
     /// 3D warps the input position using current domain warp settings
-    /// </summary>
-    /// <example>
     /// Example usage with GetNoise
-    /// <code>DomainWarp(x, y, z)
     /// noise = GetNoise(x, y, z)</code>
-    /// </example>
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarp(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-        Arguments_must_be_floating_point_values<FNfloat>();
+        
 
         switch (mFractalType)
         {
@@ -371,8 +338,6 @@ public:
     }
 
 private:
-    template <typename T>
-    struct Arguments_must_be_floating_point_values;
 
     enum struct TransformType3D
     {
@@ -382,28 +347,28 @@ private:
         DefaultOpenSimplex2
     };
 
-    int64_t mSeed;
-    float mFrequency;
+    i64 mSeed;
+    f32 mFrequency;
     NoiseType mNoiseType;
     RotationType3D mRotationType3D;
     TransformType3D mTransformType3D;
 
     FractalType mFractalType;
-    int64_t mOctaves;
-    float mLacunarity;
-    float mGain;
-    float mWeightedStrength;
-    float mPingPongStrength;
+    i64 mOctaves;
+    f32 mLacunarity;
+    f32 mGain;
+    f32 mWeightedStrength;
+    f32 mPingPongStrength;
 
-    float mFractalBounding;
+    f32 mFractalBounding;
 
     CellularDistanceFunction mCellularDistanceFunction;
     CellularReturnType mCellularReturnType;
-    float mCellularJitterModifier;
+    f32 mCellularJitterModifier;
 
     DomainWarpType mDomainWarpType;
     TransformType3D mWarpTransformType3D;
-    float mDomainWarpAmp;
+    f32 mDomainWarpAmp;
 
 
     template <typename T>
@@ -415,50 +380,52 @@ private:
         static const T RandVecs3D[];
     };
 
-    static float FastMin(float a, float b) { return a < b ? a : b; }
+    static f32 FastMin(f32 a, f32 b) { return a < b ? a : b; }
 
-    static float FastMax(float a, float b) { return a > b ? a : b; }
+    static f32 FastMax(f32 a, f32 b) { return a > b ? a : b; }
 
-    static float FastAbs(float f) { return f < 0 ? -f : f; }
+    static f32 FastAbs(f32 f) { return f < 0 ? -f : f; }
 
-    static float FastSqrt(float f) { return sqrtf(f); }
+    static f32 FastSqrt(f32 f) { return sqrtf(f); }
 
     template <typename FNfloat>
-    static int64_t FastFloor(FNfloat f)
+		requires std::floating_point<FNfloat>
+    static i64 FastFloor(FNfloat f)
     {
-        return f >= 0 ? (int)f : (int)f - 1;
+        return f >= 0 ? (i32)f : (i32)f - 1;
     }
 
     template <typename FNfloat>
-    static int64_t FastRound(FNfloat f)
+		requires std::floating_point<FNfloat>
+    static i64 FastRound(FNfloat f)
     {
-        return f >= 0 ? (int)(f + 0.5f) : (int)(f - 0.5f);
+        return f >= 0 ? (i32)(f + 0.5f) : (i32)(f - 0.5f);
     }
 
-    static float Lerp(float a, float b, float t) { return a + t * (b - a); }
+    static f32 Lerp(f32 a, f32 b, f32 t) { return a + t * (b - a); }
 
-    static float int64_terpHermite(float t) { return t * t * (3 - 2 * t); }
+    static f32 int64_terpHermite(f32 t) { return t * t * (3 - 2 * t); }
 
-    static float int64_terpQuintic(float t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+    static f32 int64_terpQuintic(f32 t) { return t * t * t * (t * (t * 6 - 15) + 10); }
 
-    static float CubicLerp(float a, float b, float c, float d, float t)
+    static f32 CubicLerp(f32 a, f32 b, f32 c, f32 d, f32 t)
     {
-        float p = (d - c) - (a - b);
+        f32 p = (d - c) - (a - b);
         return t * t * t * p + t * t * ((a - b) - p) + t * (c - a) + b;
     }
 
-    static float PingPong(float t)
+    static f32 PingPong(f32 t)
     {
-        t -= (int)(t * 0.5f) * 2;
+        t -= (i32)(t * 0.5f) * 2;
         return t < 1 ? t : 2 - t;
     }
 
     void CalculateFractalBounding()
     {
-        float gain = FastAbs(mGain);
-        float amp = gain;
-        float ampFractal = 1.0f;
-        for (int i = 1; i < mOctaves; i++)
+        f32 gain = FastAbs(mGain);
+        f32 amp = gain;
+        f32 ampFractal = 1.0f;
+        for (i32 i = 1; i < mOctaves; i++)
         {
             ampFractal += amp;
             amp *= gain;
@@ -467,31 +434,31 @@ private:
     }
 
     // Hashing
-    static const int64_t PrimeX = 501125321;
-    static const int64_t PrimeY = 1136930381;
-    static const int64_t PrimeZ = 1720413743;
+    static const i64 PrimeX = 501125321;
+    static const i64 PrimeY = 1136930381;
+    static const i64 PrimeZ = 1720413743;
 
-    static int64_t Hash(int seed, int64_t xPrimed, int64_t yPrimed)
+    static i64 Hash(i32 seed, i64 xPrimed, i64 yPrimed)
     {
-        int64_t hash = seed ^ xPrimed ^ yPrimed;
+        i64 hash = seed ^ xPrimed ^ yPrimed;
 
         hash *= 0x27d4eb2d;
         return hash;
     }
 
 
-    static int64_t Hash(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed)
+    static i64 Hash(i32 seed, i64 xPrimed, i64 yPrimed, i64 zPrimed)
     {
-        int64_t hash = seed ^ xPrimed ^ yPrimed ^ zPrimed;
+        i64 hash = seed ^ xPrimed ^ yPrimed ^ zPrimed;
 
         hash *= 0x27d4eb2d;
         return hash;
     }
 
 
-    static float ValCoord(int seed, int64_t xPrimed, int64_t yPrimed)
+    static f32 ValCoord(i32 seed, i64 xPrimed, i64 yPrimed)
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed);
+        i64 hash = Hash(seed, xPrimed, yPrimed);
 
         hash *= hash;
         hash ^= hash << 19;
@@ -499,9 +466,9 @@ private:
     }
 
 
-    static float ValCoord(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed)
+    static f32 ValCoord(i32 seed, i64 xPrimed, i64 yPrimed, i64 zPrimed)
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
 
         hash *= hash;
         hash ^= hash << 19;
@@ -509,84 +476,84 @@ private:
     }
 
 
-    float GradCoord(int seed, int64_t xPrimed, int64_t yPrimed, float xd, float yd) const
+    f32 GradCoord(i32 seed, i64 xPrimed, i64 yPrimed, f32 xd, f32 yd) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed);
+        i64 hash = Hash(seed, xPrimed, yPrimed);
         hash ^= hash >> 15;
         hash &= 127 << 1;
 
-        float xg = Lookup<float>::Gradients2D[hash];
-        float yg = Lookup<float>::Gradients2D[hash | 1];
+        f32 xg = Lookup<f32>::Gradients2D[hash];
+        f32 yg = Lookup<f32>::Gradients2D[hash | 1];
 
         return xd * xg + yd * yg;
     }
 
 
-    float GradCoord(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float xd, float yd, float zd) const
+    f32 GradCoord(i32 seed, i64 xPrimed, i64 yPrimed, i64 zPrimed, f32 xd, f32 yd, f32 zd) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
         hash ^= hash >> 15;
         hash &= 63 << 2;
 
-        float xg = Lookup<float>::Gradients3D[hash];
-        float yg = Lookup<float>::Gradients3D[hash | 1];
-        float zg = Lookup<float>::Gradients3D[hash | 2];
+        f32 xg = Lookup<f32>::Gradients3D[hash];
+        f32 yg = Lookup<f32>::Gradients3D[hash | 1];
+        f32 zg = Lookup<f32>::Gradients3D[hash | 2];
 
         return xd * xg + yd * yg + zd * zg;
     }
 
 
-    void GradCoordOut(int seed, int64_t xPrimed, int64_t yPrimed, float& xo, float& yo) const
+    void GradCoordOut(i32 seed, i64 xPrimed, i64 yPrimed, f32& xo, f32& yo) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed) & (255 << 1);
+        i64 hash = Hash(seed, xPrimed, yPrimed) & (255 << 1);
 
-        xo = Lookup<float>::RandVecs2D[hash];
-        yo = Lookup<float>::RandVecs2D[hash | 1];
+        xo = Lookup<f32>::RandVecs2D[hash];
+        yo = Lookup<f32>::RandVecs2D[hash | 1];
     }
 
 
-    void GradCoordOut(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float& xo, float& yo, float& zo) const
+    void GradCoordOut(i32 seed, i64 xPrimed, i64 yPrimed, i64 zPrimed, f32& xo, f32& yo, f32& zo) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed) & (255 << 2);
+        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed) & (255 << 2);
 
-        xo = Lookup<float>::RandVecs3D[hash];
-        yo = Lookup<float>::RandVecs3D[hash | 1];
-        zo = Lookup<float>::RandVecs3D[hash | 2];
+        xo = Lookup<f32>::RandVecs3D[hash];
+        yo = Lookup<f32>::RandVecs3D[hash | 1];
+        zo = Lookup<f32>::RandVecs3D[hash | 2];
     }
 
 
-    void GradCoordDual(int seed, int64_t xPrimed, int64_t yPrimed, float xd, float yd, float& xo, float& yo) const
+    void GradCoordDual(i32 seed, i64 xPrimed, i64 yPrimed, f32 xd, f32 yd, f32& xo, f32& yo) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed);
-        int64_t index1 = hash & (127 << 1);
-        int64_t index2 = (hash >> 7) & (255 << 1);
+        i64 hash = Hash(seed, xPrimed, yPrimed);
+        i64 index1 = hash & (127 << 1);
+        i64 index2 = (hash >> 7) & (255 << 1);
 
-        float xg = Lookup<float>::Gradients2D[index1];
-        float yg = Lookup<float>::Gradients2D[index1 | 1];
-        float value = xd * xg + yd * yg;
+        f32 xg = Lookup<f32>::Gradients2D[index1];
+        f32 yg = Lookup<f32>::Gradients2D[index1 | 1];
+        f32 value = xd * xg + yd * yg;
 
-        float xgo = Lookup<float>::RandVecs2D[index2];
-        float ygo = Lookup<float>::RandVecs2D[index2 | 1];
+        f32 xgo = Lookup<f32>::RandVecs2D[index2];
+        f32 ygo = Lookup<f32>::RandVecs2D[index2 | 1];
 
         xo = value * xgo;
         yo = value * ygo;
     }
 
 
-    void GradCoordDual(int seed, int64_t xPrimed, int64_t yPrimed, int64_t zPrimed, float xd, float yd, float zd, float& xo, float& yo, float& zo) const
+    void GradCoordDual(i32 seed, i64 xPrimed, i64 yPrimed, i64 zPrimed, f32 xd, f32 yd, f32 zd, f32& xo, f32& yo, f32& zo) const
     {
-        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-        int64_t index1 = hash & (63 << 2);
-        int64_t index2 = (hash >> 6) & (255 << 2);
+        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+        i64 index1 = hash & (63 << 2);
+        i64 index2 = (hash >> 6) & (255 << 2);
 
-        float xg = Lookup<float>::Gradients3D[index1];
-        float yg = Lookup<float>::Gradients3D[index1 | 1];
-        float zg = Lookup<float>::Gradients3D[index1 | 2];
-        float value = xd * xg + yd * yg + zd * zg;
+        f32 xg = Lookup<f32>::Gradients3D[index1];
+        f32 yg = Lookup<f32>::Gradients3D[index1 | 1];
+        f32 zg = Lookup<f32>::Gradients3D[index1 | 2];
+        f32 value = xd * xg + yd * yg + zd * zg;
 
-        float xgo = Lookup<float>::RandVecs3D[index2];
-        float ygo = Lookup<float>::RandVecs3D[index2 | 1];
-        float zgo = Lookup<float>::RandVecs3D[index2 | 2];
+        f32 xgo = Lookup<f32>::RandVecs3D[index2];
+        f32 ygo = Lookup<f32>::RandVecs3D[index2 | 1];
+        f32 zgo = Lookup<f32>::RandVecs3D[index2 | 2];
 
         xo = value * xgo;
         yo = value * ygo;
@@ -597,7 +564,8 @@ private:
     // Generic noise gen
 
     template <typename FNfloat>
-    float GenNoiseSingle(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 GenNoiseSingle(i32 seed, FNfloat x, FNfloat y) const
     {
         switch (mNoiseType)
         {
@@ -619,7 +587,8 @@ private:
     }
 
     template <typename FNfloat>
-    float GenNoiseSingle(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 GenNoiseSingle(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
         switch (mNoiseType)
         {
@@ -644,6 +613,7 @@ private:
     // Noise Coordinate Transforms (frequency, and possible skew or rotation)
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void TransformNoiseCoordinate(FNfloat& x, FNfloat& y) const
     {
         x *= mFrequency;
@@ -654,8 +624,7 @@ private:
         case NoiseType::OpenSimplex2:
         case NoiseType::OpenSimplex2S:
         {
-            const FNfloat SQRT3 = (FNfloat)1.7320508075688772935274463415059;
-            const FNfloat F2 = 0.5f * (SQRT3 - 1);
+            const FNfloat F2 = 0.5f * (std::numbers::sqrt3 - 1);
             FNfloat t = (x + y) * F2;
             x += t;
             y += t;
@@ -667,6 +636,7 @@ private:
     }
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void TransformNoiseCoordinate(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
         x *= mFrequency;
@@ -679,25 +649,25 @@ private:
         {
             FNfloat xy = x + y;
             FNfloat s2 = xy * -(FNfloat)0.211324865405187;
-            z *= (FNfloat)0.577350269189626;
+            z *= std::numbers::inv_sqrt3;
             x += s2 - z;
             y = y + s2 - z;
-            z += xy * (FNfloat)0.577350269189626;
+            z += xy * std::numbers::inv_sqrt3;
         }
         break;
         case TransformType3D::ImproveXZPlanes:
         {
             FNfloat xz = x + z;
             FNfloat s2 = xz * -(FNfloat)0.211324865405187;
-            y *= (FNfloat)0.577350269189626;
+            y *= std::numbers::inv_sqrt3;
             x += s2 - y;
             z += s2 - y;
-            y += xz * (FNfloat)0.577350269189626;
+            y += xz * std::numbers::inv_sqrt3;
         }
         break;
         case TransformType3D::DefaultOpenSimplex2:
         {
-            const FNfloat R3 = (FNfloat)(2.0 / 3.0);
+            const auto R3 = static_cast<FNfloat>((2.0 / 3.0));
             FNfloat r = (x + y + z) * R3; // Rotation, not skew
             x = r - x;
             y = r - y;
@@ -738,6 +708,7 @@ private:
     // Domain Warp Coordinate Transforms
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void TransformDomainWarpCoordinate(FNfloat& x, FNfloat& y) const
     {
         switch (mDomainWarpType)
@@ -745,8 +716,7 @@ private:
         case DomainWarpType::OpenSimplex2:
         case DomainWarpType::OpenSimplex2Reduced:
         {
-            const FNfloat SQRT3 = (FNfloat)1.7320508075688772935274463415059;
-            const FNfloat F2 = 0.5f * (SQRT3 - 1);
+            const FNfloat F2 = 0.5f * (std::numbers::sqrt3 - 1);
             FNfloat t = (x + y) * F2;
             x += t;
             y += t;
@@ -758,6 +728,7 @@ private:
     }
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void TransformDomainWarpCoordinate(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
         switch (mWarpTransformType3D)
@@ -766,25 +737,25 @@ private:
         {
             FNfloat xy = x + y;
             FNfloat s2 = xy * -(FNfloat)0.211324865405187;
-            z *= (FNfloat)0.577350269189626;
+            z *= std::numbers::inv_sqrt3;
             x += s2 - z;
             y = y + s2 - z;
-            z += xy * (FNfloat)0.577350269189626;
+            z += xy * std::numbers::inv_sqrt3;
         }
         break;
         case TransformType3D::ImproveXZPlanes:
         {
             FNfloat xz = x + z;
             FNfloat s2 = xz * -(FNfloat)0.211324865405187;
-            y *= (FNfloat)0.577350269189626;
+            y *= std::numbers::inv_sqrt3;
             x += s2 - y;
             z += s2 - y;
-            y += xz * (FNfloat)0.577350269189626;
+            y += xz * std::numbers::inv_sqrt3;
         }
         break;
         case TransformType3D::DefaultOpenSimplex2:
         {
-            const FNfloat R3 = (FNfloat)(2.0 / 3.0);
+            const auto R3 = static_cast<FNfloat>((2.0 / 3.0));
             FNfloat r = (x + y + z) * R3; // Rotation, not skew
             x = r - x;
             y = r - y;
@@ -825,15 +796,16 @@ private:
     // Fractal FBm
 
     template <typename FNfloat>
-    float GenFractalFBm(FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalFBm(FNfloat x, FNfloat y) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = GenNoiseSingle(seed++, x, y);
+            f32 noise = GenNoiseSingle(seed++, x, y);
             sum += noise * amp;
             amp *= Lerp(1.0f, FastMin(noise + 1, 2) * 0.5f, mWeightedStrength);
 
@@ -846,15 +818,16 @@ private:
     }
 
     template <typename FNfloat>
-    float GenFractalFBm(FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalFBm(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = GenNoiseSingle(seed++, x, y, z);
+            f32 noise = GenNoiseSingle(seed++, x, y, z);
             sum += noise * amp;
             amp *= Lerp(1.0f, (noise + 1) * 0.5f, mWeightedStrength);
 
@@ -871,15 +844,16 @@ private:
     // Fractal Ridged
 
     template <typename FNfloat>
-    float GenFractalRidged(FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalRidged(FNfloat x, FNfloat y) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = FastAbs(GenNoiseSingle(seed++, x, y));
+            f32 noise = FastAbs(GenNoiseSingle(seed++, x, y));
             sum += (noise * -2 + 1) * amp;
             amp *= Lerp(1.0f, 1 - noise, mWeightedStrength);
 
@@ -892,15 +866,16 @@ private:
     }
 
     template <typename FNfloat>
-    float GenFractalRidged(FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalRidged(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = FastAbs(GenNoiseSingle(seed++, x, y, z));
+            f32 noise = FastAbs(GenNoiseSingle(seed++, x, y, z));
             sum += (noise * -2 + 1) * amp;
             amp *= Lerp(1.0f, 1 - noise, mWeightedStrength);
 
@@ -917,15 +892,16 @@ private:
     // Fractal PingPong
 
     template <typename FNfloat>
-    float GenFractalPingPong(FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalPingPong(FNfloat x, FNfloat y) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = PingPong((GenNoiseSingle(seed++, x, y) + 1) * mPingPongStrength);
+            f32 noise = PingPong((GenNoiseSingle(seed++, x, y) + 1) * mPingPongStrength);
             sum += (noise - 0.5f) * 2 * amp;
             amp *= Lerp(1.0f, noise, mWeightedStrength);
 
@@ -938,15 +914,16 @@ private:
     }
 
     template <typename FNfloat>
-    float GenFractalPingPong(FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 GenFractalPingPong(FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t seed = mSeed;
-        float sum = 0;
-        float amp = mFractalBounding;
+        i64 seed = mSeed;
+        f32 sum = 0;
+        f32 amp = mFractalBounding;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
-            float noise = PingPong((GenNoiseSingle(seed++, x, y, z) + 1) * mPingPongStrength);
+            f32 noise = PingPong((GenNoiseSingle(seed++, x, y, z) + 1) * mPingPongStrength);
             sum += (noise - 0.5f) * 2 * amp;
             amp *= Lerp(1.0f, noise, mWeightedStrength);
 
@@ -963,35 +940,36 @@ private:
     // Simplex/OpenSimplex2 Noise
 
     template <typename FNfloat>
-    float SingleSimplex(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SingleSimplex(i32 seed, FNfloat x, FNfloat y) const
     {
         // 2D OpenSimplex2 case uses the same algorithm as ordinary Simplex.
 
-        const float SQRT3 = 1.7320508075688772935274463415059f;
-        const float G2 = (3 - SQRT3) / 6;
+        
+        const f32 G2 = (3 - std::numbers::sqrt3) / 6;
 
         /*
          * --- Skew moved to TransformNoiseCoordinate method ---
-         * const FNfloat F2 = 0.5f * (SQRT3 - 1);
+         * const FNfloat F2 = 0.5f * (std::numbers::sqrt3 - 1);
          * FNfloat s = (x + y) * F2;
          * x += s; y += s;
          */
 
-        int64_t i = FastFloor(x);
-        int64_t j = FastFloor(y);
-        float xi = (float)(x - i);
-        float yi = (float)(y - j);
+        i64 i = FastFloor(x);
+        i64 j = FastFloor(y);
+        f32 xi = (f32)(x - i);
+        f32 yi = (f32)(y - j);
 
-        float t = (xi + yi) * G2;
-        float x0 = (float)(xi - t);
-        float y0 = (float)(yi - t);
+        f32 t = (xi + yi) * G2;
+        f32 x0 = (f32)(xi - t);
+        f32 y0 = (f32)(yi - t);
 
         i *= PrimeX;
         j *= PrimeY;
 
-        float n0, n1, n2;
+        f32 n0, n1, n2;
 
-        float a = 0.5f - x0 * x0 - y0 * y0;
+        f32 a = 0.5f - x0 * x0 - y0 * y0;
         if (a <= 0)
             n0 = 0;
         else
@@ -999,21 +977,21 @@ private:
             n0 = (a * a) * (a * a) * GradCoord(seed, i, j, x0, y0);
         }
 
-        float c = (float)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((float)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a);
+        f32 c = (f32)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((f32)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a);
         if (c <= 0)
             n2 = 0;
         else
         {
-            float x2 = x0 + (2 * (float)G2 - 1);
-            float y2 = y0 + (2 * (float)G2 - 1);
+            f32 x2 = x0 + (2 * (f32)G2 - 1);
+            f32 y2 = y0 + (2 * (f32)G2 - 1);
             n2 = (c * c) * (c * c) * GradCoord(seed, i + PrimeX, j + PrimeY, x2, y2);
         }
 
         if (y0 > x0)
         {
-            float x1 = x0 + (float)G2;
-            float y1 = y0 + ((float)G2 - 1);
-            float b = 0.5f - x1 * x1 - y1 * y1;
+            f32 x1 = x0 + (f32)G2;
+            f32 y1 = y0 + ((f32)G2 - 1);
+            f32 b = 0.5f - x1 * x1 - y1 * y1;
             if (b <= 0)
                 n1 = 0;
             else
@@ -1023,9 +1001,9 @@ private:
         }
         else
         {
-            float x1 = x0 + ((float)G2 - 1);
-            float y1 = y0 + (float)G2;
-            float b = 0.5f - x1 * x1 - y1 * y1;
+            f32 x1 = x0 + ((f32)G2 - 1);
+            f32 y1 = y0 + (f32)G2;
+            f32 b = 0.5f - x1 * x1 - y1 * y1;
             if (b <= 0)
                 n1 = 0;
             else
@@ -1038,53 +1016,54 @@ private:
     }
 
     template <typename FNfloat>
-    float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SingleOpenSimplex2(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
         // 3D OpenSimplex2 case uses two offset rotated cube grids.
 
         /*
          * --- Rotation moved to TransformNoiseCoordinate method ---
-         * const FNfloat R3 = (FNfloat)(2.0 / 3.0);
+         * const FNfloat R3 = static_cast<FNfloat>((2.0 / 3.0));
          * FNfloat r = (x + y + z) * R3; // Rotation, not skew
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int64_t i = FastRound(x);
-        int64_t j = FastRound(y);
-        int64_t k = FastRound(z);
-        float x0 = (float)(x - i);
-        float y0 = (float)(y - j);
-        float z0 = (float)(z - k);
+        i64 i = FastRound(x);
+        i64 j = FastRound(y);
+        i64 k = FastRound(z);
+        f32 x0 = (f32)(x - i);
+        f32 y0 = (f32)(y - j);
+        f32 z0 = (f32)(z - k);
 
-        int64_t xNSign = (int)(-1.0f - x0) | 1;
-        int64_t yNSign = (int)(-1.0f - y0) | 1;
-        int64_t zNSign = (int)(-1.0f - z0) | 1;
+        i64 xNSign = (i32)(-1.0f - x0) | 1;
+        i64 yNSign = (i32)(-1.0f - y0) | 1;
+        i64 zNSign = (i32)(-1.0f - z0) | 1;
 
-        float ax0 = xNSign * -x0;
-        float ay0 = yNSign * -y0;
-        float az0 = zNSign * -z0;
+        f32 ax0 = xNSign * -x0;
+        f32 ay0 = yNSign * -y0;
+        f32 az0 = zNSign * -z0;
 
         i *= PrimeX;
         j *= PrimeY;
         k *= PrimeZ;
 
-        float value = 0;
-        float a = (0.6f - x0 * x0) - (y0 * y0 + z0 * z0);
+        f32 value = 0;
+        f32 a = (0.6f - x0 * x0) - (y0 * y0 + z0 * z0);
 
-        for (int l = 0;; l++)
+        for (i32 l = 0;; l++)
         {
             if (a > 0)
             {
                 value += (a * a) * (a * a) * GradCoord(seed, i, j, k, x0, y0, z0);
             }
 
-            float b = a + 1;
-            int64_t i1 = i;
-            int64_t j1 = j;
-            int64_t k1 = k;
-            float x1 = x0;
-            float y1 = y0;
-            float z1 = z0;
+            f32 b = a + 1;
+            i64 i1 = i;
+            i64 j1 = j;
+            i64 k1 = k;
+            f32 x1 = x0;
+            f32 y1 = y0;
+            f32 z1 = z0;
 
             if (ax0 >= ay0 && ax0 >= az0)
             {
@@ -1141,51 +1120,51 @@ private:
     // OpenSimplex2S Noise
 
     template <typename FNfloat>
-    float SingleOpenSimplex2S(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SingleOpenSimplex2S(i32 seed, FNfloat x, FNfloat y) const
     {
         // 2D OpenSimplex2S case is a modified 2D simplex noise.
 
-        const FNfloat SQRT3 = (FNfloat)1.7320508075688772935274463415059;
-        const FNfloat G2 = (3 - SQRT3) / 6;
+        const FNfloat G2 = (3 - std::numbers::sqrt3) / 6;
 
         /*
          * --- Skew moved to TransformNoiseCoordinate method ---
-         * const FNfloat F2 = 0.5f * (SQRT3 - 1);
+         * const FNfloat F2 = 0.5f * (std::numbers::sqrt3 - 1);
          * FNfloat s = (x + y) * F2;
          * x += s; y += s;
          */
 
-        int64_t i = FastFloor(x);
-        int64_t j = FastFloor(y);
-        float xi = (float)(x - i);
-        float yi = (float)(y - j);
+        i64 i = FastFloor(x);
+        i64 j = FastFloor(y);
+        f32 xi = (f32)(x - i);
+        f32 yi = (f32)(y - j);
 
         i *= PrimeX;
         j *= PrimeY;
-        int64_t i1 = i + PrimeX;
-        int64_t j1 = j + PrimeY;
+        i64 i1 = i + PrimeX;
+        i64 j1 = j + PrimeY;
 
-        float t = (xi + yi) * (float)G2;
-        float x0 = xi - t;
-        float y0 = yi - t;
+        f32 t = (xi + yi) * (f32)G2;
+        f32 x0 = xi - t;
+        f32 y0 = yi - t;
 
-        float a0 = (2.0f / 3.0f) - x0 * x0 - y0 * y0;
-        float value = (a0 * a0) * (a0 * a0) * GradCoord(seed, i, j, x0, y0);
+        f32 a0 = (2.0f / 3.0f) - x0 * x0 - y0 * y0;
+        f32 value = (a0 * a0) * (a0 * a0) * GradCoord(seed, i, j, x0, y0);
 
-        float a1 = (float)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((float)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a0);
-        float x1 = x0 - (float)(1 - 2 * G2);
-        float y1 = y0 - (float)(1 - 2 * G2);
+        f32 a1 = (f32)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((f32)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a0);
+        f32 x1 = x0 - (f32)(1 - 2 * G2);
+        f32 y1 = y0 - (f32)(1 - 2 * G2);
         value += (a1 * a1) * (a1 * a1) * GradCoord(seed, i1, j1, x1, y1);
 
         // Nested conditionals were faster than compact bit logic/arithmetic.
-        float xmyi = xi - yi;
+        f32 xmyi = xi - yi;
         if (t > G2)
         {
             if (xi + xmyi > 1)
             {
-                float x2 = x0 + (float)(3 * G2 - 2);
-                float y2 = y0 + (float)(3 * G2 - 1);
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 + (f32)(3 * G2 - 2);
+                f32 y2 = y0 + (f32)(3 * G2 - 1);
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i + (PrimeX << 1), j + PrimeY, x2, y2);
@@ -1193,9 +1172,9 @@ private:
             }
             else
             {
-                float x2 = x0 + (float)G2;
-                float y2 = y0 + (float)(G2 - 1);
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 + (f32)G2;
+                f32 y2 = y0 + (f32)(G2 - 1);
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i, j + PrimeY, x2, y2);
@@ -1204,9 +1183,9 @@ private:
 
             if (yi - xmyi > 1)
             {
-                float x3 = x0 + (float)(3 * G2 - 1);
-                float y3 = y0 + (float)(3 * G2 - 2);
-                float a3 = (2.0f / 3.0f) - x3 * x3 - y3 * y3;
+                f32 x3 = x0 + (f32)(3 * G2 - 1);
+                f32 y3 = y0 + (f32)(3 * G2 - 2);
+                f32 a3 = (2.0f / 3.0f) - x3 * x3 - y3 * y3;
                 if (a3 > 0)
                 {
                     value += (a3 * a3) * (a3 * a3) * GradCoord(seed, i + PrimeX, j + (PrimeY << 1), x3, y3);
@@ -1214,9 +1193,9 @@ private:
             }
             else
             {
-                float x3 = x0 + (float)(G2 - 1);
-                float y3 = y0 + (float)G2;
-                float a3 = (2.0f / 3.0f) - x3 * x3 - y3 * y3;
+                f32 x3 = x0 + (f32)(G2 - 1);
+                f32 y3 = y0 + (f32)G2;
+                f32 a3 = (2.0f / 3.0f) - x3 * x3 - y3 * y3;
                 if (a3 > 0)
                 {
                     value += (a3 * a3) * (a3 * a3) * GradCoord(seed, i + PrimeX, j, x3, y3);
@@ -1227,9 +1206,9 @@ private:
         {
             if (xi + xmyi < 0)
             {
-                float x2 = x0 + (float)(1 - G2);
-                float y2 = y0 - (float)G2;
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 + (f32)(1 - G2);
+                f32 y2 = y0 - (f32)G2;
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i - PrimeX, j, x2, y2);
@@ -1237,9 +1216,9 @@ private:
             }
             else
             {
-                float x2 = x0 + (float)(G2 - 1);
-                float y2 = y0 + (float)G2;
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 + (f32)(G2 - 1);
+                f32 y2 = y0 + (f32)G2;
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i + PrimeX, j, x2, y2);
@@ -1248,9 +1227,9 @@ private:
 
             if (yi < xmyi)
             {
-                float x2 = x0 - (float)G2;
-                float y2 = y0 - (float)(G2 - 1);
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 - (f32)G2;
+                f32 y2 = y0 - (f32)(G2 - 1);
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i, j - PrimeY, x2, y2);
@@ -1258,9 +1237,9 @@ private:
             }
             else
             {
-                float x2 = x0 + (float)G2;
-                float y2 = y0 + (float)(G2 - 1);
-                float a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
+                f32 x2 = x0 + (f32)G2;
+                f32 y2 = y0 + (f32)(G2 - 1);
+                f32 a2 = (2.0f / 3.0f) - x2 * x2 - y2 * y2;
                 if (a2 > 0)
                 {
                     value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i, j + PrimeY, x2, y2);
@@ -1272,140 +1251,141 @@ private:
     }
 
     template <typename FNfloat>
-    float SingleOpenSimplex2S(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SingleOpenSimplex2S(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
         // 3D OpenSimplex2S case uses two offset rotated cube grids.
 
         /*
          * --- Rotation moved to TransformNoiseCoordinate method ---
-         * const FNfloat R3 = (FNfloat)(2.0 / 3.0);
+         * const FNfloat R3 = static_cast<FNfloat>((2.0 / 3.0));
          * FNfloat r = (x + y + z) * R3; // Rotation, not skew
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int64_t i = FastFloor(x);
-        int64_t j = FastFloor(y);
-        int64_t k = FastFloor(z);
-        float xi = (float)(x - i);
-        float yi = (float)(y - j);
-        float zi = (float)(z - k);
+        i64 i = FastFloor(x);
+        i64 j = FastFloor(y);
+        i64 k = FastFloor(z);
+        f32 xi = (f32)(x - i);
+        f32 yi = (f32)(y - j);
+        f32 zi = (f32)(z - k);
 
         i *= PrimeX;
         j *= PrimeY;
         k *= PrimeZ;
-        int64_t seed2 = seed + 1293373;
+        i64 seed2 = seed + 1293373;
 
-        int64_t xNMask = (int)(-0.5f - xi);
-        int64_t yNMask = (int)(-0.5f - yi);
-        int64_t zNMask = (int)(-0.5f - zi);
+        i64 xNMask = (i32)(-0.5f - xi);
+        i64 yNMask = (i32)(-0.5f - yi);
+        i64 zNMask = (i32)(-0.5f - zi);
 
-        float x0 = xi + xNMask;
-        float y0 = yi + yNMask;
-        float z0 = zi + zNMask;
-        float a0 = 0.75f - x0 * x0 - y0 * y0 - z0 * z0;
-        float value = (a0 * a0) * (a0 * a0) * GradCoord(seed, i + (xNMask & PrimeX), j + (yNMask & PrimeY), k + (zNMask & PrimeZ), x0, y0, z0);
+        f32 x0 = xi + xNMask;
+        f32 y0 = yi + yNMask;
+        f32 z0 = zi + zNMask;
+        f32 a0 = 0.75f - x0 * x0 - y0 * y0 - z0 * z0;
+        f32 value = (a0 * a0) * (a0 * a0) * GradCoord(seed, i + (xNMask & PrimeX), j + (yNMask & PrimeY), k + (zNMask & PrimeZ), x0, y0, z0);
 
-        float x1 = xi - 0.5f;
-        float y1 = yi - 0.5f;
-        float z1 = zi - 0.5f;
-        float a1 = 0.75f - x1 * x1 - y1 * y1 - z1 * z1;
+        f32 x1 = xi - 0.5f;
+        f32 y1 = yi - 0.5f;
+        f32 z1 = zi - 0.5f;
+        f32 a1 = 0.75f - x1 * x1 - y1 * y1 - z1 * z1;
         value += (a1 * a1) * (a1 * a1) * GradCoord(seed2, i + PrimeX, j + PrimeY, k + PrimeZ, x1, y1, z1);
 
-        float xAFlipMask0 = ((xNMask | 1) << 1) * x1;
-        float yAFlipMask0 = ((yNMask | 1) << 1) * y1;
-        float zAFlipMask0 = ((zNMask | 1) << 1) * z1;
-        float xAFlipMask1 = (-2 - (xNMask << 2)) * x1 - 1.0f;
-        float yAFlipMask1 = (-2 - (yNMask << 2)) * y1 - 1.0f;
-        float zAFlipMask1 = (-2 - (zNMask << 2)) * z1 - 1.0f;
+        f32 xAFlipMask0 = ((xNMask | 1) << 1) * x1;
+        f32 yAFlipMask0 = ((yNMask | 1) << 1) * y1;
+        f32 zAFlipMask0 = ((zNMask | 1) << 1) * z1;
+        f32 xAFlipMask1 = (-2 - (xNMask << 2)) * x1 - 1.0f;
+        f32 yAFlipMask1 = (-2 - (yNMask << 2)) * y1 - 1.0f;
+        f32 zAFlipMask1 = (-2 - (zNMask << 2)) * z1 - 1.0f;
 
         bool skip5 = false;
-        float a2 = xAFlipMask0 + a0;
+        f32 a2 = xAFlipMask0 + a0;
         if (a2 > 0)
         {
-            float x2 = x0 - (xNMask | 1);
-            float y2 = y0;
-            float z2 = z0;
+            f32 x2 = x0 - (xNMask | 1);
+            f32 y2 = y0;
+            f32 z2 = z0;
             value += (a2 * a2) * (a2 * a2) * GradCoord(seed, i + (~xNMask & PrimeX), j + (yNMask & PrimeY), k + (zNMask & PrimeZ), x2, y2, z2);
         }
         else
         {
-            float a3 = yAFlipMask0 + zAFlipMask0 + a0;
+            f32 a3 = yAFlipMask0 + zAFlipMask0 + a0;
             if (a3 > 0)
             {
-                float x3 = x0;
-                float y3 = y0 - (yNMask | 1);
-                float z3 = z0 - (zNMask | 1);
+                f32 x3 = x0;
+                f32 y3 = y0 - (yNMask | 1);
+                f32 z3 = z0 - (zNMask | 1);
                 value += (a3 * a3) * (a3 * a3) * GradCoord(seed, i + (xNMask & PrimeX), j + (~yNMask & PrimeY), k + (~zNMask & PrimeZ), x3, y3, z3);
             }
 
-            float a4 = xAFlipMask1 + a1;
+            f32 a4 = xAFlipMask1 + a1;
             if (a4 > 0)
             {
-                float x4 = (xNMask | 1) + x1;
-                float y4 = y1;
-                float z4 = z1;
+                f32 x4 = (xNMask | 1) + x1;
+                f32 y4 = y1;
+                f32 z4 = z1;
                 value += (a4 * a4) * (a4 * a4) * GradCoord(seed2, i + (xNMask & (PrimeX * 2)), j + PrimeY, k + PrimeZ, x4, y4, z4);
                 skip5 = true;
             }
         }
 
         bool skip9 = false;
-        float a6 = yAFlipMask0 + a0;
+        f32 a6 = yAFlipMask0 + a0;
         if (a6 > 0)
         {
-            float x6 = x0;
-            float y6 = y0 - (yNMask | 1);
-            float z6 = z0;
+            f32 x6 = x0;
+            f32 y6 = y0 - (yNMask | 1);
+            f32 z6 = z0;
             value += (a6 * a6) * (a6 * a6) * GradCoord(seed, i + (xNMask & PrimeX), j + (~yNMask & PrimeY), k + (zNMask & PrimeZ), x6, y6, z6);
         }
         else
         {
-            float a7 = xAFlipMask0 + zAFlipMask0 + a0;
+            f32 a7 = xAFlipMask0 + zAFlipMask0 + a0;
             if (a7 > 0)
             {
-                float x7 = x0 - (xNMask | 1);
-                float y7 = y0;
-                float z7 = z0 - (zNMask | 1);
+                f32 x7 = x0 - (xNMask | 1);
+                f32 y7 = y0;
+                f32 z7 = z0 - (zNMask | 1);
                 value += (a7 * a7) * (a7 * a7) * GradCoord(seed, i + (~xNMask & PrimeX), j + (yNMask & PrimeY), k + (~zNMask & PrimeZ), x7, y7, z7);
             }
 
-            float a8 = yAFlipMask1 + a1;
+            f32 a8 = yAFlipMask1 + a1;
             if (a8 > 0)
             {
-                float x8 = x1;
-                float y8 = (yNMask | 1) + y1;
-                float z8 = z1;
+                f32 x8 = x1;
+                f32 y8 = (yNMask | 1) + y1;
+                f32 z8 = z1;
                 value += (a8 * a8) * (a8 * a8) * GradCoord(seed2, i + PrimeX, j + (yNMask & (PrimeY << 1)), k + PrimeZ, x8, y8, z8);
                 skip9 = true;
             }
         }
 
         bool skipD = false;
-        float aA = zAFlipMask0 + a0;
+        f32 aA = zAFlipMask0 + a0;
         if (aA > 0)
         {
-            float xA = x0;
-            float yA = y0;
-            float zA = z0 - (zNMask | 1);
+            f32 xA = x0;
+            f32 yA = y0;
+            f32 zA = z0 - (zNMask | 1);
             value += (aA * aA) * (aA * aA) * GradCoord(seed, i + (xNMask & PrimeX), j + (yNMask & PrimeY), k + (~zNMask & PrimeZ), xA, yA, zA);
         }
         else
         {
-            float aB = xAFlipMask0 + yAFlipMask0 + a0;
+            f32 aB = xAFlipMask0 + yAFlipMask0 + a0;
             if (aB > 0)
             {
-                float xB = x0 - (xNMask | 1);
-                float yB = y0 - (yNMask | 1);
-                float zB = z0;
+                f32 xB = x0 - (xNMask | 1);
+                f32 yB = y0 - (yNMask | 1);
+                f32 zB = z0;
                 value += (aB * aB) * (aB * aB) * GradCoord(seed, i + (~xNMask & PrimeX), j + (~yNMask & PrimeY), k + (zNMask & PrimeZ), xB, yB, zB);
             }
 
-            float aC = zAFlipMask1 + a1;
+            f32 aC = zAFlipMask1 + a1;
             if (aC > 0)
             {
-                float xC = x1;
-                float yC = y1;
-                float zC = (zNMask | 1) + z1;
+                f32 xC = x1;
+                f32 yC = y1;
+                f32 zC = (zNMask | 1) + z1;
                 value += (aC * aC) * (aC * aC) * GradCoord(seed2, i + PrimeX, j + PrimeY, k + (zNMask & (PrimeZ << 1)), xC, yC, zC);
                 skipD = true;
             }
@@ -1413,36 +1393,36 @@ private:
 
         if (!skip5)
         {
-            float a5 = yAFlipMask1 + zAFlipMask1 + a1;
+            f32 a5 = yAFlipMask1 + zAFlipMask1 + a1;
             if (a5 > 0)
             {
-                float x5 = x1;
-                float y5 = (yNMask | 1) + y1;
-                float z5 = (zNMask | 1) + z1;
+                f32 x5 = x1;
+                f32 y5 = (yNMask | 1) + y1;
+                f32 z5 = (zNMask | 1) + z1;
                 value += (a5 * a5) * (a5 * a5) * GradCoord(seed2, i + PrimeX, j + (yNMask & (PrimeY << 1)), k + (zNMask & (PrimeZ << 1)), x5, y5, z5);
             }
         }
 
         if (!skip9)
         {
-            float a9 = xAFlipMask1 + zAFlipMask1 + a1;
+            f32 a9 = xAFlipMask1 + zAFlipMask1 + a1;
             if (a9 > 0)
             {
-                float x9 = (xNMask | 1) + x1;
-                float y9 = y1;
-                float z9 = (zNMask | 1) + z1;
+                f32 x9 = (xNMask | 1) + x1;
+                f32 y9 = y1;
+                f32 z9 = (zNMask | 1) + z1;
                 value += (a9 * a9) * (a9 * a9) * GradCoord(seed2, i + (xNMask & (PrimeX * 2)), j + PrimeY, k + (zNMask & (PrimeZ << 1)), x9, y9, z9);
             }
         }
 
         if (!skipD)
         {
-            float aD = xAFlipMask1 + yAFlipMask1 + a1;
+            f32 aD = xAFlipMask1 + yAFlipMask1 + a1;
             if (aD > 0)
             {
-                float xD = (xNMask | 1) + x1;
-                float yD = (yNMask | 1) + y1;
-                float zD = z1;
+                f32 xD = (xNMask | 1) + x1;
+                f32 yD = (yNMask | 1) + y1;
+                f32 zD = z1;
                 value += (aD * aD) * (aD * aD) * GradCoord(seed2, i + (xNMask & (PrimeX << 1)), j + (yNMask & (PrimeY << 1)), k + PrimeZ, xD, yD, zD);
             }
         }
@@ -1454,38 +1434,39 @@ private:
     // Cellular Noise
 
     template <typename FNfloat>
-    float SingleCellular(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SingleCellular(i32 seed, FNfloat x, FNfloat y) const
     {
-        int64_t xr = FastRound(x);
-        int64_t yr = FastRound(y);
+        i64 xr = FastRound(x);
+        i64 yr = FastRound(y);
 
-        float distance0 = 1e10f;
-        float distance1 = 1e10f;
-        int64_t closestHash = 0;
+        f32 distance0 = 1e10f;
+        f32 distance1 = 1e10f;
+        i64 closestHash = 0;
 
-        float cellularJitter = 0.43701595f * mCellularJitterModifier;
+        f32 cellularJitter = 0.43701595f * mCellularJitterModifier;
 
-        int64_t xPrimed = (xr - 1) * PrimeX;
-        int64_t yPrimedBase = (yr - 1) * PrimeY;
+        i64 xPrimed = (xr - 1) * PrimeX;
+        i64 yPrimedBase = (yr - 1) * PrimeY;
 
         switch (mCellularDistanceFunction)
         {
         default:
         case CellularDistanceFunction::Euclidean:
         case CellularDistanceFunction::EuclideanSq:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t hash = Hash(seed, xPrimed, yPrimed);
-                    int64_t idx = hash & (255 << 1);
+                    i64 hash = Hash(seed, xPrimed, yPrimed);
+                    i64 idx = hash & (255 << 1);
 
-                    float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
-                    float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
+                    f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs2D[idx] * cellularJitter;
+                    f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs2D[idx | 1] * cellularJitter;
 
-                    float newDistance = vecX * vecX + vecY * vecY;
+                    f32 newDistance = vecX * vecX + vecY * vecY;
 
                     distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                     if (newDistance < distance0)
@@ -1499,19 +1480,19 @@ private:
             }
             break;
         case CellularDistanceFunction::Manhattan:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t hash = Hash(seed, xPrimed, yPrimed);
-                    int64_t idx = hash & (255 << 1);
+                    i64 hash = Hash(seed, xPrimed, yPrimed);
+                    i64 idx = hash & (255 << 1);
 
-                    float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
-                    float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
+                    f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs2D[idx] * cellularJitter;
+                    f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs2D[idx | 1] * cellularJitter;
 
-                    float newDistance = FastAbs(vecX) + FastAbs(vecY);
+                    f32 newDistance = FastAbs(vecX) + FastAbs(vecY);
 
                     distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                     if (newDistance < distance0)
@@ -1525,19 +1506,19 @@ private:
             }
             break;
         case CellularDistanceFunction::Hybrid:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t hash = Hash(seed, xPrimed, yPrimed);
-                    int64_t idx = hash & (255 << 1);
+                    i64 hash = Hash(seed, xPrimed, yPrimed);
+                    i64 idx = hash & (255 << 1);
 
-                    float vecX = (float)(xi - x) + Lookup<float>::RandVecs2D[idx] * cellularJitter;
-                    float vecY = (float)(yi - y) + Lookup<float>::RandVecs2D[idx | 1] * cellularJitter;
+                    f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs2D[idx] * cellularJitter;
+                    f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs2D[idx | 1] * cellularJitter;
 
-                    float newDistance = (FastAbs(vecX) + FastAbs(vecY)) + (vecX * vecX + vecY * vecY);
+                    f32 newDistance = (FastAbs(vecX) + FastAbs(vecY)) + (vecX * vecX + vecY * vecY);
 
                     distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                     if (newDistance < distance0)
@@ -1584,44 +1565,45 @@ private:
     }
 
     template <typename FNfloat>
-    float SingleCellular(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SingleCellular(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t xr = FastRound(x);
-        int64_t yr = FastRound(y);
-        int64_t zr = FastRound(z);
+        i64 xr = FastRound(x);
+        i64 yr = FastRound(y);
+        i64 zr = FastRound(z);
 
-        float distance0 = 1e10f;
-        float distance1 = 1e10f;
-        int64_t closestHash = 0;
+        f32 distance0 = 1e10f;
+        f32 distance1 = 1e10f;
+        i64 closestHash = 0;
 
-        float cellularJitter = 0.39614353f * mCellularJitterModifier;
+        f32 cellularJitter = 0.39614353f * mCellularJitterModifier;
 
-        int64_t xPrimed = (xr - 1) * PrimeX;
-        int64_t yPrimedBase = (yr - 1) * PrimeY;
-        int64_t zPrimedBase = (zr - 1) * PrimeZ;
+        i64 xPrimed = (xr - 1) * PrimeX;
+        i64 yPrimedBase = (yr - 1) * PrimeY;
+        i64 zPrimedBase = (zr - 1) * PrimeZ;
 
         switch (mCellularDistanceFunction)
         {
         case CellularDistanceFunction::Euclidean:
         case CellularDistanceFunction::EuclideanSq:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t zPrimed = zPrimedBase;
+                    i64 zPrimed = zPrimedBase;
 
-                    for (int zi = zr - 1; zi <= zr + 1; zi++)
+                    for (i32 zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int64_t idx = hash & (255 << 2);
+                        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        i64 idx = hash & (255 << 2);
 
-                        float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
-                        float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
-                        float vecZ = (float)(zi - z) + Lookup<float>::RandVecs3D[idx | 2] * cellularJitter;
+                        f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs3D[idx] * cellularJitter;
+                        f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs3D[idx | 1] * cellularJitter;
+                        f32 vecZ = (f32)(zi - z) + Lookup<f32>::RandVecs3D[idx | 2] * cellularJitter;
 
-                        float newDistance = vecX * vecX + vecY * vecY + vecZ * vecZ;
+                        f32 newDistance = vecX * vecX + vecY * vecY + vecZ * vecZ;
 
                         distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                         if (newDistance < distance0)
@@ -1637,24 +1619,24 @@ private:
             }
             break;
         case CellularDistanceFunction::Manhattan:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t zPrimed = zPrimedBase;
+                    i64 zPrimed = zPrimedBase;
 
-                    for (int zi = zr - 1; zi <= zr + 1; zi++)
+                    for (i32 zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int64_t idx = hash & (255 << 2);
+                        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        i64 idx = hash & (255 << 2);
 
-                        float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
-                        float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
-                        float vecZ = (float)(zi - z) + Lookup<float>::RandVecs3D[idx | 2] * cellularJitter;
+                        f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs3D[idx] * cellularJitter;
+                        f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs3D[idx | 1] * cellularJitter;
+                        f32 vecZ = (f32)(zi - z) + Lookup<f32>::RandVecs3D[idx | 2] * cellularJitter;
 
-                        float newDistance = FastAbs(vecX) + FastAbs(vecY) + FastAbs(vecZ);
+                        f32 newDistance = FastAbs(vecX) + FastAbs(vecY) + FastAbs(vecZ);
 
                         distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                         if (newDistance < distance0)
@@ -1670,24 +1652,24 @@ private:
             }
             break;
         case CellularDistanceFunction::Hybrid:
-            for (int xi = xr - 1; xi <= xr + 1; xi++)
+            for (i32 xi = xr - 1; xi <= xr + 1; xi++)
             {
-                int64_t yPrimed = yPrimedBase;
+                i64 yPrimed = yPrimedBase;
 
-                for (int yi = yr - 1; yi <= yr + 1; yi++)
+                for (i32 yi = yr - 1; yi <= yr + 1; yi++)
                 {
-                    int64_t zPrimed = zPrimedBase;
+                    i64 zPrimed = zPrimedBase;
 
-                    for (int zi = zr - 1; zi <= zr + 1; zi++)
+                    for (i32 zi = zr - 1; zi <= zr + 1; zi++)
                     {
-                        int64_t hash = Hash(seed, xPrimed, yPrimed, zPrimed);
-                        int64_t idx = hash & (255 << 2);
+                        i64 hash = Hash(seed, xPrimed, yPrimed, zPrimed);
+                        i64 idx = hash & (255 << 2);
 
-                        float vecX = (float)(xi - x) + Lookup<float>::RandVecs3D[idx] * cellularJitter;
-                        float vecY = (float)(yi - y) + Lookup<float>::RandVecs3D[idx | 1] * cellularJitter;
-                        float vecZ = (float)(zi - z) + Lookup<float>::RandVecs3D[idx | 2] * cellularJitter;
+                        f32 vecX = (f32)(xi - x) + Lookup<f32>::RandVecs3D[idx] * cellularJitter;
+                        f32 vecY = (f32)(yi - y) + Lookup<f32>::RandVecs3D[idx | 1] * cellularJitter;
+                        f32 vecZ = (f32)(zi - z) + Lookup<f32>::RandVecs3D[idx | 2] * cellularJitter;
 
-                        float newDistance = (FastAbs(vecX) + FastAbs(vecY) + FastAbs(vecZ)) + (vecX * vecX + vecY * vecY + vecZ * vecZ);
+                        f32 newDistance = (FastAbs(vecX) + FastAbs(vecY) + FastAbs(vecZ)) + (vecX * vecX + vecY * vecY + vecZ * vecZ);
 
                         distance1 = FastMax(FastMin(distance1, newDistance), distance0);
                         if (newDistance < distance0)
@@ -1741,62 +1723,64 @@ private:
     // Perlin Noise
 
     template <typename FNfloat>
-    float SinglePerlin(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SinglePerlin(i32 seed, FNfloat x, FNfloat y) const
     {
-        int64_t x0 = FastFloor(x);
-        int64_t y0 = FastFloor(y);
+        i64 x0 = FastFloor(x);
+        i64 y0 = FastFloor(y);
 
-        float xd0 = (float)(x - x0);
-        float yd0 = (float)(y - y0);
-        float xd1 = xd0 - 1;
-        float yd1 = yd0 - 1;
+        f32 xd0 = (f32)(x - x0);
+        f32 yd0 = (f32)(y - y0);
+        f32 xd1 = xd0 - 1;
+        f32 yd1 = yd0 - 1;
 
-        float xs = int64_terpQuintic(xd0);
-        float ys = int64_terpQuintic(yd0);
+        f32 xs = int64_terpQuintic(xd0);
+        f32 ys = int64_terpQuintic(yd0);
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
 
-        float xf0 = Lerp(GradCoord(seed, x0, y0, xd0, yd0), GradCoord(seed, x1, y0, xd1, yd0), xs);
-        float xf1 = Lerp(GradCoord(seed, x0, y1, xd0, yd1), GradCoord(seed, x1, y1, xd1, yd1), xs);
+        f32 xf0 = Lerp(GradCoord(seed, x0, y0, xd0, yd0), GradCoord(seed, x1, y0, xd1, yd0), xs);
+        f32 xf1 = Lerp(GradCoord(seed, x0, y1, xd0, yd1), GradCoord(seed, x1, y1, xd1, yd1), xs);
 
         return Lerp(xf0, xf1, ys) * 1.4247691104677813f;
     }
 
     template <typename FNfloat>
-    float SinglePerlin(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SinglePerlin(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t x0 = FastFloor(x);
-        int64_t y0 = FastFloor(y);
-        int64_t z0 = FastFloor(z);
+        i64 x0 = FastFloor(x);
+        i64 y0 = FastFloor(y);
+        i64 z0 = FastFloor(z);
 
-        float xd0 = (float)(x - x0);
-        float yd0 = (float)(y - y0);
-        float zd0 = (float)(z - z0);
-        float xd1 = xd0 - 1;
-        float yd1 = yd0 - 1;
-        float zd1 = zd0 - 1;
+        f32 xd0 = (f32)(x - x0);
+        f32 yd0 = (f32)(y - y0);
+        f32 zd0 = (f32)(z - z0);
+        f32 xd1 = xd0 - 1;
+        f32 yd1 = yd0 - 1;
+        f32 zd1 = zd0 - 1;
 
-        float xs = int64_terpQuintic(xd0);
-        float ys = int64_terpQuintic(yd0);
-        float zs = int64_terpQuintic(zd0);
+        f32 xs = int64_terpQuintic(xd0);
+        f32 ys = int64_terpQuintic(yd0);
+        f32 zs = int64_terpQuintic(zd0);
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
-        int64_t z1 = z0 + PrimeZ;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
+        i64 z1 = z0 + PrimeZ;
 
-        float xf00 = Lerp(GradCoord(seed, x0, y0, z0, xd0, yd0, zd0), GradCoord(seed, x1, y0, z0, xd1, yd0, zd0), xs);
-        float xf10 = Lerp(GradCoord(seed, x0, y1, z0, xd0, yd1, zd0), GradCoord(seed, x1, y1, z0, xd1, yd1, zd0), xs);
-        float xf01 = Lerp(GradCoord(seed, x0, y0, z1, xd0, yd0, zd1), GradCoord(seed, x1, y0, z1, xd1, yd0, zd1), xs);
-        float xf11 = Lerp(GradCoord(seed, x0, y1, z1, xd0, yd1, zd1), GradCoord(seed, x1, y1, z1, xd1, yd1, zd1), xs);
+        f32 xf00 = Lerp(GradCoord(seed, x0, y0, z0, xd0, yd0, zd0), GradCoord(seed, x1, y0, z0, xd1, yd0, zd0), xs);
+        f32 xf10 = Lerp(GradCoord(seed, x0, y1, z0, xd0, yd1, zd0), GradCoord(seed, x1, y1, z0, xd1, yd1, zd0), xs);
+        f32 xf01 = Lerp(GradCoord(seed, x0, y0, z1, xd0, yd0, zd1), GradCoord(seed, x1, y0, z1, xd1, yd0, zd1), xs);
+        f32 xf11 = Lerp(GradCoord(seed, x0, y1, z1, xd0, yd1, zd1), GradCoord(seed, x1, y1, z1, xd1, yd1, zd1), xs);
 
-        float yf0 = Lerp(xf00, xf10, ys);
-        float yf1 = Lerp(xf01, xf11, ys);
+        f32 yf0 = Lerp(xf00, xf10, ys);
+        f32 yf1 = Lerp(xf01, xf11, ys);
 
         return Lerp(yf0, yf1, zs) * 0.964921414852142333984375f;
     }
@@ -1805,50 +1789,52 @@ private:
     // Value Cubic Noise
 
     template <typename FNfloat>
-    float SingleValueCubic(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SingleValueCubic(i32 seed, FNfloat x, FNfloat y) const
     {
-        int64_t x1 = FastFloor(x);
-        int64_t y1 = FastFloor(y);
+        i64 x1 = FastFloor(x);
+        i64 y1 = FastFloor(y);
 
-        float xs = (float)(x - x1);
-        float ys = (float)(y - y1);
+        f32 xs = (f32)(x - x1);
+        f32 ys = (f32)(y - y1);
 
         x1 *= PrimeX;
         y1 *= PrimeY;
-        int64_t x0 = x1 - PrimeX;
-        int64_t y0 = y1 - PrimeY;
-        int64_t x2 = x1 + PrimeX;
-        int64_t y2 = y1 + PrimeY;
-        int64_t x3 = x1 + (int)((long)PrimeX << 1);
-        int64_t y3 = y1 + (int)((long)PrimeY << 1);
+        i64 x0 = x1 - PrimeX;
+        i64 y0 = y1 - PrimeY;
+        i64 x2 = x1 + PrimeX;
+        i64 y2 = y1 + PrimeY;
+        i64 x3 = x1 + (i32)((long)PrimeX << 1);
+        i64 y3 = y1 + (i32)((long)PrimeY << 1);
 
         return CubicLerp(CubicLerp(ValCoord(seed, x0, y0), ValCoord(seed, x1, y0), ValCoord(seed, x2, y0), ValCoord(seed, x3, y0), xs), CubicLerp(ValCoord(seed, x0, y1), ValCoord(seed, x1, y1), ValCoord(seed, x2, y1), ValCoord(seed, x3, y1), xs), CubicLerp(ValCoord(seed, x0, y2), ValCoord(seed, x1, y2), ValCoord(seed, x2, y2), ValCoord(seed, x3, y2), xs), CubicLerp(ValCoord(seed, x0, y3), ValCoord(seed, x1, y3), ValCoord(seed, x2, y3), ValCoord(seed, x3, y3), xs), ys) * (1 / (1.5f * 1.5f));
     }
 
     template <typename FNfloat>
-    float SingleValueCubic(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SingleValueCubic(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t x1 = FastFloor(x);
-        int64_t y1 = FastFloor(y);
-        int64_t z1 = FastFloor(z);
+        i64 x1 = FastFloor(x);
+        i64 y1 = FastFloor(y);
+        i64 z1 = FastFloor(z);
 
-        float xs = (float)(x - x1);
-        float ys = (float)(y - y1);
-        float zs = (float)(z - z1);
+        f32 xs = (f32)(x - x1);
+        f32 ys = (f32)(y - y1);
+        f32 zs = (f32)(z - z1);
 
         x1 *= PrimeX;
         y1 *= PrimeY;
         z1 *= PrimeZ;
 
-        int64_t x0 = x1 - PrimeX;
-        int64_t y0 = y1 - PrimeY;
-        int64_t z0 = z1 - PrimeZ;
-        int64_t x2 = x1 + PrimeX;
-        int64_t y2 = y1 + PrimeY;
-        int64_t z2 = z1 + PrimeZ;
-        int64_t x3 = x1 + (int)((long)PrimeX << 1);
-        int64_t y3 = y1 + (int)((long)PrimeY << 1);
-        int64_t z3 = z1 + (int)((long)PrimeZ << 1);
+        i64 x0 = x1 - PrimeX;
+        i64 y0 = y1 - PrimeY;
+        i64 z0 = z1 - PrimeZ;
+        i64 x2 = x1 + PrimeX;
+        i64 y2 = y1 + PrimeY;
+        i64 z2 = z1 + PrimeZ;
+        i64 x3 = x1 + (i32)((long)PrimeX << 1);
+        i64 y3 = y1 + (i32)((long)PrimeY << 1);
+        i64 z3 = z1 + (i32)((long)PrimeZ << 1);
 
 
         return CubicLerp(CubicLerp(CubicLerp(ValCoord(seed, x0, y0, z0), ValCoord(seed, x1, y0, z0), ValCoord(seed, x2, y0, z0), ValCoord(seed, x3, y0, z0), xs), CubicLerp(ValCoord(seed, x0, y1, z0), ValCoord(seed, x1, y1, z0), ValCoord(seed, x2, y1, z0), ValCoord(seed, x3, y1, z0), xs), CubicLerp(ValCoord(seed, x0, y2, z0), ValCoord(seed, x1, y2, z0), ValCoord(seed, x2, y2, z0), ValCoord(seed, x3, y2, z0), xs),
@@ -1867,50 +1853,52 @@ private:
     // Value Noise
 
     template <typename FNfloat>
-    float SingleValue(int seed, FNfloat x, FNfloat y) const
+		requires std::floating_point<FNfloat>
+    f32 SingleValue(i32 seed, FNfloat x, FNfloat y) const
     {
-        int64_t x0 = FastFloor(x);
-        int64_t y0 = FastFloor(y);
+        i64 x0 = FastFloor(x);
+        i64 y0 = FastFloor(y);
 
-        float xs = int64_terpHermite((float)(x - x0));
-        float ys = int64_terpHermite((float)(y - y0));
+        f32 xs = int64_terpHermite((f32)(x - x0));
+        f32 ys = int64_terpHermite((f32)(y - y0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
 
-        float xf0 = Lerp(ValCoord(seed, x0, y0), ValCoord(seed, x1, y0), xs);
-        float xf1 = Lerp(ValCoord(seed, x0, y1), ValCoord(seed, x1, y1), xs);
+        f32 xf0 = Lerp(ValCoord(seed, x0, y0), ValCoord(seed, x1, y0), xs);
+        f32 xf1 = Lerp(ValCoord(seed, x0, y1), ValCoord(seed, x1, y1), xs);
 
         return Lerp(xf0, xf1, ys);
     }
 
     template <typename FNfloat>
-    float SingleValue(int seed, FNfloat x, FNfloat y, FNfloat z) const
+		requires std::floating_point<FNfloat>
+    f32 SingleValue(i32 seed, FNfloat x, FNfloat y, FNfloat z) const
     {
-        int64_t x0 = FastFloor(x);
-        int64_t y0 = FastFloor(y);
-        int64_t z0 = FastFloor(z);
+        i64 x0 = FastFloor(x);
+        i64 y0 = FastFloor(y);
+        i64 z0 = FastFloor(z);
 
-        float xs = int64_terpHermite((float)(x - x0));
-        float ys = int64_terpHermite((float)(y - y0));
-        float zs = int64_terpHermite((float)(z - z0));
+        f32 xs = int64_terpHermite((f32)(x - x0));
+        f32 ys = int64_terpHermite((f32)(y - y0));
+        f32 zs = int64_terpHermite((f32)(z - z0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
-        int64_t z1 = z0 + PrimeZ;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
+        i64 z1 = z0 + PrimeZ;
 
-        float xf00 = Lerp(ValCoord(seed, x0, y0, z0), ValCoord(seed, x1, y0, z0), xs);
-        float xf10 = Lerp(ValCoord(seed, x0, y1, z0), ValCoord(seed, x1, y1, z0), xs);
-        float xf01 = Lerp(ValCoord(seed, x0, y0, z1), ValCoord(seed, x1, y0, z1), xs);
-        float xf11 = Lerp(ValCoord(seed, x0, y1, z1), ValCoord(seed, x1, y1, z1), xs);
+        f32 xf00 = Lerp(ValCoord(seed, x0, y0, z0), ValCoord(seed, x1, y0, z0), xs);
+        f32 xf10 = Lerp(ValCoord(seed, x0, y1, z0), ValCoord(seed, x1, y1, z0), xs);
+        f32 xf01 = Lerp(ValCoord(seed, x0, y0, z1), ValCoord(seed, x1, y0, z1), xs);
+        f32 xf11 = Lerp(ValCoord(seed, x0, y1, z1), ValCoord(seed, x1, y1, z1), xs);
 
-        float yf0 = Lerp(xf00, xf10, ys);
-        float yf1 = Lerp(xf01, xf11, ys);
+        f32 yf0 = Lerp(xf00, xf10, ys);
+        f32 yf1 = Lerp(xf01, xf11, ys);
 
         return Lerp(yf0, yf1, zs);
     }
@@ -1919,7 +1907,8 @@ private:
     // Domain Warp
 
     template <typename FNfloat>
-    void DoSingleDomainWarp(int seed, float amp, float freq, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
+		requires std::floating_point<FNfloat>
+    void DoSingleDomainWarp(i32 seed, f32 amp, f32 freq, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
     {
         switch (mDomainWarpType)
         {
@@ -1936,7 +1925,8 @@ private:
     }
 
     template <typename FNfloat>
-    void DoSingleDomainWarp(int seed, float amp, float freq, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
+		requires std::floating_point<FNfloat>
+    void DoSingleDomainWarp(i32 seed, f32 amp, f32 freq, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
     {
         switch (mDomainWarpType)
         {
@@ -1956,11 +1946,12 @@ private:
     // Domain Warp Single Wrapper
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y) const
     {
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
         FNfloat xs = x;
         FNfloat ys = y;
@@ -1970,11 +1961,12 @@ private:
     }
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpSingle(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
         FNfloat xs = x;
         FNfloat ys = y;
@@ -1988,13 +1980,14 @@ private:
     // Domain Warp Fractal Progressive
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y) const
     {
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
             FNfloat xs = x;
             FNfloat ys = y;
@@ -2009,13 +2002,14 @@ private:
     }
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpFractalProgressive(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
             FNfloat xs = x;
             FNfloat ys = y;
@@ -2034,17 +2028,18 @@ private:
     // Domain Warp Fractal Independant
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpFractalIndependent(FNfloat& x, FNfloat& y) const
     {
         FNfloat xs = x;
         FNfloat ys = y;
         TransformDomainWarpCoordinate(xs, ys);
 
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
             DoSingleDomainWarp(seed, amp, freq, xs, ys, x, y);
 
@@ -2055,6 +2050,7 @@ private:
     }
 
     template <typename FNfloat>
+		requires std::floating_point<FNfloat>
     void DomainWarpFractalIndependent(FNfloat& x, FNfloat& y, FNfloat& z) const
     {
         FNfloat xs = x;
@@ -2062,11 +2058,11 @@ private:
         FNfloat zs = z;
         TransformDomainWarpCoordinate(xs, ys, zs);
 
-        int64_t seed = mSeed;
-        float amp = mDomainWarpAmp * mFractalBounding;
-        float freq = mFrequency;
+        i64 seed = mSeed;
+        f32 amp = mDomainWarpAmp * mFractalBounding;
+        f32 freq = mFrequency;
 
-        for (int i = 0; i < mOctaves; i++)
+        for (i32 i = 0; i < mOctaves; i++)
         {
             DoSingleDomainWarp(seed, amp, freq, xs, ys, zs, x, y, z);
 
@@ -2080,91 +2076,93 @@ private:
     // Domain Warp Basic Grid
 
     template <typename FNfloat>
-    void SingleDomainWarpBasicGrid(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
+		requires std::floating_point<FNfloat>
+    void SingleDomainWarpBasicGrid(i32 seed, f32 warpAmp, f32 frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr) const
     {
         FNfloat xf = x * frequency;
         FNfloat yf = y * frequency;
 
-        int64_t x0 = FastFloor(xf);
-        int64_t y0 = FastFloor(yf);
+        i64 x0 = FastFloor(xf);
+        i64 y0 = FastFloor(yf);
 
-        float xs = int64_terpHermite((float)(xf - x0));
-        float ys = int64_terpHermite((float)(yf - y0));
+        f32 xs = int64_terpHermite((f32)(xf - x0));
+        f32 ys = int64_terpHermite((f32)(yf - y0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
 
-        int64_t hash0 = Hash(seed, x0, y0) & (255 << 1);
-        int64_t hash1 = Hash(seed, x1, y0) & (255 << 1);
+        i64 hash0 = Hash(seed, x0, y0) & (255 << 1);
+        i64 hash1 = Hash(seed, x1, y0) & (255 << 1);
 
-        float lx0x = Lerp(Lookup<float>::RandVecs2D[hash0], Lookup<float>::RandVecs2D[hash1], xs);
-        float ly0x = Lerp(Lookup<float>::RandVecs2D[hash0 | 1], Lookup<float>::RandVecs2D[hash1 | 1], xs);
+        f32 lx0x = Lerp(Lookup<f32>::RandVecs2D[hash0], Lookup<f32>::RandVecs2D[hash1], xs);
+        f32 ly0x = Lerp(Lookup<f32>::RandVecs2D[hash0 | 1], Lookup<f32>::RandVecs2D[hash1 | 1], xs);
 
         hash0 = Hash(seed, x0, y1) & (255 << 1);
         hash1 = Hash(seed, x1, y1) & (255 << 1);
 
-        float lx1x = Lerp(Lookup<float>::RandVecs2D[hash0], Lookup<float>::RandVecs2D[hash1], xs);
-        float ly1x = Lerp(Lookup<float>::RandVecs2D[hash0 | 1], Lookup<float>::RandVecs2D[hash1 | 1], xs);
+        f32 lx1x = Lerp(Lookup<f32>::RandVecs2D[hash0], Lookup<f32>::RandVecs2D[hash1], xs);
+        f32 ly1x = Lerp(Lookup<f32>::RandVecs2D[hash0 | 1], Lookup<f32>::RandVecs2D[hash1 | 1], xs);
 
         xr += Lerp(lx0x, lx1x, ys) * warpAmp;
         yr += Lerp(ly0x, ly1x, ys) * warpAmp;
     }
 
     template <typename FNfloat>
-    void SingleDomainWarpBasicGrid(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
+		requires std::floating_point<FNfloat>
+    void SingleDomainWarpBasicGrid(i32 seed, f32 warpAmp, f32 frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr) const
     {
         FNfloat xf = x * frequency;
         FNfloat yf = y * frequency;
         FNfloat zf = z * frequency;
 
-        int64_t x0 = FastFloor(xf);
-        int64_t y0 = FastFloor(yf);
-        int64_t z0 = FastFloor(zf);
+        i64 x0 = FastFloor(xf);
+        i64 y0 = FastFloor(yf);
+        i64 z0 = FastFloor(zf);
 
-        float xs = int64_terpHermite((float)(xf - x0));
-        float ys = int64_terpHermite((float)(yf - y0));
-        float zs = int64_terpHermite((float)(zf - z0));
+        f32 xs = int64_terpHermite((f32)(xf - x0));
+        f32 ys = int64_terpHermite((f32)(yf - y0));
+        f32 zs = int64_terpHermite((f32)(zf - z0));
 
         x0 *= PrimeX;
         y0 *= PrimeY;
         z0 *= PrimeZ;
-        int64_t x1 = x0 + PrimeX;
-        int64_t y1 = y0 + PrimeY;
-        int64_t z1 = z0 + PrimeZ;
+        i64 x1 = x0 + PrimeX;
+        i64 y1 = y0 + PrimeY;
+        i64 z1 = z0 + PrimeZ;
 
-        int64_t hash0 = Hash(seed, x0, y0, z0) & (255 << 2);
-        int64_t hash1 = Hash(seed, x1, y0, z0) & (255 << 2);
+        i64 hash0 = Hash(seed, x0, y0, z0) & (255 << 2);
+        i64 hash1 = Hash(seed, x1, y0, z0) & (255 << 2);
 
-        float lx0x = Lerp(Lookup<float>::RandVecs3D[hash0], Lookup<float>::RandVecs3D[hash1], xs);
-        float ly0x = Lerp(Lookup<float>::RandVecs3D[hash0 | 1], Lookup<float>::RandVecs3D[hash1 | 1], xs);
-        float lz0x = Lerp(Lookup<float>::RandVecs3D[hash0 | 2], Lookup<float>::RandVecs3D[hash1 | 2], xs);
+        f32 lx0x = Lerp(Lookup<f32>::RandVecs3D[hash0], Lookup<f32>::RandVecs3D[hash1], xs);
+        f32 ly0x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 1], Lookup<f32>::RandVecs3D[hash1 | 1], xs);
+        f32 lz0x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 2], Lookup<f32>::RandVecs3D[hash1 | 2], xs);
 
         hash0 = Hash(seed, x0, y1, z0) & (255 << 2);
         hash1 = Hash(seed, x1, y1, z0) & (255 << 2);
 
-        float lx1x = Lerp(Lookup<float>::RandVecs3D[hash0], Lookup<float>::RandVecs3D[hash1], xs);
-        float ly1x = Lerp(Lookup<float>::RandVecs3D[hash0 | 1], Lookup<float>::RandVecs3D[hash1 | 1], xs);
-        float lz1x = Lerp(Lookup<float>::RandVecs3D[hash0 | 2], Lookup<float>::RandVecs3D[hash1 | 2], xs);
+        f32 lx1x = Lerp(Lookup<f32>::RandVecs3D[hash0], Lookup<f32>::RandVecs3D[hash1], xs);
+        f32 ly1x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 1], Lookup<f32>::RandVecs3D[hash1 | 1], xs);
+        f32 lz1x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 2], Lookup<f32>::RandVecs3D[hash1 | 2], xs);
 
-        float lx0y = Lerp(lx0x, lx1x, ys);
-        float ly0y = Lerp(ly0x, ly1x, ys);
-        float lz0y = Lerp(lz0x, lz1x, ys);
+        f32 lx0y = Lerp(lx0x, lx1x, ys);
+        f32 ly0y = Lerp(ly0x, ly1x, ys);
+        f32 lz0y = Lerp(lz0x, lz1x, ys);
 
         hash0 = Hash(seed, x0, y0, z1) & (255 << 2);
         hash1 = Hash(seed, x1, y0, z1) & (255 << 2);
 
-        lx0x = Lerp(Lookup<float>::RandVecs3D[hash0], Lookup<float>::RandVecs3D[hash1], xs);
-        ly0x = Lerp(Lookup<float>::RandVecs3D[hash0 | 1], Lookup<float>::RandVecs3D[hash1 | 1], xs);
-        lz0x = Lerp(Lookup<float>::RandVecs3D[hash0 | 2], Lookup<float>::RandVecs3D[hash1 | 2], xs);
+        lx0x = Lerp(Lookup<f32>::RandVecs3D[hash0], Lookup<f32>::RandVecs3D[hash1], xs);
+        ly0x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 1], Lookup<f32>::RandVecs3D[hash1 | 1], xs);
+        lz0x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 2], Lookup<f32>::RandVecs3D[hash1 | 2], xs);
 
         hash0 = Hash(seed, x0, y1, z1) & (255 << 2);
         hash1 = Hash(seed, x1, y1, z1) & (255 << 2);
 
-        lx1x = Lerp(Lookup<float>::RandVecs3D[hash0], Lookup<float>::RandVecs3D[hash1], xs);
-        ly1x = Lerp(Lookup<float>::RandVecs3D[hash0 | 1], Lookup<float>::RandVecs3D[hash1 | 1], xs);
-        lz1x = Lerp(Lookup<float>::RandVecs3D[hash0 | 2], Lookup<float>::RandVecs3D[hash1 | 2], xs);
+        lx1x = Lerp(Lookup<f32>::RandVecs3D[hash0], Lookup<f32>::RandVecs3D[hash1], xs);
+        ly1x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 1], Lookup<f32>::RandVecs3D[hash1 | 1], xs);
+        lz1x = Lerp(Lookup<f32>::RandVecs3D[hash0 | 2], Lookup<f32>::RandVecs3D[hash1 | 2], xs);
 
         xr += Lerp(lx0y, Lerp(lx0x, lx1x, ys), zs) * warpAmp;
         yr += Lerp(ly0y, Lerp(ly0x, ly1x, ys), zs) * warpAmp;
@@ -2175,41 +2173,42 @@ private:
     // Domain Warp Simplex/OpenSimplex2
 
     template <typename FNfloat>
-    void SingleDomainWarpSimplexGradient(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr, bool outGradOnly) const
+		requires std::floating_point<FNfloat>
+    void SingleDomainWarpSimplexGradient(i32 seed, f32 warpAmp, f32 frequency, FNfloat x, FNfloat y, FNfloat& xr, FNfloat& yr, bool outGradOnly) const
     {
-        const float SQRT3 = 1.7320508075688772935274463415059f;
-        const float G2 = (3 - SQRT3) / 6;
+        
+        const f32 G2 = (3 - std::numbers::sqrt3) / 6;
 
         x *= frequency;
         y *= frequency;
 
         /*
          * --- Skew moved to TransformNoiseCoordinate method ---
-         * const FNfloat F2 = 0.5f * (SQRT3 - 1);
+         * const FNfloat F2 = 0.5f * (std::numbers::sqrt3 - 1);
          * FNfloat s = (x + y) * F2;
          * x += s; y += s;
          */
 
-        int64_t i = FastFloor(x);
-        int64_t j = FastFloor(y);
-        float xi = (float)(x - i);
-        float yi = (float)(y - j);
+        i64 i = FastFloor(x);
+        i64 j = FastFloor(y);
+        f32 xi = (f32)(x - i);
+        f32 yi = (f32)(y - j);
 
-        float t = (xi + yi) * G2;
-        float x0 = (float)(xi - t);
-        float y0 = (float)(yi - t);
+        f32 t = (xi + yi) * G2;
+        f32 x0 = (f32)(xi - t);
+        f32 y0 = (f32)(yi - t);
 
         i *= PrimeX;
         j *= PrimeY;
 
-        float vx, vy;
+        f32 vx, vy;
         vx = vy = 0;
 
-        float a = 0.5f - x0 * x0 - y0 * y0;
+        f32 a = 0.5f - x0 * x0 - y0 * y0;
         if (a > 0)
         {
-            float aaaa = (a * a) * (a * a);
-            float xo, yo;
+            f32 aaaa = (a * a) * (a * a);
+            f32 xo, yo;
             if (outGradOnly)
                 GradCoordOut(seed, i, j, xo, yo);
             else
@@ -2218,13 +2217,13 @@ private:
             vy += aaaa * yo;
         }
 
-        float c = (float)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((float)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a);
+        f32 c = (f32)(2 * (1 - 2 * G2) * (1 / G2 - 2)) * t + ((f32)(-2 * (1 - 2 * G2) * (1 - 2 * G2)) + a);
         if (c > 0)
         {
-            float x2 = x0 + (2 * (float)G2 - 1);
-            float y2 = y0 + (2 * (float)G2 - 1);
-            float cccc = (c * c) * (c * c);
-            float xo, yo;
+            f32 x2 = x0 + (2 * (f32)G2 - 1);
+            f32 y2 = y0 + (2 * (f32)G2 - 1);
+            f32 cccc = (c * c) * (c * c);
+            f32 xo, yo;
             if (outGradOnly)
                 GradCoordOut(seed, i + PrimeX, j + PrimeY, xo, yo);
             else
@@ -2235,13 +2234,13 @@ private:
 
         if (y0 > x0)
         {
-            float x1 = x0 + (float)G2;
-            float y1 = y0 + ((float)G2 - 1);
-            float b = 0.5f - x1 * x1 - y1 * y1;
+            f32 x1 = x0 + (f32)G2;
+            f32 y1 = y0 + ((f32)G2 - 1);
+            f32 b = 0.5f - x1 * x1 - y1 * y1;
             if (b > 0)
             {
-                float bbbb = (b * b) * (b * b);
-                float xo, yo;
+                f32 bbbb = (b * b) * (b * b);
+                f32 xo, yo;
                 if (outGradOnly)
                     GradCoordOut(seed, i, j + PrimeY, xo, yo);
                 else
@@ -2252,13 +2251,13 @@ private:
         }
         else
         {
-            float x1 = x0 + ((float)G2 - 1);
-            float y1 = y0 + (float)G2;
-            float b = 0.5f - x1 * x1 - y1 * y1;
+            f32 x1 = x0 + ((f32)G2 - 1);
+            f32 y1 = y0 + (f32)G2;
+            f32 b = 0.5f - x1 * x1 - y1 * y1;
             if (b > 0)
             {
-                float bbbb = (b * b) * (b * b);
-                float xo, yo;
+                f32 bbbb = (b * b) * (b * b);
+                f32 xo, yo;
                 if (outGradOnly)
                     GradCoordOut(seed, i + PrimeX, j, xo, yo);
                 else
@@ -2273,7 +2272,8 @@ private:
     }
 
     template <typename FNfloat>
-    void SingleDomainWarpOpenSimplex2Gradient(int seed, float warpAmp, float frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr, bool outGradOnly) const
+		requires std::floating_point<FNfloat>
+    void SingleDomainWarpOpenSimplex2Gradient(i32 seed, f32 warpAmp, f32 frequency, FNfloat x, FNfloat y, FNfloat z, FNfloat& xr, FNfloat& yr, FNfloat& zr, bool outGradOnly) const
     {
         x *= frequency;
         y *= frequency;
@@ -2281,40 +2281,40 @@ private:
 
         /*
          * --- Rotation moved to TransformDomainWarpCoordinate method ---
-         * const FNfloat R3 = (FNfloat)(2.0 / 3.0);
+         * const FNfloat R3 = static_cast<FNfloat>((2.0 / 3.0));
          * FNfloat r = (x + y + z) * R3; // Rotation, not skew
          * x = r - x; y = r - y; z = r - z;
          */
 
-        int64_t i = FastRound(x);
-        int64_t j = FastRound(y);
-        int64_t k = FastRound(z);
-        float x0 = (float)x - i;
-        float y0 = (float)y - j;
-        float z0 = (float)z - k;
+        i64 i = FastRound(x);
+        i64 j = FastRound(y);
+        i64 k = FastRound(z);
+        f32 x0 = (f32)x - i;
+        f32 y0 = (f32)y - j;
+        f32 z0 = (f32)z - k;
 
-        int64_t xNSign = (int)(-x0 - 1.0f) | 1;
-        int64_t yNSign = (int)(-y0 - 1.0f) | 1;
-        int64_t zNSign = (int)(-z0 - 1.0f) | 1;
+        i64 xNSign = (i32)(-x0 - 1.0f) | 1;
+        i64 yNSign = (i32)(-y0 - 1.0f) | 1;
+        i64 zNSign = (i32)(-z0 - 1.0f) | 1;
 
-        float ax0 = xNSign * -x0;
-        float ay0 = yNSign * -y0;
-        float az0 = zNSign * -z0;
+        f32 ax0 = xNSign * -x0;
+        f32 ay0 = yNSign * -y0;
+        f32 az0 = zNSign * -z0;
 
         i *= PrimeX;
         j *= PrimeY;
         k *= PrimeZ;
 
-        float vx, vy, vz;
+        f32 vx, vy, vz;
         vx = vy = vz = 0;
 
-        float a = (0.6f - x0 * x0) - (y0 * y0 + z0 * z0);
-        for (int l = 0; l < 2; l++)
+        f32 a = (0.6f - x0 * x0) - (y0 * y0 + z0 * z0);
+        for (i32 l = 0; l < 2; l++)
         {
             if (a > 0)
             {
-                float aaaa = (a * a) * (a * a);
-                float xo, yo, zo;
+                f32 aaaa = (a * a) * (a * a);
+                f32 xo, yo, zo;
                 if (outGradOnly)
                     GradCoordOut(seed, i, j, k, xo, yo, zo);
                 else
@@ -2324,13 +2324,13 @@ private:
                 vz += aaaa * zo;
             }
 
-            float b = a + 1;
-            int64_t i1 = i;
-            int64_t j1 = j;
-            int64_t k1 = k;
-            float x1 = x0;
-            float y1 = y0;
-            float z1 = z0;
+            f32 b = a + 1;
+            i64 i1 = i;
+            i64 j1 = j;
+            i64 k1 = k;
+            f32 x1 = x0;
+            f32 y1 = y0;
+            f32 z1 = z0;
 
             if (ax0 >= ay0 && ax0 >= az0)
             {
@@ -2353,8 +2353,8 @@ private:
 
             if (b > 0)
             {
-                float bbbb = (b * b) * (b * b);
-                float xo, yo, zo;
+                f32 bbbb = (b * b) * (b * b);
+                f32 xo, yo, zo;
                 if (outGradOnly)
                     GradCoordOut(seed, i1, j1, k1, xo, yo, zo);
                 else
@@ -2394,21 +2394,9 @@ private:
     }
 };
 
-template <>
-struct FastNoiseLite::Arguments_must_be_floating_point_values<float>
-{
-};
-template <>
-struct FastNoiseLite::Arguments_must_be_floating_point_values<double>
-{
-};
-template <>
-struct FastNoiseLite::Arguments_must_be_floating_point_values<long double>
-{
-};
 
 template <typename T>
-const T FastNoiseLite::Lookup<T>::Gradients2D[] = {
+const T NoiseGen::Lookup<T>::Gradients2D[] = {
     0.130526192220052f,  0.99144486137381f,   0.38268343236509f,   0.923879532511287f,  0.608761429008721f,  0.793353340291235f,  0.793353340291235f,  0.608761429008721f,  0.923879532511287f,  0.38268343236509f,   0.99144486137381f,   0.130526192220051f,  0.99144486137381f,   -0.130526192220051f, 0.923879532511287f,  -0.38268343236509f,  0.793353340291235f,  -0.60876142900872f,  0.608761429008721f,  -0.793353340291235f, 0.38268343236509f,   -0.923879532511287f,
     0.130526192220052f,  -0.99144486137381f,  -0.130526192220052f, -0.99144486137381f,  -0.38268343236509f,  -0.923879532511287f, -0.608761429008721f, -0.793353340291235f, -0.793353340291235f, -0.608761429008721f, -0.923879532511287f, -0.38268343236509f,  -0.99144486137381f,  -0.130526192220052f, -0.99144486137381f,  0.130526192220051f,  -0.923879532511287f, 0.38268343236509f,   -0.793353340291235f, 0.608761429008721f,  -0.608761429008721f, 0.793353340291235f,
     -0.38268343236509f,  0.923879532511287f,  -0.130526192220052f, 0.99144486137381f,   0.130526192220052f,  0.99144486137381f,   0.38268343236509f,   0.923879532511287f,  0.608761429008721f,  0.793353340291235f,  0.793353340291235f,  0.608761429008721f,  0.923879532511287f,  0.38268343236509f,   0.99144486137381f,   0.130526192220051f,  0.99144486137381f,   -0.130526192220051f, 0.923879532511287f,  -0.38268343236509f,  0.793353340291235f,  -0.60876142900872f,
@@ -2424,7 +2412,7 @@ const T FastNoiseLite::Lookup<T>::Gradients2D[] = {
 };
 
 template <typename T>
-const T FastNoiseLite::Lookup<T>::RandVecs2D[] = {
+const T NoiseGen::Lookup<T>::RandVecs2D[] = {
     -0.2700222198f,  -0.9628540911f, 0.3863092627f,  -0.9223693152f,  0.04444859006f,  -0.999011673f,  -0.5992523158f, -0.8005602176f, -0.7819280288f, 0.6233687174f,  0.9464672271f,   0.3227999196f,  -0.6514146797f,  -0.7587218957f,  0.9378472289f,  0.347048376f,   -0.8497875957f, -0.5271252623f, -0.879042592f,   0.4767432447f,  -0.892300288f,   -0.4514423508f, -0.379844434f,  -0.9250503802f,   -0.9951650832f, 0.0982163789f,  0.7724397808f,  -0.6350880136f, 0.7573283322f,
     -0.6530343002f,  -0.9928004525f, -0.119780055f,  -0.0532665713f,  0.9985803285f,   0.9754253726f,  -0.2203300762f, -0.7665018163f, 0.6422421394f,  0.991636706f,   0.1290606184f,   -0.994696838f,  0.1028503788f,   -0.5379205513f,  -0.84299554f,   0.5022815471f,  -0.8647041387f, 0.4559821461f,  -0.8899889226f,  -0.8659131224f, -0.5001944266f,  0.0879458407f,  -0.9961252577f, -0.5051684983f,   0.8630207346f,  0.7753185226f,  -0.6315704146f, -0.6921944612f, 0.7217110418f,
     -0.5191659449f,  -0.8546734591f, 0.8978622882f,  -0.4402764035f,  -0.1706774107f,  0.9853269617f,  -0.9353430106f, -0.3537420705f, -0.9992404798f, 0.03896746794f, -0.2882064021f,  -0.9575683108f, -0.9663811329f,  0.2571137995f,   -0.8759714238f, -0.4823630009f, -0.8303123018f, -0.5572983775f, 0.05110133755f,  -0.9986934731f, -0.8558373281f,  -0.5172450752f, 0.09887025282f, 0.9951003332f,    0.9189016087f,  0.3944867976f,  -0.2439375892f, -0.9697909324f, -0.8121409387f,
@@ -2446,11 +2434,11 @@ const T FastNoiseLite::Lookup<T>::RandVecs2D[] = {
 };
 
 template <typename T>
-const T FastNoiseLite::Lookup<T>::Gradients3D[] = { 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1, 0, -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1, 0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1, 0, -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1, 0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1,  0, -1, 0, -1, 0,  -1, 0,
+const T NoiseGen::Lookup<T>::Gradients3D[] = { 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1, 0, -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1, 0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1, 0, -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1, 0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1,  -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0,  1, 0, 1,  0, -1, 0, -1, 0,  -1, 0,
                                                     1, 1, 0, 0, -1, 1,  0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1, -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 1, 0,  -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1,  0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 0, 1, 1, 0, 0,  -1, 1, 0, 0, 1, -1, 0, 0,  -1, -1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 1, 0,  -1, 0, -1, 0,  -1, 0, 1, 1, 0, 0, -1, 1,  0, 0, 1, -1, 0,  0, -1, -1, 0,  0, 1, 1, 0, 0, 0,  -1, 1, 0, -1, 1, 0,  0, 0,  -1, -1, 0 };
 
 template <typename T>
-const T FastNoiseLite::Lookup<T>::RandVecs3D[] = {
+const T NoiseGen::Lookup<T>::RandVecs3D[] = {
     -0.7292736885f,  -0.6618439697f, 0.1735581948f,   0, 0.790292081f,    -0.5480887466f, -0.2739291014f,   0, 0.7217578935f,  0.6226212466f,     -0.3023380997f,  0, 0.565683137f,    -0.8208298145f,  -0.0790000257f, 0, 0.760049034f,    -0.5555979497f, -0.3370999617f,  0, 0.3713945616f,   0.5011264475f,   0.7816254623f,  0, -0.1277062463f, -0.4254438999f, -0.8959289049f, 0, -0.2881560924f,  -0.5815838982f,  0.7607405838f,   0, 0.5849561111f,   -0.662820239f,   -0.4674352136f, 0,
     0.3307171178f,   0.0391653737f,  0.94291689f,     0, 0.8712121778f,   -0.4113374369f, -0.2679381538f,   0, 0.580981015f,   0.7021915846f,     0.4115677815f,   0, 0.503756873f,    0.6330056931f,   -0.5878203852f, 0, 0.4493712205f,   0.601390195f,   0.6606022552f,   0, -0.6878403724f,  0.09018890807f,  -0.7202371714f, 0, -0.5958956522f, -0.6469350577f, 0.475797649f,   0, -0.5127052122f,  0.1946921978f,   -0.8361987284f,  0, -0.9911507142f,  -0.05410276466f, -0.1212153153f, 0,
     -0.2149721042f,  0.9720882117f,  -0.09397607749f, 0, -0.7518650936f,  -0.5428057603f, 0.3742469607f,    0, 0.5237068895f,  0.8516377189f,     -0.02107817834f, 0, 0.6333504779f,   0.1926167129f,   -0.7495104896f, 0, -0.06788241606f, 0.3998305789f,  0.9140719259f,   0, -0.5538628599f,  -0.4729896695f,  -0.6852128902f, 0, -0.7261455366f, -0.5911990757f, 0.3509933228f,  0, -0.9229274737f,  -0.1782808786f,  0.3412049336f,   0, -0.6968815002f,  0.6511274338f,   0.3006480328f,  0,

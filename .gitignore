@@ -1,6 +1,7 @@
 *.o
 *.d
 .*
+*.xcf
 compile_commands.json*
 todo.md
 bin/*

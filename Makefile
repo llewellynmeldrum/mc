@@ -2,6 +2,7 @@
 # --------------------------------------------------
 all: run-asan
 
+TOOLCHAIN 		:= $(CURDIR)/cmake/llvm-toolchain.cmake
 BUILD_DIR      := build
 BUILD_FAST     := build-fast
 BUILD_ASAN     := build-asan
@@ -12,16 +13,15 @@ ASAN_OPTS := detect_leaks=0:color=always:abort_on_error=1:halt_on_error=1
 UBSAN_OPTS := color=always:print_stacktrace=1:halt_on_error=1
 
 GENERATOR      := Ninja
-CXX            := /opt/homebrew/bin/g++-16
-CC            := /opt/homebrew/bin/gcc-16
+CXX            := clang-22
+CC            := clang-22
 APP            := mc
 
 JOBS ?= $(shell sysctl -n hw.logicalcpu 2>/dev/null || nproc)
 BUILD_FLAGS := -j $(JOBS)
 
 CMAKE_COMMON := -G "$(GENERATOR)" \
-	-DCMAKE_CXX_COMPILER="$(CXX)" \
-	-DCMAKE_C_COMPILER="$(CC)" \
+	-DCMAKE_TOOLCHAIN_FILE="$(TOOLCHAIN)" \
   	-DCMAKE_OSX_ARCHITECTURES=arm64 \
 	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
@@ -36,7 +36,7 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
 export OPT_LEVEL
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
-		-DMC_O1=ON \
+		-DMC_O2=ON \
 		-DCMAKE_BUILD_TYPE=Debug 
 
 configure-debug:
@@ -47,9 +47,9 @@ configure-debug:
 build: configure
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 
-run: OPT_LEVEL=1
+run: OPT_LEVEL=2
 run: build
-	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target run
+	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target run\
 
 debug: configure-debug
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) 
