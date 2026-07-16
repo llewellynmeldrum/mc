@@ -159,7 +159,7 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
                         auto color = DebugOption::gen_state_mode
                                 ? GenDebugColor(state.gen)
                                 : MeshDebugColor(state.mesh);
-                    instances.emplace_back(toWorldBlockPos(neighbour,{0,0,0}).raw(), color);
+                    instances.emplace_back(toWorldBlockPos(neighbour,BlockOffset{0,0,0}).raw(), color);
             });
         }
     }
@@ -186,6 +186,6 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
             entryColor = showGenState ? GenDebugColor(state.gen) :
                                          MeshDebugColor(state.mesh);
         }
-        instances.emplace_back(toWorldBlockPos(entryCoord,{0,0,0}).raw(), entryColor);
+        instances.emplace_back(toWorldBlockPos(entryCoord,BlockOffset{0,0,0}).raw(), entryColor);
     }
 }

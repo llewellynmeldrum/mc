@@ -6,6 +6,8 @@
 #include "Types.h"
 #include "glm/vec3.hpp"
 #include <random>
+#include <range/v3/range/concepts.hpp>
+#include <range/v3/algorithm/contains.hpp>
 #include <string_view>
 #include <type_traits>
 
@@ -13,6 +15,20 @@
 
 
 namespace LM {
+
+template<typename Cont, typename T>
+constexpr inline bool linear_contains(const Cont& cont, const T& e){
+    if constexpr( requires(Cont c, T e) {
+        {c.contains(e)} -> std::same_as<bool>;
+    }){
+        return cont.contains(e);
+    }else{
+        // linear search
+        return ranges::contains(cont,e);
+    }
+}
+
+
 
 template<typename T>
     requires Numeric<T>

@@ -3,7 +3,9 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+#include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
+#include "WorldGen_NoiseGeneration.hpp"
 #include "cpp23_ranges.hpp"
 
 #include "ChunkEntry.hpp"
@@ -351,19 +353,20 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Separator();
         auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
         std::string biome_str = "N/A (no chunk entry)";
-        std::optional<NoiseParams> params;
+        std::optional<NoiseParams> samples;
         if (cur_chunk_entry){
-            params = cur_chunk_entry->noise[cl_pos.x, cl_pos.z];
-            auto biome = classify_biome(*params);
+            samples = cur_chunk_entry->noise[cl_pos.x, cl_pos.z];
+            auto biome = classify_biome(*samples);
             biome_str = std::format("{}", biome);
-            UI::Text("{} topsoil = {}",biome,get_palette(biome).topsoil);
+            UI::Text("{} topsoil = {}",biome,biome_palettes[biome].topsoil);
             UI::Text("Block at cam: {}",cur_chunk_entry->block_data[cl_pos.x,cl_pos.y, cl_pos.z]);
         }
+        if (samples){
         UI::Text("biome: {}",biome_str);
-        UI::Text("H: {:4.2f}", params ? (*params).heat : -1.00f);
-        UI::Text("R: {:4.2f}", params ? (*params).rain : -1.00f);
-        UI::Text("G: {:4.2f}", params ? (*params).grad : -1.00f);
-        UI::Text("C: {:4.2f}", params ? (*params).cont : -1.00f);
+#define X(VAR) UI::Text("{:c}: {:4.2f}",#VAR[0]-('a'-'A'), (*samples).VAR);
+        LIST_NOISE_PARAMS
+#undef X
+        }
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;

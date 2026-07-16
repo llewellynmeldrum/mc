@@ -24,10 +24,28 @@ inline u32 pcg_hash(WorldBlockPos v) {
     return (pcg_hash(v[0]) << 4) ^ (pcg_hash(v[1]) << 5) ^ pcg_hash(v[2]) ;
 }
 
+inline f32 wpos_seeded_rand01(i32 wx, i32 wz, u32 offset){
+    static constexpr u32 big_prime = 120'067;
+    u32 offset_hash = pcg_hash(offset);
+    u32 hash = offset_hash + pcg_hash({wx, wz});
+    hash = hash%big_prime;
+    f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
+    assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);
+    return zero_to_one;
+}
 inline f32 wpos_seeded_rand01(i32 wx, i32 wz, RandOffset offset=RandOffset::None){
     static constexpr u32 big_prime = 120'067;
     u32 offset_hash = pcg_hash(std::to_underlying(offset));
     u32 hash = offset_hash + pcg_hash({wx, wz});
+    hash = hash%big_prime;
+    f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
+    assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);
+    return zero_to_one;
+}
+inline f32 wpos_seeded_rand01(WorldBlockPos wpos, u32 offset){
+    static constexpr u32 big_prime = 120'067;
+    u32 offset_hash = pcg_hash(offset);
+    u32 hash = offset_hash + pcg_hash(wpos);
     hash = hash%big_prime;
     f32 zero_to_one = static_cast<f32>(hash)/static_cast<f32>(big_prime);
     assert(zero_to_one >= 0.0f && zero_to_one <= 1.0f);

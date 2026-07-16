@@ -6,11 +6,22 @@
 
 #include "FastNoiseLite.h"
 
+#define LIST_NOISE_PARAMS \
+X(heat)\
+X(rain)\
+X(cont)\
+X(grad)\
+X(density0)\
+X(hill)\
+X(mountain)
+
+
+
 struct NoiseGenerator{
-    const NoiseGen heat;
-    const NoiseGen rain;
-    const NoiseGen cont;
-    const NoiseGen grad;
+#define X(var) const NoiseGen var;
+    LIST_NOISE_PARAMS
+#undef X
+
     NoiseGenerator(i32 world_seed):
     heat(NoiseConfig{
         .type = NoiseType::Perlin,
@@ -45,15 +56,37 @@ struct NoiseGenerator{
         .freq = 0.001f,
         .frac_type = FractalType::FBm,
         .frac_octaves = 5,
+    }),
+    density0(NoiseConfig{
+        .type = NoiseType::Perlin,
+        .seed = world_seed + 5853,
+        .freq = 0.002f,
+        .frac_type = FractalType::FBm,
+        .frac_octaves = 3,
+        .frac_lacunarity = 2.0f,
+        .frac_persistence = 0.5f,
+    }),
+    hill(NoiseConfig{
+        .type = NoiseType::Perlin,
+        .seed = world_seed + 1234,
+        .freq = 0.005f,
+        .frac_type = FractalType::FBm,
+        .frac_octaves = 5,
+    }),
+    mountain(NoiseConfig{
+        .type = NoiseType::Perlin,
+        .seed = world_seed + 4321,
+        .freq = 0.002f,
+        .frac_type = FractalType::Ridged,
+        .frac_octaves = 4,
     })
     {}
 };
 
 struct NoiseParams{
-    f32 heat;
-    f32 rain;
-    f32 grad;
-    f32 cont;
+#define X(var) f32 var;
+    LIST_NOISE_PARAMS
+#undef X
 };
 
 inline ArrayList2D<NoiseParams> generate_chunk_terrain_noise(const GenConfig& cfg, WorldBlockPos chunk_origin){
@@ -64,10 +97,9 @@ inline ArrayList2D<NoiseParams> generate_chunk_terrain_noise(const GenConfig& cf
     };
     ForEachInRangeEx({0,0},Chunk_Extents2,[&](i32 cx, i32 cz){
         auto [wx,wz] = to_world(cx,cz);
-        res[cx,cz].heat = cfg.noise.heat.sample(wx,wz); 
-        res[cx,cz].rain = cfg.noise.rain.sample(wx,wz); 
-        res[cx,cz].cont = cfg.noise.cont.sample(wx,wz); 
-        res[cx,cz].grad = cfg.noise.grad.sample(wx,wz); 
+#define X(var) res[cx,cz].var = cfg.noise.var.sample(wx,wz);
+        LIST_NOISE_PARAMS
+#undef X
     });
     return res;
 }

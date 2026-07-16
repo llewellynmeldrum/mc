@@ -38,14 +38,14 @@ struct ArrayList2D{
     std::size_t extentZ{0};
     std::vector<value_type> buf;
 
-    ArrayList2D(std::size_t _extentX, std::size_t _extentZ):
+    constexpr ArrayList2D(std::size_t _extentX, std::size_t _extentZ):
         extentX(_extentX),
         extentZ(_extentZ),
         buf(_extentX*_extentZ)
     {}
     template<typename Vec2>
         requires is_ivec2<Vec2>
-    ArrayList2D(const Vec2& extents):ArrayList2D(extents[0],extents[1]){}
+    constexpr ArrayList2D(const Vec2& extents):ArrayList2D(extents[0],extents[1]){}
 
     decltype(auto) span(this auto& self){
         return std::mdspan(self.buf.data(),self.extentX, self.extentZ);

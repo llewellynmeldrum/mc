@@ -3,6 +3,7 @@
 #include "ChunkInvariants.hpp"
 #include "glmWrapper.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "glm/vec3.hpp"
 #include "cppslop.hpp"
 #include "ChunkHelpers.hpp"
 #include "glm/gtx/hash.hpp"
@@ -192,6 +193,7 @@ DECL_ADD_SUB_OPER(ChunkBlockPos, BlockOffset)
 // You can offset a chunk coord by a chunk offset.
 DECL_ADD_SUB_OPER(WorldChunkCoord, ChunkOffset)
 
+DECL_ADD_SUB_OPER(ChunkBlockPos, ChunkBlockPos)
 
 
 // ======================
@@ -209,12 +211,18 @@ inline auto toWorldOrigin(WorldChunkCoord chunk) -> WorldBlockPos {
 
 // chunkBlockPos->worldBlockPos
 // Returns the world pos of the block at [cBlockPos] in the chunk identified by wChunkCoord
-inline auto toWorldBlockPos(WorldChunkCoord chunk, BlockOffset local) -> WorldBlockPos {
-    return WorldBlockPos{ toWorldOrigin(chunk) + local };
+inline auto toWorldBlockPos(WorldChunkCoord chunk, ChunkBlockPos local) -> WorldBlockPos {
+    return WorldBlockPos{
+        chunk.x  * CHUNK_XWIDTH + local.x,
+        local.y,
+        chunk.z  * CHUNK_XWIDTH + local.z,
+    };
 }
 
-inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
-    return WorldFloatPos{ pos.raw() };
+// chunkBlockPos->worldBlockPos
+// Returns the world pos of the block at [cBlockPos] in the chunk identified by wChunkCoord
+inline auto toWorldBlockPos(WorldChunkCoord chunk, BlockOffset local) -> WorldBlockPos {
+    return WorldBlockPos{ toWorldOrigin(chunk) + local };
 }
 
 // Floatpos->worldBlockPos
@@ -222,6 +230,10 @@ inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
 inline auto toWorldBlockPos(WorldFloatPos pos) -> WorldBlockPos {
     return WorldBlockPos{ glm::floor(pos.raw()) };
 }
+inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
+    return WorldFloatPos{ pos.raw() };
+}
+
 
 // worldBlockPos->      chunkBlockPos
 // returns the chunk local pos, in the chunk within wBlockPos, of the block at [wBlockPos] in the
