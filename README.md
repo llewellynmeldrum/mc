@@ -1,5 +1,5 @@
 # minecraft clone, opengl4.1 and glfw
-<img width="800" alt="image" src="https://github.com/user-attachments/assets/f83296e1-f64c-497b-8004-4b817cf4b9aa" />
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/ea3249bb-41d5-4847-b43d-b51bda21016d" />
 
 # Current features:
 - (mostly) correct back-to-front transparency rendering
