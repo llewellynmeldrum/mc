@@ -6,7 +6,7 @@
 #include "CoordIteration.hpp"
 
 #include "Block.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "ChunkHelpers.hpp"
 #include "DebugFormat.hpp"
 #include "FormatSpecs.hpp"
@@ -54,7 +54,7 @@ auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> n
 
     ArrayList2D<i32> heightmap(Chunk_Extents2);
     const glm::ivec2 chunk_local_min = {0,0};
-    const glm::ivec2 chunk_local_max = glm::ivec2{Chunk::Extents.x, Chunk::Extents.z};
+    const glm::ivec2 chunk_local_max = glm::ivec2{ChunkInfo::Extents.x, ChunkInfo::Extents.z};
     ForEachInRangeEx(chunk_local_min,chunk_local_max,[&](i32 cx, i32 cz){
         using LM::unlerp;
 
@@ -123,18 +123,18 @@ static GenResult generate_chunk(GenJob job){
 
 
     constexpr glm::ivec2 chunk_local_min = {0,0};
-    constexpr glm::ivec2 chunk_local_max = {Chunk::Extents.x, Chunk::Extents.z};
+    constexpr glm::ivec2 chunk_local_max = {ChunkInfo::Extents.x, ChunkInfo::Extents.z};
 
     const auto world_block_origin = toWorldOrigin(job.chunkCoord);
     const auto& world_block_lo = world_block_origin;
-    const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{Chunk::Extents};
+    const auto& world_block_hi = toWorldOrigin(job.chunkCoord)+BlockOffset{ChunkInfo::Extents};
 
 
     GenContext ctx{world_block_origin,cfg};
     auto noise_map = generate_chunk_terrain_noise(cfg,world_block_origin);
     auto biome_map = classify_chunk_biomes(noise_map);
     auto height_map = ctx.gen_heightmap(cfg,noise_map,biome_map);
-    auto block_writer = BlockWriter{block_store,pendingWrites,chunk_coord };
+    auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
 
 #ifdef CHUNK_NOISE_DEBUG
     std::ranges::copy(noise_map, res.noise.begin());
@@ -150,7 +150,6 @@ static GenResult generate_chunk(GenJob job){
         const auto& palette = biome_palettes[biome];
         for (i32 y = WORLD_YMAX-1; y>=WORLD_YMIN; y--){
             BlockType brush = BlockType::AIR;
-
             if (y > terrain_height){
                 if ( y < cfg.sea_level){
                     brush = BlockType::WATER_BLOCK;
@@ -166,14 +165,18 @@ static GenResult generate_chunk(GenJob job){
             }else{
                 continue;
             }
-            block_store.set(cx,y,cz,brush);
+            block_store.at(cx,y,cz)=brush;
         }
+    });
+    ForEachInRangeEx(chunk_local_min,chunk_local_max,[&](i32 cx, i32 cz){
+        auto terrain_height = height_map[cx,cz];
+        const auto& biome = biome_map[cx,cz];
+        const auto& palette = biome_palettes[biome];
         const auto& features = biome_features[biome];
         const f32 density = noise_map[cx,cz].density0;
 
         auto origin = toWorldBlockPos(chunk_coord, ChunkBlockPos{cx,terrain_height+1,cz});
         if (features.should_place_tree(origin, features.tree, density, block_writer)){
-            std::println("PLACING TREE {}", origin);
             features.tree.place(origin, density, block_writer);
         }
     });

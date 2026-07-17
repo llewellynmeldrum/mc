@@ -12,7 +12,7 @@ MeshJob::MeshJob(
     ):
         meshRevisionID(entry->target_mesh_revision),
         chunkCoord(key),
-        blocks(&entry->block_data),
+        blocks(entry->block_data.clone()),
         atlas_map(_atlas_list)
 {
 #ifdef CHUNK_NOISE_DEBUG
@@ -45,7 +45,11 @@ MeshJob::MeshJob(
             chunk_map->entries.if_contains_else(
                 neighbour_coord.value(),
                 [&](ChunkEntry& neighbour){
-                    surroundingChunks.emplace_back(std::in_place, &neighbour.block_data,slice_type,p0,p1);
+                    surroundingChunks.emplace_back(
+                        std::in_place,
+                        neighbour.block_data.view(),
+                        slice_type,
+                        p0,p1);
                 },
                 [&](){
                     surroundingChunks.emplace_back(std::nullopt);

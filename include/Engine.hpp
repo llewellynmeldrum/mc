@@ -85,7 +85,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 22;
+    static constexpr i32 RENDER_DIST = 4;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========

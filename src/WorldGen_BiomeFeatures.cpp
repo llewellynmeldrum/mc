@@ -1,5 +1,7 @@
 #include "WorldGen_BiomeFeatures.hpp"
+#include "FormatSpecs.hpp"
 void TreeFeature::place(WorldBlockPos origin, f32 sampled_density, BlockWriter& blocks)const noexcept{
+    std::println("PLACING TREE {}", origin);
     // origin should be the location of the bottom log, i.e grass + {0,1,0}
     auto source_chunk = toWorldChunkCoord(origin);
     const i32 log_height = log_height_rng.roll(origin);
@@ -31,12 +33,12 @@ void TreeFeature::place(WorldBlockPos origin, f32 sampled_density, BlockWriter& 
                         canopy_y0 - dy,
                         origin.z + dz,
                     };
-                    if (canopy.is_corner(dx,dz)){
-                        bool leaf_decayed = canopy.is_decayed(pos);
-                        if (leaf_decayed) {
-                            continue;
-                        }
-                    }
+//                    if (canopy.is_corner(dx,dz)){
+//                        bool leaf_decayed = canopy.is_decayed(pos);
+//                        if (leaf_decayed) {
+//                            continue;
+//                        }
+//                    }
                     blocks.try_place(
                         OverwritePolicy::OnlyAir,
                         {

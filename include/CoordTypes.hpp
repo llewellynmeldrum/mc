@@ -1,6 +1,6 @@
 #pragma once
 #include "LM.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "glmWrapper.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/vec3.hpp"

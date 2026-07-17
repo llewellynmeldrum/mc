@@ -2,6 +2,7 @@
 
 
 #include "Block.hpp"
+#include "ChunkView.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "glmWrapper.hpp"
@@ -20,23 +21,23 @@ enum class OverwritePolicy: u8{
 };
 
 struct PendingBlockWrite{
-    OverwritePolicy overwritePolicy;
-    WorldChunkCoord sourceChunkCoord;
-    WorldBlockPos targetWorldBlockPos;
+    OverwritePolicy policy;
+    WorldChunkCoord source_chunk;
+    WorldBlockPos target_world;
     BlockType new_block;
 };
 inline auto operator<=>(PendingBlockWrite lhs, PendingBlockWrite rhs){
-    return lhs.sourceChunkCoord<=>rhs.sourceChunkCoord;
+    return lhs.source_chunk<=>rhs.source_chunk;
 }
 inline auto operator==(PendingBlockWrite lhs, PendingBlockWrite rhs){
-    return lhs.sourceChunkCoord==rhs.sourceChunkCoord;
+    return lhs.source_chunk==rhs.source_chunk;
 }
 
 inline PendingBlockWrite makePendingWrite(OverwritePolicy pol, WorldChunkCoord src_coord, BlockType src_type, WorldBlockPos dst_pos){
     return PendingBlockWrite{
-        .overwritePolicy = pol,
-        .sourceChunkCoord = src_coord,
-        .targetWorldBlockPos = dst_pos,
+        .policy = pol,
+        .source_chunk = src_coord,
+        .target_world = dst_pos,
         .new_block = src_type,
 
     };
@@ -64,7 +65,7 @@ inline bool canMakeWrite(const OverwritePolicy& policy, const Block& target){
     return false;
 }
 inline bool canMakeWrite(const PendingBlockWrite& pending, const Block& target){
-    return canMakeWrite(pending.overwritePolicy,target);
+    return canMakeWrite(pending.policy,target);
 }
 
 
@@ -73,10 +74,10 @@ inline bool canMakeWrite(const PendingBlockWrite& pending, const Block& target){
 
 // max heap (prio queue) containing block writes
 // since we are placing based on priority anyway, im not sure this being a prio queue is even necessary
-using PendingWriteQueue = std::priority_queue<PendingBlockWrite>;
 
 // unordered, heap allocated list of block writes
 using PendingWriteList = std::vector<PendingBlockWrite>;
 
+bool tryWrite(PendingBlockWrite write, ChunkView view);
 //
 //

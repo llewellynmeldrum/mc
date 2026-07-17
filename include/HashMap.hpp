@@ -84,6 +84,10 @@ public:
         auto [it, inserted] = map.insert_or_assign(key,std::forward<M>(val));
         return addr_of(it->second);
     }
+    decltype(auto) get_or_insert(const key_type& key, mapped_type&& val){
+        auto [it, inserted] = map.insert_or_assign(key,std::forward<mapped_type>(val));
+        return addr_of(it->second);
+    }
 
     
     // if entry exists, return it. else return nullptr.

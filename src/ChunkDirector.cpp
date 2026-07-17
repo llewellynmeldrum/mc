@@ -119,7 +119,7 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
 
     auto* entry = AT(chunk_map.entries,chunkCoord);
     // update entry to reflect generation data
-    handle_pending_writes(chunkCoord, static_cast<ChunkSpan>(generatedBlocks), deferredWrites);
+    handle_pending_writes(chunkCoord, generatedBlocks.view(), deferredWrites);
     
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
     ranges::copy(generatedBlocks, entry->block_data.begin());
@@ -131,14 +131,15 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     mark_neighbours_dirty(chunkCoord,"Neighbour generated");
     mark_mesh_dirty(*entry,"Newly generated"); // allow for meshing
 }
-void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList) {
+void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkView srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
     chunk_map.pending_writes.if_contains(
         chunkCoord,
-        [&](PendingWriteQueue & writesForMe){
+        [&](auto & writesForMe){
             while (!writesForMe.empty()){
-                const auto write = writesForMe.top(); writesForMe.pop();
-                if (srcBlocks.tryWrite(write)){
+                const auto write = writesForMe.back(); 
+                writesForMe.pop_back();
+                if (tryWrite(write,srcBlocks)){
                     chunk_map.pendingWritesSuccessful ++;
                     // NOTE:
                     // We make all adjacent chunks meshes dirty, as a block change has occured
@@ -160,12 +161,12 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
     // 2. Apply any NEW pending writes TO OTHER chunks from pwl
     for (const auto& write: newWriteList){
         // a.) if the TARGET chunk IS GENERATED, apply the write IMMEDIATELY to the TARGET chunk
-        const auto& targetChunkCoord = toWorldChunkCoord(write.targetWorldBlockPos);
+        const auto& targetChunkCoord = toWorldChunkCoord(write.target_world);
         auto* target_entry = chunk_map.entries.try_get(targetChunkCoord);
         bool target_chunk_is_generated = target_entry && target_entry->state.gen == GenState::done;
         if (target_entry && target_chunk_is_generated){
             // if target exists, and is generated, attempt the write
-            if (target_entry->block_data.tryWrite(write)){
+            if (tryWrite(write,target_entry->block_data.view())){
                 chunk_map.pendingWritesSuccessful++;
                 // also mark the target as dirty,
                 // alongside all its neighbours
@@ -175,8 +176,8 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
         }else{
             // B -> entry either doesnt exist or is on gen queue, 
             // regardless we must push the write to the chunks queue 
-            auto* target_queue = chunk_map.pending_writes.get_or_emplace(targetChunkCoord,std::priority_queue<PendingBlockWrite>{});
-            target_queue->push(write);
+            auto* target_queue = chunk_map.get_or_emplace_pwq(targetChunkCoord);
+            target_queue->push_back(write);
 
         }
     }
@@ -220,7 +221,7 @@ void ChunkDirector::update_neighbour_map(WorldChunkCoord chunkCoord) {
 
 void ChunkDirector::update_bounding_boxes_map(WorldChunkCoord chunkCoord) {
     const auto min = toWorldOrigin(chunkCoord).raw();
-    const auto max = min + Chunk::Extents;
+    const auto max = min + ChunkInfo::Extents;
     AT(chunk_map.entries,chunkCoord)->bounding_box = {min, max};
 }
 

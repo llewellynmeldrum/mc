@@ -1,7 +1,7 @@
 #pragma once
 #include "cppslop.hpp"
 #include "glm/vec3.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "cpp23_ranges.hpp"
 FORWARD_DECL_STRUCT(Chunk);  // forward decl for using defs
 using MeshRevisionID = u64;

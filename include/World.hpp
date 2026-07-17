@@ -29,6 +29,7 @@ struct World {
     const NoiseGenerator noise_gen{default_world_seed};
     GenConfig genConfig;
     ChunkMap chunkMap;
+    void set_block(WorldBlockPos wpos, BlockType block);
     inline void setup(){
         chunkMap.launchGenerator();
     }

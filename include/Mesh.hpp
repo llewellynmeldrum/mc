@@ -6,7 +6,7 @@
 #include "CommonUtils.hpp"
 #include "CommonConcepts.hpp"
 #include "cppslop.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 
 #include "BufferObjects.hpp"
 #include "Shaders.hpp"

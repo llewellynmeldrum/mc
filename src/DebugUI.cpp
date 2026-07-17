@@ -23,7 +23,7 @@
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
 #include "Window.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "Engine.hpp"
 #include "CoordTypes.hpp"
 #include "CommonConcepts.hpp"
@@ -331,9 +331,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
         const auto cl_pos = pos.raw() - 
             glm::vec3{
-                ch_pos.x * Chunk::Extents.x,
+                ch_pos.x * ChunkInfo::Extents.x,
                 0,
-                ch_pos.z * Chunk::Extents.z,
+                ch_pos.z * ChunkInfo::Extents.z,
             };
 
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
@@ -472,8 +472,8 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto n_pending_writes = 0uz;
             ctx->world.chunkMap.pending_writes.if_contains(
                 ch_pos,
-                [&](PendingWriteQueue& pwq){
-                    n_pending_writes = pwq.size();
+                [&](auto & pending_writes){
+                    n_pending_writes = pending_writes.size();
                 }
             );
 

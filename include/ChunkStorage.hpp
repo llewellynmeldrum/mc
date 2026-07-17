@@ -1,55 +1,74 @@
 #pragma once 
 
+#include <mdspan>
+#include <utility>
 #include "Block.hpp"
-
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "PendingBlockWrites.hpp"
 #include "cppslop.hpp"
-#include <mdspan>
 #include "Assertion.hpp"
-struct ChunkSpan{
-    public:
-    ChunkSpan(Block* _data):
-        _span(_data){}
-    ~ChunkSpan() = default;
-    bool tryWrite(PendingBlockWrite write);
-    using Extents = std::extents<i64, CHUNK_XWIDTH,CHUNK_HEIGHT,CHUNK_ZWIDTH>;
-        std::mdspan<Block, Extents>_span;
+#include "ChunkView.hpp"
 
-    auto span(this auto& self){
-        return self._span;
-    }
-    inline decltype(auto) at(this auto& self, i16 x, i16 y, i16 z) {
-        return self.span()[x,y,z];
-    }
-    inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
-        assert(p.x>=0);
-        assert(p.x<Chunk_Extents.x);
 
-        assert(p.y>=0);
-        assert(p.y<Chunk_Extents.y);
-
-        assert(p.z>=0);
-        assert(p.z<Chunk_Extents.z);
-        return self.span()[p.x,p.y,p.z];
-    }
-
-    inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {
-        return self.span()[x,y,z];
-    }
-    inline decltype(auto) operator[](this auto& self, ChunkBlockPos p) {
-        return self.span()[p.x,p.y,p.z];
-    }
-};
-
-// [x,y,z] accessible NON OWNING VIEW of chunk block storage.
-FORWARD_DECL_STRUCT(Chunk)
 struct ChunkStore{
-private:
-    std::vector<Block> buf={};
 public:
+    // Default construct to be CHUNK_SIZE
+    ChunkStore(): buf(CHUNK_SIZE) {}
+    ChunkStore(const ChunkStore&) = default;
+    ChunkStore(ChunkStore&&) = default;
+    ChunkStore& operator=(const ChunkStore&) = default;
+    ChunkStore& operator=(ChunkStore&&) = default;
+    ~ChunkStore() = default;
+
+    // Construct from view
+    explicit ChunkStore(ConstChunkView src): buf(src.data_handle(), src.data_handle()+CHUNK_SIZE) {}
+
+private:
+    inline decltype(auto) span(this auto& self){
+        return std::mdspan(self.buf.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
+    }
+public:
+    decltype(auto) at(this auto& self, ChunkBlockPos p){
+        self.bounds_check(p.x,p.y,p.z);
+        return self.span()[p.x,p.y,p.z];
+    }
+    decltype(auto) at(this auto& self, i32 x, i32 y, i32 z){
+        self.bounds_check(x,y,z);
+        return self.span()[x,y,z];
+    }
+    decltype(auto) operator[](this auto& self, i32 x, i32 y, i32 z){
+        self.bounds_check(x,y,z);
+        return self.span()[x,y,z];
+    }
+    auto empty() const noexcept{
+        return buf.empty();
+    }
+    // Obtain a non owning ChunkView from this chunk.
+    auto view (){
+        return ChunkView{span()};
+    }
+
+    // Obtain a non owning, ConstChunkView from this chunk.
+    auto view () const{
+        return ConstChunkView{span()};
+    }
+
+    ChunkStore clone() const {
+        return ChunkStore{view()};
+    }
+
+    auto begin(){
+        return buf.begin();
+    }
+    auto end(){
+        return buf.end();
+    }
+    //
+
+
+    // HACK: required stuff for MapLike<> so we dont upset my AT() wrapper
     using key_type = ChunkBlockPos;
     using mapped_type = Block;
     constexpr std::size_t size()const noexcept{ return CHUNK_SIZE;}
@@ -58,63 +77,20 @@ public:
                 0 <= p.y && p.y < Chunk_Extents.y && 
                 0 <= p.z && p.z < Chunk_Extents.z ;
     }
-    ChunkStore(const Chunk& chunk);
-    ChunkStore(const Chunk* chunk);
-    ChunkStore();
-    ~ChunkStore() = default;
-    inline auto data(this auto& self){
-        return self.buf.data(); 
-    }
-    inline decltype(auto) span(this auto& self){
-        return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_HEIGHT ,CHUNK_ZWIDTH);
-    }
+    std::vector<Block> buf={};
 
-    // TODO: consider moving these into an i3D_Array
-    inline decltype(auto) operator[](this auto& self, i16 x, i16 y, i16 z) {
-        return self.span()[x, y, z];
-    }
-    inline decltype(auto) operator[](this auto& self, ChunkBlockPos p) {
-        return self.span()[p.x, p.y, p.z];
-    }
-
-    inline decltype(auto) at(this auto& self, i16 x, i16 y, i16 z) {
-        return self.span()[x, y, z];
-    }
-    inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
-        return self.span()[p.x, p.y, p.z];
-    }
-
-    inline void set(this auto& self, i32 x, i32 y, i32 z, BlockType bt) {
-        assert(x>=0);
-        assert(x<Chunk_Extents.x);
-
-        assert(y>=0);
-        assert(y<Chunk_Extents.y);
-
-        assert(z>=0);
-        assert(z<Chunk_Extents.z);
-        self.span()[x, y, z] = {bt};
-    }
-    constexpr void setColumn(glm::ivec3 min, i32 ymax, BlockType bt){
-        static_assert(std::same_as<int,int32_t>);
-        ForEachInRangeEx(min.y, ymax, [&](i32 y){
-            set(min.x, y, min.z, bt);
-        });
-    }
-    auto begin(){
-        return buf.begin();
-    }
-    auto end(){
-        return buf.end();
-    }
-
-    auto& buffer(){ return buf; }
-
-    // implicit conversion to a ChunkSpan. 
-    operator ChunkSpan (){
-        return {data()};
+private:
+    void bounds_check(i32 cx, i32 cy, i32 cz) const {
+        if (
+            cx < 0 || cx >= CHUNK_XWIDTH ||
+            cy < 0 || cy >= CHUNK_HEIGHT ||
+            cz < 0 || cz >= CHUNK_ZWIDTH
+        ){
+            throw std::out_of_range("Outside of local chunk bounds");
+        }
     }
 };
+
 static_assert(!array_like<ChunkStore>);
 static_assert(map_like<ChunkStore>);
 
@@ -124,12 +100,13 @@ enum struct SliceType{
     Y,
     Z
 };
+// NOTE: this class is kinda gross. But it does save quite a bit of memory when meshing
 struct ChunkSlice2D{
 private:
     std::vector<Block> buf={};
     i32 locked_axis_val{};
 public:
-    ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2);
+    ChunkSlice2D(ConstChunkView src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2);
     ~ChunkSlice2D() = default;
     using key_type = ChunkBlockPos;
     using mapped_type = Block;

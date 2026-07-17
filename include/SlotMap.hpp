@@ -5,7 +5,7 @@
 #include <vector>
 #include <limits>
 
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "CommonConcepts.hpp"
 #include "Assertion.hpp"
 #include "NothrowLookup.hpp"

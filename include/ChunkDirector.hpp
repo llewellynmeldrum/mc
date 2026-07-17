@@ -63,8 +63,12 @@ struct ChunkDirector{
     }
     // aka discover_mesh()
     void mark_mesh_dirty(ChunkEntry& entry, std::string_view reason="N/A"){
-        entry.mark_mesh_dirty(reason);
+        entry._mark_mesh_dirty(reason);
         ready_for_mesh.push(entry.state.coord);
+    }
+    void mark_mesh_dirty(ChunkEntry* entry, std::string_view reason="N/A"){
+        entry->_mark_mesh_dirty(reason);
+        ready_for_mesh.push(entry->state.coord);
     }
 
     std::vector<WorldChunkCoord> find_mesh_jobs(std::size_t N){
@@ -143,7 +147,7 @@ struct ChunkDirector{
         prev_chunk_pos = cur_chunk_pos;
     }
 private:
-    void handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkSpan srcBlocks, const PendingWriteList& newWriteList);
+    void handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkView srcBlocks, const PendingWriteList& newWriteList);
     void update_neighbour_map(WorldChunkCoord chunkCoord);
     void update_bounding_boxes_map(WorldChunkCoord chunkCoord);
 };

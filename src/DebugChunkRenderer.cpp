@@ -1,5 +1,6 @@
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
+#include "ChunkViewHelpers.hpp"
 #include "Renderer.hpp"
 #include "Engine.hpp"
 #include "DebugChunkRenderer.hpp"
@@ -104,7 +105,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
                 if (DebugOption::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
                     return;
                 }
-                if (DebugOption::HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
+                if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
                     return;
                 }
                 const auto& state = entry.state;
@@ -176,7 +177,7 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
             auto skip = sim->world.chunkMap.entries.if_contains(
                 entryCoord,
                 [](ChunkEntry& entry)->bool{
-                    if (DebugOption::HIDE_AIR_CHUNKS && entry.block_data.isAllAir()){
+                    if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
                         return true;
                     }
                     return false;

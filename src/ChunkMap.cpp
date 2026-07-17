@@ -4,7 +4,7 @@
 #include "FormatSpecs.hpp"
 #include "NothrowLookup.hpp"
 
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "ChunkHelpers.hpp"
 #include "CoordTypes.hpp"
 #include "ChunkMap.hpp"

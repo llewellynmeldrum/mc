@@ -4,6 +4,7 @@
 #include "Breakpoints.hpp"
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
+#include "ChunkStorage.hpp"
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
@@ -67,6 +68,7 @@ void delete_mesh(ChunkState* e);
 
 
 
+
 // @Brief:
 // represents the in memory store of a chunks data.
 // A ChunkEntry is created upon request for chunk generation.
@@ -77,7 +79,7 @@ struct ChunkEntry{
     ChunkEntry(WorldChunkCoord chunkCoord):
     bounding_box(
                 toWorldOrigin(chunkCoord).raw(),
-                toWorldOrigin(chunkCoord).raw()+Chunk::Extents
+                toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents
     ),
     state(chunkCoord){}
 
@@ -86,7 +88,7 @@ struct ChunkEntry{
 #endif 
     AABB bounding_box; 
     std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(N_NEIGHBOURS,std::nullopt);
-    Chunk block_data;
+    ChunkStore block_data;
     ChunkState state;
     bool is_mesh_dirty()const noexcept{
         return loaded_mesh_revision!=target_mesh_revision;
@@ -94,7 +96,8 @@ struct ChunkEntry{
     bool is_mesh_clean()const noexcept{
         return loaded_mesh_revision==target_mesh_revision;
     }
-    void mark_mesh_dirty(std::string_view reason = "n/a")noexcept{
+    // WARNING: DO NOT USE THIS FUNCTION BY ITSELF! SHOULD ONLY BE USED FROM DIRECTOR
+    void _mark_mesh_dirty(std::string_view reason = "n/a")noexcept{
         log_to_chunk("mesh_endirtying",state.coord, 
                      "Mesh dirtied ({}->{}). Reason:{}",
                      target_mesh_revision,

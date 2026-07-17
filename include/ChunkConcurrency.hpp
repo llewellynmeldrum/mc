@@ -3,9 +3,10 @@
 #include <queue>
 #include <atomic>
 
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkNoiseDebug.hpp"
+#include "Vertex.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"

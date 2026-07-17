@@ -4,7 +4,7 @@
 #include "CommonUtils.hpp"
 #include "glbindingWrapper.hpp"
 #include "Breakpoints.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "FormatSpecs.hpp"
 #include "Logger.hpp"
 #include <unordered_map>

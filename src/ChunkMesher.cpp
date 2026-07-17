@@ -14,7 +14,7 @@
 #include "ChunkMesher.hpp"
 #include "Block.hpp"
 #include "ChunkHelpers.hpp"
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 
 // include/Chunk
 #include "CommonUtils.hpp"
@@ -291,7 +291,7 @@ std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext&
 
     std::array<Block, DirectionCount> res{};
     constexpr glm::ivec3 lo = glm::ivec3(0);
-    constexpr glm::ivec3 hi = Chunk::Extents;
+    constexpr glm::ivec3 hi = ChunkInfo::Extents;
     for (const auto& dir : each_horizontal_direction){
         const i32   dir_idx = static_cast<i32>(dir);
         const auto neigh_offset = Direction_offset[dir_idx];
@@ -305,7 +305,7 @@ std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext&
             bool other_chunk_exists = ctx.surrounding_chunks[dir_idx].has_value();
             if (other_chunk_exists){
                 const auto& other_chunk = ctx.surrounding_chunks[dir_idx].value();
-                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, Chunk::Extents);
+                neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, ChunkInfo::Extents);
                 AT(res,dir_idx) = AT(other_chunk,neighbour_block_pos);
             }else{
                 // treat all blocks of a missing chunk as air

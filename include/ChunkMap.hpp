@@ -42,7 +42,7 @@ struct ChunkMap {
 
     // NOTE: ENTRY MADE: Either on GenData upload, or when a chunk tries to write to it
     // NOTE: ENTRY DELETED: When the queue for a chunk is empty. Not sure how i feel about this.
-    HashMap<WorldChunkCoord, PendingWriteQueue> pending_writes;
+    HashMap<WorldChunkCoord, PendingWriteList> pending_writes;
 
 
     // NOTE: ENTRY MADE: on enqueue into GenJobs (before generation)
@@ -51,18 +51,9 @@ struct ChunkMap {
 
 
 
-    inline bool has_pending_writes(WorldChunkCoord coord){
-        return pending_writes.if_contains_else(
-            coord,
-            [](PendingWriteQueue& pwq){
-                return !pwq.empty();
-            },
-            [](){
-                return false;
-            }
-        );
+    auto* get_or_emplace_pwq(WorldChunkCoord coord){
+        return pending_writes.get_or_insert(coord,{});
     }
-
 
 
     // temporary debugging 

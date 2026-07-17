@@ -2,7 +2,7 @@
 // ===========
 // Mesh_RawData.hpp
 // ===========
-#include "ChunkInvariants.hpp"
+#include "ChunkConstants.hpp"
 #include "Vertex.hpp"
 using QuadVertexData = std::array<Vertex, VTX_PER_QUAD>;
 

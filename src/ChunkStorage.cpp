@@ -5,7 +5,14 @@
 #include "CoordIteration.hpp"
 
 
-ChunkSlice2D::ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1, ChunkBlockPos pos2) : slice_type(_slice_type) {
+ChunkSlice2D::ChunkSlice2D(
+    ConstChunkView src,
+    SliceType _slice_type,
+    ChunkBlockPos pos1,
+    ChunkBlockPos pos2
+) 
+: slice_type(_slice_type) 
+{
         if (slice_type == SliceType::X){
             buf.resize(CHUNK_HEIGHT * CHUNK_ZWIDTH);
             locked_axis_val = pos1.x;
@@ -21,18 +28,7 @@ ChunkSlice2D::ChunkSlice2D(Chunk* src, SliceType _slice_type, ChunkBlockPos pos1
         }
         // copy all of them in 
         ForEachInRangeEx(pos1, pos2,[&](i32 cx, i32 cy, i32 cz){
-            this->at(cx,cy,cz) = src->at(cx,cy,cz);
+            this->at(cx,cy,cz) = src.at(cx,cy,cz);
         });
-}
-ChunkStore::ChunkStore(const Chunk& chunk){
-    buf.resize(CHUNK_SIZE);
-    ranges::copy(chunk.data,buf.begin());
-}
-ChunkStore::ChunkStore(const Chunk* chunk){
-    buf.resize(CHUNK_SIZE);
-    ranges::copy(chunk->data,buf.begin());
-}
-ChunkStore::ChunkStore(){
-    buf.resize(CHUNK_SIZE);
 }
 

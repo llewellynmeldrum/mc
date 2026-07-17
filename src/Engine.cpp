@@ -1,6 +1,7 @@
 
 #include "ChunkStorage.hpp"
 #include "DebugOptions.hpp"
+#include "WorldGen_BiomeFeatureSets.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 
 #include "Chunk.hpp"
@@ -85,6 +86,7 @@ void Engine::refresh_visible_chunks(){
     // load meshes inside frustum, unload meshes outside frustum
     rend.opaque_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
     rend.transparent_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
+    rend.cutout_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
 }
 
 void Engine::evict_meshes_outside_radius(i32 radius){
@@ -116,8 +118,7 @@ void Engine::evict_meshes_outside_radius(i32 radius){
     // TODO: perhaps prune the for_meshing uniqueQueue?
     rend.opaque_chunk_meshes.erase_if(outside_range(world.chunkMap,lo,hi));
     rend.transparent_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
-
-
+    rend.cutout_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
 }
 
 void Engine::update_scene() {
@@ -514,15 +515,6 @@ void Engine::handle_input(){
             player_cam.disableMousePanning();
         }
     }
-    if(input.just_pressed(KEY_G)){
-        chunk_updates_paused= !chunk_updates_paused;
-    }
-    if(input.just_pressed(KEY_L)){
-        pause_logging = !pause_logging;
-    }
-    if(input.just_pressed(KEY_X)){
-        dirty_current_chunk = !dirty_current_chunk;
-    }
 
     if (paused) return; // WARNING: Anything below here is ignored during paused frames
 
@@ -532,10 +524,47 @@ void Engine::handle_input(){
         player_cam.rotateByMouse(diff, profiler.dt_s);
     }
 
+    // NOTE:  DEBUG TOGGLES
+    if(input.just_pressed(KEY_T)){
+        auto coord = director.cur_chunk_pos;
+        auto* entry = world.chunkMap.entries.try_get(coord);
+        if (entry){
+            auto& pwq = *(world.chunkMap.get_or_emplace_pwq(coord));
+            auto cur_block_pos = director.cur_block_pos;
+            auto chunk_local = toChunkBlockPos(cur_block_pos);
+            while (entry->block_data.at(chunk_local) == BlockType::AIR){
+                cur_block_pos.y--;
+                world.set_block(cur_block_pos,BlockType::DBG_OUTLINE);
+                chunk_local = toChunkBlockPos(cur_block_pos);
+            }
+            auto writer = BlockWriter{
+                entry->block_data.view(),
+                pwq,
+                coord
+            };
+            cur_block_pos.y++;
+            features::regular_oak_tree.place(
+                cur_block_pos,
+                1.0f, 
+                writer
+            );
+            director.mark_mesh_dirty(entry);
+        }
+
+    }
+    if(input.just_pressed(KEY_G)){
+        chunk_updates_paused= !chunk_updates_paused;
+    }
+    if(input.just_pressed(KEY_L)){
+        pause_logging = !pause_logging;
+    }
+    if(input.just_pressed(KEY_X)){
+        dirty_current_chunk = !dirty_current_chunk;
+    }
     if(input.just_pressed(KEY_B)){
         dbg_modify_chunks = !dbg_modify_chunks;
     }
-    if(input.just_pressed(KEY_T)){
+    if(input.just_pressed(KEY_W) && input.mods.alt){
         rend.debug.wireframe = !rend.debug.wireframe;
     }
     if(input.just_pressed(KEY_H)){
@@ -546,6 +575,7 @@ void Engine::handle_input(){
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
 
+    // NOTE: MOVEMENT
     if(input.is_down(KEY_LEFT_SHIFT)){
             player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
             player_cam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
