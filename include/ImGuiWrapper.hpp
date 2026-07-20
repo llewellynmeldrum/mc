@@ -119,8 +119,9 @@ namespace UI{
     inline vec2 getCursorPos(){
         return ImGui::GetCursorScreenPos();
     }
-    inline void Separator(){
+    inline void Separator(std::string sv=""){
         return ImGui::Separator();
+        UI::Text(sv);
     }
 
 

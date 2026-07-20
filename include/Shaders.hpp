@@ -61,13 +61,18 @@ struct ShaderProgram{
         LOG_FATAL("Failed to deduce unform type of '{} {}'.",pretty_type_name<T>(), name);
         LOG_EXIT(EXIT_FAILURE);
     }
-    void setUniform(const std::string& name, const i32& val);
-    void setUniform(const std::string& name, const glm::mat4& val);
-    void setUniform(const std::string& name, const glm::vec2& val);
-    void setUniform(const std::string& name, const f32& val);
-    void setUniform(const std::string& name, const f64& val);
-    void setUniform(const std::string& name, std::vector<i32> val);
-    void setUniform(const std::string& name, bool val);
+    template<typename T>
+    void setUniform(const std::string& name, const T& val){
+        setUniform(getUniformLoc(name),val);
+    }
+
+    void setUniform(i32 id, const i32& val);
+    void setUniform(i32 id, const glm::mat4& val);
+    void setUniform(i32 id, const glm::vec2& val);
+    void setUniform(i32 id, const f32& val);
+    void setUniform(i32 id, const f64& val);
+    void setUniform(i32 id, std::vector<i32> val);
+    void setUniform(i32 id, bool val);
 
 private:
   bool has_error(i32 param_name);

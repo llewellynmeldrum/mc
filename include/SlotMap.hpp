@@ -15,7 +15,7 @@
 template<typename Key, typename Mapped>
 struct slot_map{
 public:
-    using DenseIdx = std::size_t;
+    using DenseIdx = size_t;
     using mapped_type = Mapped;
     using key_type = Key;
 

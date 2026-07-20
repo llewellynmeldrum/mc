@@ -8,14 +8,14 @@
 #include "Logger.hpp"
 
 struct ThreadPool{
-    ThreadPool(std::size_t _count=1): count(_count){}
+    ThreadPool(size_t _count=1): count(_count){}
     ~ThreadPool();
     std::vector<std::jthread> threads;
-    std::atomic<std::size_t> thread_id;
-    std::size_t count{};
+    std::atomic<size_t> thread_id;
+    size_t count{};
     template<typename Fn, typename ...Args>
     inline void launch(Fn&& work_fn, Args&&... params){
-        for (std::size_t i=0; i<count; i++){
+        for (size_t i=0; i<count; i++){
             threads.emplace_back(work_fn,
                                  params...);
         }
@@ -24,7 +24,7 @@ struct ThreadPool{
 
 template<typename T>
 struct Queue{
-    std::size_t capacity = 512;
+    size_t capacity = 512;
     std::mutex mtx;
     std::deque<T> q;
     std::condition_variable not_empty;
@@ -96,10 +96,10 @@ struct Queue{
         not_empty.notify_one(); 
         return true;
     }
-    inline std::size_t slotsRemaining(){
+    inline size_t slotsRemaining(){
         return capacity-q.size();
     }
-    inline std::size_t try_batch_enqueue(std::span<T> batch){
+    inline size_t try_batch_enqueue(std::span<T> batch){
         std::lock_guard lock(mtx);
 
         if ( slotsRemaining() < batch.size()){
@@ -107,7 +107,7 @@ struct Queue{
             // cant accomodate the entire span
             return 0;
         }
-        for (std::size_t i = 0; i<batch.size(); i++){
+        for (size_t i = 0; i<batch.size(); i++){
             q.push_back(batch[i]);
             not_empty.notify_one(); 
         }
@@ -152,7 +152,7 @@ struct Queue{
     // Succeeds only if:
     // 1. immediately able to grab the lock
     // 2. queue size>0
-    inline std::optional<std::vector<T>> try_batch_dequeue(std::size_t batch_size){
+    inline std::optional<std::vector<T>> try_batch_dequeue(size_t batch_size){
         std::lock_guard lock(mtx);
 
         if (q.empty()){
@@ -163,7 +163,7 @@ struct Queue{
         batch_size = std::min(batch_size, q.size());
         batch.reserve(batch_size);
 
-        for (std::size_t i = 0; i<batch_size; i++){
+        for (size_t i = 0; i<batch_size; i++){
             batch.push_back(std::move(q.front()));
             q.pop_front();
             not_full.notify_one(); 
@@ -185,12 +185,12 @@ struct Queue{
             return !q.empty();
         });
     }
-    inline std::size_t wait_size(){
+    inline size_t wait_size(){
         std::lock_guard lock(mtx);
         return q.size();
     }
 
-    inline std::size_t size_unlocked(){
+    inline size_t size_unlocked(){
         return q.size();
     }
 

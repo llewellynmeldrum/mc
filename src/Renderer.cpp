@@ -16,6 +16,7 @@
 #include "glmWrapper.hpp"
 #include "World.hpp"
 #include "LM.hpp"
+#include "Profiler.hpp"
 
 using namespace gl;
 using namespace glm;
@@ -37,15 +38,31 @@ Renderer::Renderer() {
 
     cube_atlas.load_texture("resources/textures/cube_atlas.png");
     cross_atlas.load_texture("resources/textures/cross_atlas.png");
+    cactus_atlas.load_texture("resources/textures/cactus_atlas.png");
+    lower_half_slab_atlas.load_texture("resources/textures/half_slab_atlas.png");
 
     atlas_list.push_back(&cube_atlas);
     atlas_list.push_back(&cross_atlas);
+    atlas_list.push_back(&cactus_atlas);
+    atlas_list.push_back(&lower_half_slab_atlas);
 
+    u_textures_loc = prog.getUniformLoc("textures");
+    u_enable_cutout_loc = prog.getUniformLoc("u_enable_cutout");
+
+    u_model_loc = prog.getUniformLoc("model");
+    u_proj_loc = prog.getUniformLoc("proj");
+    u_view_loc = prog.getUniformLoc("view");
+    
     prog.setUniform(
-        "textures", 
+        u_textures_loc,
         std::vector{
             std::to_underlying(BlockShape::CUBE),
-            std::to_underlying(BlockShape::CROSS)
+            std::to_underlying(BlockShape::CROSS),
+            std::to_underlying(BlockShape::CACTUS),
+            std::to_underlying(BlockShape::BOT_HALF_SLAB),
+            // NOTE: REMINDER!!!!
+            // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!
+            // for the vertices, change only the position ones but not the scale
         }
     );
     prog.stop();
@@ -91,8 +108,6 @@ void Renderer::prepare_transparent_pass(){
     enableDepthTesting();
     enableDepthMask();
 
-  //  prog.setUniform("u_cutout",false);
-
     enableColorBlending();
     enableBackfaceCulling();
 }
@@ -100,7 +115,6 @@ void Renderer::prepare_opaque_pass(){
     enableDepthTesting();
     enableDepthMask();
 
- //   prog.setUniform("u_cutout",false);
 
     disableColorBlending();
     enableBackfaceCulling();
@@ -108,34 +122,49 @@ void Renderer::prepare_opaque_pass(){
 void Renderer::prepare_cutout_pass(){
     enableDepthTesting();
     enableDepthMask();
+    prog.setUniform(u_enable_cutout_loc, true);
 
-//    prog.setUniform("u_cutout",true);
 
     disableColorBlending();
     enableBackfaceCulling();
 }
-void Renderer::draw_to(Camera& cam, RenderTargetView target){
-    target.use();
-
-    prog.use();
-    for (auto* atlas: atlas_list){
-        atlas->texture.bind();
-    }
-    prog.setUniform("view", cam.getViewMatrix());
-    prog.setUniform("proj", cam.getProjectionMatrix());
+void Renderer::draw_to(Camera& cam, RenderTargetView target, Profiler* prof){
     {
+        prof->bench_start("02_rendinit");
+
+        target.use();
+        prog.use();
+        for (auto* atlas: atlas_list){
+            atlas->texture.bind();
+        }
+        prog.setUniform(u_view_loc, cam.getViewMatrix());
+        prog.setUniform(u_proj_loc, cam.getProjectionMatrix());
+        prof->bench_end("02_rendinit");
+    }
+
+    {
+        prof->bench_start("03_opaque");
         prepare_opaque_pass();
         draw_opaque_pass(cam);
+        prof->bench_end("03_opaque");
+    }
 
+    {
+        prof->bench_start("04_cutout");
         prepare_cutout_pass();
         draw_cutout_pass(cam);
+        prof->bench_end("04_cutout");
+    }
 
+    {
+        prof->bench_start("05_transparent");
         prepare_transparent_pass();
         draw_transparent_pass(cam);
-
+        prof->bench_end("05_transparent");
     }
-    prog.stop();
 
+    
+    prog.stop();
     target.stop();
 
 }
@@ -197,7 +226,7 @@ void Renderer::draw_cutout_pass(Camera& cam){
     if (DebugOption::enable_opaque_sorting){
         draw_meshes(cutout_chunk_meshes, sorted_cutout_coords);
     }else{
-        draw_meshes_unsorted(cutout_chunk_meshes);
+        draw_cutout_meshes_unsorted(cutout_chunk_meshes);
     }
 }
 
@@ -234,11 +263,29 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
     }
 }
 
+void Renderer::draw_cutout_mesh(const Mesh& mesh){
+    if (DebugOption::enable_cutout_optimisation && mesh.is_cutout){
+        prog.setUniform(u_enable_cutout_loc, false);
+       if (mesh.chunk_dist_to_cam > cutout_enable_radius){
+           prog.setUniform(u_enable_cutout_loc, false);
+       }else{
+           prog.setUniform(u_enable_cutout_loc, true);
+       }
+    }
+    auto model = mat4(1.0f);
+    const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
+    model = glm::translate(model, chunkFloatWorldPos);
+    prog.setUniform(u_model_loc, model);
+    mesh.draw();
+    debug.vertex_count += mesh.offset_count;
+    debug.mesh_count++;
+    debug.draw_calls++;
+}
 void Renderer::draw_mesh(const Mesh& mesh){
     auto model = mat4(1.0f);
     const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
     model = glm::translate(model, chunkFloatWorldPos);
-    prog.setUniform("model", model);
+    prog.setUniform(u_model_loc, model);
     mesh.draw();
     debug.vertex_count += mesh.offset_count;
     debug.mesh_count++;
@@ -254,6 +301,17 @@ void Renderer::draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshLi
 
     for (const auto& mesh : filtered_meshes) {
         draw_mesh(mesh);
+    }
+}
+void Renderer::draw_cutout_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList){
+    using views::filter;
+
+    auto filtered_meshes = meshList |
+                        filter(is_mesh_loaded) |
+                        filter(is_mesh_non_empty);
+
+    for (const auto& mesh : filtered_meshes) {
+        draw_cutout_mesh(mesh);
     }
 }
 

@@ -79,7 +79,7 @@ struct VertexAttribute {
     VertexAttributeType vat;
     u32 divisor{0}; // for instancing
 };
-template <std::size_t SZ>
+template <size_t SZ>
 struct VertexLayout {
     i32                                   stride;
     const std::array<VertexAttribute, SZ> attrs;
@@ -101,7 +101,7 @@ constexpr VertexAttribute make_attr(u32 _location, std::intptr_t offset, u32 _di
 // TODO: make this work
 template <typename ...Args>
 constexpr auto make_layout(Args ...vargs){
-    constexpr std::size_t argc = sizeof...(vargs);
+    constexpr size_t argc = sizeof...(vargs);
     return VertexLayout<argc>{
         (vargs)...
     };

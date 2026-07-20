@@ -57,11 +57,11 @@ namespace unix {
 
     // WARNING:!!! 
     // This function is EXCEPTIONALLY slow. Like really really really slow. It literally has to 
-    inline std::size_t term_cols() {
+    inline size_t term_cols() {
         auto cols = get_env<int>("COLUMNS");
         return cols ? *cols : 0;
     }
-    inline std::size_t term_rows() {
+    inline size_t term_rows() {
         auto rows = get_env<int>("LINES");
         return rows ? *rows : 0;
     }
@@ -90,15 +90,15 @@ namespace unix {
     }
     // find the resident set size (approximate memory usage of a process). 
     // aka the 'working set' on windows. Maybe one day I will support that disgusting API and OS
-    inline std::size_t rss_bytes(){
+    inline size_t rss_bytes(){
         struct rusage usage;
         if (getrusage(RUSAGE_SELF, &usage) == 0) {
         #if defined(__APPLE__)
             // on macos, ru_maxrss is in BYTES (1B)
-            std::size_t rb_bytes = usage.ru_maxrss;
+            size_t rb_bytes = usage.ru_maxrss;
         #elif defined(__linux__)
             // on linux, ru_maxrss is in KILOBYTES (1000B)
-            std::size_t rb_bytes = usage.ru_maxrss / 1000.0;
+            size_t rb_bytes = usage.ru_maxrss / 1000.0;
         #endif
             return rb_bytes;
         } else {

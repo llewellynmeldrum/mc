@@ -14,8 +14,14 @@
 // Note that a smoothstep stage makes the blend SOMEWHERE between 0->0.5. The above example assumes a linear blend
 // Smoothstep produces a smooth, S shaped curve given some linear input. Example:
 // https://www.desmos.com/calculator/cq5bnndshk
-constexpr inline i32 remap_curve (f32 x, std::vector<glm::vec2> map){
-    x = glm::clamp(x, map.front().x, map.back().x);
+template<typename T>
+constexpr inline T remap_curve (f32 x, std::vector<glm::vec2> map){
+    if (x <= map.front().x){
+        return map.front().y;
+    }
+    if (x >= map.back().x){
+        return map.back().y;
+    }
     for (i32 i = 1; i<map.size(); i++){
         auto left_edge = map[i-1].x;
         auto right_edge = map[i].x;
@@ -29,5 +35,5 @@ constexpr inline i32 remap_curve (f32 x, std::vector<glm::vec2> map){
             return mix;
         }
     }
-    return static_cast<i32>(map.back().y); //fallback to max 
+    return static_cast<T>(map.back().y); //fallback to max 
 }

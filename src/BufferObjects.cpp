@@ -30,7 +30,7 @@ void ElementBuffer::load(const_span<u32> indices, i32 offset) {
     assert(indices.size() != 0);
     glBufferData(BufferTarget(), indices.size_bytes(), indices.data() + offset, BufferUsage());
 }
-void ElementBuffer::load(std::size_t size, const void* indices_ptr, i32 offset) {
+void ElementBuffer::load(size_t size, const void* indices_ptr, i32 offset) {
     // 'just trust me bro' variant
     this->bind();
     assert(size != 0);
@@ -40,7 +40,7 @@ void ElementBuffer::load(std::size_t size, const void* indices_ptr, i32 offset) 
     glBufferData(BufferTarget(), size, offsetted_ptr, BufferUsage());
 }
 
-void VertexBuffer::load_bytes(const void* data, std::size_t size_bytes,gl::GLenum usage){
+void VertexBuffer::load_bytes(const void* data, size_t size_bytes,gl::GLenum usage){
     this->bind();
     // glBufferData SHOULDNT modify the data being passed in, so const void* here signifies
     // that the data being passed in is valid for use afterwards

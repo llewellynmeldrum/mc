@@ -75,7 +75,7 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     }
 }
 
-std::size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius){
+size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius){
     // if we come across a chunk which:
     // - has an entry
     // - has been generated
@@ -221,7 +221,7 @@ void ChunkDirector::update_neighbour_map(WorldChunkCoord chunkCoord) {
 
 void ChunkDirector::update_bounding_boxes_map(WorldChunkCoord chunkCoord) {
     const auto min = toWorldOrigin(chunkCoord).raw();
-    const auto max = min + ChunkInfo::Extents;
+    const auto max = min + ChunkInfo::Extents3D;
     AT(chunk_map.entries,chunkCoord)->bounding_box = {min, max};
 }
 

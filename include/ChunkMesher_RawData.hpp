@@ -6,7 +6,7 @@
 #include "Vertex.hpp"
 using QuadVertexData = std::array<Vertex, VTX_PER_QUAD>;
 
-template<std::size_t T>
+template<size_t T>
 using ShapeQuads = std::array<QuadVertexData, T>;
 
 // clang-format off
@@ -156,3 +156,124 @@ inline constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
 };
 static_assert(cube_vtx::quads.size()==6, "Cube must have 6 faces");
 static_assert(cross_vtx::quads.size()==4, "Cross must have 4 faces");
+
+namespace cactus_vtx{
+    static inline constexpr f32 P = +1.0f;
+    static inline constexpr f32 N = 0.0f;
+    static inline constexpr f32 HP = +0.9375;
+    static inline constexpr f32 HN = +0.0625;
+    static inline constexpr glm::vec3 NNN{ N, N, N};
+    static inline constexpr glm::vec3 NPN{ N, P, N};
+    static inline constexpr glm::vec3 NNP{ N, N, P};
+    static inline constexpr glm::vec3 PNN{ P, N, N};
+    static inline constexpr glm::vec3 PPN{ P, P, N};
+    static inline constexpr glm::vec3 PNP{ P, N, P};
+    static inline constexpr glm::vec3 NPP{ N, P, P};
+    static inline constexpr glm::vec3 PPP{ P, P, P};
+
+    inline constexpr ShapeQuads<QUADS_PER_CUBE> quads = {
+        // Direction::forward
+        Quad{
+            Vertex{{P,N,HN},glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{{N,N,HN},glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{{N,P,HN},glm::vec2(1,0),glm::vec4(0.0f),0},
+            Vertex{{P,P,HN},glm::vec2(0,0),glm::vec4(0.0f),0},
+        },
+        // Direction::Backward
+        Quad{
+            Vertex{{N,N,HP},glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{{P,N,HP},glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{{P,P,HP},glm::vec2(0,0),glm::vec4(0.0f),0},
+            Vertex{{N,P,HP},glm::vec2(1,0),glm::vec4(0.0f),0},
+        },
+        // Direction:: Left
+        Quad{
+            Vertex{{HN,N,N},glm::vec2(0,1),glm::vec4(0.0f),2},
+            Vertex{{HN,N,P},glm::vec2(1,1),glm::vec4(0.0f),2},
+            Vertex{{HN,P,P},glm::vec2(1,0),glm::vec4(0.0f),2},
+            Vertex{{HN,P,N},glm::vec2(0,0),glm::vec4(0.0f),2},
+        },
+
+        // Directio{n,:,:}Right
+        Quad{
+            Vertex{{HP,N,P},glm::vec2(0,1),glm::vec4(0.0f),3},
+            Vertex{{HP,N,N},glm::vec2(1,1),glm::vec4(0.0f),3},
+            Vertex{{HP,P,N},glm::vec2(1,0),glm::vec4(0.0f),3},
+            Vertex{{HP,P,P},glm::vec2(0,0),glm::vec4(0.0f),3},
+        },
+        // Directio{n,:,:}Down
+        Quad{
+            Vertex{{N,HN,N},glm::vec2(0,0),glm::vec4(0.0f),4},
+            Vertex{{P,HN,N},glm::vec2(1,0),glm::vec4(0.0f),4},
+            Vertex{{P,HN,P},glm::vec2(1,1),glm::vec4(0.0f),4},
+            Vertex{{N,HN,P},glm::vec2(0,1),glm::vec4(0.0f),4},
+        },
+        // Directio{n,:,:Up
+        Quad{
+            Vertex{{N,HP,P},glm::vec2(0,0),glm::vec4(0.0f),5},
+            Vertex{{P,HP,P},glm::vec2(1,0),glm::vec4(0.0f),5},
+            Vertex{{P,HP,N},glm::vec2(1,1),glm::vec4(0.0f),5},
+            Vertex{{N,HP,N},glm::vec2(0,1),glm::vec4(0.0f),5},
+        },
+    };
+}
+
+namespace lower_half_slab_vtx{
+    static inline constexpr f32 P = +1.0f;
+    static inline constexpr f32 N = 0.0f;
+    static inline constexpr f32 H = +0.5f;
+    static inline constexpr glm::vec3 NNN{ N, N, N};
+    static inline constexpr glm::vec3 NPN{ N, P, N};
+    static inline constexpr glm::vec3 NNP{ N, N, P};
+    static inline constexpr glm::vec3 PNN{ P, N, N};
+    static inline constexpr glm::vec3 PPN{ P, P, N};
+    static inline constexpr glm::vec3 PNP{ P, N, P};
+    static inline constexpr glm::vec3 NPP{ N, P, P};
+    static inline constexpr glm::vec3 PPP{ P, P, P};
+
+    inline constexpr ShapeQuads<QUADS_PER_CUBE> quads = {
+        // Direction::forward
+        Quad{
+            Vertex{{P,N,N},glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{{N,N,N},glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{{N,H,N},glm::vec2(1,.5),glm::vec4(0.0f),0},
+            Vertex{{P,H,N},glm::vec2(0,.5),glm::vec4(0.0f),0},
+        },
+        // Direction::Backward
+        Quad{
+            Vertex{{N,N,P},glm::vec2(1,1),glm::vec4(0.0f),0},
+            Vertex{{P,N,P},glm::vec2(0,1),glm::vec4(0.0f),0},
+            Vertex{{P,H,P},glm::vec2(0,.5),glm::vec4(0.0f),0},
+            Vertex{{N,H,P},glm::vec2(1,.5),glm::vec4(0.0f),0},
+        },
+        // Direction:: Left
+        Quad{
+            Vertex{{N,N,N},glm::vec2(0,1),glm::vec4(0.0f),2},
+            Vertex{{N,N,P},glm::vec2(1,1),glm::vec4(0.0f),2},
+            Vertex{{N,H,P},glm::vec2(1,.5),glm::vec4(0.0f),2},
+            Vertex{{N,H,N},glm::vec2(0,.5),glm::vec4(0.0f),2},
+        },
+
+        // Directio{n,:,:}Right
+        Quad{
+            Vertex{{P,N,P},glm::vec2(0,1),glm::vec4(0.0f),3},
+            Vertex{{P,N,N},glm::vec2(1,1),glm::vec4(0.0f),3},
+            Vertex{{P,H,N},glm::vec2(1,.5),glm::vec4(0.0f),3},
+            Vertex{{P,H,P},glm::vec2(0,.5),glm::vec4(0.0f),3},
+        },
+        // Directio{n,:,:}Down
+        Quad{
+            Vertex{{N,N,N},glm::vec2(0,0 ),glm::vec4(0.0f),4},
+            Vertex{{P,N,N},glm::vec2(1,0 ),glm::vec4(0.0f),4},
+            Vertex{{P,N,P},glm::vec2(1,1),glm::vec4(0.0f),4},
+            Vertex{{N,N,P},glm::vec2(0,1),glm::vec4(0.0f),4},
+        },
+        // Directio{n,:,:Up
+        Quad{
+            Vertex{{N,H,P},glm::vec2(0,0),glm::vec4(0.0f),5},
+            Vertex{{P,H,P},glm::vec2(1,0),glm::vec4(0.0f),5},
+            Vertex{{P,H,N},glm::vec2(1,1),glm::vec4(0.0f),5},
+            Vertex{{N,H,N},glm::vec2(0,1),glm::vec4(0.0f),5},
+        },
+    };
+}

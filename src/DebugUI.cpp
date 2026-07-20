@@ -6,6 +6,7 @@
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
+#include "WorldGen_SharedBiomeFeatures.hpp"
 #include "cpp23_ranges.hpp"
 
 #include "ChunkEntry.hpp"
@@ -292,8 +293,7 @@ void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
     self.setAlign(WinAlign::TopMid());
     self.setFlags(UI::WinFlags::NoResize);
     self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
-        auto& window = self;
-        window.section("Secondary View:",[&ctx]{
+        self.section("Secondary View:",[&ctx]{
             UI::Text("scr: {}, {}",ctx->fixedCamTarget.pos, ctx->fixedCamTarget.size);
             UI::Text("  w: {}, {}",ctx->drone_cam.pos.raw(), ctx->drone_cam.ortho_zoom);
             UI::DrawTexture(ctx->fixedCamTarget);
@@ -317,7 +317,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto fps = 1000.0/fps_rb.avg();
         const auto ft_ms = fps_rb.avg();
 
-        const auto draw_ms = ctx->profiler.ringbufs.at("draw").avg();
+        const auto draw_ms = ctx->profiler.ringbufs.at("01_draw").avg();
         const auto upd_ms = ctx->profiler.ringbufs.at("update").avg();
         const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
         const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
@@ -329,13 +329,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto pos = ctx->player_cam.pos;
         const auto round_pos = glm::ivec3{LM::floor(ctx->player_cam.pos).raw()};
         const auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
-        const auto cl_pos = pos.raw() - 
-            glm::vec3{
-                ch_pos.x * ChunkInfo::Extents.x,
-                0,
-                ch_pos.z * ChunkInfo::Extents.z,
-            };
-
+        const auto cl_pos = glm::vec3{0,0,0};
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
         UI::Separator();
@@ -353,25 +347,75 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Separator();
         auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
         std::string biome_str = "N/A (no chunk entry)";
-        std::optional<NoiseParams> samples;
-        if (cur_chunk_entry){
-            samples = cur_chunk_entry->noise[cl_pos.x, cl_pos.z];
-            auto biome = classify_biome(*samples);
-            biome_str = std::format("{}", biome);
-            UI::Text("{} topsoil = {}",biome,biome_palettes[biome].topsoil);
-            UI::Text("Block at cam: {}",cur_chunk_entry->block_data[cl_pos.x,cl_pos.y, cl_pos.z]);
+        const auto & [wx,_,wz] = pos;
+        NoiseParams noise_samples_exact = ctx->world.genConfig.noise.sample_all(wx,wz);
+        auto biome = classify_biome_verbose(noise_samples_exact);
+
+        UI ::Text("{:>10}: {:+9.3f}", "hill", noise_samples_exact.hill);
+        UI ::Text("{:>10}: {:+9.3f}", "mountain", noise_samples_exact.mountain);
+
+        auto show_biome_score_table = [&](){
+            UI::Separator("Biome Scores:");
+            const int columns = biome_match_tables.size();
+            IG::BeginTable("##Table_thing",6,ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg);
+            IG::TableNextRow();
+            IG::TableNextColumn();
+            UI::Text("Biome");
+            IG::TableNextColumn();
+
+        #define X(VAR) \
+                UI::Text("" #VAR " match ({:+4.3f})",noise_samples_exact. VAR); \
+                IG::TableNextColumn();
+            LIST_FUNDAMENTAL_NOISE_PARAMS
+        #undef X
+            UI::Text("Avg score");
+
+            IG::TableNextRow();
+            for (const auto& biome_match: biome_match_tables){
+                BiomeClassification clas{};
+                clas.update(biome_match,noise_samples_exact);
+                IG::TableNextRow();
+                IG::TableNextColumn();
+                auto biome_str = std::format("{}",biome_match.biome);
+                bool chosen = biome_match.biome == biome.id;
+                ImGui::Selectable(biome_str.c_str(), chosen, ImGuiSelectableFlags_SpanAllColumns);
+                IG::TableNextColumn();
+        #define X(VAR) UI::Text("{: 5.2f}",clas.VAR ##_score);\
+                IG::TableNextColumn();
+            LIST_FUNDAMENTAL_NOISE_PARAMS
+        #undef X
+                 UI::Text("{: 5.2f}",clas.avg_score());
+            }
+
+            IG::EndTable();
+        };
+        show_biome_score_table();
+        {
+            auto wpos = ctx->director.cur_block_pos;
+            auto density = noise_samples_exact.rain;
         }
-        if (samples){
-        UI::Text("biome: {}",biome_str);
-#define X(VAR) UI::Text("{:c}: {:4.2f}",#VAR[0]-('a'-'A'), (*samples).VAR);
-        LIST_NOISE_PARAMS
-#undef X
-        }
+
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;
         }
         UI::Text("Press '`' to minimize.");
+        window.open_section("Perf:",[ctx]{
+            UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);
+            IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
+
+            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+            auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
+            assert(k!=0);
+            std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
+            IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
+            IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
+
+            for (const auto& [key, val]: ctx->profiler.ringbufs){
+                plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
+            }
+
+        });
         window.section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
@@ -542,26 +586,10 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             UI::Text(".");
         });
 
-        window.section("Perf:",[ctx]{
-            UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);
-            IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
-
-            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
-            auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
-            assert(k!=0);
-            std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
-            IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
-            IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
-
-            for (const auto& [key, val]: ctx->profiler.ringbufs){
-                plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
-            }
-
-        });
 
         window.section("Per frame draw info:",[ctx]{
-            std::size_t n_vtx = ctx->rend.debug.vertex_count;
-            std::size_t n_bytes = n_vtx * sizeof(Vertex);
+            size_t n_vtx = ctx->rend.debug.vertex_count;
+            size_t n_bytes = n_vtx * sizeof(Vertex);
             f32 kb = n_bytes /1000.0;
             f32 mb = kb/1000.0;
             f32 gb = mb/1000.0;
@@ -578,7 +606,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto& gen = ctx->world.chunkMap.generator;
             auto& mesher = ctx->rend.meshers;
             auto drawSizeAndUniqueness = [ctx]
-                (const std::string name, std::size_t max, auto& q, auto newcount, const auto& rb){
+                (const std::string name, size_t max, auto& q, auto newcount, const auto& rb){
 
                 auto total_sz = q.wait_size();
                 std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);

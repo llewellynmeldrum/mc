@@ -36,9 +36,9 @@ std::string report_location(refl::source_location loc,std::string_view msg=""){
     );
 }
 
-auto banner_str(auto ch,  std::size_t n = unix::term_cols()){
+auto banner_str(auto ch,  size_t n = unix::term_cols()){
     std::string s{"\n"};
-    for (std::size_t i=0;i<n;i++){
+    for (size_t i=0;i<n;i++){
         s+= ch;
     }
     return s+"\n";
@@ -159,9 +159,9 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
             fmt::no_italic()
     );
 
-    auto stripe_n_str = [](auto ch,  std::size_t n){
+    auto stripe_n_str = [](auto ch,  size_t n){
         std::string s{};
-        for (std::size_t i=0;i<n;i++){
+        for (size_t i=0;i<n;i++){
             s+= ch;
         }
         return s;

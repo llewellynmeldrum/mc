@@ -10,7 +10,7 @@ constexpr inline NAME NAME##_from(UNDERLYING_T e) noexcept{\
 constexpr inline UNDERLYING_T to_##NAME(NAME e) noexcept{\
     return static_cast<UNDERLYING_T>(e);\
 };\
-constexpr inline std::size_t NAME##Count = static_cast<std::size_t>(NAME::COUNT);
+constexpr inline size_t NAME##Count = static_cast<size_t>(NAME::COUNT);
 
 // clang-format off
 DECL_SMART_ENUM(Direction, i8, FORWARD, BACKWARD, LEFT, RIGHT, DOWN, UP)

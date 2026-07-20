@@ -7,8 +7,16 @@ enum struct RandOffset: u32{
     TreeHeight = 69,
     TreeJitter = 123,
     GrassGrowth = 0244,
+    SingleBlockJitter = 3141592,
+    MultiSegmentJitter= 2951413,
+    BabyCactus= 510140,
+    AdultCactus= 92411,
+    Bush= 2992411,
+    DeadBush= 9958762,
     RejectGrass = 21244,
     TreeDecay = 1337,
+    GrassPromotion = 0x294859,
+    GrassDemotion = 0x12924,
 };
 
 inline u32 pcg_hash(u32 input) {

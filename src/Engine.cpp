@@ -18,7 +18,6 @@
 
 #include "LM.hpp"
 #include "Line3D.hpp"
-#include "Profiler.hpp"
 #include "Logger.hpp"
 #include "Assertion.hpp"
 #include "FmtStyle.hpp"
@@ -27,7 +26,6 @@
 #include <algorithm>
 #include <optional>
 #include <print>
-#include "tracy/Tracy.hpp"
 
 
 #include "FormatSpecs.hpp"
@@ -59,7 +57,6 @@ void Engine::loop(){
 
         {
             profiler.bench_start("render");
-            ZoneScopedN("Swap");
             win.swapBuffers();
             profiler.bench_end("render");
         }
@@ -71,6 +68,16 @@ void Engine::loop(){
 }
 
 
+
+void Engine::classify_visible_chunks(){
+    auto cur_chunk_pos_raw = director.cur_chunk_pos;
+    auto assign_dist = [cur_chunk_pos_raw](IndexedMesh& mesh){
+        mesh.chunk_dist_to_cam = LM::dist(mesh.chunkCoord, cur_chunk_pos_raw);
+    };
+    rend.opaque_chunk_meshes.for_each(assign_dist);
+    rend.transparent_chunk_meshes.for_each(assign_dist);
+    rend.cutout_chunk_meshes.for_each(assign_dist);
+}
 void Engine::refresh_visible_chunks(){
     auto load_mesh = [](IndexedMesh& mesh){
         mesh.load();
@@ -124,7 +131,6 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 void Engine::update_scene() {
     profiler.bench_start("update");
     director.start_frame(player_cam.pos);
-    ZoneScoped;
 
 
     if (!chunk_updates_paused){
@@ -138,6 +144,7 @@ void Engine::update_scene() {
 
         evict_meshes_outside_radius(MESH_CULL_DIST());
         refresh_visible_chunks();
+        classify_visible_chunks();
 
 
         submit_mesh_jobs(maxMeshJobsPerFrame);
@@ -223,7 +230,7 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
                 &world.chunkMap,
                 entry
             );
-            // MeshJob(std::size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
+            // MeshJob(size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
             if (success){
                 director.mark_mesh_enqueue(*entry);
                 count++;
@@ -349,24 +356,30 @@ void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
     rend.draw_3DLines_to(cam,rend.dbg_rend.chunk_outlines,target);
 }
 void Engine::draw_scene() {
-    ZoneScoped;
-    profiler.bench_start("draw");
-
-
+    profiler.bench_start("01_draw");
     player_cam.aspectRatio = win.aspect();
-
     rend.debug.reset_per_frame();
+
+
     rend.clear_to(screen_view());
-    rend.clear_to(secondaryView());
-
-    rend.draw_to(player_cam, screen_view());
-    rend.draw_to(drone_cam, secondaryView());
+    rend.draw_to(player_cam, screen_view(), &profiler);
 
 
-    // Drone cam sees players' frustum lines 
-    rend.draw_3DLines_to(drone_cam, rend.player_cam_frustum_lines, secondaryView());
+    if( DebugOption::enable_drone_cam){
+        rend.clear_to(secondaryView());
+        rend.draw_to(drone_cam, secondaryView(), &profiler);
+        if (DebugOption::enable_3d_debug_visuals){
+            // Drone cam sees players' frustum lines 
+            rend.draw_3DLines_to(drone_cam, rend.player_cam_frustum_lines, secondaryView());
+        }
+    }
     
-    if(DebugOption::fill_all_boundaries || DebugOption::fill_neighbour_boundaries || DebugOption::outline_all_boundaries || DebugOption::outline_neighbour_boundaries){
+    if( DebugOption::enable_3d_debug_visuals    &&
+        (DebugOption::fill_all_boundaries           ||
+        DebugOption::fill_neighbour_boundaries      || 
+        DebugOption::outline_all_boundaries         || 
+        DebugOption::outline_neighbour_boundaries)
+    ){
         draw_chunk_boundaries(player_cam, screen_view());
         draw_chunk_boundaries(drone_cam, secondaryView());
    }
@@ -378,7 +391,7 @@ void Engine::draw_scene() {
         LOG_DEBUG("Finished first draw");
         first_draw = false;
     }
-    profiler.bench_end("draw");
+    profiler.bench_end("01_draw");
 }
 
 
@@ -423,7 +436,9 @@ void Engine::setup() {
     for (auto& v: block_defs){
         std::println("{}",v);
     }
-    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate
+#ifdef ENABLE_CPPTRACE
+    cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate handler
+#endif
     set_debug_params();                 
 
     program_epoch_ns = get_current_ns();
@@ -434,7 +449,12 @@ void Engine::setup() {
     LOG_DEBUG("Finished setting window callbacks.");
 
 
-    profiler.init(
+    profiler.init({
+        "01_draw",
+        "02_rendinit",
+        "03_opaque",
+        "04_cutout",
+        "05_transparent",
         "frame",
         "input",
         "update",
@@ -442,9 +462,8 @@ void Engine::setup() {
         "drainGen",
         "enqueueMesh",
         "drainMesh",
-        "draw",
-        "render"
-    );
+        "render",
+    });
     LOG_DEBUG("Finished Profiler setup.");
 
     player_cam.is_main_camera=true;
@@ -545,7 +564,7 @@ void Engine::handle_input(){
             cur_block_pos.y++;
             features::regular_oak_tree.place(
                 cur_block_pos,
-                1.0f, 
+                1.0f,
                 writer
             );
             director.mark_mesh_dirty(entry);

@@ -12,11 +12,11 @@ inline constexpr const i32 CHUNK_HEIGHT = 386;                                  
 inline constexpr const i32 CHUNK_SIZE = CHUNK_XWIDTH * CHUNK_ZWIDTH * CHUNK_HEIGHT;  // x/y/z
 
 
-inline constexpr std::size_t MAX_VERTICES_PER_CHUNK = CHUNK_SIZE * MAX_QUADS_PER_BLOCK;
-inline constexpr std::size_t MAX_INDICES_PER_CHUNK = CHUNK_SIZE * MAX_QUADS_PER_BLOCK;
+inline constexpr size_t MAX_VERTICES_PER_CHUNK = CHUNK_SIZE * MAX_QUADS_PER_BLOCK;
+inline constexpr size_t MAX_INDICES_PER_CHUNK = CHUNK_SIZE * MAX_QUADS_PER_BLOCK;
 
 inline const auto CHUNK_XRANGE = views::iota(0, CHUNK_XWIDTH);  // x/y/z
 inline const auto CHUNK_YRANGE = views::iota(0, CHUNK_HEIGHT);  // x/y/z
 inline const auto CHUNK_ZRANGE = views::iota(0, CHUNK_ZWIDTH);  // x/y/z
 
-using ChunkExtent = std::extents<std::size_t, CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH>;
+using ChunkExtent = std::extents<size_t, CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH>;

@@ -71,8 +71,8 @@ struct ChunkDirector{
         ready_for_mesh.push(entry->state.coord);
     }
 
-    std::vector<WorldChunkCoord> find_mesh_jobs(std::size_t N){
-        std::size_t count = std::min(N,ready_for_mesh.size());
+    std::vector<WorldChunkCoord> find_mesh_jobs(size_t N){
+        size_t count = std::min(N,ready_for_mesh.size());
         auto copy = ready_for_mesh.q;
         // 1. partial sort the bottom N elements (OR JUST SORT THEM ALL)
         
@@ -91,12 +91,12 @@ struct ChunkDirector{
     // ============
     void upload_generated_chunk(GenResult gen_res);
 
-    std::size_t discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius);
+    size_t discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius);
     void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
         ready_for_gen.erase(entry.state.coord);
     }
-    std::vector<WorldChunkCoord> find_gen_jobs(std::size_t N){
-        std::size_t count = std::min(N,ready_for_gen.size());
+    std::vector<WorldChunkCoord> find_gen_jobs(size_t N){
+        size_t count = std::min(N,ready_for_gen.size());
         return {ready_for_gen.begin(), ready_for_gen.begin()+count};
     }
 

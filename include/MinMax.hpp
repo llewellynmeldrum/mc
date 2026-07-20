@@ -13,7 +13,10 @@ struct MinMax{
         if (x > max) return x - max;
         return 0.0f;
     }
-    f32 val() const noexcept{
+    constexpr f32 val() const noexcept{
         return max-min;
+    }
+    consteval f32 mid() const noexcept{
+        return min+(max-min)*.5f;
     }
 };

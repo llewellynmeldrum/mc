@@ -78,11 +78,11 @@ inline auto get_facing_str (glm::vec3 facing){
         facing_str += ",   ";
     return facing_str;
 };
-template<typename Item, std::size_t ItemCount>
+template<typename Item, size_t ItemCount>
 struct DropDown{
     std::string name;
     std::array<Item,ItemCount> items;
-    std::size_t idx{0};
+    size_t idx{0};
     ImGuiTextFilter filter;
     inline constexpr std::string to_str(Item e){
         using namespace std;
@@ -108,7 +108,7 @@ struct DropDown{
             IG::SetNextItemShortcut(ImGuiMod_Ctrl | ImGuiKey_F);
             filter.Draw("##Filter", -FLT_MIN);
 
-            for (std::size_t n = 0; n < items.size(); n++) {
+            for (size_t n = 0; n < items.size(); n++) {
                 const char* item_cstr = items.at(n).c_str();
                 const bool is_selected = (idx == n);
                 if (filter.PassFilter(item_cstr)){
@@ -189,7 +189,7 @@ struct WindowConfig{
     }
 
     template <typename Fn>
-    inline void section(std::string name, Fn&& section){
+    constexpr inline void section(std::string name, Fn&& section)const noexcept{
         if (IG::CollapsingHeader(name.c_str()))
             std::invoke(std::forward<Fn>(section));
     };
@@ -199,7 +199,7 @@ struct WindowConfig{
         if (IG::CollapsingHeader(name.c_str(),flags))
             std::invoke(std::forward<Fn>(section));
     };
-    template<typename T, std::size_t N=1>
+    template<typename T, size_t N=1>
     inline void slider(std::string_view name, T* val, T min=numeric_min<T>(), T max=numeric_min<T>()){
         std::string name_str = std::string(name);
         if constexpr (N > 1 && is_vec_N<T, N>){

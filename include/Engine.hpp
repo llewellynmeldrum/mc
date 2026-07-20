@@ -51,6 +51,7 @@ struct Engine {
     void set_debug_params();
     void handle_input();
     void refresh_visible_chunks();
+    void classify_visible_chunks();
 
     static constexpr i64 maxGenUploadsPerFrame= 16;
     static constexpr i64 max_gen_discovery_pf= 128;
@@ -85,7 +86,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 4;
+    static constexpr i32 RENDER_DIST = 64;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========

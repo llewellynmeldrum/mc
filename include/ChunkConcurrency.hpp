@@ -50,7 +50,7 @@ struct GenResult{
 FORWARD_DECL_STRUCT(TextureAtlas)
 FORWARD_DECL_STRUCT(ChunkMap)
 struct MeshJob{
-    std::size_t meshRevisionID;
+    size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
@@ -90,7 +90,7 @@ struct CutoutMeshData{
 // PRODUCER: Mesher Thread
 // CONSUMER: Main thread.
 struct MeshResult{
-    std::size_t revisionID;
+    size_t revisionID;
     WorldChunkCoord chunkCoord;
     OpaqueMeshData opaque;
     BlendedMeshData blended;

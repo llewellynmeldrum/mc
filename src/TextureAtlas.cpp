@@ -30,9 +30,9 @@ static std::unordered_map<Direction, size_t> cube_tex_offset_per_direction = {
     {Direction::UP,      2},
     // clang-format on
 };
-constexpr const i64 PER_BLOCK_TEX_COUNT = 3;
 
 glm::vec2 TextureAtlas::get_base_cube_uv(i64 tex_idx, Direction dir) const {
+    constexpr static i64 PER_BLOCK_TEX_COUNT = 3;
     i64 offset = cube_tex_offset_per_direction[dir];
     i64 idx = tex_idx * PER_BLOCK_TEX_COUNT + offset;
     i64 x = idx % spriteCols;
@@ -48,7 +48,7 @@ glm::vec2 TextureAtlas::get_base_cross_uv(i64 idx) const {
 QuadUVList TextureAtlas::apply_texture_uvs_cube(i64 texture_idx, Direction dir, const_span<Vertex, 4> vertices) const {
     vec2 uvmin = get_base_cube_uv(texture_idx, dir);
     std::array<vec2, 4> res;
-    for (std::size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
+    for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
         f32 u = vertices[vtx].txCoords.x;
         f32 v = vertices[vtx].txCoords.y;
         u = uvmin.x + u * abs_sprite_w;
@@ -62,7 +62,7 @@ QuadUVList TextureAtlas::apply_texture_uvs_cross(i64 texture_idx, const_span<Ver
     QuadUVList res;
 
     vec2 uvmin = get_base_cross_uv(texture_idx);
-    for (std::size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
+    for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
         f32 u = vertices[vtx].txCoords.x;
         f32 v = vertices[vtx].txCoords.y;
         u = uvmin.x + u * abs_sprite_w;

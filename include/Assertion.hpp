@@ -1,5 +1,4 @@
 #pragma once 
-#define ASSERT_TRUE(a) assert(a)
 
 #include "refl.hpp"
 #define assert_binary_valuewise(a, COMPARATOR, b)do{\

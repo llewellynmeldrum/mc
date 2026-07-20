@@ -46,11 +46,11 @@ struct DebugChunkMesher{
     std::vector<Line3D> chunk_outlines;
 private:
     void updateInstances(Camera& cam, Engine* sim);
-    VertexArray   vao{std::nullopt};
-    VertexBuffer  cube_vbo{std::nullopt};
-    ElementBuffer cube_ebo{std::nullopt};
+    VertexArray   vao{LM::deferred_init};
+    VertexBuffer  cube_vbo{LM::deferred_init};
+    ElementBuffer cube_ebo{LM::deferred_init};
 
-    VertexBuffer  instance_vbo{std::nullopt};
+    VertexBuffer  instance_vbo{LM::deferred_init};
     ShaderProgram prog{};
 };
 inline glm::vec4 NeighbourDebugColor(){

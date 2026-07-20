@@ -1,7 +1,7 @@
 #pragma once 
 #include "NumericConcepts.hpp"
 #include "Types.h"
-template<typename value_type, std::size_t extentX, std::size_t extentZ>
+template<typename value_type, size_t extentX, size_t extentZ>
 struct Array2D{
     std::array<value_type, extentX*extentZ> buf;
 
@@ -34,11 +34,11 @@ struct Array2D{
 
 template<typename value_type>
 struct ArrayList2D{
-    std::size_t extentX{0};
-    std::size_t extentZ{0};
+    size_t extentX{0};
+    size_t extentZ{0};
     std::vector<value_type> buf;
 
-    constexpr ArrayList2D(std::size_t _extentX, std::size_t _extentZ):
+    constexpr ArrayList2D(size_t _extentX, size_t _extentZ):
         extentX(_extentX),
         extentZ(_extentZ),
         buf(_extentX*_extentZ)

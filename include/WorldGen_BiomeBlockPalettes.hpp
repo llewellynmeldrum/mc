@@ -1,15 +1,16 @@
 #pragma once 
 #include "Biomes.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
+#include "Block.hpp"
 struct BiomePalette{
-    BlockType topsoil {BlockType::GRASS_BLOCK};
-    BlockType soil {BlockType::DIRT_BLOCK};
-    BlockType crust {BlockType::STONE_BLOCK};
+    BlockType topsoil {};
+    BlockType soil {};
+    BlockType crust {};
 };
 inline EnumMap<BiomeID, BiomePalette> biome_palettes = {
     {BiomeID::Ocean,  BiomePalette{
-        .topsoil = BlockType::DIRT_BLOCK, 
-        .soil = BlockType::DIRT_BLOCK, 
+        .topsoil = BlockType::SAND_BLOCK, 
+        .soil = BlockType::SAND_BLOCK, 
         .crust = BlockType::STONE_BLOCK, 
     }},
     {BiomeID::Plains,  BiomePalette{

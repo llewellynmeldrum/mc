@@ -23,8 +23,9 @@ constexpr GLenum IndexedMesh::PrimitiveType() {
     return GL_TRIANGLES;
 }
 
-IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets) :
-    chunkCoord(_chunkCoord)
+IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets, bool _is_cutout) :
+    chunkCoord(_chunkCoord),
+    is_cutout(_is_cutout)
 {
     IndexedMesh::setup_mesh(vertices, offsets);
 
@@ -124,7 +125,10 @@ void IndexedMesh::draw() const {
     assert(offset_count != 0);
     vao.bind();
     vao.drawElements(offset_count, PrimitiveType());
-    vao.unbind();
+}
+void IndexedMesh::draw_nobind() const {
+    assert(offset_count != 0);
+    vao.drawElements(offset_count, PrimitiveType());
 }
 
 void MeshBase::setupMesh(std::vector<Vertex> vertices) {
@@ -137,5 +141,4 @@ void MeshBase::setupMesh(std::vector<Vertex> vertices) {
 void MeshBase::draw() const {
     vao.bind();
     vao.drawArrays(vertex_count, PrimitiveType(), 0);
-    vao.unbind();
 }

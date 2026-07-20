@@ -14,15 +14,15 @@ ChunkSlice2D::ChunkSlice2D(
 : slice_type(_slice_type) 
 {
         if (slice_type == SliceType::X){
-            buf.resize(CHUNK_HEIGHT * CHUNK_ZWIDTH);
+            buf.resize(ChunkInfo::HEIGHT * ChunkInfo::ZWIDTH);
             locked_axis_val = pos1.x;
             assert_eq(pos1.x+1,pos2.x);
         }else if (slice_type == SliceType::Y){
-            buf.resize(CHUNK_XWIDTH * CHUNK_ZWIDTH);
+            buf.resize(ChunkInfo::XWIDTH * ChunkInfo::ZWIDTH);
             locked_axis_val = pos1.y;
             assert_eq(pos1.y+1,pos2.y);
         }else if (slice_type == SliceType::Z){
-            buf.resize(CHUNK_XWIDTH * CHUNK_HEIGHT);
+            buf.resize(ChunkInfo::XWIDTH * ChunkInfo::HEIGHT);
             locked_axis_val = pos1.z;
             assert_eq(pos1.z+1,pos2.z);
         }

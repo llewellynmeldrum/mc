@@ -108,7 +108,7 @@ void ForEachInRangeEx(Integer min, Integer max, Fn&& task){
 
 template<typename IVEC2, typename Fn>
     requires is_ivec2<IVEC2>
-std::size_t for_each_spiral(std::size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task){
+size_t for_each_spiral(size_t MAX_COUNT, IVEC2 center, i32 radius, Fn&& task){
     using namespace std;
     using namespace glm;
     size_t count = {0};

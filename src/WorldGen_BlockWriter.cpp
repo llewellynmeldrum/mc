@@ -9,7 +9,7 @@ BlockWriter::BlockWriter(
         pending_writes(_pending_writes),
         src_chunk(_source_chunk),
         world_block_lo(toWorldOrigin(_source_chunk)),
-        world_block_hi(toWorldOrigin(_source_chunk) + BlockOffset{Chunk_Extents})
+        world_block_hi(toWorldOrigin(_source_chunk) + BlockOffset{ChunkInfo::Extents3D})
     {}
 void BlockWriter::try_place(OverwritePolicy policy, WorldBlockPos wpos, BlockType bt){
     bool writeIsWithinChunkBounds = LM::isVecInBounds(wpos, world_block_lo, world_block_hi);

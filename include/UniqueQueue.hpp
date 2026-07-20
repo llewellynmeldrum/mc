@@ -14,7 +14,7 @@ struct UniqueQueue{
 public:
     using value_type = T;
     std::vector<T> q;
-    std::unordered_map<T, std::size_t> q_idx;
+    std::unordered_map<T, size_t> q_idx;
 public:
     
     void push(T key) noexcept{

@@ -79,7 +79,7 @@ struct ChunkEntry{
     ChunkEntry(WorldChunkCoord chunkCoord):
     bounding_box(
                 toWorldOrigin(chunkCoord).raw(),
-                toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents
+                toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents3D
     ),
     state(chunkCoord){}
 

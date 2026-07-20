@@ -24,9 +24,9 @@ MeshJob::MeshJob(
             surroundingChunks.emplace_back(std::nullopt);
         }else{
             ChunkBlockPos p0{}, p1{};
-            constexpr auto XE = CHUNK_XWIDTH;
-            constexpr auto YE = CHUNK_HEIGHT;
-            constexpr auto ZE = CHUNK_ZWIDTH;
+            constexpr auto XE = ChunkInfo::XWIDTH;
+            constexpr auto YE = ChunkInfo::HEIGHT;
+            constexpr auto ZE = ChunkInfo::ZWIDTH;
             SliceType slice_type = {};
             switch (dir){
                 // -Z

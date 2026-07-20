@@ -46,7 +46,7 @@ struct IndexedMesh {
     WorldChunkCoord chunkCoord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
-    IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets);
+    IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets, bool is_cutout=false);
 
     inline void unload() noexcept{loaded=false; }
     inline void load() noexcept{loaded=true; }
@@ -65,6 +65,7 @@ struct IndexedMesh {
     void setup_mesh(const_span<Vertex> vertices, const_span<u32> offsets);
     void reupload_indices(const_span<QuadIndices> new_offsets);
     void draw() const;
+    void draw_nobind() const ;
 
     i32             offset_count{ 0 };
     i32             vertex_count{ 0 };
@@ -72,6 +73,8 @@ struct IndexedMesh {
     VertexBuffer  vbo;
     ElementBuffer ebo;
 
+    bool is_cutout{false};
+    i32 chunk_dist_to_cam{0};
   private:
     constexpr static auto PrimitiveType() -> gl::GLenum;
 

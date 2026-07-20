@@ -1,6 +1,10 @@
 #pragma once
 
-#include "cpptrace/cpptrace.hpp"
+#include "DebugOptions.hpp"
+
+#ifdef ENABLE_CPPTRACE
+    #include "cpptrace/cpptrace.hpp"
+#endif
 
 #include <iostream>
 
@@ -13,10 +17,14 @@
 #endif
 
 constexpr inline void PRINT_TRACE(bool color = true){
-    cpptrace::generate_trace().print(std::cerr, color); 
+#ifdef ENABLE_CPPTRACE
+        cpptrace::generate_trace().print(std::cerr, color); 
+#endif
 }
 constexpr inline void PRINT_TRACE_SNIPPETS(bool color = true){
+#ifdef ENABLE_CPPTRACE
     cpptrace::generate_trace().print_with_snippets(std::cerr, color); 
+#endif
 }
 
 [[noreturn]]
@@ -25,8 +33,10 @@ constexpr inline void BREAKPOINT_QUIET(){
     std::abort();
 }
 [[noreturn]]
-constexpr inline void BREAKPOINT(std::size_t skip_frames=0){
-    cpptrace::generate_trace(skip_frames).print(std::cerr, false); 
+constexpr inline void BREAKPOINT(size_t skip_frames=0){
+#ifdef ENABLE_CPPTRACE
+    cpptrace::generate_trace(skip_frames).print(std::cout, false); 
+#endif
     BREAKPOINT_QUIET();
 }
 /* #define BREAKPOINT_QUIET() TRAP()

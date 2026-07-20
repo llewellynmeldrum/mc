@@ -164,13 +164,13 @@ concept map_like = requires(C c){
 
 
     //{c.at(std::declval<typename no_cvref<C>::key_type>())}->std::same_as<typename no_cvref<C>::mapped_type&>;
-    {c.size()} -> std::same_as<std::size_t>;
+    {c.size()} -> std::same_as<size_t>;
     {c.contains(std::declval<typename no_cvref<C>::key_type>())} -> same_as_nocvref<bool>;
 };
 
 template <typename C>
 concept array_like = !map_like<C> && ranges::contiguous_range<C> && requires(C c){
-    {c.size()} -> std::same_as<std::size_t>;
+    {c.size()} -> std::same_as<size_t>;
 };
 
 // ================= 

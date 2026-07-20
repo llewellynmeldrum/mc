@@ -37,9 +37,9 @@ struct BasicChunkView :std::mdspan<T, ChunkExtent>{
 private:
     void bounds_check(i32 cx, i32 cy, i32 cz) const {
         if (
-            cx < 0 || cx >= CHUNK_XWIDTH ||
-            cy < 0 || cy >= CHUNK_HEIGHT ||
-            cz < 0 || cz >= CHUNK_ZWIDTH
+            cx < 0 || cx >= ChunkInfo::XWIDTH ||
+            cy < 0 || cy >= ChunkInfo::HEIGHT ||
+            cz < 0 || cz >= ChunkInfo::ZWIDTH
         ){
             throw std::out_of_range("Outside of local chunk bounds");
         }

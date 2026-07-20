@@ -46,10 +46,10 @@ struct Line3DRenderer{
 
 private:
     void updateInstances(Camera& cam, std::span<Line3D> lines);
-    VertexArray   vao{std::nullopt};
-    VertexBuffer  quad_vbo{std::nullopt};
-    ElementBuffer quad_ebo{std::nullopt};
+    VertexArray   vao{LM::deferred_init};
+    VertexBuffer  quad_vbo{LM::deferred_init};
+    ElementBuffer quad_ebo{LM::deferred_init};
 
-    VertexBuffer  instance_vbo{std::nullopt};
+    VertexBuffer  instance_vbo{LM::deferred_init};
     ShaderProgram prog{};
 };

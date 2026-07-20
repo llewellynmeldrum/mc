@@ -16,6 +16,28 @@
 
 namespace LM {
 
+// @BRIEF: 
+// Classes which contain a ctor which accepts a deferred_init_t accept the contract that they will perform:
+// -> NO intialization,
+// -> NO resource acquisition (mutex, memory arenas, etc)
+// -> NO memory allocation
+// ->or anything of the sort, 
+//  WITHIN this constructor.
+    // --
+    // A corresponding .init()/.setup() method needs to be provided if this ctor is used.
+// Classes designed like this should probably resemble:
+
+/* 
+struct Foo{
+    Foo() {init();}
+    Foo(deferred_init_t){}
+
+    void init();            // <- performs the init/acquisition/allocations
+}
+*/ 
+struct deferred_init_t{};
+inline constexpr deferred_init_t deferred_init{};
+
 template<typename Cont, typename T>
 constexpr inline bool linear_contains(const Cont& cont, const T& e){
     if constexpr( requires(Cont c, T e) {
@@ -52,6 +74,11 @@ constexpr inline i32 ieuclid_mod(i32 a, i32 b) noexcept{
 }
 
 
+constexpr inline f32 euclid_mod(f32 a, f32 b) noexcept{
+    return fmod(a,b);
+}
+
+
 template<typename T>
 requires Numeric<T>
 constexpr inline T avg(T a, T b) noexcept{
@@ -79,6 +106,8 @@ constexpr inline T constrain(T lo, T hi, T val) noexcept{
 template <typename Float>
 requires FloatingPoint<Float>
 constexpr Float unlerp(Float a, Float b, Float t) noexcept {
+    if (t<=a) return a;
+    if (t>=b) return b;
     if (glm::abs(a - b) < 1e-9) {
         return Float{0};
     }
@@ -124,6 +153,7 @@ inline constexpr f32 sq_dist(Vec3 p0, Vec3 p1) noexcept {
             square(p1[1] - p0[1]) + 
             square(p1[2] - p0[2]);
 }
+
 // Euclidean distance squared between two anyvec3's
 template<typename Vec2>
     requires is_vec2<Vec2> 
@@ -132,10 +162,14 @@ inline constexpr f32 sq_dist(Vec2 p0, Vec2 p1) noexcept {
             square(p1[1] - p0[1]);
 }
 
-// Euclidean distance between two fvec3's (must be floating point as we are performing sqrt)
-template<typename _FVec3>
-requires is_fvec3<_FVec3> 
-inline constexpr f32 dist(_FVec3 p0, _FVec3 p1) noexcept {
+template<typename Vec3>
+requires is_vec3<Vec3> 
+inline constexpr f32 dist(Vec3 p0, Vec3 p1) noexcept {
+    return std::sqrt(sq_dist(p0,p1));
+}
+template<typename Vec2>
+requires is_vec2<Vec2> 
+inline constexpr f32 dist(Vec2 p0, Vec2 p1) noexcept {
     return std::sqrt(sq_dist(p0,p1));
 }
 

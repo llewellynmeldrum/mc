@@ -14,8 +14,8 @@
 
 struct ChunkStore{
 public:
-    // Default construct to be CHUNK_SIZE
-    ChunkStore(): buf(CHUNK_SIZE) {}
+    // Default construct to be ChunkInfo::SIZE
+    ChunkStore(): buf(ChunkInfo::SIZE) {}
     ChunkStore(const ChunkStore&) = default;
     ChunkStore(ChunkStore&&) = default;
     ChunkStore& operator=(const ChunkStore&) = default;
@@ -23,35 +23,36 @@ public:
     ~ChunkStore() = default;
 
     // Construct from view
-    explicit ChunkStore(ConstChunkView src): buf(src.data_handle(), src.data_handle()+CHUNK_SIZE) {}
+    explicit ChunkStore(ConstChunkView src): 
+        buf(src.data_handle(), src.data_handle()+ChunkInfo::SIZE) {}
 
 private:
-    inline decltype(auto) span(this auto& self){
-        return std::mdspan(self.buf.data(), CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH);
+    constexpr decltype(auto) span(this auto& self){
+        return std::mdspan(self.buf.data(), ChunkInfo::XWIDTH, ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH);
     }
 public:
-    decltype(auto) at(this auto& self, ChunkBlockPos p){
+    constexpr decltype(auto) at(this auto& self, ChunkBlockPos p){
         self.bounds_check(p.x,p.y,p.z);
         return self.span()[p.x,p.y,p.z];
     }
-    decltype(auto) at(this auto& self, i32 x, i32 y, i32 z){
+    constexpr decltype(auto) at(this auto& self, i32 x, i32 y, i32 z){
         self.bounds_check(x,y,z);
         return self.span()[x,y,z];
     }
-    decltype(auto) operator[](this auto& self, i32 x, i32 y, i32 z){
+    constexpr decltype(auto) operator[](this auto& self, i32 x, i32 y, i32 z){
         self.bounds_check(x,y,z);
         return self.span()[x,y,z];
     }
-    auto empty() const noexcept{
+    constexpr auto empty() const noexcept{
         return buf.empty();
     }
     // Obtain a non owning ChunkView from this chunk.
-    auto view (){
+    constexpr auto view (){
         return ChunkView{span()};
     }
 
     // Obtain a non owning, ConstChunkView from this chunk.
-    auto view () const{
+    constexpr auto view () const{
         return ConstChunkView{span()};
     }
 
@@ -59,10 +60,10 @@ public:
         return ChunkStore{view()};
     }
 
-    auto begin(){
+    constexpr auto begin(){
         return buf.begin();
     }
-    auto end(){
+    constexpr auto end(){
         return buf.end();
     }
     //
@@ -71,20 +72,20 @@ public:
     // HACK: required stuff for MapLike<> so we dont upset my AT() wrapper
     using key_type = ChunkBlockPos;
     using mapped_type = Block;
-    constexpr std::size_t size()const noexcept{ return CHUNK_SIZE;}
+    constexpr size_t size()const noexcept{ return ChunkInfo::SIZE;}
     constexpr bool contains(ChunkBlockPos p)const noexcept{
-        return  0 <= p.x && p.x < Chunk_Extents.x && 
-                0 <= p.y && p.y < Chunk_Extents.y && 
-                0 <= p.z && p.z < Chunk_Extents.z ;
+        return  0 <= p.x && p.x < ChunkInfo::Extents3D.x && 
+                0 <= p.y && p.y < ChunkInfo::Extents3D.y && 
+                0 <= p.z && p.z < ChunkInfo::Extents3D.z ;
     }
     std::vector<Block> buf={};
 
 private:
     void bounds_check(i32 cx, i32 cy, i32 cz) const {
         if (
-            cx < 0 || cx >= CHUNK_XWIDTH ||
-            cy < 0 || cy >= CHUNK_HEIGHT ||
-            cz < 0 || cz >= CHUNK_ZWIDTH
+            cx < 0 || cx >= ChunkInfo::XWIDTH ||
+            cy < 0 || cy >= ChunkInfo::HEIGHT ||
+            cz < 0 || cz >= ChunkInfo::ZWIDTH
         ){
             throw std::out_of_range("Outside of local chunk bounds");
         }
@@ -110,13 +111,13 @@ public:
     ~ChunkSlice2D() = default;
     using key_type = ChunkBlockPos;
     using mapped_type = Block;
-    std::size_t size()const noexcept{
+    size_t size()const noexcept{
         if (slice_type == SliceType::X){
-             return CHUNK_HEIGHT * CHUNK_ZWIDTH;
+             return ChunkInfo::HEIGHT * ChunkInfo::ZWIDTH;
         }else if (slice_type == SliceType::Y){
-             return CHUNK_XWIDTH * CHUNK_ZWIDTH;
+             return ChunkInfo::XWIDTH * ChunkInfo::ZWIDTH;
         }else{
-             return CHUNK_XWIDTH * CHUNK_HEIGHT;
+             return ChunkInfo::XWIDTH * ChunkInfo::HEIGHT;
         }
     }
 
@@ -124,28 +125,28 @@ public:
         if (slice_type == SliceType::X){
             return  
                     p.x == locked_axis_val && 
-                    0 <= p.y && p.y < Chunk_Extents.y && 
-                    0 <= p.z && p.z < Chunk_Extents.z ;
+                    0 <= p.y && p.y < ChunkInfo::Extents3D.y && 
+                    0 <= p.z && p.z < ChunkInfo::Extents3D.z ;
         }else if (slice_type == SliceType::Y){
             return  
-                    0 <= p.x && p.x < Chunk_Extents.x && 
+                    0 <= p.x && p.x < ChunkInfo::Extents3D.x && 
                     p.y == locked_axis_val && 
-                    0 <= p.z && p.z < Chunk_Extents.z ;
+                    0 <= p.z && p.z < ChunkInfo::Extents3D.z ;
         }else{
             return  
-                    0 <= p.x && p.x < Chunk_Extents.x && 
-                    0 <= p.y && p.y < Chunk_Extents.y &&
+                    0 <= p.x && p.x < ChunkInfo::Extents3D.x && 
+                    0 <= p.y && p.y < ChunkInfo::Extents3D.y &&
                     p.z == locked_axis_val;
         }
     }
 
     SliceType slice_type;
-    inline auto data(this auto& self){
+    auto data(this auto& self){
         return self.buf.data(); 
     }
 
 
-    inline decltype(auto) at(this auto& self, i32 cx, i32 cy, i32 cz) {
+    constexpr decltype(auto) at(this auto& self, i32 cx, i32 cy, i32 cz) {
         if (self.slice_type == SliceType::X){
             assert_eq(cx,self.locked_axis_val);
             return self.at_2d(cy,cz);
@@ -157,7 +158,7 @@ public:
             return self.at_2d(cx,cy);
         }
     }
-    inline decltype(auto) at(this auto& self, ChunkBlockPos p) {
+    constexpr decltype(auto) at(this auto& self, ChunkBlockPos p) {
         if (self.slice_type == SliceType::X){
             assert_eq(p.x,self.locked_axis_val);
             return self.at_2d(p.y,p.z);
@@ -170,17 +171,17 @@ public:
         }
     }
 private:
-    inline decltype(auto) span2d(this auto& self){
+    constexpr decltype(auto) span2d(this auto& self){
         if (self.slice_type == SliceType::X){
-            return std::mdspan(self.data(), CHUNK_HEIGHT, CHUNK_ZWIDTH);
+            return std::mdspan(self.data(), ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH);
         }else if (self.slice_type == SliceType::Y){
-            return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_ZWIDTH);
+            return std::mdspan(self.data(), ChunkInfo::XWIDTH, ChunkInfo::ZWIDTH);
         }else{
-            return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_HEIGHT);
+            return std::mdspan(self.data(), ChunkInfo::XWIDTH, ChunkInfo::HEIGHT);
         }
     }
     // eg: if an SliceType::X, a==y, b==z
-    inline decltype(auto) at_2d(this auto& self, i32 a, i32 b) {
+    constexpr decltype(auto) at_2d(this auto& self, i32 a, i32 b) {
         return self.span2d()[a,b];
     }
 };

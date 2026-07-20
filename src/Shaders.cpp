@@ -115,28 +115,28 @@ void ShaderProgram::check_uniform(std::string name) {
         LOG_EXIT(EXIT_FAILURE);
     }
 }
-void ShaderProgram::setUniform(const std::string& name, const mat4& val) {
-    glUniformMatrix4fv(getUniformLoc(name), 1, false, glm::value_ptr(val));
+void ShaderProgram::setUniform(i32 loc_id, const mat4& val) {
+    glUniformMatrix4fv(loc_id, 1, false, glm::value_ptr(val));
 }
-void ShaderProgram::setUniform(const std::string& name, const vec2& val) {
-    glUniform2fv(getUniformLoc(name), 1, glm::value_ptr(val));
+void ShaderProgram::setUniform(i32 loc_id, const vec2& val) {
+    glUniform2fv(loc_id, 1, glm::value_ptr(val));
 }
-void ShaderProgram::setUniform(const std::string& name, const f32& val) {
+void ShaderProgram::setUniform(i32 loc_id, const f32& val) {
     //        LOG_DEBUG("Deduced unform type as f32 (1f){} = {}", name,val);
-    glUniform1f(getUniformLoc(name), val);
+    glUniform1f(loc_id, val);
 }
-void ShaderProgram::setUniform(const std::string& name, const f64& val) {
-    glUniform1d(getUniformLoc(name), val);
+void ShaderProgram::setUniform(i32 loc_id, const f64& val) {
+    glUniform1d(loc_id, val);
 }
 
-void ShaderProgram::setUniform(const std::string& name, const i32& val) {
-    glUniform1i(getUniformLoc(name), val);
+void ShaderProgram::setUniform(i32 loc_id, const i32& val) {
+    glUniform1i(loc_id, val);
 }
-void ShaderProgram::setUniform(const std::string& name, bool val) {
-    glUniform1i(getUniformLoc(name), val);
+void ShaderProgram::setUniform(i32 loc_id, bool val) {
+    glUniform1i(loc_id, val);
 }
-void ShaderProgram::setUniform(const std::string& name, std::vector<i32> val) {
-    glUniform1iv(getUniformLoc(name), val.size(), val.data());
+void ShaderProgram::setUniform(i32 loc_id, std::vector<i32> val) {
+    glUniform1iv(loc_id, val.size(), val.data());
 }
 
 i32 ShaderProgram::getUniformLoc(const std::string& name) {

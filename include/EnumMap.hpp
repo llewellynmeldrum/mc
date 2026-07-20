@@ -2,7 +2,7 @@
 #include <array>
 #include <initializer_list>
 
-template<typename K, typename M, std::size_t size = std::to_underlying(K::COUNT)>
+template<typename K, typename M, size_t size = std::to_underlying(K::COUNT)>
 struct EnumMap{
     struct Entry{
         K key;
@@ -11,7 +11,7 @@ struct EnumMap{
     using key_type = K;
     using mapped_type = M;
 
-    static constexpr std::size_t capacity = size;
+    static constexpr size_t capacity = size;
 
 
     constexpr EnumMap() = default;

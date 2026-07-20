@@ -6,21 +6,21 @@
 template<typename Int>
 requires Integral<Int>
 [[gnu::always_inline]]
-inline constexpr Int SetBit(Int& x, std::size_t i){
+inline constexpr Int SetBit(Int& x, size_t i){
     return x ^= (1 << i);
 };
 
 template<typename Int>
 requires Integral<Int>
 [[gnu::always_inline]]
-inline constexpr Int UnsetBit(Int& x, std::size_t i){
+inline constexpr Int UnsetBit(Int& x, size_t i){
     return x &= ~(1 << i);
 };
 
 template<typename Int>
 requires Integral<Int>
 [[gnu::always_inline]]
-inline constexpr bool GetBit(Int x, std::size_t i){
+inline constexpr bool GetBit(Int x, size_t i){
     return 1 & (x >> i);
 };
 
@@ -46,7 +46,7 @@ inline constexpr bool SignsDiffer(IntA a, IntB b){
 
 template<typename Cont>
 requires ranges::contiguous_range<Cont> && Integral<val_t<Cont>>
-inline constexpr std::size_t pop_count(Cont& cont){
+inline constexpr size_t pop_count(Cont& cont){
     for (const auto& val: cont){
         std::popcount(val);
     }

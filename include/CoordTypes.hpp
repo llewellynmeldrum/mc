@@ -1,16 +1,19 @@
 #pragma once
-#include "LM.hpp"
-#include "ChunkConstants.hpp"
+
 #include "glmWrapper.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/vec3.hpp"
-#include "cppslop.hpp"
-#include "ChunkHelpers.hpp"
 #include "glm/gtx/hash.hpp"
-#include <optional>
 
-static inline constexpr glm::ivec3 Chunk_Extents = { CHUNK_XWIDTH, CHUNK_HEIGHT, CHUNK_ZWIDTH };
-static inline constexpr glm::ivec2 Chunk_Extents2 = { CHUNK_XWIDTH, CHUNK_ZWIDTH };
+#include "cppslop.hpp"
+
+#include "LM.hpp"
+
+#include "Chunk.hpp"
+#include "ChunkHelpers.hpp"
+#include "ChunkConstants.hpp"
+
+
 struct ChunkOffsetTag {};
 struct BlockOffsetTag {};
 struct WorldChunkCoordTag {};
@@ -23,10 +26,11 @@ struct WorldFloatPosTag {};
 
 template <typename Tag, typename ScalarType>
 struct Coord3 {
-    constexpr static std::size_t Extent = 3;
-    using VecType = glm::vec<Extent, ScalarType>;
+    constexpr static size_t Extent = 3;
+    using glm_vec_type = glm::vec<Extent, ScalarType>;
     using value_type = ScalarType;
     using type = Coord3<Tag, ScalarType>;
+
     ScalarType x{}, y{}, z{};
     constexpr Coord3() = default;
     constexpr ~Coord3() = default;
@@ -38,7 +42,7 @@ struct Coord3 {
     constexpr Coord3(ScalarType all) noexcept : x(all), y(all), z(all) {}
     constexpr Coord3(ScalarType _x, ScalarType _y, ScalarType _z) noexcept : x(_x), y(_y), z(_z) {}
 
-    constexpr decltype(auto) operator[](this auto& self, std::size_t idx) {
+    constexpr decltype(auto) operator[](this auto& self, size_t idx) {
         switch (idx) {
         case 0:
             return self.x;
@@ -52,10 +56,9 @@ struct Coord3 {
         }
         throw std::out_of_range("Error: index must be >=0 && <=2 ");
     }
-    explicit constexpr Coord3(VecType v) noexcept : x(v.x), y(v.y), z(v.z) {}
+    explicit constexpr Coord3(glm_vec_type v) noexcept : x(v.x), y(v.y), z(v.z) {}
 
-    constexpr VecType  raw() const noexcept { return VecType{ x, y, z }; };
-    constexpr VecType& rawref() const noexcept { return VecType{ x, y, z }; };
+    constexpr glm_vec_type  raw() const noexcept { return glm_vec_type{ x, y, z }; };
 
     friend constexpr bool operator==(Coord3 lhs, Coord3 rhs) = default;
     constexpr auto        operator<=>(const Coord3& rhs) const = default;
@@ -63,8 +66,8 @@ struct Coord3 {
 
 template <typename Tag, typename ScalarType>
 struct Coord2 {
-    constexpr static std::size_t Extent = 2;
-    using VecType = glm::vec<Extent, ScalarType, glm::defaultp>;
+    constexpr static size_t Extent = 2;
+    using glm_vec_type = glm::vec<Extent, ScalarType, glm::defaultp>;
     using value_type = ScalarType;
     using type = Coord2<Tag, ScalarType>;
     ScalarType x{}, z{};
@@ -78,7 +81,7 @@ struct Coord2 {
     constexpr Coord2(ScalarType all) noexcept : x(all), z(all) {}
     constexpr Coord2(ScalarType _x, ScalarType _z) noexcept : x(_x), z(_z) {}
 
-    constexpr decltype(auto) operator[](this auto& self, std::size_t idx) {
+    constexpr decltype(auto) operator[](this auto& self, size_t idx) {
         switch (idx) {
         case 0:
             return self.x;
@@ -91,10 +94,10 @@ struct Coord2 {
             break;
         }
     }
-    explicit constexpr Coord2(VecType v) noexcept : x(v.x), z(v.y) {}
+    explicit constexpr Coord2(glm_vec_type v) noexcept : x(v.x), z(v.y) {}
 
-    constexpr VecType  raw() const noexcept { return VecType{ x, z }; };
-    constexpr VecType& rawref() const noexcept { return VecType{ x, z }; };
+    constexpr glm_vec_type  raw() const noexcept { return glm_vec_type{ x, z }; };
+    constexpr glm_vec_type& rawref() const noexcept { return glm_vec_type{ x, z }; };
 
     friend constexpr bool operator==(Coord2 lhs, Coord2 rhs) = default;
     constexpr auto        operator<=>(const Coord2& rhs) const = default;
@@ -117,10 +120,18 @@ using FloatOffset = Coord3<FloatOffsetTag, f32>;
 
 
 namespace std {
-template <>
-struct hash<WorldChunkCoord> {
+template <typename tag, typename datatype>
+struct hash<Coord3<tag,datatype>> {
+    using glm_vec_type = Coord3<tag,datatype>::glm_vec_type;
     auto operator()(const WorldChunkCoord& val) const noexcept {
-        return std::hash<glm::ivec2>{}(val.raw());
+        return std::hash<glm_vec_type>{}(val.raw());
+    };
+};
+template <typename tag, typename datatype>
+struct hash<Coord2<tag,datatype>> {
+    using glm_vec_type = Coord2<tag,datatype>::glm_vec_type;
+    auto operator()(const WorldChunkCoord& val) const noexcept {
+        return std::hash<glm_vec_type>{}(val.raw());
     };
 };
 };  // namespace std
@@ -130,18 +141,18 @@ struct hash<WorldChunkCoord> {
 // ============================
 #define DECL_ADD_OPER(T1, T2)                                                                      \
     constexpr T1 operator+(T1 pos, T2 offset) {                                                    \
-        return T1{ pos.raw() + static_cast<T1::VecType>(offset.raw()) };                           \
+        return T1{ pos.raw() + static_cast<T1::glm_vec_type>(offset.raw()) };                           \
     }                                                                                              \
     constexpr T1 operator+=(T1& pos, T2 offset) {                                                  \
-        return pos = { T1{ pos.raw() + static_cast<T1::VecType>(offset.raw()) } };                 \
+        return pos = { T1{ pos.raw() + static_cast<T1::glm_vec_type>(offset.raw()) } };                 \
     }
 
 #define DECL_SUB_OPER(T1, T2)                                                                      \
     constexpr T1 operator-(T1 pos, T2 offset) {                                                    \
-        return T1{ pos.raw() - static_cast<T1::VecType>(offset.raw()) };                           \
+        return T1{ pos.raw() - static_cast<T1::glm_vec_type>(offset.raw()) };                           \
     }                                                                                              \
     constexpr T1 operator-=(T1& pos, T2 offset) {                                                  \
-        return pos = { T1{ pos.raw() - static_cast<T1::VecType>(offset.raw()) } };                 \
+        return pos = { T1{ pos.raw() - static_cast<T1::glm_vec_type>(offset.raw()) } };                 \
     }
 
 // NOTE: These operations perform casts to transform the second value into the first.
@@ -172,16 +183,16 @@ constexpr WorldFloatPos operator-=(WorldFloatPos& pos, ChunkOffset offset) {
 // You can offset a block coord by a chunk offset.
 //DECL_ADD_SUB_OPER(WorldBlockPos, ChunkOffset)
 constexpr WorldBlockPos operator+(WorldBlockPos pos, ChunkOffset offset) {
-    return WorldBlockPos{ pos.raw() + glm::ivec3{offset.x,offset.z, 0}};
+    return WorldBlockPos{ pos.raw() + glm::ivec3{offset.x, 0, offset.z}};
 }
 constexpr WorldBlockPos operator+=(WorldBlockPos& pos, ChunkOffset offset) {
-    return pos =  WorldBlockPos{ pos.raw() + glm::ivec3{offset.x,offset.z, 0}} ;
+    return pos =  WorldBlockPos{ pos.raw() + glm::ivec3{offset.x, 0, offset.z}} ;
 }
 constexpr WorldBlockPos operator-(WorldBlockPos pos, ChunkOffset offset) {
-    return WorldBlockPos{ pos.raw() + glm::ivec3{offset.x,offset.z, 0}};
+    return WorldBlockPos{ pos.raw() - glm::ivec3{offset.x, 0, offset.z}};
 }
 constexpr WorldBlockPos operator-=(WorldBlockPos& pos, ChunkOffset offset) {
-    return pos =  WorldBlockPos{pos.raw() - glm::ivec3{offset.x,offset.z, 0}} ;
+    return pos =  WorldBlockPos{pos.raw() - glm::ivec3{offset.x, 0, offset.z}} ;
 }
 
 // You can offset a block coord by a block offset
@@ -201,36 +212,36 @@ DECL_ADD_SUB_OPER(ChunkBlockPos, ChunkBlockPos)
 // ======================
 // worldChunkCoord -> worldBlockPos
 // Returns the world pos of the block at [0,0,0] in the chunk identified by wChunkCoord
-inline auto toWorldOrigin(WorldChunkCoord chunk) -> WorldBlockPos {
+inline constexpr auto toWorldOrigin(WorldChunkCoord chunk) -> WorldBlockPos {
     return WorldBlockPos{
-        chunk.x  * CHUNK_XWIDTH,
+        chunk.x  * ChunkInfo::XWIDTH,
         0,
-        chunk.z  * CHUNK_XWIDTH,
+        chunk.z  * ChunkInfo::XWIDTH,
     };
 }
 
 // chunkBlockPos->worldBlockPos
 // Returns the world pos of the block at [cBlockPos] in the chunk identified by wChunkCoord
-inline auto toWorldBlockPos(WorldChunkCoord chunk, ChunkBlockPos local) -> WorldBlockPos {
+inline constexpr auto toWorldBlockPos(WorldChunkCoord chunk, ChunkBlockPos local) -> WorldBlockPos {
     return WorldBlockPos{
-        chunk.x  * CHUNK_XWIDTH + local.x,
+        chunk.x  * ChunkInfo::XWIDTH + local.x,
         local.y,
-        chunk.z  * CHUNK_XWIDTH + local.z,
+        chunk.z  * ChunkInfo::XWIDTH + local.z,
     };
 }
 
 // chunkBlockPos->worldBlockPos
 // Returns the world pos of the block at [cBlockPos] in the chunk identified by wChunkCoord
-inline auto toWorldBlockPos(WorldChunkCoord chunk, BlockOffset local) -> WorldBlockPos {
+inline constexpr auto toWorldBlockPos(WorldChunkCoord chunk, BlockOffset local) -> WorldBlockPos {
     return WorldBlockPos{ toWorldOrigin(chunk) + local };
 }
 
 // Floatpos->worldBlockPos
 // Rounds to the correct block
-inline auto toWorldBlockPos(WorldFloatPos pos) -> WorldBlockPos {
+inline constexpr auto toWorldBlockPos(WorldFloatPos pos) -> WorldBlockPos {
     return WorldBlockPos{ glm::floor(pos.raw()) };
 }
-inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
+inline constexpr auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
     return WorldFloatPos{ pos.raw() };
 }
 
@@ -238,35 +249,55 @@ inline auto toWorldFloatPos(WorldBlockPos pos) -> WorldFloatPos {
 // worldBlockPos->      chunkBlockPos
 // returns the chunk local pos, in the chunk within wBlockPos, of the block at [wBlockPos] in the
 // world
-inline auto toChunkBlockPos(WorldBlockPos block) -> ChunkBlockPos {
+inline constexpr auto toChunkBlockPos(WorldFloatPos p) -> ChunkBlockPos {
     return ChunkBlockPos{
-        LM::ieuclid_mod(block.x,CHUNK_XWIDTH),
-        block.y,
-        LM::ieuclid_mod(block.z,CHUNK_ZWIDTH)
+        static_cast<i32>(LM::euclid_mod(p.x,ChunkInfo::XWIDTH)),
+        static_cast<i32>(p.y),
+        static_cast<i32>(LM::euclid_mod(p.z,ChunkInfo::ZWIDTH)),
+    };
+}
+inline constexpr auto toChunkBlockPos(WorldBlockPos p) -> ChunkBlockPos {
+    return ChunkBlockPos{
+        LM::ieuclid_mod(p.x,ChunkInfo::XWIDTH),
+        p.y,
+        LM::ieuclid_mod(p.z,ChunkInfo::ZWIDTH)
     };
 }
 
-inline auto toWorldChunkCoord(WorldBlockPos block) -> WorldChunkCoord {
+inline constexpr auto toWorldChunkCoord(WorldBlockPos block) -> WorldChunkCoord {
     return WorldChunkCoord{
-        LM::floor_div(block.x,CHUNK_XWIDTH),
-        LM::floor_div(block.z,CHUNK_ZWIDTH)
+        LM::floor_div(block.x,ChunkInfo::XWIDTH),
+        LM::floor_div(block.z,ChunkInfo::ZWIDTH)
     };
 }
-inline auto toWorldChunkCoord(WorldFloatPos pos) -> WorldChunkCoord {
+
+inline constexpr auto toWorldChunkCoord(WorldFloatPos pos) -> WorldChunkCoord {
     return WorldChunkCoord{
-        static_cast<i32>(LM::floor_div(pos.x,CHUNK_XWIDTH)),
-        static_cast<i32>(LM::floor_div(pos.z,CHUNK_ZWIDTH))
+        static_cast<i32>(LM::floor_div(pos.x,ChunkInfo::XWIDTH)),
+        static_cast<i32>(LM::floor_div(pos.z,ChunkInfo::ZWIDTH))
     };
 }
 
-//ChunkOffset 
-//WorldChunkCoord
-//BlockOffset 
-//WorldBlockPos 
-//ChunkBlockPos 
-//WorldFloatPos 
-//FloatOffset 
 
+
+
+
+// SECTION: CONVERSION
+// SUBSECTION: ALIASES
+
+inline constexpr auto toChunkLocal(WorldFloatPos p) -> ChunkBlockPos {
+    return toChunkBlockPos(p);
+}
+inline constexpr auto toChunkLocal(WorldBlockPos p) -> ChunkBlockPos {
+    return toChunkBlockPos(p);
+}
+
+
+
+
+
+// SECTION: ASSERTIONS
+#include "NumericConcepts.hpp"
 static_assert(!is_fvec2<ChunkOffset>);
 static_assert(!is_fvec3<ChunkOffset>);
 static_assert(!is_fvec4<ChunkOffset>);

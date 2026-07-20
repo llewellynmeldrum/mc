@@ -17,14 +17,14 @@ using KeyMod = u8;
 //    constexpr KeyCode(i16 _code):code(_code){}
 //};
 //
-//template<std::size_t N>
+//template<size_t N>
 //struct KeyCombo{
 //    std::array<KeyCode, N> codes;
 //
 //    template<typename ...Args>
 //        requires variadic_all_same<KeyCode, Args...>
 //    constexpr KeyCombo(Args... codes){
-//        std::size_t i = 0;
+//        size_t i = 0;
 //        ( ..., (void)(codes[i++] = std::forward<Args>(codes)) );
 //    }
 //};
@@ -32,7 +32,7 @@ using KeyMod = u8;
 constexpr inline KeyCode        KEY_MAX(348);
 constexpr inline KeyCode        KEY_MIN(31);
 
-inline constexpr std::size_t KEY_COUNT(KEY_MAX-KEY_MIN);
+inline constexpr size_t KEY_COUNT(KEY_MAX-KEY_MIN);
 
 inline constexpr KeyCode KEY_UNKNOWN(-1);
 inline constexpr KeyCode KEY_SPACE(32);

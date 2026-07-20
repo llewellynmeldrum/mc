@@ -2,8 +2,10 @@
 #include <map>
 #include <optional>
 #include <unordered_map>
+#include <string_view>
 
 #include "Camera.hpp"
+#include "DebugOptions.hpp"
 #include "CoordTypes.hpp"
 #include "Line3DRenderer.hpp"
 #include "Shaders.hpp"
@@ -16,12 +18,15 @@
 
 #include "Chunk.hpp"
 FORWARD_DECL_STRUCT(Engine)
+FORWARD_DECL_STRUCT(Profiler)
 struct Renderer {
     Renderer();
     ~Renderer() = default;
 
     TextureAtlas cube_atlas;
     TextureAtlas cross_atlas;
+    TextureAtlas cactus_atlas;
+    TextureAtlas lower_half_slab_atlas;
     std::vector <TextureAtlas*> atlas_list;
     ChunkMesher  meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
@@ -39,11 +44,19 @@ struct Renderer {
     slot_map<WorldChunkCoord, Mesh> cutout_chunk_meshes;
     std::vector<WorldChunkCoord> sorted_cutout_coords;
 
+    i32 cutout_enable_radius {0};
+    // UNIFORMS
+    i32 u_textures_loc{};
+    i32 u_enable_cutout_loc{};
+    i32 u_model_loc{};
+    i32 u_proj_loc{};
+    i32 u_view_loc{};
+
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_transparent_chunks(WorldFloatPos cam_pos);
     void sort_cutout_chunks(WorldFloatPos cam_pos);
 
-    void draw_to(Camera& cam, RenderTargetView target);
+    void draw_to(Camera& cam, RenderTargetView target, Profiler* prof);
 
     void prepare_transparent_pass();
     void prepare_opaque_pass();
@@ -61,7 +74,7 @@ struct Renderer {
     void update_player_cam_frustum_lines(Engine* sim);
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
         opaque_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
-        sorted_opaque_coords.emplace_back(coord);
+//        sorted_opaque_coords.emplace_back(coord);
     }
 
     inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData mesh_data) {
@@ -69,15 +82,22 @@ struct Renderer {
         sorted_transparent_coords.emplace_back(coord);
     }
     inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData mesh_data) {
-        cutout_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
-        sorted_cutout_coords.emplace_back(coord);
+        cutout_chunk_meshes.emplace_or_assign(
+            coord, coord,
+            std::move(mesh_data.vertices),std::move(mesh_data.indices),
+            true
+        );
+//        sorted_cutout_coords.emplace_back(coord);
     }
 
 
     // overload for unsorted meshes
+    void draw_cutout_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
     void draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
+
     void draw_mesh(const Mesh& mesh);
-    void draw_meshes(const Mesh& mesh);
+    void draw_cutout_mesh(const Mesh& mesh);
+
 
     // overload for sorted meshes
     void draw_meshes(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
@@ -88,7 +108,7 @@ struct Renderer {
         i64         vertex_count{ 0 };
         i64         draw_calls{ 0 };
         i64         mesh_count{ 0 };
-        inline void reset_per_frame() {
+        void reset_per_frame() noexcept{
             vertex_count = 0;
             draw_calls = 0;
             mesh_count = 0;

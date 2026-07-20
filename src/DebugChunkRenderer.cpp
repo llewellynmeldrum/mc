@@ -11,13 +11,13 @@ using namespace gl;
 
 
 static constexpr glm::vec3 NNN{0,             0,            0};
-static constexpr glm::vec3 NPN{0,             CHUNK_HEIGHT, 0};
-static constexpr glm::vec3 NNP{0,             0,            CHUNK_ZWIDTH};
-static constexpr glm::vec3 PNN{CHUNK_XWIDTH,  0,            0};
-static constexpr glm::vec3 PPN{CHUNK_XWIDTH,  CHUNK_HEIGHT, 0};
-static constexpr glm::vec3 PNP{CHUNK_XWIDTH,  0,            CHUNK_ZWIDTH};
-static constexpr glm::vec3 NPP{0,             CHUNK_HEIGHT, CHUNK_ZWIDTH};
-static constexpr glm::vec3 PPP{CHUNK_XWIDTH,  CHUNK_HEIGHT, CHUNK_ZWIDTH};
+static constexpr glm::vec3 NPN{0,             ChunkInfo::HEIGHT, 0};
+static constexpr glm::vec3 NNP{0,             0,            ChunkInfo::ZWIDTH};
+static constexpr glm::vec3 PNN{ChunkInfo::XWIDTH,  0,            0};
+static constexpr glm::vec3 PPN{ChunkInfo::XWIDTH,  ChunkInfo::HEIGHT, 0};
+static constexpr glm::vec3 PNP{ChunkInfo::XWIDTH,  0,            ChunkInfo::ZWIDTH};
+static constexpr glm::vec3 NPP{0,             ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH};
+static constexpr glm::vec3 PPP{ChunkInfo::XWIDTH,  ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH};
 constexpr std::array DebugChunkVertices ={
 
         DebugChunkVertex{PNN},

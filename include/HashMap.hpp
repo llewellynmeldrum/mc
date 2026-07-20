@@ -52,7 +52,7 @@ public:
     template<typename ...Args>
     decltype(auto) emplace_or_assign(const key_type& key, Args&& ...args){
         auto [it, inserted] = map.try_emplace(key,std::forward<args>(args)...);
-        if (!inserted) it->second = T(args...);
+        if (!inserted) it->second = mapped_type(args...);
         return inserted;
     }
 
@@ -79,13 +79,8 @@ public:
         return inserted;
     }
 
-    template<typename M>
-    decltype(auto) get_or_insert(const key_type& key, M&& val){
-        auto [it, inserted] = map.insert_or_assign(key,std::forward<M>(val));
-        return addr_of(it->second);
-    }
     decltype(auto) get_or_insert(const key_type& key, mapped_type&& val){
-        auto [it, inserted] = map.insert_or_assign(key,std::forward<mapped_type>(val));
+        auto [it,inserted] = map.try_emplace(key,std::forward<mapped_type>(val));
         return addr_of(it->second);
     }
 
@@ -189,7 +184,7 @@ public:
     constexpr bool contains(const key_type& key)const noexcept{
         return map.contains(key);
     }
-    constexpr std::size_t size()const noexcept{
+    constexpr size_t size()const noexcept{
         return map.size();
     }
     constexpr bool empty() const noexcept{
@@ -431,7 +426,7 @@ public:
     constexpr bool contains(const key_type& key)const noexcept{
         return map.contains(key);
     }
-    constexpr std::size_t size()const noexcept{
+    constexpr size_t size()const noexcept{
         return map.size();
     }
     constexpr bool empty() const noexcept{

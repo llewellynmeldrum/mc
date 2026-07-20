@@ -50,13 +50,13 @@ concept is_ivec =
     requires { typename vec_traits<no_cvref<T>>::element; } &&
     Integral<typename vec_traits<no_cvref<T>>::element>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 concept is_vec_N = vec_traits<no_cvref<T>>::length == N;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 concept is_ivec_N = is_ivec<T> && is_vec_N<T,N>;
 
-template <typename T, std::size_t N>
+template <typename T, size_t N>
 concept is_fvec_N = is_fvec<T> && is_vec_N<T,N>; 
 
 template <typename T>

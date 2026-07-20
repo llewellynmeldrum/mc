@@ -10,14 +10,14 @@ public:
     using key_type = ChunkBlockPos;
     using mapped_type = T;
     PerColumnDebugStore(){
-        buf.resize(CHUNK_XWIDTH * CHUNK_ZWIDTH);
+        buf.resize(ChunkInfo::XWIDTH * ChunkInfo::ZWIDTH);
     }
     ~PerColumnDebugStore() = default;
     inline auto data(this auto& self){
         return self.buf.data(); 
     }
     inline decltype(auto) span(this auto& self){
-        return std::mdspan(self.data(), CHUNK_XWIDTH, CHUNK_ZWIDTH);
+        return std::mdspan(self.data(), ChunkInfo::XWIDTH, ChunkInfo::ZWIDTH);
     }
 
     inline decltype(auto) operator[](this auto& self, i16 x, i16 z) {
@@ -26,10 +26,10 @@ public:
 
     inline void set(this auto& self, i32 x, i32 z, T bt) {
         assert(x>=0);
-        assert(x<Chunk_Extents.x);
+        assert(x<ChunkInfo::Extents3D.x);
 
         assert(z>=0);
-        assert(z<Chunk_Extents.z);
+        assert(z<ChunkInfo::Extents3D.z);
         self.span()[x, z] = bt;
     }
 

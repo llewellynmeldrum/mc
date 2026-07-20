@@ -257,16 +257,16 @@ template<typename Tag, typename ScalarType>
 struct std::formatter<Coord3<Tag,ScalarType>>{
     using T = Coord3<Tag,ScalarType>;
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const T& bounded, std::format_context& ctx)const {
-        return std::formatter<typename T::VecType>{}.format(bounded.raw(),ctx);
+	auto format(const T& val, std::format_context& ctx)const {
+        return std::formatter<typename T::glm_vec_type>{}.format(val.raw(),ctx);
     }
 };
 template<typename Tag, typename ScalarType>
 struct std::formatter<Coord2<Tag,ScalarType>>{
     using T = Coord2<Tag,ScalarType>;
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const T& bounded, std::format_context& ctx)const {
-        return std::formatter<typename T::VecType>{}.format(bounded.raw(),ctx);
+	auto format(const T& val, std::format_context& ctx)const {
+        return std::formatter<typename T::glm_vec_type>{}.format(val.raw(),ctx);
     }
 };
 

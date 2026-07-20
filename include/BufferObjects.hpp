@@ -1,4 +1,5 @@
 #pragma once
+#include "LM.hpp"
 #include "Types.h"
 #include "Vertex.hpp"
 #include "cppslop.hpp"
@@ -11,19 +12,18 @@ FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 
 struct VertexArray {
     DECL_NO_COPY(VertexArray);
-    VertexArray(std::nullopt_t){} // create without initializing
+    VertexArray(LM::deferred_init_t){} // create without initializing
     VertexArray() { make(); }
     ~VertexArray() { destroy(); }
-    // T lhs(std::move(rhs));
-    VertexArray(VertexArray&& rhs) noexcept : id(rhs.id) { rhs.id = 0; }
-
-    // lhs = std::move(rhs)
-    VertexArray& operator=(this auto&& lhs, VertexArray&& rhs) noexcept {
-        if (&lhs != &rhs) {
-            lhs.destroy();
-            std::swap(lhs.id, rhs.id);
+    VertexArray(VertexArray&& rhs) noexcept : id(rhs.id) {
+        rhs.id = 0;
+    }
+    VertexArray& operator=(VertexArray&& rhs) noexcept {
+        if (this != &rhs) {
+            this->destroy();
+            std::swap(this->id, rhs.id);
         }
-        return lhs;
+        return *this;
     }
 
     void make();
@@ -35,7 +35,7 @@ struct VertexArray {
     void drawElementsInstanced(i32 num_elements, i32 instance_count, gl::GLenum usage_hint) const;
     void drawArrays(i32 count, gl::GLenum usage_hint, i32 offset = 0) const;
 
-    template <std::size_t AttrCount>
+    template <size_t AttrCount>
     void apply_layout(const VertexLayout<AttrCount>& layout) {
         using VertexAttrSpan = const_span<VertexAttribute, AttrCount>;
         apply_layout_impl(layout.stride, VertexAttrSpan(layout.attrs));
@@ -47,7 +47,7 @@ struct VertexArray {
 
 struct VertexBuffer {
     DECL_NO_COPY(VertexBuffer);
-    VertexBuffer(std::nullopt_t){} // create empty without initializing
+    VertexBuffer(LM::deferred_init_t){} // create without initializing
     VertexBuffer() { make(); }
     ~VertexBuffer() { destroy(); }
     // T lhs(std::move(rhs));
@@ -74,7 +74,7 @@ struct VertexBuffer {
         load_bytes(data, c.size_bytes(), usage);
     }
 
-    void load_bytes(const void* data, std::size_t size_bytes, gl::GLenum usage);
+    void load_bytes(const void* data, size_t size_bytes, gl::GLenum usage);
     constexpr static gl::GLenum DefaultBufferUsage();
     constexpr static gl::GLenum BufferTarget();
     u32                         id;
@@ -82,7 +82,7 @@ struct VertexBuffer {
 
 struct ElementBuffer {
     DECL_NO_COPY(ElementBuffer);
-    ElementBuffer(std::nullopt_t){} // create empty without initializing
+    ElementBuffer(LM::deferred_init_t){} // create without initializing
     ElementBuffer() { make(); }
     ~ElementBuffer() { destroy(); }
 
@@ -104,7 +104,7 @@ struct ElementBuffer {
     void destroy();
 
     void load(const_span<u32> indices, i32 offset = 0);
-    void load(std::size_t size, const void* indices_ptr, i32 offset=0);
+    void load(size_t size, const void* indices_ptr, i32 offset=0);
 
     constexpr static gl::GLenum BufferUsage();
     constexpr static gl::GLenum BufferTarget();
