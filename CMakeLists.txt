@@ -86,14 +86,6 @@ FetchContent_MakeAvailable(range-v3)
 target_link_libraries(mc PRIVATE range-v3::range-v3)
 target_include_directories(mc SYSTEM PRIVATE ${range-v3_SOURCE_DIR}/include)
 
-# -- Tracy (benchmarking/profiling)
-option(TRACY_ENABLE "" OFF)
-option(TRACY_ONLY_LOCALHOST "" ON)
-set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "" FORCE)
-option(TRACY_ON_DEMAND "" OFF)
-add_subdirectory(external/tracy)
-#target_include_directories( mc       PRIVATE    external/tracy)
-target_link_libraries(mc PUBLIC Tracy::TracyClient)
 
 
 # -- GLFW (window management/platform)
@@ -108,7 +100,9 @@ target_link_libraries(      imgui    PUBLIC     ${GLFW3_LIBRARIES})
 target_link_directories(    imgui    PUBLIC     ${GLFW3_LIBRARY_DIRS})
 
 # -- CPPTRACE (stack traces)
+if (ENABLE_CPPTRACE)
 target_link_libraries(mc PRIVATE cpptrace::cpptrace)
+endif()
 
 
 # -GLBINDING (gl function loader)

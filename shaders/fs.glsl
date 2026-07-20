@@ -1,5 +1,5 @@
 #version 330 core
-#define BLOCK_SHAPE_COUNT 2
+#define BLOCK_SHAPE_COUNT 4
 #define ENABLE_FAKE_SHADOWS 
 
 // TODO: implement #include on the c++ side
@@ -16,14 +16,17 @@ out vec4 FragColor;
 //uniform bool u_cutout;
 uniform float overlayOpacity;
 uniform sampler2D textures[BLOCK_SHAPE_COUNT];
+uniform bool u_enable_cutout;
 
 
 const vec4 BLACK = vec4(0.0,0.0,0.0, 1.0f);
 
 void main(){
     FragColor = texture(textures[block_shape],texCoord);
-    if (FragColor.a < 0.1f){
-        discard;
+    if (u_enable_cutout){
+        if (FragColor.a < 0.5f){
+            discard;
+        }
     }
     //FragColor = mix(faceOverlayColor,FragColor,0.2f);
     #ifdef ENABLE_FAKE_SHADOWS

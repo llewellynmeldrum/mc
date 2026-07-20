@@ -237,12 +237,8 @@ public:
         const auto t = (noise + 1) * 0.5f; // t-(out_min-in_min) * (in_range/out_range)
         return Lerp(min,max,t);
     }
-    i32 sample_remap(f32 x, f32 y, f32 min, f32 max) const{
-        return static_cast<i32>(std::round(remap(GetNoise(x,y), min, max)));
-    }
-    // 0-1 range
-    f32 sample(i32 x, i32 y)const {
-        return (GetNoise(static_cast<f32>(x),static_cast<f32>(y)) + 1.0f) * 0.5f;
+    f32 sample(f32 x, f32 y)const {
+        return GetNoise(static_cast<f32>(x),static_cast<f32>(y));
     }
     /// 2D noise at given position using current settings
     /// Noise output bounded between -1...1

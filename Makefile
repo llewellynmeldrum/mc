@@ -4,6 +4,7 @@ all: run-asan
 
 TOOLCHAIN 		:= $(CURDIR)/cmake/llvm-toolchain.cmake
 BUILD_DIR      := build
+BUILD_CFAST     := build-cfast
 BUILD_FAST     := build-fast
 BUILD_ASAN     := build-asan
 BUILD_TSAN     := build-tsan
@@ -25,7 +26,7 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
   	-DCMAKE_OSX_ARCHITECTURES=arm64 \
 	-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-.PHONY: help configure build run clean clean-all rebuild \
+.PHONY: help cfast configure build run clean clean-all rebuild \
         fast run-fast \
         debug run-debug \
         asan run-asan \
@@ -36,6 +37,7 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
 export OPT_LEVEL
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
+		-DENABLE_CPPTRACE=ON\
 		-DMC_O2=ON \
 		-DCMAKE_BUILD_TYPE=Debug 
 
@@ -58,29 +60,28 @@ run-debug: debug
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS) --target debug
 
 # --------------------------------------------------
-# Optimized build
+
+# c(ompile) fast
+cfast:
+	cmake -S . -B $(BUILD_CFAST) $(CMAKE_COMMON) \
+		-DCMAKE_BUILD_TYPE=Debug\
+		-DENABLE_CPPTRACE=OFF\
+		-DMC_O2=ON
+
+	cmake --build $(BUILD_CFAST) $(BUILD_FLAGS) --target run
 
 fast:
 	cmake -S . -B $(BUILD_FAST) $(CMAKE_COMMON) \
-		-DCMAKE_BUILD_TYPE=Debug\
-		-DMC_O2=ON
-
-	cmake --build $(BUILD_FAST) $(BUILD_FLAGS)
-
-faster:
-	cmake -S . -B $(BUILD_FAST) $(CMAKE_COMMON) \
-		-DCMAKE_BUILD_TYPE=Debug \
+		-DENABLE_CPPTRACE=OFF\
+		-DCMAKE_BUILD_TYPE=Relase\
 		-DMC_O3=ON
 
 	cmake --build $(BUILD_FAST) $(BUILD_FLAGS)
 
-run-fast: OPT_LEVEL=2
+run-fast: OPT_LEVEL=3
 run-fast: fast
 	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 
-run-faster: OPT_LEVEL=3
-run-faster: faster
-	cmake --build $(BUILD_FAST) $(BUILD_FLAGS) --target run
 # --------------------------------------------------
 # Sanitizers
 
@@ -117,13 +118,6 @@ run-ausan: ausan
 # --------------------------------------------------
 # Utilities
 #
-test_hashmap: configure
-	cmake --build build --target test_hashmap
-	ctest --test-dir build --verbose
-
-test_queue: configure
-	cmake --build build --target test_queue
-	ctest --test-dir build --verbose
 
 db: configure
 	cp $(BUILD_DIR)/compile_commands.json ./compile_commands.json
@@ -134,6 +128,6 @@ clean:
 	rm -f bin/$(APP)
 
 clean-all:
-	rm -rf $(BUILD_DIR) $(BUILD_FAST) $(BUILD_ASAN) $(BUILD_TSAN) $(BUILD_AUSAN) bin
+	rm -rf $(BUILD_DIR) $(BUILD_CFAST) $(BUILD_FAST) $(BUILD_ASAN) $(BUILD_TSAN) $(BUILD_AUSAN) bin
 
 rebuild: clean build
