@@ -1,17 +1,20 @@
 # minecraft clone, opengl4.1 and glfw
-<img width="800" alt="image" src="https://github.com/user-attachments/assets/ea3249bb-41d5-4847-b43d-b51bda21016d" />
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/80ba4c24-55ee-4903-8f14-8c056f924581" />
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/92b01154-5142-4928-85cd-dd3ac803bd62" />
 
 # Current features:
-- (mostly) correct back-to-front transparency rendering
-- Concurrent meshing and generation pipelines
-- Debug rendering mode to see which state a chunk is in (i.e meshing, generated, in certain queue, etc)
+- Infinite procedural terrain generation
+- Trees, foliage, and blocks all dependent on biome, which is also procedural and 100% deterministic to world seed. (The same world seed will always produce the same layout of biomes, blocks, features, etc, regardless of chunk generation order) 
+- Correct transparency (& cutout) rendering
+- Multithreaded chunk generation and meshing
+- Separate debug rendering pipeline to display 3D visuals (chunk/frustum borders, visualize noise, etc)
 - [ImGui](https://github.com/ocornut/imgui) debug hud with some decently detailed perf stats: <br>
 <img width="350" alt="image" src="https://github.com/user-attachments/assets/0c8265c5-a056-4530-bc9c-9c56f5148eff" />
 <br>
-- glorious homemade textures (my favourite so far is grass)<br>
-- <img width="200" alt="image" src="https://github.com/user-attachments/assets/8cb6a114-433f-4ed8-bcfe-3d8c9f1c476f" />
+- All textures are made from scratch in GIMP. Heavily inspired by minecraft of course: <br>
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/38184e51-2b0a-4351-a377-c76921e8ebdb" />
+
 <br>
-- Shitty caves, trees, and hills/lakes. 
 
 ## optimizations (implemented)
 - frustum culling:<br>
@@ -28,12 +31,11 @@
   
 ## optimizations (planned)
 - !!!! Oclussion culling
-- Chunk neighbours uploaded to meshJobs should only get single slice of neighbours blocks
 - Pack vertex data, could massively save on gpu memory
-- Implement instanced renderer (could do the entire scene in a couple draw calls)
+- Implement instanced renderer (could do the entire scene in a couple draw calls) (update: did this for debug chunk renderer)
 - chunk mesh decimation/ LOD at further distances (like Distant Horizons mod in minecraft)
-- greedy meshing coplanar faces of same textured faces
-- switch mesh sorting algorithm to a partial sort with a 'budget'
+- greedy meshing coplanar faces of same texture
+- switch mesh sorting algorithm to a partial sort with a frame budget
 
 # Progress:
 
@@ -75,17 +77,25 @@ Added trees<br>
 Added frustum culling <br>
 <img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
 
+Added heaps of new blocks, overhauled wordlgen, added more trees and foliage, now have 4 block shapes, 5 biomes, ~30 different blocks <br>
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/80ba4c24-55ee-4903-8f14-8c056f924581" />
+
 # Tools used
-- gnu make+ Cmake
-- nvim (btw)
-- compiledb
+- gnu make
+- CMake (thanks chat gippity)
+- lldb
+- gcc16 / clang22
 - GIMP
+- nvim (btw)
 
 # Libs used
 - glfw (for windowing and input)
 - glm (opengl math library, for vector types and matrix math)
 - glbinding (loads opengl functions with c++11 bindings, slightly stronger typing than GLAD)
-- FastNoise2 (noise functions for terrain generation)
+- ~FastNoise2~ FastNoiseLite (noise functions for terrain generation)
+- cpptrace (for debugging)
+- Tracy (for profiling)
+
 
 # Resources used
 - [learnopengl.com](https://learnopengl.com/Introduction) - excellent resource for learning opengl for basic 3D, especially with backwards compatability in mind (macos users rejoice)
@@ -94,3 +104,7 @@ Added frustum culling <br>
 
 - [Meshing in a Minecraft Game - mikolalysenko](https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/) - Another cool article
 - [The World Generation Of Minecraft - Alan Zucconi](https://www.alanzucconi.com/2022/06/05/minecraft-world-generation/) - good intro to minecrafts world gen
+- [www.demangler.com](https://www.demangler.com/) - holy goated 
+- [vkguide multithreading blog](https://vkguide.dev/docs/extra-chapter/multithreading/#:~:text=The%20first%20and%20most%20classic,them%20perform%20their%20own%20task)
+- [Ex mcpe dev's article on optimizing caves](https://tomcc.github.io/2014/08/31/visibility-2.html)
+- [mcsrc.dev](https://mcsrc.dev) really cool tool for browsing minecraft source code legally. I am larping i barely understood 5% of the java slop
