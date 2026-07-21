@@ -1,5 +1,6 @@
 
 #include "ChunkStorage.hpp"
+#include "DebugChunkLog.hpp"
 #include "DebugOptions.hpp"
 #include "PendingBlockWrites.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
@@ -339,13 +340,13 @@ void Engine::upload_gen_results(i64 maxUploads){
         if (entry->qualifies_for_gen_dequeue()){
             if (entry->is_candidate_gen_newer_than_loaded(candidate_revision)){
                 log_to_chunk("gen_uploads",chunk_coord, "gen upload success ({}->{})",entry->loaded_gen_revision,candidate_revision);
+                director.upload_generated_chunk(newGen);
+                entry->loaded_gen_revision = candidate_revision;
+                entry->state_transition(gen_dequeue);
             }else{
                 log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
                                 candidate_revision,entry->loaded_gen_revision));
             }
-            director.upload_generated_chunk(newGen);
-            entry->loaded_gen_revision = candidate_revision;
-            entry->state_transition(gen_dequeue);
         }else{
             log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
             continue;
@@ -602,7 +603,7 @@ void Engine::handle_input(){
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
 
-    if(input.is_down(KEY_R) && input.mods.shift){
+    if(input.just_pressed(KEY_R) && input.mods.shift){
         LOG_DEBUG("regenerating world...");
         regenerate_world();
         return;
@@ -701,6 +702,7 @@ void Engine::regenerate_world(){
     // 1. clear job queues: (no more inputs to the threads)
     rend.meshers.meshJobQueue.clear();
     world.generators.genJobQueue.clear();
+    per_chunk_log.clear();
 
     director.ready_for_gen.clear();
     director.ready_for_mesh.clear();

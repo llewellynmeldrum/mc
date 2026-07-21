@@ -1,10 +1,11 @@
-
 #include <print>
 #include <queue>
 
+#include "FastNoiseLite.h"
+
+
 #include "CoordTypes.hpp"
 #include "CoordIteration.hpp"
-
 #include "Block.hpp"
 #include "ChunkConstants.hpp"
 #include "ChunkHelpers.hpp"
@@ -12,25 +13,20 @@
 #include "FormatSpecs.hpp"
 #include "Assertion.hpp"
 #include "LM.hpp"
-
-#include "NoiseSystem.hpp"
 #include "PendingBlockWrites.hpp"
 #include "World.hpp"
 #include "Logger.hpp"
 #include "Types.h"
 #include "Array2D.hpp"
 #include "ChunkNoiseDebug.hpp"
-
 #include "Biomes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_Config.hpp"
 #include "WorldGen_Utils.hpp"
-
 #include "glm_math_extensions.hpp"
-
-#include "FastNoiseLite.h"
+#include "ThreadTracker.hpp"
 
 
 struct GenContext{
@@ -180,6 +176,7 @@ static GenResult generate_chunk(GenJob job){
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
 
+    ThreadTracker::assign_my_thread_type(ThreadType::mesh);
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
         GenResult res = generate_chunk(job);

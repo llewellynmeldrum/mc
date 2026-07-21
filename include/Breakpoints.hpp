@@ -2,6 +2,8 @@
 
 #include "DebugOptions.hpp"
 
+#include <thread>
+
 #ifdef ENABLE_CPPTRACE
     #include "cpptrace/cpptrace.hpp"
 #endif

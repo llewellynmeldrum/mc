@@ -33,6 +33,7 @@
 
 
 #include "ChunkNoiseDebug.hpp"
+#include "ThreadTracker.hpp"
 
 struct BlockMeshContext{
     u32& vtx_count;
@@ -336,6 +337,7 @@ MeshDataType mesh_chunk(const MeshJob& job){
 
 
 void ChunkMesher::mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue){
+    ThreadTracker::assign_my_thread_type(ThreadType::mesh);
     while (!stopToken.stop_requested()){
         
         auto job = in_queue.wait_dequeue();

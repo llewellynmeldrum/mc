@@ -4,6 +4,9 @@
 #include "Breakpoints.hpp"
 #include "Engine.hpp"
 #include "preamble.hpp"
+#include "ThreadTracker.hpp"
+#include <thread>
+const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
 
 #define TEST_FN(fn, ...) test_fn(#fn, fn __VA_OPT__(,) __VA_ARGS__)
 
@@ -22,6 +25,7 @@ int TEST_MAIN(){
 }
 
 int MAIN(int argc, char** argv) {
+    ThreadTracker::init();
     Engine eng{};
     eng.setup();
     eng.loop();

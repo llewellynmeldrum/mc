@@ -1,16 +1,20 @@
 #pragma once 
 
+#include <chrono>
+#include <format>
+#include <thread>
+#include "Breakpoints.hpp"
+
 #include "CommonUtils.hpp"
 #include "CoordTypes.hpp"
 #include "Assertion.hpp"
 #include "Logger.hpp"
 #include "NothrowLookup.hpp"
-#include <chrono>
-#include <format>
 
 inline constexpr std::string_view default_log_type = "all";
 inline std::unordered_map<std::string_view, bool> is_log_type_enabled = {
     {"mesh_uploads",false},
+    {"gen_uploads",true},
     {"mesh_state_change",false},
     {"gen_state_change",false},
     {"mesh_endirtying",true},
@@ -98,6 +102,7 @@ public:
     }
 };
 inline std::unordered_map<WorldChunkCoord, DebugLog> per_chunk_log;
+inline static std::mutex per_chunk_log_mut;
 inline bool pause_logging = false;
 struct DebugChunkLogger{
     using LogType = DebugLog::LogType;
@@ -123,16 +128,9 @@ struct DebugChunkLogger{
         bool& b = AT(is_log_type_enabled,log_type);
         return b;
     }
-    inline void log_to_chunk(WorldChunkCoord key, std::string_view msg){
-        log_to_chunk(default_log_type,key,msg);
-    }
+    void log_to_chunk(WorldChunkCoord key, std::string_view msg);
 
-    inline void log_to_chunk(std::string_view log_type, WorldChunkCoord key, std::string_view msg){
-        if (!pause_logging){
-            auto [it, inserted] = per_chunk_log.try_emplace(key, global_epoch);
-            it->second.make_entry(log_type,msg);
-        }
-    }
+    void log_to_chunk(std::string_view log_type, WorldChunkCoord key, std::string_view msg);
 };
 
 inline DebugChunkLogger _dbg_chunk_logger;

@@ -30,6 +30,7 @@ struct World {
     inline void regenerate(){
         chunkMap.clear();
         worldgen_epoch++; // all new genjobs will have targetRevision incremented 
+        genConfig.sea_level++;
     }
 
     // Mutable state which gets fed to gen workers

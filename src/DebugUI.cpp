@@ -134,7 +134,10 @@ void drawLogWindow(WindowConfig& self, Engine* ctx){
             if (per_chunk_log.contains(cur_chunk)){
                 for (const auto& entry: per_chunk_log.at(cur_chunk) | ranges::views::reverse){
                     auto [log_type, duration, contents] = entry;
-                    if (is_log_type_enabled.at(log_type)){
+                    auto it = is_log_type_enabled.find(log_type);
+                    if (it == is_log_type_enabled.end()){
+                        LOG_WARN("log type '{}' does not exist in the is_log_type_enabled LUT.",log_type);
+                    }else if(it->second){
                         UI::Text(DebugLog::entry_tostr(entry));
                     }
                 }

@@ -92,8 +92,10 @@ struct ChunkDirector{
     void upload_generated_chunk(GenResult gen_res);
 
     size_t discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius);
+
     void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
         ready_for_gen.erase(entry.state.coord);
+        entry.inflight_gen_revision = entry.target_gen_revision;
         entry.state_transition(gen_enqueue);
     }
     std::vector<WorldChunkCoord> find_gen_jobs(size_t N){

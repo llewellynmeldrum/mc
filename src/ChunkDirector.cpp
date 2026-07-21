@@ -99,7 +99,7 @@ size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh
                         ready_for_mesh.push(key);
                     }
                     // 1. if an entry exists, check if it needs regeneration.
-                    return entry.is_gen_dirty();
+                    return entry.qualifies_for_gen_enqueue();
                 },
                 [&](){
                     // 2. if no entry exists; then the chunk hasnt been generated => it qualifies.
