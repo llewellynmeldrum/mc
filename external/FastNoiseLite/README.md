@@ -1,3 +1,9 @@
+```c
+// NOTE: (modifications made by llewiemeldrum)
+// Modified to use some more modern c++ features (eg concepts, std::numbers named constants)
+// Also added a ctor and changed a couple names
+// And moved the enums out of the class. Writing FastNoiseLite::NoiseType is a bit much for me.
+```
 ## Getting Started
 
 Here's an example for creating a 128x128 array of OpenSimplex2 noise
