@@ -55,7 +55,7 @@ auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> n
         f32 cont_noise = noise[cx,cz].cont;
         f32 hill_noise = noise[cx,cz].hill;
 
-        i32 base = cfg.cont_noise_to_base.remap<i32>(cont_noise);
+        i32 base = cfg.sea_level + cfg.cont_noise_to_base.remap<i32>(cont_noise);
         f32 hill_weight = cfg.cont_noise_to_hill_weight.remap<f32>(cont_noise);
         i32 hill_height = cfg.hill_noise_to_hill_height.remap<i32>( hill_noise);
 
@@ -135,6 +135,20 @@ static GenResult generate_chunk(GenJob job){
                 continue;
             }
             block_store.at(cx,y,cz)=brush;
+        }
+    });
+    for_each_xz_in_chunk([&](i32 cx, i32 cz){
+        auto terrain_height = height_map[cx,cz];
+        auto stone_height = terrain_height - 3;
+        const auto& biome = biome_map[cx,cz];
+        if (biome == BiomeID::IceBeach || biome == BiomeID::FrozenOcean){
+            const auto& palette = biome_palettes[biome];
+            i32 y = cfg.sea_level-1;
+            auto [wx, wz] = ctx.to_world(cx,cz);
+            BlockType brush = BlockType::AIR;
+            if (block_store.at(cx,y,cz) == BlockType::WATER_BLOCK){
+                block_store.at(cx,y,cz) = palette.ice;
+            }
         }
     });
     for_each_xz_in_chunk([&](i32 cx, i32 cz){

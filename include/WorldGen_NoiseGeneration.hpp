@@ -3,8 +3,10 @@
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 
+#include "NoiseGen.hpp"
 #include "FastNoiseLite.h"
 #include "cppslop.hpp"
+#include <utility>
 
 #define LIST_FUNDAMENTAL_NOISE_PARAMS \
 X(heat)\
@@ -20,6 +22,16 @@ X(grad)\
 X(hill)\
 X(mountain)
 
+enum struct NoiseParamType{
+#define X(var) var,
+    LIST_NOISE_PARAMS
+#undef X
+    COUNT
+};
+inline std::size_t to_idx(NoiseParamType param){
+    return std::to_underlying(param);
+}
+constexpr static i32 N_NOISE_PARAMS = std::to_underlying(NoiseParamType::COUNT);
 
 struct NoiseParams{
 #define X(var) f32 var;
@@ -30,64 +42,26 @@ struct NoiseParams{
 static inline constexpr f32 WORLD_NOISE_SCALE = 1.3f;
 
 struct NoiseGenerator{
-#define X(var) NoiseGen var;
-    LIST_NOISE_PARAMS
-#undef X
-
-    NoiseParams sample_all(f32 wx, f32 wz) const noexcept{
-#define X(VAR) .VAR = VAR.sample(wx,wz),
-        return {
-            LIST_NOISE_PARAMS
-        };
-#undef X
-    }
-    NoiseGenerator(i32 world_seed):
-    heat(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 4823,
-        .freq = 0.0005f         * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::FBm,
-        .frac_octaves = 3,
-    }),
-    rain(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 93221,
-        .freq = 0.001f      * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::FBm,
-        .frac_octaves = 3,
-    }),
-    cont(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 59392,
-        .freq = 0.0005f         * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::FBm,
-        .frac_octaves = 5,
-        .frac_lacunarity = 2.0,
-        .frac_persistence = 0.5,
-    }),
-    grad(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 1829459,
-        .freq = 0.008f * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::FBm,
-        .frac_octaves = 5,
-    }),
-    hill(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 1234,
-        .freq = 0.00066f         * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::FBm,
-        .frac_octaves = 5,
-        .frac_persistence= 0.4,
-    }),
-    mountain(NoiseConfig{
-        .type = NoiseType::OpenSimplex2,
-        .seed = world_seed + 4321,
-        .freq = 0.002f      * WORLD_NOISE_SCALE,
-        .frac_type = FractalType::Ridged,
-        .frac_octaves = 4,
-    })
+    NoiseGenerator()=default;
+    NoiseGenerator(i32 world_seed, const std::vector<NoiseConfig>& cfgs, u32 _gen_epoch = 0):
+        #define X(VAR) VAR(world_seed, cfgs[std::to_underlying(NoiseParamType:: VAR)]),
+        LIST_NOISE_PARAMS
+        #undef X
+        gen_epoch(_gen_epoch)
     {}
+
+    #define X(var) NoiseGen var;
+    LIST_NOISE_PARAMS
+    #undef X
+    u32 gen_epoch;
+
+    NoiseParams sample_each(f32 wx, f32 wz) const noexcept{
+        return {
+            #define X(VAR) .VAR = VAR.sample(wx,wz),
+            LIST_NOISE_PARAMS
+            #undef X
+        };
+    }
 };
 
 

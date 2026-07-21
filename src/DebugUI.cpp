@@ -89,6 +89,51 @@ void DebugUI::update() {
     auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
 }
 
+template<typename T>
+static bool edit_enum(const char* label, T* selected, const_span<char const*> names){
+    int * p = static_cast<int*>(static_cast<void*>(selected));
+    return IG::Combo(label,p, names.data(),names.size());
+}
+static bool edit_noise_config(const char* label, NoiseConfig& c) {
+    if (!ImGui::TreeNode(label)) return false;
+    bool changed = false;
+    changed |= ImGui::DragInt  ("seed offset",        &c.seed_offset);
+    changed |= ImGui::DragFloat("freq",        &c.freq, 0.0001f, 0.0f, 0.05f, "%.5f");
+    changed |= ImGui::SliderInt("octaves",     &c.frac_octaves, 1, 8);
+    changed |= ImGui::SliderFloat("lacunarity",&c.frac_lacunarity, 1.0f, 4.0f);
+    changed |= ImGui::SliderFloat("persistence",&c.frac_persistence, 0.0f, 1.0f);
+    // enums - combos 
+    changed |= edit_enum("type",    &c.type,      NoiseType_names);
+    changed |= edit_enum("fractal", &c.frac_type, FractalType_names);
+    ImGui::TreePop();
+    return changed;
+}
+void draw_worldgen_window(WindowConfig& self, Engine* ctx){
+    self.setAlpha(0.9f);
+    self.setup();
+    self.setSize(UVSize{0.4,0.4});
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+        auto& window = self;
+        auto& cfg = ctx->world.editable_cfg;
+        window.open_section("Noise Config:",[&]{
+            bool dirty = false;
+
+            dirty |= IG::DragInt("sea level", &cfg.sea_level, 1, 0, 256);
+            dirty |= IG::InputInt("seed",     &cfg.world_seed);
+            IG::SameLine();
+            if (IG::Button("(randomize)")){
+                cfg.world_seed = random();
+                dirty = true;
+            }
+            ImGui::SeparatorText("Noise channels");
+            #define X(name) dirty |= edit_noise_config(#name, cfg.name ##_cfg);
+                LIST_NOISE_PARAMS
+            #undef X
+        });
+    });
+}
 void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
@@ -262,6 +307,27 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
 
         set_stroke_rgba(255,255,255);
         draw_text(ch_upd_paused_str,text_pos);
+    }else if (ctx->mouse_mode){
+
+        set_fill_rgba(20,20,20,16);
+        enable_stroke = false;
+        draw_rect({0,0},screen_size);
+        enable_stroke = true;
+        std::string ch_upd_paused_str = "MOUSE MODE ENABLED";
+        ImVec2 text_size = calc_text_size(ch_upd_paused_str);
+
+        ImVec2 text_pos = ImVec2(
+            (screen_size.x - text_size.x) * 0.5f,
+            (screen_size.y - text_size.y) * 0.8f
+        );
+
+        f32 x = IG::GetTime()* 2.0f;
+        i32 r = (120 + sin(2.11 + x*.4) * 120);
+        i32 g = (120 + sin(1.57 + x*.3) * 120);
+        i32 b = (120 + sin(1.23 + x*.2) * 120);
+
+        set_stroke_rgba(r,g,b);
+        draw_text(ch_upd_paused_str,text_pos);
     }
 
     _notif_logger.log.update();
@@ -351,7 +417,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
         std::string biome_str = "N/A (no chunk entry)";
         const auto & [wx,_,wz] = pos;
-        NoiseParams noise_samples_exact = ctx->world.genConfig.noise.sample_all(wx,wz);
+        NoiseParams noise_samples_exact = ctx->world.active_cfg.noise.sample_each(wx,wz);
         auto biome = classify_biome_verbose(noise_samples_exact);
 
         UI ::Text("{:>10}: {:+9.3f}", "hill", noise_samples_exact.hill);
@@ -689,6 +755,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
             {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
             {"DBG OPTS", UI::WinFlagGroup::MovableOverlay,drawDebugSettingsWindow,this},
+            {"WORLDGEN", UI::WinFlagGroup::MovableOverlay,draw_worldgen_window,this},
         }
     );
 }

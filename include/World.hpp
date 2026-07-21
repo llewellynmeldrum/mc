@@ -13,11 +13,15 @@
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
 
+#include "glm_math_extensions.hpp"
+
+#include "WorldGen_Defaults.hpp"
+
 struct World {
     World(i32 _world_seed):
         world_seed(_world_seed),
-        noise_gen(world_seed),
-        genConfig(noise_gen)
+        active_cfg(noise_config_defaults(),remap_table_defaults()),
+        editable_cfg(noise_config_defaults(),remap_table_defaults())
     {}
     ~World() = default;
     NO_MOVE(World);
@@ -30,13 +34,15 @@ struct World {
     inline void regenerate(){
         chunkMap.clear();
         worldgen_epoch++; // all new genjobs will have targetRevision incremented 
-        genConfig.sea_level++;
+        LOG_DEBUG("{}->{}",active_cfg.cont_cfg.seed_offset, editable_cfg.world_seed);
+        GenConfig::copy(active_cfg,editable_cfg);
     }
 
     // Mutable state which gets fed to gen workers
     i32 world_seed;
-    NoiseGenerator noise_gen{default_world_seed};
-    GenConfig genConfig;
+    //NoiseGenerator noise_gen{default_world_seed};
+    GenConfig active_cfg;
+    GenConfig editable_cfg;
 
     i32 worldgen_epoch {0}; // aka. global target_gen_revision 
 

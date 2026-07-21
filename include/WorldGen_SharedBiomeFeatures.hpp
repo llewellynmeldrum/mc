@@ -42,7 +42,7 @@ namespace features{
                 BlockType::SNOW_GRASS_BLOCK
             },
         },
-        .log_height_rng { {7, 11}, RandOffset::TreeHeight,},
+        .log_height_rng { {8, 11}, RandOffset::TreeHeight,},
         .canopies{
             {.hoz_extent=1, .height = 1, .corner_decay_rng = {1.00f, RandOffset::TreeDecay}},
             {.hoz_extent=0, .height = 1, .corner_decay_rng = {1.00f, RandOffset::TreeDecay}},

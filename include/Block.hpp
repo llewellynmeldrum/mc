@@ -41,6 +41,7 @@ inline constexpr i32 MISSING_CROSS_TEX = 0;
     X(CACTUS_ROOT, .shape = BlockShape::CACTUS, .tex_idx = 0, .rend_layer = BlockRenderLayer::CUTOUT)\
     X(CACTUS_STEM, .shape = BlockShape::CACTUS, .tex_idx = 1, .rend_layer = BlockRenderLayer::CUTOUT)\
     X(CACTUS_HEAD, .shape = BlockShape::CACTUS, .tex_idx = 2, .rend_layer = BlockRenderLayer::CUTOUT)\
+    X(ICE_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 20, .rend_layer = BlockRenderLayer::BLENDED)\
                                                                                                    \
     X(GRASS_TUFT0, .shape = BlockShape::CROSS, .tex_idx = 1,                                       \
       .rend_layer = BlockRenderLayer::CUTOUT)                                                      \

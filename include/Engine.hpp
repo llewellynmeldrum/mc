@@ -80,6 +80,7 @@ struct Engine {
     void draw_scene();
     void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
     bool paused{false};
+    bool mouse_mode{false};
     bool chunk_updates_paused{false};
     bool dbg_modify_chunks{false};
     bool dirty_current_chunk{false};
@@ -87,7 +88,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 16;
+    static constexpr i32 RENDER_DIST = 32;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========

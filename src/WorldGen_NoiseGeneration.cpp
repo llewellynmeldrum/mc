@@ -9,7 +9,7 @@ ArrayList2D<NoiseParams> generate_chunk_terrain_noise(const GenConfig& cfg, Worl
     };
     ForEachInRangeEx({0,0},ChunkInfo::Extents2D,[&](i32 cx, i32 cz){
         auto [wx,wz] = to_world(cx,cz);
-        res[cx,cz] = cfg.noise.sample_all(wx,wz);
+        res[cx,cz] = cfg.noise.sample_each(wx,wz);
     });
     return res;
 }

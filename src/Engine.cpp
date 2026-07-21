@@ -76,6 +76,7 @@ void Engine::classify_visible_chunks(){
     rend.transparent_chunk_meshes.for_each(assign_dist);
     rend.cutout_chunk_meshes.for_each(assign_dist);
 }
+
 void Engine::refresh_visible_chunks(){
     auto load_mesh = [](IndexedMesh& mesh){
         mesh.load();
@@ -183,7 +184,7 @@ void Engine::submit_gen_jobs(i64 maxJobs){
         bool success = genQ.try_emplace(
             world.worldgen_epoch,
             candidate_coord, 
-            world.genConfig
+            world.active_cfg
         );
         if (success){
             world.chunkMap.entries.if_contains_else(
@@ -503,6 +504,10 @@ void Engine::handle_input(){
         if (paused){
             // unpause
             paused = false; 
+        } else if(chunk_updates_paused){
+            chunk_updates_paused= false;
+        }else if(mouse_mode){
+            mouse_mode = false;
         } else{
             win.scheduleClose();
             return;
@@ -528,6 +533,16 @@ void Engine::handle_input(){
         static constexpr f32 base = 1.1f;
         const f32 exponent = -1 * (input.scroll.y * drone_cam.zoom_sens * profiler.dt_s);
         drone_cam.ortho_zoom *= pow(base,exponent);
+    }
+    if(input.just_pressed(KEY_M)){
+        mouse_mode = !mouse_mode;
+        if (!mouse_mode){
+            win.captureCursor();
+            player_cam.enableMousePanning();
+        }else{ 
+            win.freeCursor();
+            player_cam.disableMousePanning();
+        }
     }
     if(input.just_pressed(KEY_P)){
         paused = !paused;
@@ -702,7 +717,10 @@ void Engine::regenerate_world(){
     // 1. clear job queues: (no more inputs to the threads)
     rend.meshers.meshJobQueue.clear();
     world.generators.genJobQueue.clear();
-    per_chunk_log.clear();
+    {
+        std::lock_guard lock(per_chunk_log_mut);
+        per_chunk_log.clear();
+    }
 
     director.ready_for_gen.clear();
     director.ready_for_mesh.clear();

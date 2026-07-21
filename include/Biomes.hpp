@@ -11,6 +11,8 @@ X(Plains)\
 X(Tundra)\
 X(Desert)\
 X(Beach)\
+X(IceBeach)\
+X(FrozenOcean)
 
 enum struct BiomeID{
 #define X(val, ...) val,

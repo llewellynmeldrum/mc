@@ -39,11 +39,22 @@ static const inline std::vector<BiomeMatchTable> biome_match_tables{
 
     BiomeMatchTable{
         .biome = BiomeID::Ocean,
+        .heat = {-0.4f,1.0f},
+        .cont = OCEAN,
+    },
+    BiomeMatchTable{
+        .biome = BiomeID::IceBeach,
+        .heat = {-0.4f},
+        .cont = COAST,
+    },
+    BiomeMatchTable{
+        .biome = BiomeID::FrozenOcean,
+        .heat = {-0.4f},
         .cont = OCEAN,
     },
     BiomeMatchTable{
         .biome = BiomeID::Beach,
-        .heat = {+0.2f},
+        .heat = {+0.3f},
         .cont = COAST,
     },
     BiomeMatchTable{
