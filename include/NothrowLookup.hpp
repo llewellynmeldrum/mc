@@ -54,7 +54,7 @@ template<typename T>
 // we make this cold and noinline, to keep the actual checking function smaller (since its always inline.)
 // That way, there is less cost in the cold path.
 template<typename C, typename K>
-[[gnu::cold, gnu::noinline,noreturn]]
+[[gnu::cold, gnu::noinline]]
 inline void report_oor_intermediate(C& cont, K key,std::string_view cont_name, std::string_view key_name, refl::source_location loc){
         i64 sz = cont.size();
         if constexpr(map_like<C>){ 

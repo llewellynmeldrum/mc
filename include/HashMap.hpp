@@ -90,6 +90,7 @@ public:
         auto it = self.map.find(key);
         if (it==self.map.end()) {
             report_oor_intermediate(self.map,key,"HashMap","key",SRC_LOC_CURRENT());
+            BREAKPOINT(0);
         }
         return self.addr_of(it->second);
     }

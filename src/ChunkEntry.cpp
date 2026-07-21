@@ -9,7 +9,6 @@
 //TODO: change all but mark_mesh_dirty to accept chunkState instead of ChunkEntry
 void gen_enqueue(ChunkState* e) {
     assert(e->gen == GenState::ready_for_enqueue || e->gen == GenState::done);
-
     e->gen = GenState::on_queue;
     // This is a NOP that exists for logging/symmetry purposes.
 }

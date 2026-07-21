@@ -55,4 +55,8 @@ public:
     auto end()noexcept{
         return q.end();
     }
+    void clear() noexcept{
+        q.clear();
+        q_idx.clear();
+    }
 };

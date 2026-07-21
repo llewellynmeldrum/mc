@@ -36,6 +36,9 @@ constexpr inline void BREAKPOINT_QUIET(){
 constexpr inline void BREAKPOINT(size_t skip_frames=0){
 #ifdef ENABLE_CPPTRACE
     cpptrace::generate_trace(skip_frames).print(std::cout, false); 
+#else
+    std::println(stderr,"No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");
+    std::println("No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");
 #endif
     BREAKPOINT_QUIET();
 }

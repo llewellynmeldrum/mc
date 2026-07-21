@@ -178,7 +178,6 @@ void Engine::submit_gen_jobs(i64 maxJobs){
     i64 count = 0;
     auto& genQ = world.generators.genJobQueue;
     for (const auto& candidate_coord: candidates){
-        std::println("trying upload on candidate:{}",candidate_coord);
 
         bool success = genQ.try_emplace(
             world.worldgen_epoch,
@@ -197,8 +196,6 @@ void Engine::submit_gen_jobs(i64 maxJobs){
                 }
             );
             count++;
-        }else{
-            std::println("upload failed. :{}",candidate_coord);
         }
     }
     profiler.bench_end("enqueueGen");
@@ -605,8 +602,10 @@ void Engine::handle_input(){
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
 
-    if(input.is_down(KEY_RIGHT) && input.mods.shift){
+    if(input.is_down(KEY_R) && input.mods.shift){
+        LOG_DEBUG("regenerating world...");
         regenerate_world();
+        return;
 	}
 
     // NOTE: MOVEMENT
@@ -703,6 +702,8 @@ void Engine::regenerate_world(){
     rend.meshers.meshJobQueue.clear();
     world.generators.genJobQueue.clear();
 
+    director.ready_for_gen.clear();
+    director.ready_for_mesh.clear();
     
     // now, no more inputs into the threads are possible: 
     // they only have the work which they have accepted.
