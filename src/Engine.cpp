@@ -1,6 +1,7 @@
 
 #include "ChunkStorage.hpp"
 #include "DebugOptions.hpp"
+#include "PendingBlockWrites.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 
@@ -29,10 +30,6 @@
 
 
 #include "FormatSpecs.hpp"
-// TODO: 
-// 1. add coordinate copy command CMD+SHIFT+C gives you set_pos_ori params
-// 2. Fix pending writes
-//
 
 void Engine::loop(){
     while (!win.shouldClose()) {
@@ -138,7 +135,6 @@ void Engine::update_scene() {
         n_chunks_discovered = director.discover_candidates(max_gen_discovery_pf, GENERATION_DIST,RENDER_DIST);
 
         submit_gen_jobs(maxGenJobsPerFrame);
-
         upload_gen_results(maxGenUploadsPerFrame);
 
 
@@ -148,7 +144,6 @@ void Engine::update_scene() {
 
 
         submit_mesh_jobs(maxMeshJobsPerFrame);
-
         upload_mesh_results(maxMeshUploadsPerFrame);
 
         //NOTE: We must perform mesh sorting AFTER mesh upload this frame,
@@ -181,10 +176,12 @@ void Engine::submit_gen_jobs(i64 maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = director.find_gen_jobs(maxJobs);
     i64 count = 0;
-    auto& genQ = world.chunkMap.generator.genJobQueue;
+    auto& genQ = world.generators.genJobQueue;
     for (const auto& candidate_coord: candidates){
+        std::println("trying upload on candidate:{}",candidate_coord);
 
         bool success = genQ.try_emplace(
+            world.worldgen_epoch,
             candidate_coord, 
             world.genConfig
         );
@@ -192,7 +189,7 @@ void Engine::submit_gen_jobs(i64 maxJobs){
             world.chunkMap.entries.if_contains_else(
                 candidate_coord, 
                 [&](ChunkEntry& entry){
-                    entry.state_transition(gen_enqueue);
+                    director.mark_gen_enqueue(entry);
                 },
                 [&](){
                     auto* entry = world.make_chunk_entry(candidate_coord);
@@ -200,6 +197,8 @@ void Engine::submit_gen_jobs(i64 maxJobs){
                 }
             );
             count++;
+        }else{
+            std::println("upload failed. :{}",candidate_coord);
         }
     }
     profiler.bench_end("enqueueGen");
@@ -262,6 +261,7 @@ void Engine::upload_mesh_results(i64 maxUploads){
         auto log_fail_upload = [&](std::string_view str){
             log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
         };
+
 //        if (director.is_chunk_outside_cull_distance(chunkCoord,MESH_CULL_DIST())){
 //            // skip the result, it would otherwise be culled instantly 
 //            continue;
@@ -273,7 +273,7 @@ void Engine::upload_mesh_results(i64 maxUploads){
             continue;
         }
 
-        if (entry->is_mesh_on_queue()){
+        if (entry->qualifies_for_mesh_dequeue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
                 log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->loaded_mesh_revision,candidate_revision);
                 log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),transparent.vertices.size(),cutout.vertices.size());
@@ -326,26 +326,33 @@ void Engine::upload_gen_results(i64 maxUploads){
         }
         return output;
     };
-    auto genResults = drain_gen_results(world.chunkMap.generator.genResultQueue,maxUploads);
+    auto genResults = drain_gen_results(world.generators.genResultQueue,maxUploads);
     for (const auto& newGen : genResults){
-        bool success = world.chunkMap.entries.if_contains_else(
-            newGen.chunkCoord,
-            [&](ChunkEntry& entry){
-                if (entry.qualifies_for_gen_dequeue()){
-                    entry.state_transition(gen_dequeue);
-                    return true;
-                }else{
-                    return false;
-                }
-            },
-            [](){
-                return false;
-            }
-        );
-        if (success){
-            director.upload_generated_chunk(newGen);
+        const auto& chunk_coord = newGen.chunkCoord;
+        const auto& candidate_revision = newGen.genRevisionID;
+        auto log_fail_upload = [&](std::string_view str){
+            log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
+        };
+        auto* entry = world.chunkMap.entries.try_get(chunk_coord);
+        if (!entry){
+            log_fail_upload("Entry does not exist????");
+            continue;
         }
 
+        if (entry->qualifies_for_gen_dequeue()){
+            if (entry->is_candidate_gen_newer_than_loaded(candidate_revision)){
+                log_to_chunk("gen_uploads",chunk_coord, "gen upload success ({}->{})",entry->loaded_gen_revision,candidate_revision);
+            }else{
+                log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                                candidate_revision,entry->loaded_gen_revision));
+            }
+            director.upload_generated_chunk(newGen);
+            entry->loaded_gen_revision = candidate_revision;
+            entry->state_transition(gen_dequeue);
+        }else{
+            log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
+            continue;
+        }
     }
     profiler.bench_end("drainGen");
     gen_res_this_frame = genResults.size();
@@ -553,7 +560,6 @@ void Engine::handle_input(){
             auto chunk_local = toChunkBlockPos(cur_block_pos);
             while (entry->block_data.at(chunk_local) == BlockType::AIR){
                 cur_block_pos.y--;
-                world.set_block(cur_block_pos,BlockType::DBG_OUTLINE);
                 chunk_local = toChunkBlockPos(cur_block_pos);
             }
             auto writer = BlockWriter{
@@ -561,6 +567,11 @@ void Engine::handle_input(){
                 pwq,
                 coord
             };
+            writer.try_place(
+                OverwritePolicy::OnlyAir,
+                cur_block_pos,
+                BlockType::DBG_OUTLINE
+            );
             cur_block_pos.y++;
             features::regular_oak_tree.place(
                 cur_block_pos,
@@ -593,6 +604,10 @@ void Engine::handle_input(){
         DebugOption::fill_neighbour_boundaries = !DebugOption::fill_neighbour_boundaries;
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
+
+    if(input.is_down(KEY_RIGHT) && input.mods.shift){
+        regenerate_world();
+	}
 
     // NOTE: MOVEMENT
     if(input.is_down(KEY_LEFT_SHIFT)){
@@ -683,6 +698,27 @@ RenderTargetView Engine::secondaryView() {
 // =======
 // debugging
 // ========
+void Engine::regenerate_world(){
+    // 1. clear job queues: (no more inputs to the threads)
+    rend.meshers.meshJobQueue.clear();
+    world.generators.genJobQueue.clear();
+
+    
+    // now, no more inputs into the threads are possible: 
+    // they only have the work which they have accepted.
+    // From here, we continuously pop off the queue until all the threads finish.
+    // But how do we know that all the threads are done?
+    
+    // ...
+
+    // _. clear the mesh lists
+    rend.opaque_chunk_meshes.clear();
+    rend.transparent_chunk_meshes.clear();
+    rend.cutout_chunk_meshes.clear();
+
+    // _. clear the chunk stores
+    world.regenerate();
+}
 void Engine::count_states(){
     rb_genJobsAdded.write(gen_jobs_this_frame);
     rb_genResultsAdded.write(gen_res_this_frame);
@@ -706,14 +742,11 @@ void Engine::count_states(){
     n_mesh_done                  ={};
     for (const auto& [key, val]: world.chunkMap.entries){
         switch(val.state.gen){
-            case GenState::on_queue:
-                n_gen_on_queue++;
-            break;
-            case GenState::done:
-                n_gen_done++;
-            break;
-
+            case GenState::on_queue: n_gen_on_queue++; break;
+            case GenState::done: n_gen_done++; break;
+            case GenState::ready_for_enqueue: n_gen_ready_for_enqueue++; break;
         }
+
         switch(val.state.mesh){
             case MeshState::awaiting_generation: n_mesh_awaiting_generation++; break;
             case MeshState::ready_for_enqueue  : n_mesh_ready_for_enqueue  ++; break;

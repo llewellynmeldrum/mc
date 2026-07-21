@@ -11,6 +11,7 @@
 #include "Types.h"
 #include "CommonConcepts.hpp"
 #include "Assertion.hpp"
+#include "Chunk.hpp"
 
 
 template<typename IntVec2, typename Fn>
@@ -33,11 +34,66 @@ void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
 _break:
 
 }
+template<bool inclusive=false, typename IntVec2, typename Fn>
+    requires is_ivec2<IntVec2>
+void for_each_chunk_in_xz(IntVec2 min, IntVec2 max, Fn&& task){
+    using T =i32;
+    for (T cx = T{min[0]}; cx<max[0]; cx++){
+        for (T cz = T{min[1]}; cz<max[1]; cz++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T>){
+                switch(std::invoke(std::forward<Fn>(task),cx,cz)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),cx,cz);
+            }
+        }
+    }
+break_signal:
+}
 
+template<bool floating_point = false, typename Fn>
+void for_each_xz_in_chunk(Fn&& task){
+    using T = std::conditional_t<floating_point, f32, i32>;
+    for (T x = T{0}; x<ChunkInfo::Extents2D[0]; x++){
+        for (T z = T{0}; z<ChunkInfo::Extents2D[1]; z++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T>){
+                switch(std::invoke(std::forward<Fn>(task),x,z)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),x,z);
+            }
+        }
+    }
+break_signal:
+}
+
+template<bool floating_point = false, typename Fn>
+void for_each_xyz_in_chunk(Fn&& task){
+    using T = std::conditional_t<floating_point, f32, i32>;
+    for (T x = T{0}; x<ChunkInfo::Extents3D[0]; x++){
+        for (T y = T{0}; y<ChunkInfo::Extents3D[1]; y++){
+            for (T z = T{0}; z<ChunkInfo::Extents3D[2]; z++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T,T>){
+                switch(std::invoke(std::forward<Fn>(task),x,y,z)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),x,y,z);
+            }
+        }
+        }
+    }
+break_signal:
+}
 // EXCLUSIVE!!!!!!!!!!!! EX!!!! YOU LITERALLY NAMED THE FUCKING FUNCTION EXCLUSIVE!!!!!!!!!!! THE SECOND VARIABLE IS EX-CLU-SIVE. HOW THE FUCK DO YOU FORGET THAT. HOW MANY FUCKING TIMES. YOU PIECE OF SHIT 
 template<typename IntVec2, typename Fn>
     requires is_ivec2<IntVec2> && callable_with<Fn,val_t<IntVec2>,val_t<IntVec2>>
-void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
+inline void ForEachInRangeEx(IntVec2 min, IntVec2 max, Fn&& task){
     using ScalarType = decltype(min)::value_type;
 
     for (ScalarType x = min.x; x<max.x; x++){

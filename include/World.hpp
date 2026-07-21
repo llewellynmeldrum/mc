@@ -11,6 +11,7 @@
 #include "CoordTypes.hpp"
 #include "glmWrapper.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
+#include "cppslop.hpp"
 
 struct World {
     World(i32 _world_seed):
@@ -18,21 +19,35 @@ struct World {
         noise_gen(world_seed),
         genConfig(noise_gen)
     {}
-    World() = delete;
     ~World() = default;
-    World(World const&) = delete;
-    World& operator=(World const&) = delete;
-    World(World&&) = delete;
-    World& operator=(World&&) = delete;
+    NO_MOVE(World);
+    NO_COPY(World);
 
-    const i32 world_seed;
-    const NoiseGenerator noise_gen{default_world_seed};
-    GenConfig genConfig;
-    ChunkMap chunkMap;
-    void set_block(WorldBlockPos wpos, BlockType block);
     inline void setup(){
-        chunkMap.launchGenerator();
+        generators.launchGenThreads();
     }
+
+    inline void regenerate(){
+        chunkMap.clear();
+        worldgen_epoch++; // all new genjobs will have targetRevision incremented 
+    }
+
+    // Mutable state which gets fed to gen workers
+    i32 world_seed;
+    NoiseGenerator noise_gen{default_world_seed};
+    GenConfig genConfig;
+
+    i32 worldgen_epoch {0}; // aka. global target_gen_revision 
+
+    // Owner of the gen workers
+    ChunkGenerator generators;
+
+    // Chunk data store
+    ChunkMap chunkMap;
+
+
+    void set_block(WorldBlockPos wpos, BlockType block);
+
     ChunkEntry* make_chunk_entry(WorldChunkCoord key);
 
 

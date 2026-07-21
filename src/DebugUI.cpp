@@ -603,7 +603,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         });
 
         window.section("Concurrency:",[ctx]{
-            auto& gen = ctx->world.chunkMap.generator;
+            auto& gen = ctx->world.generators;
             auto& mesher = ctx->rend.meshers;
             auto drawSizeAndUniqueness = [ctx]
                 (const std::string name, size_t max, auto& q, auto newcount, const auto& rb){

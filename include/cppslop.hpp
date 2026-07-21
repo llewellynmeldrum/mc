@@ -4,7 +4,13 @@
 #include "Types.h"
 
 using size_t = std::size_t;
+#define NO_MOVE(T)          \
+T(T&&) = delete;            \
+T& operator=(T&&) = delete;
 
+#define NO_COPY(T)          \
+T(const T&) = delete;            \
+T& operator=(const T&) = delete;
 
 // NOTE:
 // I dont like how similar `default` and `delete` look when glazing over classes.

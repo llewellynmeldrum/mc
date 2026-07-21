@@ -173,20 +173,18 @@ struct Queue{
     }
 
 
+    inline void clear(){
+        std::lock_guard lock(mtx);
+        q.clear();
+    }
 
     inline bool is_empty(){
         std::lock_guard lock(mtx);
         return q.empty();
     }
 
-    inline void wait_while_empty(){
-        std::unique_lock lock(mtx);
-        not_empty.wait(lock, [&](){
-            return !q.empty();
-        });
-    }
     inline size_t wait_size(){
-        std::lock_guard lock(mtx);
+        std::unique_lock lock(mtx);
         return q.size();
     }
 

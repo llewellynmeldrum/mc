@@ -29,7 +29,7 @@ void World::set_block(WorldBlockPos wpos, BlockType block){
     }
 }
 ChunkEntry* World::make_chunk_entry(WorldChunkCoord key){
-    auto* res = chunkMap.entries.try_emplace(return_policy::return_ptr{}, key,key);
+    auto* res = chunkMap.entries.try_emplace(return_policy::return_ptr{}, key,key, worldgen_epoch);
     assert(res);
     return res;
 }

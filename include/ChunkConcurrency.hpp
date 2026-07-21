@@ -28,14 +28,16 @@
 // PRODUCER: Main Thread
 // CONSUMER: Generator Thread
 struct GenJob{
+    size_t genRevisionID;
     WorldChunkCoord chunkCoord;
-    const GenConfig& cfg;
+    const GenConfig cfg;
 };
 
 // QUEUE: GenResultQueue
 // PRODUCER: Generator Thread
 // CONSUMER: Main Thread
 struct GenResult{
+    size_t genRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore chunkBlocks;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.

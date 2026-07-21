@@ -60,10 +60,6 @@ void Camera::move(Direction dir, f32 dt) {
     cached_viewMatrix.invalidate();
     cached_frustum.invalidate();
     WorldBlockPos new_block_pos =  toWorldBlockPos(pos);
-    if (new_block_pos != block_pos) {
-        requestMeshRegeneration();
-        // LOG_DEBUG("{} != {}, regenerating mesh", new_block_pos, block_pos);
-    }
     block_pos = new_block_pos;
 }
 void Camera::rotateByMouse(vec2 offset, f32 dt) {
@@ -75,7 +71,6 @@ void Camera::rotateByMouse(vec2 offset, f32 dt) {
         cached_viewMatrix.invalidate();
         cached_frustum.invalidate();
     }
-    // requestMeshRegeneration();
 }
 void Camera::rotate(Direction dir, f32 dt) {
 

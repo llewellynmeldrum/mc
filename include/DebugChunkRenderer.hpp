@@ -78,7 +78,8 @@ inline glm::vec4 MeshDebugColor(MeshState stage){
 inline glm::vec4 GenDebugColor(GenState stage){
     using namespace Color01;
     switch (stage){
-        state_color_match(GenState, on_queue, RED_a)
+        state_color_match(GenState, ready_for_enqueue, RED_a)
+        state_color_match(GenState, on_queue, ORANGE_a)
         state_color_match(GenState, done, GREEN_a)
     }
     return {};

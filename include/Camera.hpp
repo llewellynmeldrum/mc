@@ -36,10 +36,8 @@ struct Camera {
     void rotate(Direction dir, f32 dt);
     void rotateByMouse(glm::vec2 offset, f32 dt);
 
-    bool requestsMeshRegen = true;
     // at the moment, any movement causes mesh regen for all chunks.
     // Should probably only be those that are visible.
-    inline void requestMeshRegeneration() { requestsMeshRegen = true; }
 
     WorldFloatPos pos{};       // world
     // height * aspectRatio = width

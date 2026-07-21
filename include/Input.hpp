@@ -50,7 +50,7 @@ struct Input {
     std::array<bool, KEY_MAX+1> pressed{};
     std::array<bool, KEY_MAX+1> prev_pressed{};
 
-    bool no_mods(){
+    bool no_mods()const noexcept{
         return !(mods.alt || mods.caps || mods.ctrl || mods.super || mods.num_lock || mods.shift);
     }
     KeyModifiers mods;

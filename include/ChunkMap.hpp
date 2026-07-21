@@ -30,14 +30,12 @@ struct ChunkMap {
     ChunkMap(ChunkMap&&) = delete;
     ChunkMap& operator=(ChunkMap&&) = delete;
 
-    inline void launchGenerator(){
-        generator.launchGenThreads();
+
+
+    inline void clear(){
+        pending_writes.clear();
+        entries.clear();
     }
-
-    ChunkGenerator generator;
-    // NOTE: ENTRY MADE: on enqueue into MeshJobs (before meshing)
-    HashMap<WorldChunkCoord, MeshRevisionID> current_mesh_revision;
-
 
 
     // NOTE: ENTRY MADE: Either on GenData upload, or when a chunk tries to write to it

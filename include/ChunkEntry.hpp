@@ -22,8 +22,9 @@
 FORWARD_DECL_STRUCT(Engine)
 
 #define GEN_STATE_LIST \
-X(on_queue)\
-X(done)
+X(ready_for_enqueue     )\
+X(on_queue              )\
+X(done                  )
 
 #define MESH_STATE_LIST \
 X(awaiting_generation   )\
@@ -60,10 +61,11 @@ struct ChunkState{
 void transition_logger(const ChunkState& before, const ChunkState& after);
 void gen_enqueue (ChunkState* e);
 void gen_dequeue (ChunkState* e);
+void delete_gen(ChunkState* e);
+
 void mesh_enqueue(ChunkState* e);
 void mesh_dequeue(ChunkState* e);
 void delete_mesh(ChunkState* e);
-
 
 
 
@@ -76,67 +78,40 @@ void delete_mesh(ChunkState* e);
 // 1. default constructible, probably not movable or copyable. no reason to do either
 struct ChunkEntry{
 
-    ChunkEntry(WorldChunkCoord chunkCoord):
-    bounding_box(
-                toWorldOrigin(chunkCoord).raw(),
-                toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents3D
-    ),
-    state(chunkCoord){}
+    ChunkEntry(WorldChunkCoord chunkCoord, i32 worldgen_epoch):
+        bounding_box(
+                    toWorldOrigin(chunkCoord).raw(),
+                    toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents3D
+        ),
+        neighbours(N_NEIGHBOURS, std::nullopt),
+        state(chunkCoord),
+        target_gen_revision(worldgen_epoch)
+        {}
 
 #ifdef CHUNK_NOISE_DEBUG
     PerColumnDebugStore<NoiseParams> noise{};
 #endif 
     AABB bounding_box; 
-    std::vector<std::optional<WorldChunkCoord>> neighbours = std::vector<std::optional<WorldChunkCoord>>(N_NEIGHBOURS,std::nullopt);
+    std::vector<std::optional<WorldChunkCoord>> neighbours;
     ChunkStore block_data;
     ChunkState state;
-    bool is_mesh_dirty()const noexcept{
-        return loaded_mesh_revision!=target_mesh_revision;
-    }
-    bool is_mesh_clean()const noexcept{
-        return loaded_mesh_revision==target_mesh_revision;
-    }
-    // WARNING: DO NOT USE THIS FUNCTION BY ITSELF! SHOULD ONLY BE USED FROM DIRECTOR
-    void _mark_mesh_dirty(std::string_view reason = "n/a")noexcept{
-        log_to_chunk("mesh_endirtying",state.coord, 
-                     "Mesh dirtied ({}->{}). Reason:{}",
-                     target_mesh_revision,
-                     target_mesh_revision+1,
-                     reason);
-        target_mesh_revision++;
-    }
-    bool qualifies_for_gen_dequeue() const noexcept{
-        return state.gen==GenState::on_queue;
-    }
-    bool qualifies_for_mesh_enqueue()const noexcept{
-        const bool target_is_newer_than_inflight = (target_mesh_revision > inflight_mesh_revision);
-        const bool gen_done = state.gen == GenState::done;
-        const bool ready = state.mesh==MeshState::ready_for_enqueue;
-        const bool dirty_done = state.mesh==MeshState::done && is_mesh_dirty();
-        return target_is_newer_than_inflight && gen_done && (ready || dirty_done);
-    }
-    bool is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept{
-        return candidate_mesh_revision_id > loaded_mesh_revision;
-    }
-    bool is_mesh_on_queue()const noexcept {
-        return state.mesh == MeshState::on_queue;
-    }
-    bool is_gen_dirty() const noexcept{
-        return loaded_gen_revision != target_gen_revision;
-    }
-    bool is_gen_clean() const noexcept{
-        return loaded_gen_revision == target_gen_revision;
-    }
-    bool mark_gen_dirty() noexcept{
-        // NOTE: currently unused
-        return target_gen_revision++;
-    }
-    void mark_mesh_deleted(){
-        state_transition(delete_mesh);
-//        target_mesh_revision = 0;
-        inflight_mesh_revision = 0;
-        loaded_mesh_revision = 0;
-    }
+    bool is_mesh_dirty()const noexcept;
+    bool is_mesh_clean()const noexcept;
+    bool qualifies_for_mesh_enqueue()const noexcept;
+    bool qualifies_for_mesh_dequeue()const noexcept; 
+    bool is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept;
+    void mark_mesh_deleted();
+    void _mark_mesh_dirty(std::string_view reason = "n/a")noexcept;
+
+
+    bool is_gen_dirty() const noexcept;
+    bool is_gen_clean() const noexcept;
+    bool qualifies_for_gen_enqueue() const noexcept;
+    bool qualifies_for_gen_dequeue() const noexcept;
+    bool is_candidate_gen_newer_than_loaded(GenRevisionID candidate_gen_revision_id) const noexcept;
+    void mark_gen_deleted();
+    bool _mark_gen_dirty() noexcept;
+
     template<typename Fn>
     void state_transition(Fn&& fn) {
         auto before = ChunkState(state);
@@ -149,6 +124,6 @@ struct ChunkEntry{
     MeshRevisionID loaded_mesh_revision{0};     // The data on the gpu right now
     //
     GenRevisionID target_gen_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
-    GenRevisionID scheduled_gen_revision{0};  // newest revision in flight (on queue)     ()
+    GenRevisionID inflight_gen_revision{0};  // newest revision in flight (on queue)     ()
     GenRevisionID loaded_gen_revision{0};     // The data on the gpu right now
 };

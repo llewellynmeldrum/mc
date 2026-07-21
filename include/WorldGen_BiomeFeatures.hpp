@@ -13,12 +13,12 @@
 
 struct FeatureShared{
     bool is_enabled{false};
-    std::vector<glm::vec2> density_spawn_remap{};
+    RemapTable density_spawn_remap{};
     f32 min_density() const noexcept{
-        return density_spawn_remap.front()[0];
+        return density_spawn_remap.min_x();
     }
     f32 max_density() const noexcept{
-        return density_spawn_remap.back()[0];
+        return density_spawn_remap.max_x();
     }
     std::vector<BlockType> target_surfaces{
         BlockType::GRASS_BLOCK,
@@ -40,7 +40,7 @@ struct FeatureJitterModule{
     inline f32 perform_roll(WorldBlockPos origin)const noexcept{
         return rng.roll01(origin.x, origin.z);
     }
-    inline bool should_accept(WorldBlockPos origin, f32 density, std::vector<glm::vec2> density_remap)const noexcept{
+    inline bool should_accept(WorldBlockPos origin, f32 density, const RemapTable& density_to_chance)const noexcept{
         f32 roll = perform_roll(origin);
         f32 min_adjacent_roll = roll;
         if (min_dist>0){
@@ -59,7 +59,7 @@ struct FeatureJitterModule{
             return false;
         }
 
-        auto chance = remap_curve<f32>(roll,density_remap);
+        auto chance = density_to_chance.remap<f32>(roll);
         return roll <= chance;
     }
 };

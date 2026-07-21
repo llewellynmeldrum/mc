@@ -57,70 +57,28 @@ auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> n
         auto [wx,wz] = to_world(cx,cz);
         auto biome = biomes[cx,cz];
         f32 cont_noise = noise[cx,cz].cont;
-        i32 base = remap_curve<i32>(
-            cont_noise,
-            {
-                // unsure as to how large to make the coast.
-                // I think it makes sense for the coast to extend INTO the ocean a little.
-                {-1.00f,                    cfg.sea_level-70},
-                {+COAST.min - .50f,         cfg.sea_level-40},
-                {+COAST.min - .30f,         cfg.sea_level-20},
-                {+COAST.min - .10f,         cfg.sea_level-6},
-                { COAST.min,                cfg.sea_level-5},
-                {COAST.mid()                ,cfg.sea_level-2},
-                { COAST.max,                cfg.sea_level+3},
-                {+0.66f,                    cfg.sea_level+6},
-                {+0.80f,                    cfg.sea_level+10},
-                {+1.00f,                    cfg.sea_level+15},
-            }
-        );
-        f32 hill_weight = remap_curve<f32>(
-            cont_noise,
-            {
-                {-1.00f,            0.00f},
-                { COAST.min - .30f, 0.00f},
-                { COAST.min - .10f, 0.00f},
-                { COAST.min,        0.10f},
-                { COAST.mid(),      0.30f},
-                { COAST.max,        0.40f},
-                { COAST.max + .10f, 0.70f},
-                { COAST.max + .20f, 0.80f},
-                { COAST.max + .30f, 0.90f},
-                {+1.00f,            1.00f}, 
-            }
-        );
         f32 hill_noise = noise[cx,cz].hill;
-        i32 hill_height = remap_curve<i32>(
-            hill_noise,
-            {
-                {-1.00f,                    0},
-                { COAST.mid(),              0},
-                { COAST.mid() + 0.10f,      0},
-                { COAST.mid() + 0.45f,      90},
-                {+1.00f,                    95}, 
-            }
-        );
 
-        f32 gradient_noise = noise[cx,cz].grad;
-        // 1. work out the base noise via a spline remap
-        // 2. work out the hill_weight via a spline remap of cont
+        i32 base = cfg.cont_noise_to_base.remap<i32>(cont_noise);
+        f32 hill_weight = cfg.cont_noise_to_hill_weight.remap<f32>(cont_noise);
+        i32 hill_height = cfg.hill_noise_to_hill_height.remap<i32>( hill_noise);
 
 
         i32 height = 
             base 
-            + hill_noise  * hill_height * hill_weight;
+            + (hill_noise  * hill_height * hill_weight);
         ;
         heightmap[cx,cz] = height; 
-       // noise_export[cx,cz] = cont_noise;
     });
     return heightmap;
 };
 
 static GenResult generate_chunk(GenJob job){
     GenResult res{
+        .genRevisionID = job.genRevisionID,
         .chunkCoord=job.chunkCoord,
         .chunkBlocks = {},
-        .deferredWrites = {},
+        .deferredWrites = {}
     };
     const auto& chunk_coord = res.chunkCoord;
     auto& block_store = res.chunkBlocks;
@@ -130,8 +88,14 @@ static GenResult generate_chunk(GenJob job){
 
 
 
-    constexpr glm::ivec2 chunk_local_min = {0,0};
-    constexpr glm::ivec2 chunk_local_max = {ChunkInfo::Extents3D.x, ChunkInfo::Extents3D.z};
+    constexpr static f32 tree_inland_bias_max = 1.6f; 
+    RemapTable cont_to_tree_inland_bias{
+                // cont     tree_inland_bias
+                {-1.0f,     1.0f},
+                {+0.25f,    1.0f},
+                {+0.75f,    tree_inland_bias_max},
+    };
+
 
     const auto world_block_origin = toWorldOrigin(job.chunkCoord);
     const auto& world_block_lo = world_block_origin;
@@ -149,7 +113,7 @@ static GenResult generate_chunk(GenJob job){
 #endif
 
 
-    ForEachInRangeEx(chunk_local_min,chunk_local_max,[&](i32 cx, i32 cz){
+    for_each_xz_in_chunk([&](i32 cx, i32 cz){
         auto terrain_height = height_map[cx,cz];
         auto dirt_y_start = terrain_height - 1;
         auto dirt_y_stop = terrain_height - 4;
@@ -177,23 +141,13 @@ static GenResult generate_chunk(GenJob job){
             block_store.at(cx,y,cz)=brush;
         }
     });
-    ForEachInRangeEx(chunk_local_min,chunk_local_max,[&](i32 cx, i32 cz){
+    for_each_xz_in_chunk([&](i32 cx, i32 cz){
         auto terrain_height = height_map[cx,cz];
         const auto& biome = biome_map[cx,cz];
         const auto& palette = biome_palettes[biome];
         const auto& features = biome_features[biome];
 
-
-        constexpr static f32 tree_inland_bias_max = 1.6f; 
-        f32 tree_inland_bias = remap_curve<f32>(
-            noise_map[cx,cz].cont,
-            {
-                // cont     tree_inland_bias
-                {-1.0f,     1.0f},
-                {+0.25f,    1.0f},
-                {+0.75f,    tree_inland_bias_max},
-            }
-        );
+        f32 tree_inland_bias = cont_to_tree_inland_bias.remap<f32>(noise_map[cx,cz].cont);
         const f32 tree_density = noise_map[cx,cz].rain;// * tree_inland_bias;
         const f32 grass_density = tree_density;
         const f32 multi_seg_density = tree_density;

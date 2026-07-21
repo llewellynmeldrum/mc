@@ -94,6 +94,7 @@ struct ChunkDirector{
     size_t discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius);
     void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
         ready_for_gen.erase(entry.state.coord);
+        entry.state_transition(gen_enqueue);
     }
     std::vector<WorldChunkCoord> find_gen_jobs(size_t N){
         size_t count = std::min(N,ready_for_gen.size());

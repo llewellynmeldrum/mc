@@ -48,6 +48,7 @@ struct Engine {
     ChunkDirector director;
 
 
+    void regenerate_world();
     void set_debug_params();
     void handle_input();
     void refresh_visible_chunks();
@@ -86,7 +87,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 64;
+    static constexpr i32 RENDER_DIST = 16;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========
@@ -116,6 +117,7 @@ struct Engine {
 
     i64 mesh_jobs_this_frame = 0;
     i64 mesh_results_this_frame = 0;
+    i64 n_gen_ready_for_enqueue{};
     i64 n_gen_on_queue               {};
     i64 n_gen_done                   {};
 
