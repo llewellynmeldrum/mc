@@ -76,16 +76,14 @@ void mesh_quad(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexList quad_vert
     using vec3 = glm::vec3;
     constexpr auto atlas_id = shape_atlas_id<block_shape>;
     for (const auto& [vtx_idx, vtx] : views::enumerate(quad_vertices)) {
-        vtx.pos += static_cast<vec3>(chunk_local.raw());
+        vtx.offset_by_chunk_pos(chunk_local);
         vtx.txCoords = uvs[vtx_idx];
-        vtx.overlayColor = {0.0f,0.0f,0.0f,0.0f};
-        vtx.faceOpacity = quad_opacity;
+        vtx.set_face_opacity(quad_opacity);
         if constexpr (block_shape != BlockShape::CROSS){
-            vtx.face_direction = face_idx;
+            vtx.set_face_dir(face_idx);
         }else {
-            vtx.face_direction = 5; // receives no fake_shadow
+            vtx.set_face_dir(5);
         }
-        vtx.texture_atlas_id = atlas_id;
         ctx.out_vertices.push_back(vtx);
     }
 }

@@ -327,15 +327,15 @@ static inline constexpr f32 P = +1.0f;
 static inline constexpr f32 Z = 0.0f;
 
 template<size_t N>
-static constexpr inline Vertex make_snow_vtx(glm::vec3 pos, glm::vec2 uv, i32 dir){
-    return Vertex{ pos, uv, dir,shape_of_snow_level<N>};
+static consteval inline Vertex make_snow_vtx(glm::vec3 pos, glm::vec2 uv, i32 dir){
+    return Vertex(pos, uv, dir,shape_of_snow_level<N>);
 }
 template<size_t N, f32 PY=(N/16.0f)>
 static constexpr inline ShapeQuadList make_snow_quadlist{
         // Direction::forward
         Quad{
-            make_snow_vtx<N>({P,Z,Z}, {0,  PY}, 0),
-            make_snow_vtx<N>({Z,Z,Z}, {1,  PY}, 0),
+            make_snow_vtx<N>({P,Z,Z},  {0,  PY}, 0),
+            make_snow_vtx<N>({Z,Z,Z},  {1,  PY}, 0),
             make_snow_vtx<N>({Z,PY,Z}, {1, PY}, 0),
             make_snow_vtx<N>({P,PY,Z}, {0, PY}, 0),
         },

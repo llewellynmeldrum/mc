@@ -138,7 +138,7 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
 #endif
     update_neighbour_map(chunkCoord);
     update_bounding_boxes_map(chunkCoord);
-    mark_neighbours_dirty(chunkCoord,"Neighbour generated");
+    //mark_neighbours_dirty(chunkCoord,"Neighbour generated");
     mark_mesh_dirty(*entry,"Newly generated"); // allow for meshing
 }
 void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkView srcBlocks, const PendingWriteList& newWriteList) {

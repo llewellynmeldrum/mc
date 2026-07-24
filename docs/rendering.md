@@ -74,3 +74,8 @@ struct packed_attr{
 
 
 The number of light levels is subject to change, but I think 15 is a good amount. (2^4, meaning we can store it in 4 bits each.
+
+
+Light levels are stored within the chunk data, in a per block map.
+Each :wq
+

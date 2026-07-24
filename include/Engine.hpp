@@ -91,7 +91,7 @@ struct Engine {
     void refresh_visible_chunks();
     void classify_visible_chunks();
 
-    static constexpr i64 maxGenUploadsPerFrame= 16;
+    static constexpr i64 maxGenUploadsPerFrame= 128;
     static constexpr i64 max_gen_discovery_pf= 128;
     static constexpr i64 maxGenJobsPerFrame = 128;
     static constexpr i64 maxMeshUploadsPerFrame= 64;
@@ -125,7 +125,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 16;
+    static constexpr i32 RENDER_DIST = 32;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========

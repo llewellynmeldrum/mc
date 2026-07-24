@@ -5,9 +5,9 @@
 in vec2 texCoord;
 in vec4 faceOverlayColor;
 in float fakeShadowOpacity; 
+in float face_opacity;
 
-in float blockOpacity;
-flat in int texture_id;
+flat in uint texture_id;
 
 out vec4 FragColor;
 

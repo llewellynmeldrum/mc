@@ -69,6 +69,16 @@ struct attribute_traits<i32> {
     static constexpr bool normalized = false;
 };
 
+
+template <>
+struct attribute_traits<u32> {
+    using value_type = u32;
+    static constexpr u32  count = 1;
+    static constexpr auto vertex_attribute_type = VertexAttributeType::u32;
+    static constexpr bool is_integer = true;
+    static constexpr bool normalized = false;
+};
+
 struct VertexAttribute {
     u32         location;
     i32         count;
