@@ -1,3 +1,4 @@
+#pragma once 
 #include <utility>
 #include <array>
 #include <initializer_list>
@@ -23,6 +24,9 @@ struct EnumMap{
 
     constexpr decltype(auto) operator[](this auto& self, key_type key)noexcept{
         return self.data[std::to_underlying(key)];
+    }
+    constexpr decltype(auto) at(this auto& self, key_type key)noexcept{
+        return self.data.at(std::to_underlying(key));
     }
 
     std::array<mapped_type,capacity> data{};

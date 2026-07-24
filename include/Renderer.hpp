@@ -18,7 +18,9 @@
 
 #include "Chunk.hpp"
 FORWARD_DECL_STRUCT(Engine)
-FORWARD_DECL_STRUCT(Profiler)
+FORWARD_DECL_TEMPLATE_STRUCT(BenchmarkMap, typename K, bool ordered)
+using FrameProfiler = BenchmarkMap<std::string_view,true>;
+
 struct Renderer {
     Renderer();
     ~Renderer() = default;
@@ -26,7 +28,7 @@ struct Renderer {
     TextureAtlas cube_atlas;
     TextureAtlas cross_atlas;
     TextureAtlas cactus_atlas;
-    TextureAtlas lower_half_slab_atlas;
+    TextureAtlas half_slab_atlas;
     std::vector <TextureAtlas*> atlas_list;
     ChunkMesher  meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
@@ -38,8 +40,8 @@ struct Renderer {
     slot_map<WorldChunkCoord,Mesh> opaque_chunk_meshes;
     std::vector<WorldChunkCoord> sorted_opaque_coords;
 
-    slot_map<WorldChunkCoord, Mesh> transparent_chunk_meshes;
-    std::vector<WorldChunkCoord> sorted_transparent_coords;
+    slot_map<WorldChunkCoord, Mesh> blended_chunk_meshes;
+    std::vector<WorldChunkCoord> sorted_blended_coords;
 
     slot_map<WorldChunkCoord, Mesh> cutout_chunk_meshes;
     std::vector<WorldChunkCoord> sorted_cutout_coords;
@@ -53,17 +55,17 @@ struct Renderer {
     i32 u_view_loc{};
 
     void sort_opaque_chunks(WorldFloatPos cam_pos);
-    void sort_transparent_chunks(WorldFloatPos cam_pos);
+    void sort_blended_chunks(WorldFloatPos cam_pos);
     void sort_cutout_chunks(WorldFloatPos cam_pos);
 
-    void draw_to(Camera& cam, RenderTargetView target, Profiler* prof);
+    void draw_to(Camera& cam, RenderTargetView target, FrameProfiler* prof);
 
-    void prepare_transparent_pass();
+    void prepare_blended_pass();
     void prepare_opaque_pass();
     void prepare_cutout_pass();
 
     void draw_opaque_pass(Camera& cam);
-    void draw_transparent_pass(Camera& cam);
+    void draw_blended_pass(Camera& cam);
     void draw_cutout_pass(Camera& cam);
 
     void draw_debugChunks_to(Camera&cam, Engine* sim, RenderTargetView target);
@@ -78,8 +80,8 @@ struct Renderer {
     }
 
     inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData mesh_data) {
-        transparent_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
-        sorted_transparent_coords.emplace_back(coord);
+        blended_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+        sorted_blended_coords.emplace_back(coord);
     }
     inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData mesh_data) {
         cutout_chunk_meshes.emplace_or_assign(

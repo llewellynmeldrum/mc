@@ -13,9 +13,8 @@ enum struct ThreadType{
 };
 template<>
 struct std::formatter<ThreadType>{
-
-	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const ThreadType& val, std::format_context& ctx)const {
+	constexpr auto parse(std::format_parse_context& ctx) const noexcept{return ctx.begin();}
+	auto format(const ThreadType& val, std::format_context& ctx)const noexcept{
         std::string s{};
         switch(val){
         case ThreadType::main: s="main"; break;
@@ -50,7 +49,7 @@ struct ThreadTracker{
         auto thread_type = ThreadType::unknown;
         auto it = thread_types.find(id);
         if (it == thread_types.end()){
-            LOG_WARN("THREAD {} QUERIED ITS TYPE, BUT NEVER REGISTERED!",id);
+            std::println(stderr, "THREAD {} QUERIED ITS TYPE, BUT NEVER REGISTERED!",id);
         }else{
             thread_type = it->second;
         }

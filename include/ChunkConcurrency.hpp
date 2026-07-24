@@ -3,6 +3,7 @@
 #include <queue>
 #include <atomic>
 
+#include "BenchmarkMap.hpp"
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkNoiseDebug.hpp"
@@ -21,6 +22,11 @@
 #include "WorldGen_Config.hpp"
 
 
+struct ChunkBenchContext{
+    ConcurrentChunkBenchmarker& work;
+    ConcurrentChunkBenchmarker& job_idle;
+    ConcurrentChunkBenchmarker& res_idle;
+};
 
 
 
@@ -28,6 +34,7 @@
 // PRODUCER: Main Thread
 // CONSUMER: Generator Thread
 struct GenJob{
+    ChunkBenchContext bench;
     size_t genRevisionID;
     WorldChunkCoord chunkCoord;
     const GenConfig cfg;
@@ -52,6 +59,7 @@ struct GenResult{
 FORWARD_DECL_STRUCT(TextureAtlas)
 FORWARD_DECL_STRUCT(ChunkMap)
 struct MeshJob{
+    ChunkBenchContext bench;
     size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkStore blocks;
@@ -63,6 +71,7 @@ struct MeshJob{
 
 
     MeshJob(
+        ChunkBenchContext bench,
         WorldChunkCoord key, 
         const_span<TextureAtlas*> _atlas_list, 
         ChunkMap* chunk_map,

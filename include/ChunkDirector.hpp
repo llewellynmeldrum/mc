@@ -91,7 +91,10 @@ struct ChunkDirector{
     // ============
     void upload_generated_chunk(GenResult gen_res);
 
-    size_t discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius);
+    std::pair<size_t,size_t> discover_candidates(
+        ChunkBenchmarkerNoRevision & mesh_enqueue_delay_bench, 
+        ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench, 
+        i64 max_jobs, i64 gen_radius, i64 mesh_radius);
 
     void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
         ready_for_gen.erase(entry.state.coord);

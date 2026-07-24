@@ -65,7 +65,7 @@ void DebugChunkMesher::setup(){
     cube_ebo.make();
     instance_vbo.make();
 
-    prog.setup("shaders/debug_chunks_vs.glsl", "shaders/debug_chunks_fs.glsl");
+    prog.load_vtx_and_frag("shaders/debug_chunks_vs.glsl", "shaders/debug_chunks_fs.glsl");
 
     vao.bind();
 

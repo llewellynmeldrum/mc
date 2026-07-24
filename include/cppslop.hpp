@@ -35,6 +35,14 @@ T& operator=(const T&) = delete;
 #define FORWARD_DECL_ENUM_CLASS(NAMESPACE, NAME, UNDERLYING)                                       \
     enum class NAME : UNDERLYING;
 
+#define FORWARD_DECL_TEMPLATE_STRUCT(NAME, ...)\
+    template< __VA_ARGS__ >                 \
+    struct NAME;
+
+#define FORWARD_DECL_TEMPLATE_CLASS(NAME, ...)\
+    template< __VA_ARGS__ >                 \
+    class NAME;
+
 #define FORWARD_DECL_STRUCT(NAME)                                                                  \
     struct NAME;
 

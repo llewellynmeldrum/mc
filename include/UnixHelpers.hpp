@@ -11,9 +11,9 @@
 
 // unix utilities
 namespace unix {
-    u64 inline get_file_size(const char* filename){
+    u64 inline get_file_size(std::string const& filename){
         struct stat st;
-        lstat(filename, &st);
+        lstat(filename.c_str(), &st);
         return static_cast<u64>(st.st_size);
     }
 

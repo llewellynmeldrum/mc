@@ -1,51 +1,93 @@
+#include <filesystem>
+#include <iostream>
+
 #include "Shaders.hpp"
+#include "GlobalDebugLog.hpp"
 #include "UnixHelpers.hpp"
 #include "glbindingWrapper.hpp"
 #include "Breakpoints.hpp"
 #include "Logger.hpp"
+
+#include <string_view>
+std::string read_file_contents(std::string const& filename){
+    std::ifstream file_stream(filename);
+    if (!file_stream.is_open()) {
+        LOG_ERROR("Could not open file: '{}'.", filename);
+        return "FAILED TO OPEN";
+    }
+    i64 sz = unix::get_file_size(filename);
+    auto file_contents = std::string(sz, '\0');
+    file_stream.read(&file_contents[0], sz);
+    if (file_contents.empty()){
+        LOG_ERROR("Failed to load file contents of '{}'.", filename);
+        file_stream.close();
+        return "FAILED TO LOAD";
+    }
+    file_stream.close();
+    return file_contents;
+}
+std::string parse_include_directives(std::string& shader_file_contents){
+    auto iss = std::istringstream(shader_file_contents);
+    std::string line;
+    std::vector<std::string> lines;
+    while (std::getline(iss, line)){
+        lines.push_back(line);
+    }
+
+    std::string res; 
+    for (const auto& line: lines){
+        if (line.contains("#include")){
+            auto open_quote = line.find_first_of("\"");
+            auto close_quote = line.find_last_of("\"");
+            auto included_filename = std::string(
+                line.begin() + open_quote + 1,
+                line.begin() + close_quote
+            );
+            LOG_DEBUG("PARSING #INCLUDE FOR ->{}<-",included_filename);
+            res.append_range(read_file_contents(included_filename));
+        }else{
+            res.append_range(line);
+        }
+        res.append("\n");
+    }
+    return res;
+}
+
 #define _DEBUG
 using namespace gl;
 
 using namespace glm;
-Shader::Shader(i32 shader_type, const char* src_path) : src_path(src_path) {
-    this->ShaderType = shader_type;
-    this->id = glCreateShader(static_cast<GLenum>(shader_type));
-    if (!readSource(src_path)) {
-        LOG_ERROR("Error reading shader '{}'.", src_path);
-        LOG_EXIT(EXIT_FAILURE);
-    }
+Shader::Shader(i32 shader_type, const std::string& src_path) 
+: ShaderType(shader_type) 
+, id(glCreateShader(static_cast<GLenum>(shader_type)))
+, src_path(src_path)
+{
+    load_shader_file(src_path,true);
     if (!compile()) {
         LOG_ERROR("Error compiling shader '{}'.", src_path);
     }
 }
-std::string Shader::tostr(i32 shader_type) {
-    if (shader_type == GL_VERTEX_SHADER)
-        return "Vertex";
-    else if (shader_type == GL_FRAGMENT_SHADER)
-        return "Fragment";
-    else
-        return "Unknown shader type.";
+
+void Shader::load_shader(const std::string& file_contents) {
+    const char* ptr = file_contents.c_str();
+    glShaderSource(id, 1, &(ptr), nullptr);
 }
-bool Shader::readSource(const char* filename) {
-    std::string   src_buf;
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        LOG_ERROR("Could not open file '{}'.", filename);
-        return false;
+void Shader::load_shader_file(const std::string& filename, bool enable_includes) {
+    file_contents = read_file_contents(filename);
+    if (enable_includes){
+        file_contents = parse_include_directives(file_contents);
     }
-    i64 sz = unix::get_file_size(filename);
-    src_buf = std::string(sz, '\0');
-    file.read(&src_buf[0], sz);
-    file.close();
-    const char* data = src_buf.c_str();
-    glShaderSource(id, 1, &data, nullptr);
-    return true;
+    load_shader(file_contents);
 }
+// given a file containing 0 or many #include "xyz.h" statements, find and paste the file contents
+// of the file xyz.
+
 bool Shader::compile() {
     glCompileShader(id);
     if (has_error(static_cast<i32>(GL_COMPILE_STATUS))) {
-        LOG_ERROR("{} shader failed to compile:\nin {}:\n{}", tostr(ShaderType), src_path,
+        LOG_ERROR("{} shader failed to compile:\nin {}:\n{}", shader_type_to_str(ShaderType), src_path,
                   get_info_log());
+        LOG_DEBUG("Shader file contents:\n{}",file_contents);
         return false;
     }
     return true;
@@ -64,14 +106,8 @@ std::string Shader::get_info_log() {
 Shader::~Shader() {
     glDeleteShader(id);
 }
-VertexShader::VertexShader(const char* src) : Shader(static_cast<i32>(GL_VERTEX_SHADER), src) {
-}
 
-FragmentShader::FragmentShader(const char* src)
-    : Shader(static_cast<i32>(GL_FRAGMENT_SHADER), src) {
-}
-
-void ShaderProgram::setup(const char* vtx_src, const char* frag_src) {
+void ShaderProgram::load_vtx_and_frag(const std::string& vtx_src, const std::string& frag_src) {
     this->id = glCreateProgram();
     VertexShader   vtx(vtx_src);
     FragmentShader frag(frag_src);
@@ -103,6 +139,9 @@ std::string ShaderProgram::get_info_log() {
     return info_log;
 }
 
+// Performs a ripgrep search for the uniform in the shaders directory. 
+// Obviously not fool-proof, however its nice in catching obvious errors 
+// (e.g asking for the location of a shader whose name never appears in the file)
 void ShaderProgram::check_uniform(std::string name) {
     std::string count_str = unix::exec(std::format("rg -w '{}' ./shaders -c | wc -l", name));
     auto        count = std::stoi(count_str);
@@ -156,4 +195,20 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
         LOG_FATAL("{}", get_info_log());
     }
     return location;
+}
+std::string Shader::shader_type_to_str(i32 shader_type) {
+    if (shader_type == GL_VERTEX_SHADER){
+        return "Vertex";
+    } else if (shader_type == GL_FRAGMENT_SHADER){
+        return "Fragment";
+    } else{
+        return "Unknown shader type.";
+    }
+}
+VertexShader::VertexShader(const std::string& filename) 
+: Shader(static_cast<i32>(GL_VERTEX_SHADER), filename) {
+}
+
+FragmentShader::FragmentShader(const std::string& filename)
+    : Shader(static_cast<i32>(GL_FRAGMENT_SHADER), filename) {
 }

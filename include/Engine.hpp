@@ -3,13 +3,12 @@
 #include "Camera.hpp"
 #include "MirroredRingBuf.hpp"
 #include "Window.hpp"
-#include "Timer.hpp"
+#include "BenchmarkMap.hpp"
 #include "Input.hpp"
 #include "DebugUI.hpp"
 #include "Renderer.hpp"
 #include "WorldGen_Config.hpp"
 #include "cppslop.hpp"
-#include "Profiler.hpp"
 #include "ChunkDirector.hpp"
 
 #include "World.hpp"
@@ -37,7 +36,44 @@ struct Engine {
 
 
     Window   win;
-    Profiler profiler;
+    FrameProfiler profiler;
+    // Measures the time from enqueue to upload (enqueue->work->upload)
+    // start = after job enqueue (main thread)
+    // end = after res deque + upload (main thread)
+    ChunkBenchmarker mesh_rtt_bencher;
+    ChunkBenchmarker gen_rtt_bencher;
+
+    // measures the time spent actually working
+    // start = after job dequeue (worker thread)
+    // end = before res enqueue + upload (worker thread)
+    ConcurrentChunkBenchmarker mesh_work_bencher;
+    ConcurrentChunkBenchmarker gen_work_bencher;
+    // aka work_bencher in job structs
+    // include/ChunkConcurrency.hpp
+
+
+    // Measures the time spent in a valid state before being enqueued. 
+    // start = after adding to ready_for_mesh/ready_for_gen
+    // end = after enqueue
+    ChunkBenchmarkerNoRevision mesh_enqueue_delay_bench;
+    ChunkBenchmarkerNoRevision gen_enqueue_delay_bencher;
+
+
+    // Measures the time spent idle on the job queue.
+    // start = job enqueue  (on main thread)
+    // end = job dequeue    (on mesh/gen thread)
+    ConcurrentChunkBenchmarker mesh_job_queue_idle_bencher; // BUG: Disabled due to bug
+    ConcurrentChunkBenchmarker  gen_job_queue_idle_bencher;
+    // aka bench.job_idle in job structs
+
+
+    // Measures the time spent idle on the result queue.
+    // start = res enqueue  (on main thread)
+    // end = res dequeue    (on worker thread)
+    ConcurrentChunkBenchmarker mesh_res_queue_idle_bencher;
+    ConcurrentChunkBenchmarker  gen_res_queue_idle_bencher;
+    // aka bench.res_idle in job structs
+
     Input    input;
     Camera   player_cam;
     Camera   drone_cam;
@@ -49,6 +85,7 @@ struct Engine {
 
 
     void regenerate_world();
+    void remesh_world();
     void set_debug_params();
     void handle_input();
     void refresh_visible_chunks();
@@ -88,7 +125,7 @@ struct Engine {
     // =========
     // Generation
     // =========
-    static constexpr i32 RENDER_DIST = 32;
+    static constexpr i32 RENDER_DIST = 16;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     
     // =========
@@ -112,7 +149,6 @@ struct Engine {
     i64 n_meshing{};
     MirroredRingBuf<f32, RB_SZ> rb_meshing;
 
-    i64 n_chunks_discovered = 0;
     i64 gen_jobs_this_frame = 0;
     i64 gen_res_this_frame = 0;
 

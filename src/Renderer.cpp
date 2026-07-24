@@ -9,14 +9,13 @@
 #include "FormatSpecs.hpp"
 #include "Renderer.hpp"
 
-#include "Profiler.hpp"
+#include "BenchmarkMap.hpp"
 #include "Engine.hpp"
 #include "glbinding/gl/functions.h"
 #include "glbindingWrapper.hpp"
 #include "glmWrapper.hpp"
 #include "World.hpp"
 #include "LM.hpp"
-#include "Profiler.hpp"
 
 using namespace gl;
 using namespace glm;
@@ -33,18 +32,18 @@ void Renderer::updateViewport(int x, int y, int w, int h) {
 }
 
 Renderer::Renderer() {
-    prog.setup("shaders/vs.glsl", "shaders/fs.glsl");
+    prog.load_vtx_and_frag("shaders/vs.glsl", "shaders/fs.glsl");
     prog.use();
 
     cube_atlas.load_texture("resources/textures/cube_atlas.png");
     cross_atlas.load_texture("resources/textures/cross_atlas.png");
     cactus_atlas.load_texture("resources/textures/cactus_atlas.png");
-    lower_half_slab_atlas.load_texture("resources/textures/half_slab_atlas.png");
+    half_slab_atlas.load_texture("resources/textures/half_slab_atlas.png");
 
     atlas_list.push_back(&cube_atlas);
     atlas_list.push_back(&cross_atlas);
     atlas_list.push_back(&cactus_atlas);
-    atlas_list.push_back(&lower_half_slab_atlas);
+    atlas_list.push_back(&half_slab_atlas);
 
     u_textures_loc = prog.getUniformLoc("textures");
     u_enable_cutout_loc = prog.getUniformLoc("u_enable_cutout");
@@ -104,7 +103,7 @@ void enableDepthMask(){
 void disableDepthMask(){
     glDepthMask(GL_FALSE);
 }
-void Renderer::prepare_transparent_pass(){
+void Renderer::prepare_blended_pass(){
     enableDepthTesting();
     enableDepthMask();
 
@@ -128,7 +127,7 @@ void Renderer::prepare_cutout_pass(){
     disableColorBlending();
     enableBackfaceCulling();
 }
-void Renderer::draw_to(Camera& cam, RenderTargetView target, Profiler* prof){
+void Renderer::draw_to(Camera& cam, RenderTargetView target, FrameProfiler* prof){
     {
         prof->bench_start("02_rendinit");
 
@@ -157,10 +156,10 @@ void Renderer::draw_to(Camera& cam, RenderTargetView target, Profiler* prof){
     }
 
     {
-        prof->bench_start("05_transparent");
-        prepare_transparent_pass();
-        draw_transparent_pass(cam);
-        prof->bench_end("05_transparent");
+        prof->bench_start("05_blended");
+        prepare_blended_pass();
+        draw_blended_pass(cam);
+        prof->bench_end("05_blended");
     }
 
     
@@ -188,7 +187,7 @@ void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView ta
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    prepare_transparent_pass();
+    prepare_blended_pass();
     dbg_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
@@ -204,7 +203,7 @@ void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTarge
     line3d_rend.update(cam,lines);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    prepare_transparent_pass();
+    prepare_blended_pass();
     line3d_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
@@ -218,8 +217,8 @@ void Renderer::clear_to(RenderTargetView target){
 }
 
 
-void Renderer::draw_transparent_pass(Camera& cam){
-    draw_meshes(transparent_chunk_meshes,sorted_transparent_coords);
+void Renderer::draw_blended_pass(Camera& cam){
+    draw_meshes(blended_chunk_meshes,sorted_blended_coords);
 }
 
 void Renderer::draw_cutout_pass(Camera& cam){
@@ -335,7 +334,7 @@ void Renderer::sort_opaque_chunks(WorldFloatPos cam_pos){
     sorted_opaque_coords = opaque_chunk_meshes.sorted_keys(closer);
 }
 
-void Renderer::sort_transparent_chunks(WorldFloatPos cam_pos){
+void Renderer::sort_blended_chunks(WorldFloatPos cam_pos){
     // we want furthest -> nearest for correct transparency
     auto source_chunk = toWorldChunkCoord(cam_pos);
     using LM::sq_dist;
@@ -343,8 +342,8 @@ void Renderer::sort_transparent_chunks(WorldFloatPos cam_pos){
         return sq_dist(source_chunk,lhs) > sq_dist(source_chunk,rhs);
     };
 
-    sorted_transparent_coords = transparent_chunk_meshes.sorted_keys(further);
-    assert(sorted_transparent_coords.size()==transparent_chunk_meshes.size());
+    sorted_blended_coords = blended_chunk_meshes.sorted_keys(further);
+    assert(sorted_blended_coords.size()==blended_chunk_meshes.size());
 }
 
 

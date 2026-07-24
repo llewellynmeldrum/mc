@@ -39,6 +39,16 @@ struct MirroredRingBuf {
         }
         return sum / size();
     }
+    T stddev() const {
+        auto mean = avg();
+        f32 sum{};
+        for (size_t i = 0; i<count; i++){
+            auto dev = buf[i] - mean;
+            auto dev2 = dev*dev;
+            sum+=dev2;
+        }
+        return std::sqrt(sum/count);
+    }
     inline T max() const noexcept { return max_val; }
     inline T min() const noexcept { return min_val; }
 

@@ -9,6 +9,7 @@
 #include "ChunkMap.hpp"
 #include "CommonUtils.hpp"
 #include "CoordTypes.hpp"
+#include "GlobalDebugLog.hpp"
 #include "glmWrapper.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"

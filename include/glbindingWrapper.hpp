@@ -32,21 +32,21 @@ constexpr gl::GLenum gl_type_from(T val);
 #include "glTypeTraits.hpp"
 
 template <>
+// Honestly all this fuckery just to avoid exposing the gl headers inside my own headers was not worth it.
+// Attribute traits should have just contained a GLenum 
 constexpr gl::GLenum gl_type_from<VertexAttributeType>(VertexAttributeType vat) {
-
-    int i = 5124;
     switch (vat) {
     case VertexAttributeType::u32:
-        return gl_type_traits<u32>::value;
+        return gl_enum_trait<u32>::value;
         break;
     case VertexAttributeType::i32:
-        return gl_type_traits<i32>::value;
+        return gl_enum_trait<i32>::value;
         break;
     case VertexAttributeType::f32:
-        return gl_type_traits<f32>::value;
+        return gl_enum_trait<f32>::value;
         break;
     case VertexAttributeType::f64:
-        return gl_type_traits<f64>::value;
+        return gl_enum_trait<f64>::value;
         break;
     };
     return gl::GLenum::GL_NO_ERROR;

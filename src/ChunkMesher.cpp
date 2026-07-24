@@ -20,7 +20,6 @@
 #include "Logger.hpp"
 #include "glmWrapper.hpp"
 #include "Engine.hpp"
-#include "Profiler.hpp"
 #include "LM.hpp"
 #include "Concurrency.hpp"
 
@@ -49,7 +48,7 @@ struct BlockMeshContext{
 #endif
 };
 
-std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext& ctx);
+std::array<Block, Direction_Count> get_surrounding_blocks(const BlockMeshContext& ctx);
 
 
 const auto& get_cross_quad_data(i8 idx) {
@@ -64,65 +63,30 @@ const auto& get_cactus_quad_data(Direction dir) {
 const auto& get_bot_half_slab_quad_data(Direction dir) {
     return AT(lower_half_slab_vtx::quads,std::to_underlying(dir));
 }
-
+const auto& get_top_half_slab_quad_data(Direction dir) {
+    return AT(top_half_slab_vtx::quads,std::to_underlying(dir));
+}
+template<std::size_t N>
+const auto& snow_quad_data(Direction dir) {
+    return AT(snow_vtx::quad_n[N-1],std::to_underlying(dir));
+}
 
 template<BlockShape block_shape>
-void make_quad_vertices(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexData quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
+void mesh_quad(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexList quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
     using vec3 = glm::vec3;
-    for (const auto& [idx, vtx] : views::enumerate(quad_vertices)) {
-        // Vertex
-        vec3 chunk_offsetted_vtx_pos =
-            static_cast<vec3>(vtx.pos)
-            +
-            static_cast<vec3>(chunk_local.raw());
-        if constexpr(block_shape == BlockShape::CROSS){
-            ctx.out_vertices.emplace_back(
-                chunk_offsetted_vtx_pos,
-                uvs[idx], 
-                glm::vec4{0.0f}, 
-                static_cast<i32>(5), //HACK: until we make the separate shader, this gives us zero shadow. See vs.glsl
-                quad_opacity,
-                std::to_underlying(block_shape)
-            );
-        }else if constexpr(block_shape == BlockShape::CUBE || block_shape == BlockShape::BOT_HALF_SLAB){
-            #ifdef CHUNK_NOISE_DEBUG
-                glm::vec4 dbg_noise_overlay{0.0f};
-                if (DebugOption::show_noise_debug){
-                    constexpr static glm::vec4 CYAN = {40, 55, 225,255};
-                    constexpr static glm::vec4 RED = {255, 55, 55,255};
-                    auto red = (ctx.noise[chunk_local.x,chunk_local.z].heat) * RED;
-                    auto cyan = (ctx.noise[chunk_local.x,chunk_local.z].rain) * CYAN;
-                    dbg_noise_overlay = (red + cyan) / 2.0f;
-                }
-            #endif
-            // 0.5-1.0 = 0.0 red to 1.0 red
-            // 0.0 = 0.0 red
-            // 0.5 = 0.0 red
-            // 1.0 = 1.0 red
-            ctx.out_vertices.emplace_back(
-                chunk_offsetted_vtx_pos,
-                uvs[idx], 
-                #ifdef CHUNK_NOISE_DEBUG
-                    dbg_noise_overlay,
-                #else 
-                {0.0f,0.0f,0.0f,0.0f},
-                #endif
-                static_cast<i32>(face_idx),
-                quad_opacity,
-                std::to_underlying(block_shape)
-            );
-        }else if constexpr(block_shape == BlockShape::CACTUS){
-            ctx.out_vertices.emplace_back(
-                chunk_offsetted_vtx_pos,
-                uvs[idx], 
-                glm::vec4{0.0f}, 
-                static_cast<i32>(face_idx),
-                quad_opacity,
-                std::to_underlying(BlockShape::CACTUS)
-            );
-        }else{
-            static_assert(false);
+    constexpr auto atlas_id = shape_atlas_id<block_shape>;
+    for (const auto& [vtx_idx, vtx] : views::enumerate(quad_vertices)) {
+        vtx.pos += static_cast<vec3>(chunk_local.raw());
+        vtx.txCoords = uvs[vtx_idx];
+        vtx.overlayColor = {0.0f,0.0f,0.0f,0.0f};
+        vtx.faceOpacity = quad_opacity;
+        if constexpr (block_shape != BlockShape::CROSS){
+            vtx.face_direction = face_idx;
+        }else {
+            vtx.face_direction = 5; // receives no fake_shadow
         }
+        vtx.texture_atlas_id = atlas_id;
+        ctx.out_vertices.push_back(vtx);
     }
 }
 
@@ -169,7 +133,7 @@ void mesh_cactus(BlockMeshContext& ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::CACTUS>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+        mesh_quad<BlockShape::CACTUS>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
     }
 }
 template<typename MaterialType>
@@ -192,7 +156,7 @@ void mesh_cube(BlockMeshContext& ctx){
                 }
             }
         }else if constexpr(same_as_nocvref<MaterialType,BlendedMeshData>){
-            // for transparent blocks, skip quads which face same-block neighbours
+            // for blended blocks, skip quads which face same-block neighbours
             if (adjacentBlock.type==block.type){
                 continue;
             }
@@ -212,7 +176,89 @@ void mesh_cube(BlockMeshContext& ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::CUBE>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+        mesh_quad<BlockShape::CUBE>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+    }
+}
+template<typename MaterialType, std::size_t N>
+void mesh_snow(BlockMeshContext& ctx){
+    const f32 block_opacity = ctx.block.get_opacity();
+    const auto& block = ctx.block;
+    const auto& atlas = ctx.atlas;
+    const auto& chunk_local_block = ctx.chunk_local_block;
+
+    auto surrounding = get_surrounding_blocks(ctx);
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(surrounding)) {
+        const auto faceDir = static_cast<Direction>(face_idx);
+        // Snow shape has the same rules as bot half slabs
+        if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
+            if (faceDir == Direction::DOWN && adjacentBlock.is_opaque()) {
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MaterialType,BlendedMeshData>){
+            if (faceDir == Direction::DOWN && adjacentBlock.type==block.type){
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MaterialType,CutoutMeshData>){
+            // skip ZERO quads for cutout. All sides always (i think?)
+            // On second thought, i think it might be the same rules as opaque? 
+            // Or would that make leaves and such look too sparse?
+        }else {
+            static_assert(false, "Unrecognized MeshDataType");
+        }
+
+
+        const auto& quad_vertices = snow_quad_data<N>(faceDir);
+        const auto& quad_tex_coords = atlas->apply_texture_uvs_cube(block.texture_id(), faceDir, quad_vertices);
+
+        for (size_t i = 0; i < INDICES_PER_QUAD; i++) {
+            i32 mapped_index = ctx.vtx_count + quad_indices[i];
+            ctx.out_indices.push_back(mapped_index);
+        }
+
+        ctx.vtx_count += quad_vertices.size();
+        constexpr auto shape = shape_of_snow_level<N>;
+        mesh_quad<shape>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+    }
+}
+
+template<typename MaterialType>
+void mesh_top_half_slab(BlockMeshContext& ctx){
+    const f32 block_opacity = ctx.block.get_opacity();
+    const auto& block = ctx.block;
+    const auto& atlas = ctx.atlas;
+    const auto& chunk_local_block = ctx.chunk_local_block;
+
+    auto surrounding = get_surrounding_blocks(ctx);
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(surrounding)) {
+        const auto faceDir = static_cast<Direction>(face_idx);
+        // Opaque top half slabs are only guaranteed to cover the block above them.
+        if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
+            if (faceDir == Direction::UP && adjacentBlock.is_opaque()) {
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MaterialType,BlendedMeshData>){
+            if (faceDir == Direction::UP && adjacentBlock.type==block.type){
+                continue;
+            }
+        }else if constexpr(same_as_nocvref<MaterialType,CutoutMeshData>){
+            // skip ZERO quads for cutout. All sides always (i think?)
+            // On second thought, i think it might be the same rules as opaque? 
+            // Or would that make leaves and such look too sparse?
+        }else {
+            static_assert(false, "Unrecognized MeshDataType");
+        }
+
+
+        const auto& quad_vertices = get_top_half_slab_quad_data(faceDir);
+        const auto& quad_tex_coords = atlas->apply_texture_uvs_cube(block.texture_id(), faceDir, quad_vertices);
+
+        for (size_t i = 0; i < INDICES_PER_QUAD; i++) {
+            i32 mapped_index = ctx.vtx_count + quad_indices[i];
+            ctx.out_indices.push_back(mapped_index);
+        }
+
+        ctx.vtx_count += quad_vertices.size();
+        mesh_quad<BlockShape::TOP_HALF_SLAB>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
     }
 }
 
@@ -232,7 +278,7 @@ void mesh_lower_half_slab(BlockMeshContext& ctx){
                 continue;
             }
         }else if constexpr(same_as_nocvref<MaterialType,BlendedMeshData>){
-            // for transparent blocks, skip quads which face same-block neighbours
+            // for blended blocks, skip quads which face same-block neighbours
             if (faceDir == Direction::DOWN && adjacentBlock.type==block.type){
                 continue;
             }
@@ -252,7 +298,7 @@ void mesh_lower_half_slab(BlockMeshContext& ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::BOT_HALF_SLAB>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
+        mesh_quad<BlockShape::BOT_HALF_SLAB>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords,face_idx);
     }
 }
 
@@ -269,7 +315,7 @@ void mesh_cross(BlockMeshContext ctx){
 
     for (i8 quad_idx = 0; quad_idx < QUADS_PER_CROSS; quad_idx++){
         const auto& quad_vertices = get_cross_quad_data(quad_idx);
-        const auto& quad_tex_coords = atlas->apply_texture_uvs_cross(block.texture_id(), quad_vertices);
+        const auto& quad_tex_coords = atlas->get_texture_uvs_cross(block.texture_id(), quad_vertices);
 
         for (size_t i = 0; i < INDICES_PER_QUAD; i++) {
             i32 mapped_index = ctx.vtx_count + quad_indices[i];
@@ -277,7 +323,7 @@ void mesh_cross(BlockMeshContext ctx){
         }
 
         ctx.vtx_count+= quad_vertices.size();
-        make_quad_vertices<BlockShape::CROSS>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords);
+        mesh_quad<BlockShape::CROSS>(ctx, block_opacity, quad_vertices,chunk_local_block, quad_tex_coords);
     }
 }
 
@@ -295,6 +341,27 @@ void mesh_shape(BlockShape shape, BlockMeshContext& ctx){
             break;
         case BlockShape::BOT_HALF_SLAB:
             mesh_lower_half_slab<MeshDataType>(ctx);
+            break;
+        case BlockShape::TOP_HALF_SLAB:
+            mesh_top_half_slab<MeshDataType>(ctx);
+            break;
+    	case BlockShape::SNOW_1_15:  mesh_snow<MeshDataType, 1>(ctx); break;
+    	case BlockShape::SNOW_2_15:  mesh_snow<MeshDataType, 2>(ctx); break;
+    	case BlockShape::SNOW_3_15:  mesh_snow<MeshDataType, 3>(ctx); break;
+    	case BlockShape::SNOW_4_15:  mesh_snow<MeshDataType, 4>(ctx); break;
+    	case BlockShape::SNOW_5_15:  mesh_snow<MeshDataType, 5>(ctx); break;
+    	case BlockShape::SNOW_6_15:  mesh_snow<MeshDataType, 6>(ctx); break;
+    	case BlockShape::SNOW_7_15:  mesh_snow<MeshDataType, 7>(ctx); break;
+    	case BlockShape::SNOW_8_15:  mesh_snow<MeshDataType, 8>(ctx); break;
+    	case BlockShape::SNOW_9_15:  mesh_snow<MeshDataType, 9>(ctx); break;
+    	case BlockShape::SNOW_10_15: mesh_snow<MeshDataType,10>(ctx); break;
+    	case BlockShape::SNOW_11_15: mesh_snow<MeshDataType,11>(ctx); break;
+    	case BlockShape::SNOW_12_15: mesh_snow<MeshDataType,12>(ctx); break;
+    	case BlockShape::SNOW_13_15: mesh_snow<MeshDataType,13>(ctx); break;
+    	case BlockShape::SNOW_14_15: mesh_snow<MeshDataType,14>(ctx); break;
+    	case BlockShape::SNOW_15_15: mesh_snow<MeshDataType,15>(ctx); break;
+        case BlockShape::COUNT:
+            BREAKPOINT(); // tf are you doing if you get here
             break;
     }
 }
@@ -323,7 +390,7 @@ MeshDataType mesh_chunk(const MeshJob& job){
         }
 
         auto block_shape = block.get_shape();
-        const auto& atlas = atlas_map[std::to_underlying(block_shape)];
+        const auto& atlas = atlas_map[block_shape_to_texture_atlas[block_shape]];
         auto ctx = BlockMeshContext{
             vtx_count,out_vertices,out_indices,block,chunk_local_block,atlas,blocks,surrounding_chunks
 #ifdef CHUNK_NOISE_DEBUG
@@ -341,32 +408,27 @@ void ChunkMesher::mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_que
     while (!stopToken.stop_requested()){
         
         auto job = in_queue.wait_dequeue();
+        job.bench.job_idle.bench_end(job.chunkCoord,job.meshRevisionID);
 
-
-        MeshResult res{job.meshRevisionID, job.chunkCoord};
-        { 
+        job.bench.work.bench_start(job.chunkCoord,job.meshRevisionID);
+            MeshResult res{job.meshRevisionID, job.chunkCoord};
             res.blended = mesh_chunk<BlendedMeshData>(job); // mandatory copy elision on job i think
-        }
-        { 
             res.opaque = mesh_chunk<OpaqueMeshData>(job); // mandatory copy elision on job i think
-        }
-        { 
             res.cutout = mesh_chunk<CutoutMeshData>(job); // mandatory copy elision on job i think
-        }
+        job.bench.work.bench_end(job.chunkCoord,job.meshRevisionID);
 
-        { 
-            out_queue.wait_emplace(res);
-        }
+        job.bench.res_idle.bench_start(job.chunkCoord,job.meshRevisionID);
+        out_queue.wait_emplace(res);
     }
 
 }
 
-std::array<Block, DirectionCount> get_surrounding_blocks(const BlockMeshContext& ctx) {
+std::array<Block, Direction_Count> get_surrounding_blocks(const BlockMeshContext& ctx) {
     const auto& block = ctx.block;
     const auto& atlas = ctx.atlas;
     const auto& chunk_local_block = ctx.chunk_local_block;
 
-    std::array<Block, DirectionCount> res{};
+    std::array<Block, Direction_Count> res{};
     constexpr glm::ivec3 lo = glm::ivec3(0);
     constexpr glm::ivec3 hi = ChunkInfo::Extents3D;
     for (const auto& dir : each_horizontal_direction){

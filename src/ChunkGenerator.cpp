@@ -3,7 +3,6 @@
 
 #include "FastNoiseLite.h"
 
-
 #include "CoordTypes.hpp"
 #include "CoordIteration.hpp"
 #include "Block.hpp"
@@ -19,15 +18,15 @@
 #include "Types.h"
 #include "Array2D.hpp"
 #include "ChunkNoiseDebug.hpp"
+#include "glm_math_extensions.hpp"
+#include "ThreadTracker.hpp"
+
 #include "Biomes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_Config.hpp"
 #include "WorldGen_Utils.hpp"
-#include "glm_math_extensions.hpp"
-#include "ThreadTracker.hpp"
-
 
 struct GenContext{
     GenContext(WorldBlockPos _world_block_origin, const GenConfig& _cfg) :
@@ -44,6 +43,7 @@ struct GenContext{
     auto gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> noise,ArrayList2D<BiomeID> biomes);
     // base the heightmap mostly off of noise but also biome slightly?
 };
+
 auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> noise,ArrayList2D<BiomeID> biomes){
 
     ArrayList2D<i32> heightmap(ChunkInfo::Extents2D);
@@ -101,7 +101,7 @@ static GenResult generate_chunk(GenJob job){
     GenContext ctx{world_block_origin,cfg};
     auto noise_map = generate_chunk_terrain_noise(cfg,world_block_origin);
     auto biome_map = classify_chunk_biomes(noise_map);
-    auto height_map = ctx.gen_heightmap(cfg,noise_map,biome_map);
+    auto terrain_height_map = ctx.gen_heightmap(cfg,noise_map,biome_map);
     auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
 
 #ifdef CHUNK_NOISE_DEBUG
@@ -110,7 +110,7 @@ static GenResult generate_chunk(GenJob job){
 
 
     for_each_xz_in_chunk([&](i32 cx, i32 cz){
-        auto terrain_height = height_map[cx,cz];
+        auto terrain_height = terrain_height_map[cx,cz];
         auto dirt_y_start = terrain_height - 1;
         auto dirt_y_stop = terrain_height - 4;
         auto stone_height = terrain_height - 3;
@@ -138,7 +138,7 @@ static GenResult generate_chunk(GenJob job){
         }
     });
     for_each_xz_in_chunk([&](i32 cx, i32 cz){
-        auto terrain_height = height_map[cx,cz];
+        auto terrain_height = terrain_height_map[cx,cz];
         auto stone_height = terrain_height - 3;
         const auto& biome = biome_map[cx,cz];
         if (biome == BiomeID::IceBeach || biome == BiomeID::FrozenOcean){
@@ -152,7 +152,7 @@ static GenResult generate_chunk(GenJob job){
         }
     });
     for_each_xz_in_chunk([&](i32 cx, i32 cz){
-        auto terrain_height = height_map[cx,cz];
+        auto terrain_height = terrain_height_map[cx,cz];
         const auto& biome = biome_map[cx,cz];
         const auto& palette = biome_palettes[biome];
         const auto& features = biome_features[biome];
@@ -179,6 +179,22 @@ static GenResult generate_chunk(GenJob job){
                 feature.place(origin, single_block_density, block_writer);
             }
         }
+
+    });
+    for_each_xz_in_chunk([&](i32 cx, i32 cz){
+        auto terrain_height = terrain_height_map[cx,cz];
+        const auto& biome = biome_map[cx,cz];
+        const f32 snow_density = noise_map[cx,cz].heat;
+        const auto& features = biome_features[biome];
+        for (i32 y = WORLD_YMAX-2; y>=terrain_height; y--){
+            if (block_store.at(cx,y,cz) != BlockType::AIR){
+                auto snow_origin = toWorldBlockPos(chunk_coord, ChunkBlockPos{cx,y+1,cz});
+                if (features.snow.should_place(snow_origin, snow_density, block_writer)){
+                    features.snow.place(snow_origin, snow_density, block_writer);
+                }
+                break;
+            }
+        }
     });
 
 
@@ -190,10 +206,16 @@ static GenResult generate_chunk(GenJob job){
 void ChunkGenerator::genChunks(std::stop_token stopToken, 
                       Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
 
-    ThreadTracker::assign_my_thread_type(ThreadType::mesh);
+    ThreadTracker::assign_my_thread_type(ThreadType::gen);
     while (!stopToken.stop_requested()){
         GenJob job = input_queue.wait_dequeue();
+        job.bench.job_idle.bench_end(job.chunkCoord,job.genRevisionID);
+        job.bench.work.bench_start(job.chunkCoord,job.genRevisionID);
+
         GenResult res = generate_chunk(job);
+
+        job.bench.work.bench_end(job.chunkCoord,job.genRevisionID);
+        job.bench.res_idle.bench_start(job.chunkCoord,job.genRevisionID);
         output_queue.wait_enqueue(res);
     }
     

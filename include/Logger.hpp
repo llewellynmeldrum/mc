@@ -58,20 +58,29 @@ extern std::mutex log_mut;
     do {                                                                                           \
         std::unique_lock<std::mutex> lock(log_mut);                                                \
         std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                               \
-        std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                              \
+        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                             \
+        std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                          \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
     } while (0)
 
-#define LOG_LVL_NOLOCK(lvl, file, ln, fmt_str, ...)                                                       \
+#define LOG_DEBUG(fmt_str, ...)                                                       \
+    do {                                                                                           \
+        std::unique_lock<std::mutex> lock(log_mut);                                                \
+        std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
+        std::print("{}{:<8}{} ", DEBUG.color, DEBUG.prefix, fmt::reset());                             \
+        std::print("{}{}:{:<3}{} ", fmt::bold(), __FILE_NAME__, __LINE__, fmt::reset());                          \
+        std::println(fmt_str, ##__VA_ARGS__);                                                      \
+        global_logger.log(fmt_str, ##__VA_ARGS__);                                             \
+    } while (0)
+
+#define LOG_LVL_NOLOCK(lvl, file, ln, fmt_str, ...)                                                \
     do {                                                                                           \
         std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
-        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                               \
-        std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                              \
+        std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                             \
+        std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                          \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
     } while (0)
 
-#define LOG_DEBUG(fmt, ...) LOG_LVL(DEBUG, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...) LOG_LVL(INFO, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
 #define LOG_NOTICE(fmt, ...) LOG_LVL(NOTICE, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)
 #define LOG_WARN(fmt, ...) LOG_LVL(WARN, __FILE_NAME__, __LINE__, fmt, ##__VA_ARGS__)

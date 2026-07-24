@@ -80,7 +80,7 @@ constexpr inline f32 euclid_mod(f32 a, f32 b) noexcept{
 
 
 template<typename T>
-requires Numeric<T>
+    requires Numeric<T>
 constexpr inline T avg(T a, T b) noexcept{
     return ((a+b)/static_cast<T>(2));
 }

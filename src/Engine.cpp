@@ -2,6 +2,7 @@
 #include "ChunkStorage.hpp"
 #include "DebugChunkLog.hpp"
 #include "DebugOptions.hpp"
+#include "GlobalDebugLog.hpp"
 #include "PendingBlockWrites.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -73,7 +74,7 @@ void Engine::classify_visible_chunks(){
         mesh.chunk_dist_to_cam = LM::dist(mesh.chunkCoord, cur_chunk_pos_raw);
     };
     rend.opaque_chunk_meshes.for_each(assign_dist);
-    rend.transparent_chunk_meshes.for_each(assign_dist);
+    rend.blended_chunk_meshes.for_each(assign_dist);
     rend.cutout_chunk_meshes.for_each(assign_dist);
 }
 
@@ -91,7 +92,7 @@ void Engine::refresh_visible_chunks(){
     };
     // load meshes inside frustum, unload meshes outside frustum
     rend.opaque_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
-    rend.transparent_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
+    rend.blended_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
     rend.cutout_chunk_meshes.for_each_if_else(inside_frustum(this), load_mesh, unload_mesh);
 }
 
@@ -123,7 +124,7 @@ void Engine::evict_meshes_outside_radius(i32 radius){
     // erase all elements which are out of bounds:
     // TODO: perhaps prune the for_meshing uniqueQueue?
     rend.opaque_chunk_meshes.erase_if(outside_range(world.chunkMap,lo,hi));
-    rend.transparent_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
+    rend.blended_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
     rend.cutout_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
 }
 
@@ -134,7 +135,9 @@ void Engine::update_scene() {
 
     if (!chunk_updates_paused){
 
-        n_chunks_discovered = director.discover_candidates(max_gen_discovery_pf, GENERATION_DIST,RENDER_DIST);
+        auto [n_mesh_job_disc, n_gen_jobs_disc] =
+            director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher,
+                                         max_gen_discovery_pf, GENERATION_DIST, RENDER_DIST);
 
         submit_gen_jobs(maxGenJobsPerFrame);
         upload_gen_results(maxGenUploadsPerFrame);
@@ -182,11 +185,15 @@ void Engine::submit_gen_jobs(i64 maxJobs){
     for (const auto& candidate_coord: candidates){
 
         bool success = genQ.try_emplace(
+            ChunkBenchContext{gen_work_bencher,gen_job_queue_idle_bencher, gen_res_queue_idle_bencher},
             world.worldgen_epoch,
             candidate_coord, 
             world.active_cfg
         );
         if (success){
+            gen_enqueue_delay_bencher.bench_end(candidate_coord);
+            gen_rtt_bencher.bench_start(candidate_coord,world.worldgen_epoch);
+            gen_job_queue_idle_bencher.bench_start(candidate_coord,world.worldgen_epoch);
             world.chunkMap.entries.if_contains_else(
                 candidate_coord, 
                 [&](ChunkEntry& entry){
@@ -210,12 +217,12 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
     auto candidates = director.find_mesh_jobs(maxJobs);
 
     i64 count = 0;
-    for (const auto& coord: candidates){
+    for (const auto& candidate_coord: candidates){
 //        if (!is_chunk_in_frustum(player_cam.getCullFrustum(),coord)){
 //            continue;
 //        }
         auto& meshQ = rend.meshers.meshJobQueue;
-        auto* entry = world.chunkMap.entries.at(coord);
+        auto* entry = world.chunkMap.entries.at(candidate_coord);
 
         assert(entry);
         if (director.qualifies_for_mesh_enqueue(*entry)){
@@ -223,13 +230,17 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
             static_assert(BlockShape::CUBE == static_cast<BlockShape>(0));
             static_assert(BlockShape::CROSS == static_cast<BlockShape>(1));
             bool success = meshQ.try_emplace(
-                coord,
+                ChunkBenchContext{mesh_work_bencher,mesh_job_queue_idle_bencher, mesh_res_queue_idle_bencher},
+                candidate_coord,
                 rend.atlas_list,
                 &world.chunkMap,
                 entry
             );
             // MeshJob(size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
             if (success){
+                //mesh_enqueue_delay_bench.bench_end(candidate_coord);
+                mesh_rtt_bencher.bench_start(candidate_coord,entry->target_mesh_revision);
+                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->target_mesh_revision);
                 director.mark_mesh_enqueue(*entry);
                 count++;
             }
@@ -256,7 +267,7 @@ void Engine::upload_mesh_results(i64 maxUploads){
         return {};
     };
     auto candidate_results = drain_mesh_results(rend.meshers.meshResultQueue,maxUploads);
-    for (const auto& [candidate_revision, chunk_coord, opaque, transparent, cutout] : candidate_results){
+    for (const auto& [candidate_revision, chunk_coord, opaque, blended, cutout] : candidate_results){
         auto log_fail_upload = [&](std::string_view str){
             log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
         };
@@ -275,17 +286,17 @@ void Engine::upload_mesh_results(i64 maxUploads){
         if (entry->qualifies_for_mesh_dequeue()){
             if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
                 log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->loaded_mesh_revision,candidate_revision);
-                log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),transparent.vertices.size(),cutout.vertices.size());
+                log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),blended.vertices.size(),cutout.vertices.size());
                 //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
-                //log_to_chunk(chunk_coord,"transp new: {}",transparent.vertices.size());
+                //log_to_chunk(chunk_coord,"transp new: {}",blended.vertices.size());
                 if (rend.opaque_chunk_meshes.contains(chunk_coord)){
                 //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
                 }
                 if (opaque.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(opaque));
                 } 
-                if (transparent.vertices.size()>0){
-                    rend.uploadMesh(chunk_coord, std::move(transparent));
+                if (blended.vertices.size()>0){
+                    rend.uploadMesh(chunk_coord, std::move(blended));
                 } 
                 if (cutout.vertices.size()>0){
                     rend.uploadMesh(chunk_coord, std::move(cutout));
@@ -298,6 +309,9 @@ void Engine::upload_mesh_results(i64 maxUploads){
             entry->loaded_mesh_revision = candidate_revision;
             entry->state_transition(mesh_dequeue);
             this->chunksMeshed++;
+            auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
+            mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
+            log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
             count++;
         }else{
             log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
@@ -350,8 +364,10 @@ void Engine::upload_gen_results(i64 maxUploads){
             }
         }else{
             log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
-            continue;
         }
+        auto ttg = gen_rtt_bencher.bench_end(chunk_coord, candidate_revision);
+        gen_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
+        log_to_chunk(chunk_coord,"time to gen: {:2.4f}ms",ttg);
     }
     profiler.bench_end("drainGen");
     gen_res_this_frame = genResults.size();
@@ -419,7 +435,7 @@ void Engine::unMeshAllChunks(){
         }
     );
     rend.opaque_chunk_meshes.clear();
-    rend.transparent_chunk_meshes.clear();
+    rend.blended_chunk_meshes.clear();
 }
 
 void Engine::set_debug_params() {
@@ -455,12 +471,12 @@ void Engine::setup() {
     LOG_DEBUG("Finished setting window callbacks.");
 
 
-    profiler.init({
+    profiler.init<std::string_view>({
         "01_draw",
         "02_rendinit",
         "03_opaque",
         "04_cutout",
-        "05_transparent",
+        "05_blended",
         "frame",
         "input",
         "update",
@@ -485,7 +501,11 @@ void Engine::setup() {
     LOG_DEBUG("Finished World setup.");
 
     // enqueue the starting chunks
-    submit_gen_jobs(maxGenJobsPerFrame);
+    world.worldgen_epoch++;
+    auto n =( RENDER_DIST*2+ 1);
+    global_logger.epoch = Logger::clock::now();
+    LOG_DEBUG("Beginning timer to load initial chunks ({}x{} = {} chunks).",n,n,n*n);
+    //submit_gen_jobs(maxGenJobsPerFrame);
 }
 
 
@@ -618,10 +638,15 @@ void Engine::handle_input(){
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
 
-    if(input.just_pressed(KEY_R) && input.mods.shift){
-        LOG_DEBUG("regenerating world...");
-        regenerate_world();
-        return;
+    if(input.just_pressed(KEY_R)){
+        if (input.mods.shift){
+            LOG_DEBUG("regenerating world...");
+            regenerate_world();
+            return;
+        }else{
+            remesh_world();
+            return;
+        }
 	}
 
     // NOTE: MOVEMENT
@@ -713,6 +738,15 @@ RenderTargetView Engine::secondaryView() {
 // =======
 // debugging
 // ========
+void Engine::remesh_world(){
+    director.ready_for_mesh.clear();
+    rend.opaque_chunk_meshes.clear();
+    rend.blended_chunk_meshes.clear();
+    rend.cutout_chunk_meshes.clear();
+    for (auto& [key, entry]: world.chunkMap.entries){
+        director.mark_mesh_dirty(entry);
+    }
+}
 void Engine::regenerate_world(){
     // 1. clear job queues: (no more inputs to the threads)
     rend.meshers.meshJobQueue.clear();
@@ -734,7 +768,7 @@ void Engine::regenerate_world(){
 
     // _. clear the mesh lists
     rend.opaque_chunk_meshes.clear();
-    rend.transparent_chunk_meshes.clear();
+    rend.blended_chunk_meshes.clear();
     rend.cutout_chunk_meshes.clear();
 
     // _. clear the chunk stores

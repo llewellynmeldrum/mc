@@ -4,6 +4,7 @@ using namespace gl;
 #include "Texture2D.hpp"
 #include "Logger.hpp"
 #include "glmWrapper.hpp"
+#include "GlobalDebugLog.hpp"
 i64 texture_count = 0;
 
 using namespace glm;

@@ -3,6 +3,7 @@
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_FeatureClassifcation.hpp"
 #include "WorldGen_Utils.hpp"
+#include <print>
 // NOTE: SHARED
 
 template<typename T>
@@ -58,6 +59,13 @@ bool GrassFeature::should_place(WorldBlockPos origin, f32 sampled_density, Block
     return jitter.should_accept(origin, sampled_density, shared.density_spawn_remap);
 }
 
+bool SnowFeature::should_place(WorldBlockPos origin, f32 sampled_density, BlockWriter& blocks)const {
+    if (!should_place_shared<value_type>(shared,origin,sampled_density, blocks)){
+        return false;
+    }
+    return true;
+}
+
 void SingleBlockFeature::place(WorldBlockPos origin, f32 density, BlockWriter& blocks) const noexcept{
     blocks.try_place(
         OverwritePolicy::OnlyAir,
@@ -108,6 +116,29 @@ void GrassFeature::place(WorldBlockPos origin, f32 density, BlockWriter& blocks)
         OverwritePolicy::OnlyAir,
         origin,
         growth_stages.at(stage)
+    );
+}
+void SnowFeature::place(WorldBlockPos origin, f32 density, BlockWriter& blocks) const noexcept{
+    auto block = snow_stages[0];
+    f32 density_score = LM::unlerp(shared.min_density(),shared.max_density(),density);
+    i32 stage = snow_stages.size()-1 - static_cast<i32>(density_score * snow_stages.size());
+    if (wpos_seeded_rand01(origin, RandOffset::GrassPromotion) <= promotion_chance){
+        stage = std::min(stage+1,(i32)snow_stages.size()-1);
+        assert_geq(stage,0);
+        assert_lt(stage,snow_stages.size());
+    }
+    if (wpos_seeded_rand01(origin, RandOffset::GrassDemotion) <= demotion_chance){
+        if (stage<=0) return; // demoted to stage -1, i.e reject 
+        stage--;
+        assert_geq(stage,0);
+        assert_lt(stage,snow_stages.size());
+    }
+    assert_geq(stage,0);
+    assert_lt(stage,snow_stages.size());
+    blocks.try_place(
+        OverwritePolicy::OnlyAir,
+        origin,
+        snow_stages.at(stage)
     );
 }
 

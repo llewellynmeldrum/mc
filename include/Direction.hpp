@@ -13,7 +13,10 @@ constexpr inline UNDERLYING_T to_##NAME(NAME e) noexcept{\
 constexpr inline size_t NAME##Count = static_cast<size_t>(NAME::COUNT);
 
 // clang-format off
-DECL_SMART_ENUM(Direction, i8, FORWARD, BACKWARD, LEFT, RIGHT, DOWN, UP)
+
+enum struct Direction : i8 { FORWARD, BACKWARD, LEFT, RIGHT, DOWN, UP, COUNT };
+
+constexpr inline size_t Direction_Count = static_cast<size_t>(Direction ::COUNT);
 
 // To be used like: for (const auto& dir: eachDirection)
 constexpr inline std::array<Direction,6> each_direction{
@@ -22,7 +25,7 @@ constexpr inline std::array<Direction,6> each_direction{
     Direction ::LEFT,      //
     Direction ::RIGHT,//
     Direction ::DOWN, //
-    Direction ::UP,
+    Direction ::UP,             //
 };
 constexpr inline std::array<Direction,4> each_horizontal_direction{
     Direction ::FORWARD,   //

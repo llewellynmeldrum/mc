@@ -1,36 +1,45 @@
 #pragma once
-#include "Types.h"
-#include "glmWrapper.hpp"
-#include "AttributeTraits.hpp"
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include "Block.hpp"
+#include "Types.h"
+#include "glmWrapper.hpp"
+#include "AttributeTraits.hpp"
 #include "Assertion.hpp"
 
 
 struct Vertex {
-    // start by adding new data to here.
-    // Should each face have a global color uniform?
-    // Maybe each face gets a blendFactor uniform, (which can be manipulated to change shadow
-    // direction), and each block gets a color? Chunks could just include an extra DEBUG_COLOR field
-    // which conditionally compiles or something.
-    glm::vec3 pos;  // local
+    constexpr Vertex(glm::vec3 pos, glm::vec2 txCoords, i32 face_direction, BlockShape block_shape)
+        : pos(pos)
+        , txCoords(txCoords)
+        , face_direction(face_direction)
+        , texture_atlas_id(block_shape_to_texture_atlas.at(block_shape))
+    {}
+    // MUST HAVE CHUNK WORLD OFFSET ADDED AT MESH TIME!
+    glm::vec3 pos;          
+    // MUST HAVE TEXTURE APPLIED AT MESH TIME!
     glm::vec2 txCoords;
-    glm::vec4 overlayColor;
+    // (can) be set at mesh time.
+    glm::vec4 overlayColor = glm::vec4(0.0f); 
+    
     i32  face_direction;
-    float faceOpacity;
-    i32 block_shape;
+
+    // MUST BE SET AT MESH TIME!
+    float faceOpacity{0.0f};
+
+    i32 texture_atlas_id;
 
     static constexpr auto layout() {
         return VertexLayout<6>{ 
             .stride = sizeof(Vertex),
             .attrs = {
-               make_attr<glm::vec3>(0, offsetof(Vertex, pos)),
-               make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),
-               make_attr<glm::vec4>(2, offsetof(Vertex, overlayColor)),
-               make_attr<i32>      (3, offsetof(Vertex, face_direction)),
+               make_attr<glm::vec3>(0, offsetof(Vertex, pos)),                  // 12 bytes (4*3)
+               make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),             // 08 bytes (4*2)
+               make_attr<glm::vec4>(2, offsetof(Vertex, overlayColor)),         // 16 bytes (4*4)
+               make_attr<i32>      (3, offsetof(Vertex, face_direction)),       // 4 bytes ()
                make_attr<f32>      (4, offsetof(Vertex, faceOpacity)),
-               make_attr<i32>      (5, offsetof(Vertex, block_shape)),
+               make_attr<i32>      (5, offsetof(Vertex, texture_atlas_id)),
             }, 
         };
     }
@@ -38,7 +47,3 @@ struct Vertex {
 static_assert(std::is_standard_layout_v<Vertex>,
               "Must be true for valid use of offsetof() in vtx attributes");
 static_assert(std::is_trivially_copyable_v<Vertex>, "Must be true for upload to vertex buffer");
-
-// each vertex has an overlay color
-// global uniform float blend_BlockOverlayColor
-//

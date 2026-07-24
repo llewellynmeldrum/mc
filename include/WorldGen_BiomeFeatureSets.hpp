@@ -20,6 +20,7 @@ struct BiomeFeatureSet{
     // Defines a feature which has growth stages, 
     // eg: dead bushes
     GrassFeature grass = features::no_grass;
+    SnowFeature snow = features::no_snow;
 
     // Defines a feature which has a root, stem, and tree, which are separate blocks (multiple segments)
     // eg: adult cactus
@@ -43,7 +44,9 @@ inline EnumMap<BiomeID, BiomeFeatureSet> biome_features {
     {BiomeID::Tundra,
         {
             .tree = features::regular_spruce_tree,
+//            .grass = features::no_grass,
             .grass = features::short_snow_grass,
+            .snow = features::tundra_snow,
         }
     },
     {BiomeID::Beach, 
@@ -64,5 +67,11 @@ inline EnumMap<BiomeID, BiomeFeatureSet> biome_features {
             }
         }
     },
+    {BiomeID::IceBeach, 
+        {
+            .snow = features::tundra_snow,
+        }
+    },
+
 };
 

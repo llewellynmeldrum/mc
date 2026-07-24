@@ -3,6 +3,7 @@
 
 #include "Input.hpp"
 #include "GLFW/glfw3.h"
+#include "GlobalDebugLog.hpp"
 #include "KeyCodes.hpp"
 #include "Engine.hpp"
 #include "GLFWWrapper.hpp"

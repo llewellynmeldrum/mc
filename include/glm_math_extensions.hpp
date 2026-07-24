@@ -5,6 +5,10 @@
 // A remap table contains a set of x and y coordinates.
 // Its purpose is to smoothly blend between Y coordinate values, based on the x coordinate supplied.
 struct RemapTable{
+    struct vec2{
+        f32 x;
+        f32 y;
+    };
     
     RemapTable() = default;
     RemapTable(std::initializer_list<glm::vec2> v): map(std::move(v)){}

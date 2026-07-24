@@ -12,7 +12,7 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     // -> 1089 O(log(n)) sorts, each around 256 faces. Thats 278'784 total ops. >1m ops on 64 render dist. 
     // -> + the 1089 chunks, which also need to be sorted.
     // Thats every single frame. And we barely even gain anything. the cost will almost definitely dominate any savings from overdraw if we are doing opaque sorting. So thats out the window.
-    // Second off, something like 90% of the work we do sorting the transparent faces is COMPLETELY useless.
+    // Second off, something like 90% of the work we do sorting the blended faces is COMPLETELY useless.
     // The player is not realistically able to make out per-quad draw order issues on most textures from >~30 blocks away. So all this work to make everything correct, and we lose a potential optimisation, AND gain little to no correctness.
 
 
@@ -24,11 +24,11 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     // -> It is also not too expensive, and is at worst O(log(C)), where C = number of chunks meshed
     // -> Thus, we can be more broad. This is like the broad phase of a collision detection system
     //
-    bool transparent_sorted_mismatch = rend.transparent_chunk_meshes.size() != rend.sorted_transparent_coords.size();
+    bool blended_sorted_mismatch = rend.blended_chunk_meshes.size() != rend.sorted_blended_coords.size();
     if (player_crossed_chunk_boundary() ||
-        transparent_sorted_mismatch)
+        blended_sorted_mismatch)
     {
-        rend.sort_transparent_chunks(player_cam_pos);
+        rend.sort_blended_chunks(player_cam_pos);
     }
 
     if(DebugOption::enable_opaque_sorting){
@@ -65,7 +65,7 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
         }
         }
         for (const auto& chunk_coord: resort_every_quad_victims){
-            rend.transparent_chunk_meshes.if_contains(
+            rend.blended_chunk_meshes.if_contains(
                 chunk_coord,
                 [&](IndexedMesh& mesh){
                     mesh.resort_quad_indices(player_cam_pos,false);
@@ -75,7 +75,10 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     }
 }
 
-size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh_radius){
+std::pair<size_t,size_t> ChunkDirector::discover_candidates(
+    ChunkBenchmarkerNoRevision & mesh_enqueue_delay_bench, 
+    ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench, 
+    i64 max_jobs, i64 gen_radius, i64 mesh_radius){
     // if we come across a chunk which:
     // - has an entry
     // - has been generated
@@ -85,7 +88,8 @@ size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh
     const auto chunkCoord = cur_chunk_pos;
     // enumerate them based on their range to the player, such that nearest chunks come first.
 
-    auto count = for_each_spiral(
+    std::pair<size_t,size_t> res{};
+    for_each_spiral(
         max_jobs,
         chunkCoord, 
         gen_radius, 
@@ -96,7 +100,9 @@ size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh
                 [&](ChunkEntry& entry){
                     if (LM::sq_dist(chunkCoord, key) < std::pow(mesh_radius,2)
                     && entry.state.mesh == MeshState::ready_for_enqueue){
+//                        mesh_enqueue_delay_bench.bench_start(key);
                         ready_for_mesh.push(key);
+                        res.second++;
                     }
                     // 1. if an entry exists, check if it needs regeneration.
                     return entry.qualifies_for_gen_enqueue();
@@ -106,11 +112,15 @@ size_t ChunkDirector::discover_candidates(i64 max_jobs, i64 gen_radius, i64 mesh
                     return true;
                 }
             );
-            if (candidate_qualifies) ready_for_gen.push(key);
+            if (candidate_qualifies){
+                gen_enqueue_delay_bench.bench_start(key);
+                ready_for_gen.push(key);
+                res.first++;
+            }
             return candidate_qualifies;
         }
     );
-    return count;
+    return res;
 }
 void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     ChunkStore& generatedBlocks = gen_res.chunkBlocks;

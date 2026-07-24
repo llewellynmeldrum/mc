@@ -16,6 +16,7 @@
 // WARNING: Always do glfw->glbinding
 #include "FmtStyle.hpp"
 #include "GLFWWrapper.hpp"
+#include "GlobalDebugLog.hpp"
 #include "glbindingWrapper.hpp"
 #include "glbinding-aux/Meta.h"
 #include "glbinding-aux/logging.h"

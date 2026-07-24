@@ -34,6 +34,7 @@ public:
 public:
     static_assert(same_type<decltype(is_log_type_enabled)::key_type, LogType>, 
                   "DebugLog::LogType must be the same as the key type of the is_log_type_enabled map");
+    DebugLog() = default;
     DebugLog(Clock::time_point _epoch, bool _is_fading=false):
         epoch(_epoch),
         is_fading(_is_fading)
@@ -86,21 +87,32 @@ public:
         const auto& [log_type, entry_creation_time, msg]=entry;
 
         auto entry_age = since_epoch() - entry_creation_time;
-        milliseconds entry_age_ms = duration_cast<milliseconds>(entry_age);
+        auto entry_age_ms = duration_cast<milliseconds>(entry_age);
         return entry_age_ms >= fade_duration_ms;
     }
     f32 fading_entry_opacity01(DebugEntry entry) noexcept{
         using namespace std::chrono;
         const auto& [log_type, entry_creation_time, msg]=entry;
-        milliseconds elapsed_ms = duration_cast<milliseconds>(entry_creation_time);
+        auto elapsed_ms = duration_cast<milliseconds>(entry_creation_time);
         auto entry_age = since_epoch() - entry_creation_time;
-        milliseconds entry_age_ms = duration_cast<milliseconds>(entry_age);
+        auto entry_age_ms = duration_cast<milliseconds>(entry_age);
 
         f32 t_elapsed = static_cast<f32>(entry_age_ms.count() )/ fade_duration_ms.count();
         f32 opacity = 1.0f - t_elapsed; // elapsed of 0 = 1.0f opacity, elapsed of 1 = 0.0f opacity
         return opacity;
     }
 };
+// inline DebugLog global_log;
+// template <typename ...Args>
+// inline void log_to_ui(std::format_string<Args...> fmt, Args&& ...vargs){
+//     global_log.make_entry(fmt,std::forward<Args>(vargs)...);
+// }
+// 
+// template <typename ...Args>
+// inline void log_to_chunk(std::format_string<Args...> fmt, Args&& ...vargs){
+//     global_log(std::format(fmt,std::forward<Args>(vargs)...));
+// }
+
 inline std::unordered_map<WorldChunkCoord, DebugLog> per_chunk_log;
 inline static std::mutex per_chunk_log_mut;
 inline bool pause_logging = false;

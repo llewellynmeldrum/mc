@@ -25,9 +25,9 @@ struct TextureAtlas {
 
     static constexpr i64     sprite_sz_px = 16;
 
-    std::array<glm::vec2, 4> apply_texture_uvs_cross(i64 texture_idx, const_span<Vertex, 4> vertices) const;
+    std::array<glm::vec2, 4> get_texture_uvs_cross(i64 texture_idx, const_span<Vertex, 4> vertices) const;
     std::array<glm::vec2, 4> apply_texture_uvs_cube(i64 texture_idx, Direction dir, const_span<Vertex, 4> vertices) const ;
 
-    glm::vec2 get_base_cube_uv(i64 tex_idx, Direction dir) const;
+    glm::vec2 get_base_cube_uv(i64 tex_idx, i32 dir) const;
     glm::vec2 get_base_cross_uv(i64 tex_idx) const ;
 };

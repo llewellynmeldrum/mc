@@ -1,4 +1,6 @@
 #pragma once
+#include <stop_token>
+
 #include "ChunkConcurrency.hpp"
 #include "Concurrency.hpp"
 #include "Mesh.hpp"
@@ -6,7 +8,6 @@
 #include "TextureAtlas.hpp"
 #include "cppslop.hpp"
 #include "Assertion.hpp"
-#include <stop_token>
 
 FORWARD_DECL_STRUCT(World)
 struct ChunkMesher {

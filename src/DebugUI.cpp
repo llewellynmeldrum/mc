@@ -3,6 +3,7 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+#include "GlobalDebugLog.hpp"
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
@@ -35,7 +36,6 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "Profiling.hpp"
 #include "imgui.h"
 
 #include "DebugUI_Internal.hpp"
@@ -162,7 +162,24 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
     });
 }
 
-void drawLogWindow(WindowConfig& self, Engine* ctx){
+void drawGlobalLogWindow(WindowConfig& self, Engine* ctx){
+    self.setAlpha(0.9f);
+    self.setup();
+    self.setSize(UVSize{0.4,0.4});
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&]{
+        auto& window = self;
+        window.open_section("##",[&]{
+            // Shown in most->least recent vertical order
+            for (const auto& entry: global_logger | ranges::views::reverse){
+                auto [log_type, duration, contents] = entry;
+                UI::Text("{}",entry);
+            }
+        });
+    });
+}
+void drawPerChunkLogWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
     self.setSize(UVSize{0.4,0.4});
@@ -379,15 +396,15 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
     self.setFlags(UI::WinFlags::AlwaysAutoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
-        const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+        const auto& fps_rb = ctx->profiler.map.at("frame");
         const auto k = std::max(1.0f, fps_rb.n_percent_high(1.0));
         assert(k!=0);
         const auto p99 = 1000.0/k;
         const auto fps = 1000.0/fps_rb.avg();
         const auto ft_ms = fps_rb.avg();
 
-        const auto draw_ms = ctx->profiler.ringbufs.at("01_draw").avg();
-        const auto upd_ms = ctx->profiler.ringbufs.at("update").avg();
+        const auto draw_ms = ctx->profiler.map.at("01_draw").avg();
+        const auto upd_ms = ctx->profiler.map.at("update").avg();
         const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
         const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
 
@@ -433,7 +450,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             IG::TableNextColumn();
 
         #define X(VAR) \
-                UI::Text("" #VAR " match ({:+4.3f})",noise_samples_exact. VAR); \
+                UI::Text("{:c}({:+4.3f})",(#VAR[0]+('A'-'a')), noise_samples_exact. VAR); \
                 IG::TableNextColumn();
             LIST_FUNDAMENTAL_NOISE_PARAMS
         #undef X
@@ -449,7 +466,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                 bool chosen = biome_match.biome == biome.id;
                 ImGui::Selectable(biome_str.c_str(), chosen, ImGuiSelectableFlags_SpanAllColumns);
                 IG::TableNextColumn();
-        #define X(VAR) UI::Text("{: 5.2f}",clas.VAR ##_score);\
+        #define X(VAR) UI::Text("{: 5.1f}",clas.VAR ##_score);\
                 IG::TableNextColumn();
             LIST_FUNDAMENTAL_NOISE_PARAMS
         #undef X
@@ -463,6 +480,29 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto wpos = ctx->director.cur_block_pos;
             auto density = noise_samples_exact.rain;
         }
+        UI::Text("Round trip times per chunk (enqueue job to upload of result)");
+        plotRingBuf(ctx->mesh_rtt_bencher.duration_ms, 10, "mesh rtt", "6.1lfms", true);
+        plotRingBuf(ctx->gen_rtt_bencher.duration_ms, 10, "gen rtt", "6.1lfms", true);
+
+        UI::Text("Work times per chunk (start job to finish job)");
+        plot_benchmarker(ctx->mesh_work_bencher, 10, "mesh work", "6.1lfms", true);
+        plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "6.1lfms", true);
+
+        UI::Text("Time spent on job queue awaiting a worker");
+        plot_benchmarker(ctx->mesh_job_queue_idle_bencher, 10, "mesh job_queue_idle", "6.1lfms", true);
+        plot_benchmarker(ctx->gen_job_queue_idle_bencher, 10, "gen job_queue_idle", "6.1lfms", true);
+
+        UI::Text("Time spent on res queue awaiting main thread");
+        plot_benchmarker(ctx->mesh_res_queue_idle_bencher, 10, "mesh res_queue_idle", "6.1lfms", true);
+        plot_benchmarker(ctx->gen_res_queue_idle_bencher, 10, "gen res_queue_idle", "6.1lfms", true);
+
+        UI::Text("Time spent on res queue awaiting main thread");
+        plotRingBuf(ctx->mesh_enqueue_delay_bench.duration_ms, 10, "mesh enqueue delay", "6.1lfms", true);
+        plotRingBuf(ctx->gen_enqueue_delay_bencher.duration_ms, 10, "gen enqueue delay", "6.1lfms", true);
+//        UI::Text("Work times per chunk (start job to finish job)");
+//        plot_benchmarker(ctx->mesh_work_bencher, 10, "mesh work", "2.2lfms", true);
+//        plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "2.2lfms", true);
+
 
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
@@ -473,14 +513,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);
             IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
-            const auto& fps_rb = ctx->profiler.ringbufs.at("frame");
+            const auto& fps_rb = ctx->profiler.map.at("frame");
             auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
             assert(k!=0);
             std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
             IG::Text("FPS: %2.1lf", 1000.0/fps_rb.avg());
             IG::SameLine(); IG::Text("(%s)",one_pcnt_low.c_str());
 
-            for (const auto& [key, val]: ctx->profiler.ringbufs){
+            for (const auto& [key, val]: ctx->profiler.map){
                 plotRingBuf(val, 10, std::string(key), "2.2lfms", true);
             }
 
@@ -558,7 +598,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                             opaque_loaded = mesh.isLoaded();
                         }
                     );
-                    ctx->rend.transparent_chunk_meshes.if_contains(
+                    ctx->rend.blended_chunk_meshes.if_contains(
                         ch_pos,
                         [&](Mesh& mesh){
                             transp_empty = mesh.vertex_count==0;
@@ -603,7 +643,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto total_trans    =0uz;
             auto loaded_trans   =0uz;
             ctx->rend.opaque_chunk_meshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_opaque](auto& mesh){loaded_opaque++;});
-            ctx->rend.transparent_chunk_meshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_trans](auto& mesh){loaded_trans++;});
+            ctx->rend.blended_chunk_meshes.for_each_if([](auto& mesh){return mesh.isLoaded();}, [&loaded_trans](auto& mesh){loaded_trans++;});
             UI::Text("Loaded opaque:{}/{}",loaded_opaque,total_opaque);
             UI::Text("Loaded trans:{}/{}",loaded_trans,total_trans);
         });
@@ -668,7 +708,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         });
 
         window.section("Process Metrics:",[]{
-            IG::Text("Resident Set Size: %5.2lfmb", current_rss_bytes()/1024.0/1024.0);
+            IG::Text("Resident Set Size: %5.2lfmb", unix::rss_bytes()/1024.0/1024.0);
         });
 
         window.section("Concurrency:",[ctx]{
@@ -753,7 +793,8 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"GENERAL DEBUG OVERLAY", UI::WinFlagGroup::MovableOverlay, drawGeneralDebugOverlay,this},
             {"SECOND CAMERA", UI::WinFlagGroup::MovableOverlay,drawSecondCameraWindow,this},
             {"FULLSCREEN OVERLAY", UI::WinFlagGroup::Overlay,drawFullscreenOverlay,this},
-            {"LOG WINDOW", UI::WinFlagGroup::MovableOverlay,drawLogWindow,this},
+            {"PER CHUNK LOG", UI::WinFlagGroup::MovableOverlay,drawPerChunkLogWindow,this},
+            {"GLOBAL LOG", UI::WinFlagGroup::MovableOverlay,drawGlobalLogWindow,this},
             {"DBG OPTS", UI::WinFlagGroup::MovableOverlay,drawDebugSettingsWindow,this},
             {"WORLDGEN", UI::WinFlagGroup::MovableOverlay,draw_worldgen_window,this},
         }

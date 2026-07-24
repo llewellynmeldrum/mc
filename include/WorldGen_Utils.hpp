@@ -10,6 +10,7 @@ enum struct RandOffset: u32{
     SingleBlockJitter = 3141592,
     MultiSegmentJitter= 2951413,
     BabyCactus= 510140,
+    SnowJitter= 9120150,
     AdultCactus= 92411,
     Bush= 2992411,
     DeadBush= 9958762,

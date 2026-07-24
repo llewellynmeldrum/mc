@@ -6,11 +6,11 @@ compile_commands.json*
 todo.md
 bin/*
 !.gitignore
-include/annotated_gl.h
 
 imgui.ini
 build*/
 
+docs/*
 
 rename_header
 resources/fonts

@@ -54,9 +54,9 @@ struct FeatureJitterModule{
                     min_adjacent_roll = std::min(min_adjacent_roll, roll);
                 }
             }
-        }
-        if (roll != min_adjacent_roll){  
-            return false;
+            if (roll != min_adjacent_roll){  
+                return false;
+            }
         }
 
         auto chance = density_to_chance.remap<f32>(roll);
@@ -124,6 +124,18 @@ struct GrassFeature {
     FeatureJitterModule jitter{RandOffset::SingleBlockJitter, 0};
     f32 promotion_chance = 0.30f;
     f32 demotion_chance = 0.15f;
+};
+
+struct SnowFeature{
+    FeatureShared shared;
+    using value_type = SnowFeature;
+    void place(WorldBlockPos origin, f32 density, BlockWriter& blocks)const noexcept;
+    bool should_place(WorldBlockPos origin, f32 sampled_density, BlockWriter& blocks)const;
+    
+
+    std::vector<BlockType> snow_stages{};
+    f32 promotion_chance = 0.25f;
+    f32 demotion_chance = 0.02f;
 };
 
 struct MultiSegmentFeature {

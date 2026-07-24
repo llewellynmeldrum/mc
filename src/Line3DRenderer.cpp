@@ -46,7 +46,7 @@ void Line3DRenderer::setup(){
     quad_ebo.make();
     instance_vbo.make();
 
-    prog.setup("shaders/line3d_vs.glsl", "shaders/line3d_fs.glsl");
+    prog.load_vtx_and_frag("shaders/line3d_vs.glsl", "shaders/line3d_fs.glsl");
 
     vao.bind();
 

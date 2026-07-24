@@ -1,4 +1,5 @@
 #pragma once
+#include "BenchmarkMap.hpp"
 #include "CommonConcepts.hpp"
 #include "DebugUI.hpp"
 #include "Types.h"
@@ -124,15 +125,23 @@ struct DropDown{
 auto plotRingBuf (const auto& rb,f32 max, const std::string key="????", const std::string fmt="p??", bool printValue=false){
     
     if (printValue){
-        std::string _fmt = std::string("%-12s: %")+fmt;
+        std::string _fmt = std::string("%-20s: %")+fmt;
         // todo find longest string and make it the field length
         IG::Text(_fmt.c_str(), key.c_str(), rb.avg());
         UI::SameLine();
+        std::string __fmt = std::string("%-10s: %")+fmt;
+        IG::Text(__fmt.c_str(), ", SD:", rb.stddev());
+        UI::SameLine();
     }
     std::string id = "##"+key;
-    if (!max) max=FLT_MAX;
     IG::PlotLines(id.c_str(), rb.data(), rb.size(), 0, "", FLT_MAX, max);
 };
+
+auto plot_benchmarker(const auto& bench,f32 max, const std::string key="????", const std::string fmt="p??", bool printValue=false){
+    std::shared_lock lock(bench.duration_mut);
+    const auto& rb = bench.obj.duration_ms;
+    plotRingBuf(rb,max,key,fmt,printValue);
+}
 struct WindowConfig{
     std::string title;
     i32 flags;

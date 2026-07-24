@@ -11,48 +11,45 @@
 
 
 struct Shader{
-    Shader(i32 shader_type, const char* src_path);
+    Shader(i32 shader_type, const std::string& src_path);
     ~Shader(); // custom
 
-    Shader()=delete;
-    u32 id;
     i32 ShaderType;
+    u32 id;
     std::string src_path;
-    static std::string tostr(i32 shader_type);
-    bool readSource(const char* filename);
+    std::string file_contents;
+    static std::string shader_type_to_str(i32 shader_type);
     bool compile();
+    void load_shader(const std::string& file_contents);
+    void load_shader_file(const std::string& filename, bool enable_includes);
 
-    bool        has_error(i32 param_name);
+    bool has_error(i32 param_name);
     std::string get_info_log();
 };
 
 struct VertexShader: Shader{
-    VertexShader(const char* src);
-    ~VertexShader()=default;
-
-    VertexShader()=delete;
+    VertexShader(const std::string& filename);
 
 };
 struct FragmentShader: Shader{
-    FragmentShader(const char* src);
-    ~FragmentShader()=default;
-
-    FragmentShader()=delete;
-
+    FragmentShader(const std::string& filename);
 };
 
+// A wrapper around a FragmentShader and a VertexShader, 
+// which provides some helpers for loading/binding them both at the same time.
+// Also has helpers for uniforms
 struct ShaderProgram{
     ShaderProgram()= default;
     ~ShaderProgram()=default;
     u32 id;
 
     // compiles and links a vertex and fragment shader from the path of their source files.
-    void setup(const char* vtx_src, const char* frag_src);
+    void load_vtx_and_frag(const std::string&  vtx_src, const std::string&  frag_src);
 
     void use();
-    void                                 stop();
+    void stop();
+    void check_uniform(std::string name);
     std::unordered_map<std::string, i32> uniformLocationsCache;
-    void                                 check_uniform(std::string name);
     i32 getUniformLoc(const std::string& name);
     // `#ifdef _DEBUG`, this function will search with the ./shaders dir with `rg` to see if the `name` requested exists in a shader. 
     // If it doesnt, we crash immediately, providing an error message containing the top 1 `N=3` closest fuzzy results from `agrep`.

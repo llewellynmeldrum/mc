@@ -7,6 +7,7 @@ namespace features{
     inline GrassFeature no_grass{ {.is_enabled=false}, };
     inline MultiSegmentFeature no_multi{ {.is_enabled=false}};
     inline SingleBlockFeature no_single{ {.is_enabled=false}};
+    inline SnowFeature no_snow{ {.is_enabled=false}};
 
 // SECTION: TREES
     inline TreeFeature regular_oak_tree{
@@ -101,6 +102,31 @@ namespace features{
             BlockType::GRASS_TUFT1,
             BlockType::GRASS_TUFT2,
             BlockType::GRASS_TUFT3,
+        },
+    };
+
+
+    inline SnowFeature tundra_snow{
+    // density in this case is heat. High height = less snow
+        .shared{
+            .is_enabled=true,
+            .density_spawn_remap{
+                    {-1.0f, 0.99f},
+                    {-0.4f, 0.98f},
+                    {+0.0f, 0.97f},
+                    {+0.3f, 0.96f},
+                    {+1.0f, 0.50f},
+            },
+            .target_surfaces {
+                BlockType::SNOW_GRASS_BLOCK,
+                BlockType::SPRUCE_LEAF,
+                BlockType::SNOW_BLOCK,
+                BlockType::ICE_BLOCK,
+            },
+        },
+        .snow_stages{
+            BlockType::SNOW_1 ,
+            BlockType::SNOW_2 ,
         },
     };
     inline GrassFeature short_snow_grass{

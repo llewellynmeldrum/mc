@@ -5,11 +5,13 @@
 #include <ranges>
 
 MeshJob::MeshJob(
+        ChunkBenchContext _bench,
         WorldChunkCoord key, 
         const_span<TextureAtlas*> _atlas_list, 
         ChunkMap* chunk_map,
         const ChunkEntry* entry
     ):
+        bench(std::move(_bench)), 
         meshRevisionID(entry->target_mesh_revision),
         chunkCoord(key),
         blocks(entry->block_data.clone()),
