@@ -1,16 +1,21 @@
 #pragma once 
 
-// facilitates the searching aa
+#include <optional>
+#include <print>
+#include <queue>
+#include <span>
+#include <unordered_set>
+
+
+#include "ChunkConcurrency.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkMap.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "LM.hpp"
 #include "Logger.hpp"
+#include "FormatSpecs.hpp"
 #include "UniqueQueue.hpp"
-#include <queue>
-#include <span>
-#include <unordered_set>
 #include "cppslop.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -29,12 +34,33 @@ struct ChunkDirector{
     // Meshing 
     // ============
 
+    bool place_block(WorldBlockPos wpos, BlockType block){
+        auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
+        std::println("chunk:{}",toWorldChunkCoord(wpos));
+        if (chunk){
+            ChunkBlockPos cpos = toChunkBlockPos(wpos);
+            std::println("cpos:{}",cpos);
+            chunk->block_data.at(cpos) = block;
+            mark_mesh_dirty(chunk);
+            return true;
+        }
+        return false;
+    }
+    std::optional<Block> block_at(WorldBlockPos wpos)const noexcept{
+        auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
+        if (chunk){
+            ChunkBlockPos cpos = toChunkBlockPos(wpos);
+            return std::make_optional(chunk->block_data.at(cpos));
+        }
+        return std::nullopt;
+    }
     void handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos);
     bool qualifies_for_mesh_enqueue(ChunkEntry& entry){
+        // 1. ensure i qualify
         if (!entry.qualifies_for_mesh_enqueue()){
             return false;
         }
-        // TODO: there is something wrong here.
+        // 2. ensure neighbours are generated
         for (const auto& opt_neighbour_coord: entry.neighbours){
             if (!opt_neighbour_coord){
                 return false;
@@ -43,7 +69,7 @@ struct ChunkDirector{
             bool neighbour_generated = chunk_map.entries.if_contains_else(
                 neighbour_coord,
                 [&](ChunkEntry& neigh_entry){
-                    return neigh_entry.state.gen == GenState::done;
+                    return neigh_entry.state.gen == PipelineState::done;
                 },
                 [&](){
                     // neigh entry doesnt exist, not generated.
@@ -56,19 +82,32 @@ struct ChunkDirector{
         }
         return true;
     }
+
+    void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
+        ready_for_gen.erase(entry.coord);
+        entry.gen_revision.inflight = entry.gen_revision.target;
+        entry.state_transition(gen_enqueue);
+    }
+
     void mark_mesh_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
-        ready_for_mesh.erase(entry.state.coord);
-        entry.inflight_mesh_revision = entry.target_mesh_revision;
+        ready_for_mesh.erase(entry.coord);
+        entry.mesh_revision.inflight = entry.mesh_revision.target;
         entry.state_transition(mesh_enqueue);
     }
     // aka discover_mesh()
     void mark_mesh_dirty(ChunkEntry& entry, std::string_view reason="N/A"){
-        entry._mark_mesh_dirty(reason);
-        ready_for_mesh.push(entry.state.coord);
+        mark_mesh_dirty(&entry);
     }
+
     void mark_mesh_dirty(ChunkEntry* entry, std::string_view reason="N/A"){
-        entry->_mark_mesh_dirty(reason);
-        ready_for_mesh.push(entry->state.coord);
+        assert(entry);
+        log_to_chunk("mesh_endirtying",entry->coord, 
+                     "Mesh dirtied ({}->{}). Reason:{}",
+                     entry->mesh_revision.target,
+                     entry->mesh_revision.target+1,
+                     reason);
+        entry->mesh_revision.mark_dirty();
+        ready_for_mesh.push(entry->coord);
     }
 
     std::vector<WorldChunkCoord> find_mesh_jobs(size_t N){
@@ -96,11 +135,6 @@ struct ChunkDirector{
         ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench, 
         i64 max_jobs, i64 gen_radius, i64 mesh_radius);
 
-    void mark_gen_enqueue(ChunkEntry& entry, std::string_view reason="N/A"){
-        ready_for_gen.erase(entry.state.coord);
-        entry.inflight_gen_revision = entry.target_gen_revision;
-        entry.state_transition(gen_enqueue);
-    }
     std::vector<WorldChunkCoord> find_gen_jobs(size_t N){
         size_t count = std::min(N,ready_for_gen.size());
         return {ready_for_gen.begin(), ready_for_gen.begin()+count};
@@ -113,7 +147,7 @@ struct ChunkDirector{
             chunk_map.entries.if_contains(
                 WorldChunkCoord{x,z},
                 [&](ChunkEntry& neighbour_entry){
-                    if (neighbour_entry.state.gen == GenState::done){
+                    if (neighbour_entry.state.gen == PipelineState::done){
                         mark_mesh_dirty(neighbour_entry);
                     }
                 }

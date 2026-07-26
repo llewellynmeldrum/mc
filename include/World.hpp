@@ -18,18 +18,24 @@
 
 #include "WorldGen_Defaults.hpp"
 
+void generate_chunks(std::stop_token stopToken, Queue<GenJob>& input_queue, Queue<GenResult>& output_queue);
+void mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue);
+
 struct World {
+    #define CLASS_NAME World
     World(i32 _world_seed):
         world_seed(_world_seed),
         active_cfg(noise_config_defaults(),remap_table_defaults()),
         editable_cfg(noise_config_defaults(),remap_table_defaults())
     {}
     ~World() = default;
-    NO_MOVE(World);
-    NO_COPY(World);
+    MOVE_CTOR(delete);
+    COPY_CTOR(delete);
+    MOVE_ASSN(delete);
+    COPY_ASSN(delete);
 
     inline void setup(){
-        generators.launchGenThreads();
+        generators.launch_threads(generate_chunks);
     }
 
     inline void regenerate(){
@@ -41,50 +47,22 @@ struct World {
 
     // Mutable state which gets fed to gen workers
     i32 world_seed;
-    //NoiseGenerator noise_gen{default_world_seed};
     GenConfig active_cfg;
     GenConfig editable_cfg;
-
     i32 worldgen_epoch {0}; // aka. global target_gen_revision 
 
     // Owner of the gen workers
-    ChunkGenerator generators;
+    JobProcessor<GenJob, GenResult> generators;
 
     // Chunk data store
     ChunkMap chunkMap;
 
-
-    void set_block(WorldBlockPos wpos, BlockType block);
-
     ChunkEntry* make_chunk_entry(WorldChunkCoord key);
 
 
-    inline std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist) {
-        const size_t nChunksInRadius = std::pow(2*dist+1,2);
-        std::vector<std::pair<bool,WorldChunkCoord>> candidates;
-        candidates.reserve(nChunksInRadius);
-
-        auto add = [this, &candidates](i32 x, i32 z){
-            const auto key = WorldChunkCoord{x,z}; // dont you have to 
-            const auto state = chunkMap.entries.try_get(key);
-            candidates.emplace_back(static_cast<bool>(state),key);
-        };
-
-
-        i32 x{chunkCoord.x}, z{chunkCoord.z};
-        add(x,z); // center point
-        for (i32 r = 1; r<= dist; r++){
-            const i32 r2 = 2*r;
-            add(--x,z); // move out of the centre point
-            for (int j = 0; j<r2 - 1;j++)    add(x,++z); // traverse the remaining (-X) edge
-            for (int j = 0; j<r2 ; j++)     add(++x,z);  // traverse the whole     (Z+) edge
-            for (int j = 0; j<r2 ; j++)     add(x,--z);  // traverse the whole     (+X) edge
-            for (int j = 0; j<r2 ; j++)     add(--x,z);  // traverse the whole     (+X) edge
-        }
-        return candidates;
-    }
-
+    std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist);
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;
 
+    #undef CLASS_NAME
 };

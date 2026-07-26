@@ -52,8 +52,8 @@ QuadUVList TextureAtlas::apply_texture_uvs_cube(i64 texture_idx, Direction dir, 
     vec2 uvmin = get_base_cube_uv(texture_idx, std::to_underlying(dir));
     std::array<vec2, 4> res;
     for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
-        f32 u = vertices[vtx].txCoords.x;
-        f32 v = vertices[vtx].txCoords.y;
+        f32 u = vertices[vtx].tx_coords.x;
+        f32 v = vertices[vtx].tx_coords.y;
         u = uvmin.x + u * abs_sprite_w;
         v = 1 - (uvmin.y + v * abs_sprite_h);
         res[vtx] = { u, v };
@@ -66,8 +66,8 @@ QuadUVList TextureAtlas::get_texture_uvs_cross(i64 texture_idx, const_span<Verte
 
     vec2 uvmin = get_base_cross_uv(texture_idx);
     for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
-        f32 u = vertices[vtx].txCoords.x;
-        f32 v = vertices[vtx].txCoords.y;
+        f32 u = vertices[vtx].tx_coords.x;
+        f32 v = vertices[vtx].tx_coords.y;
         u = uvmin.x + u * abs_sprite_w;
         v = 1 - (uvmin.y + v * abs_sprite_h);
         res[vtx] = { u, v };

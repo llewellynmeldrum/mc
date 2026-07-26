@@ -7,6 +7,7 @@
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkNoiseDebug.hpp"
+#include "Concurrency.hpp"
 #include "Vertex.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
@@ -46,11 +47,8 @@ struct GenJob{
 struct GenResult{
     size_t genRevisionID;
     WorldChunkCoord chunkCoord;
-    ChunkStore chunkBlocks;
+    ChunkBlockStore chunkBlocks;
     PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
-#ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<NoiseParams> noise{};
-#endif 
 };
 
 // QUEUE: MeshJobQueue
@@ -62,12 +60,9 @@ struct MeshJob{
     ChunkBenchContext bench;
     size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
-    ChunkStore blocks;
+    ChunkBlockStore blocks;
     std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
     const_span<TextureAtlas*> atlas_map;
-#ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<NoiseParams> noise;
-#endif 
 
 
     MeshJob(
@@ -109,3 +104,22 @@ struct MeshResult{
 };
 
 
+
+template<typename JobType, typename ResType> struct JobProcessor{
+    JobProcessor() = default;
+    ~JobProcessor() = default;
+
+    template<typename Fn, typename ...Args>
+        requires callable_with<Fn, std::stop_token, Queue<JobType>&, Queue<ResType>&>
+    inline void launch_threads(Fn&& work_fn){
+        threads.launch(
+            std::forward<Fn>(work_fn),
+            std::ref(job_queue),
+            std::ref(res_queue)
+        );
+    }
+
+    Queue<JobType> job_queue;
+    Queue<ResType> res_queue;
+    ThreadPool threads{1};
+};

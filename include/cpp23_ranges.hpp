@@ -10,6 +10,7 @@
     #include <range/v3/view/map.hpp>
     #include <range/v3/view/transform.hpp>
     #include <range/v3/view/filter.hpp>
+    #include <range/v3/view/split.hpp>
     #include <range/v3/view/reverse.hpp>
 
     #include <range/v3/range/conversion.hpp>

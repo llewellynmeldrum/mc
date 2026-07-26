@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <optional>
+#include <print>
 
 #include "ChunkStorage.hpp"
 #include "DebugChunkLog.hpp"
@@ -25,12 +28,6 @@
 #include "Assertion.hpp"
 #include "FmtStyle.hpp"
 #include "UnixHelpers.hpp"
-
-#include <algorithm>
-#include <optional>
-#include <print>
-
-
 #include "FormatSpecs.hpp"
 
 void Engine::loop(){
@@ -111,7 +108,7 @@ void Engine::evict_meshes_outside_radius(i32 radius){
                 map.entries.if_contains(
                     coord,
                     [](ChunkEntry& entry){
-                        if (entry.state.mesh == MeshState::done){
+                        if (entry.state.mesh == PipelineState::done){
                             entry.mark_mesh_deleted();
                         }
                     }
@@ -134,6 +131,10 @@ void Engine::update_scene() {
 
 
     if (!chunk_updates_paused){
+        if (director.block_at({4,5,4}) != BlockType::TORCH){
+            bool success = director.place_block(WorldBlockPos{4,5,4},BlockType::TORCH);
+            std::println("Placing torch: {}", success ? "success" : "failed");
+        }
 
         auto [n_mesh_job_disc, n_gen_jobs_disc] =
             director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher,
@@ -181,7 +182,7 @@ void Engine::submit_gen_jobs(i64 maxJobs){
     profiler.bench_start("enqueueGen");
     const auto candidates = director.find_gen_jobs(maxJobs);
     i64 count = 0;
-    auto& genQ = world.generators.genJobQueue;
+    auto& genQ = world.generators.job_queue;
     for (const auto& candidate_coord: candidates){
 
         bool success = genQ.try_emplace(
@@ -221,7 +222,7 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
 //        if (!is_chunk_in_frustum(player_cam.getCullFrustum(),coord)){
 //            continue;
 //        }
-        auto& meshQ = rend.meshers.meshJobQueue;
+        auto& meshQ = rend.meshers.job_queue;
         auto* entry = world.chunkMap.entries.at(candidate_coord);
 
         assert(entry);
@@ -238,9 +239,8 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
             );
             // MeshJob(size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
             if (success){
-                //mesh_enqueue_delay_bench.bench_end(candidate_coord);
-                mesh_rtt_bencher.bench_start(candidate_coord,entry->target_mesh_revision);
-                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->target_mesh_revision);
+                mesh_rtt_bencher.bench_start(candidate_coord,entry->mesh_revision.target);
+                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->mesh_revision.target);
                 director.mark_mesh_enqueue(*entry);
                 count++;
             }
@@ -266,7 +266,7 @@ void Engine::upload_mesh_results(i64 maxUploads){
         }
         return {};
     };
-    auto candidate_results = drain_mesh_results(rend.meshers.meshResultQueue,maxUploads);
+    auto candidate_results = drain_mesh_results(rend.meshers.res_queue,maxUploads);
     for (const auto& [candidate_revision, chunk_coord, opaque, blended, cutout] : candidate_results){
         auto log_fail_upload = [&](std::string_view str){
             log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
@@ -284,8 +284,8 @@ void Engine::upload_mesh_results(i64 maxUploads){
         }
 
         if (entry->qualifies_for_mesh_dequeue()){
-            if (entry->is_candidate_mesh_newer_than_loaded(candidate_revision)){
-                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->loaded_mesh_revision,candidate_revision);
+            if (entry->mesh_revision.is_candidate_newer_than_loaded(candidate_revision)){
+                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->mesh_revision.loaded,candidate_revision);
                 log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),blended.vertices.size(),cutout.vertices.size());
                 //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
                 //log_to_chunk(chunk_coord,"transp new: {}",blended.vertices.size());
@@ -304,14 +304,15 @@ void Engine::upload_mesh_results(i64 maxUploads){
                 //log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
             }else{
                 log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                                candidate_revision,entry->loaded_mesh_revision));
+                                candidate_revision,entry->mesh_revision.loaded));
+                continue;
             }
-            entry->loaded_mesh_revision = candidate_revision;
+            entry->mesh_revision.loaded = candidate_revision;
             entry->state_transition(mesh_dequeue);
             this->chunksMeshed++;
             auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
             mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
-            log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
+           // log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
             count++;
         }else{
             log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
@@ -339,12 +340,12 @@ void Engine::upload_gen_results(i64 maxUploads){
         }
         return output;
     };
-    auto genResults = drain_gen_results(world.generators.genResultQueue,maxUploads);
+    auto genResults = drain_gen_results(world.generators.res_queue,maxUploads);
     for (const auto& newGen : genResults){
         const auto& chunk_coord = newGen.chunkCoord;
         const auto& candidate_revision = newGen.genRevisionID;
         auto log_fail_upload = [&](std::string_view str){
-            log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
+            log_to_chunk(chunk_coord, "Gen upload rejected: {}.",str);
         };
         auto* entry = world.chunkMap.entries.try_get(chunk_coord);
         if (!entry){
@@ -353,21 +354,21 @@ void Engine::upload_gen_results(i64 maxUploads){
         }
 
         if (entry->qualifies_for_gen_dequeue()){
-            if (entry->is_candidate_gen_newer_than_loaded(candidate_revision)){
-                log_to_chunk("gen_uploads",chunk_coord, "gen upload success ({}->{})",entry->loaded_gen_revision,candidate_revision);
+            if (entry->gen_revision.is_candidate_newer_than_loaded(candidate_revision)){
+                log_to_chunk("gen_uploads",chunk_coord, "gen upload success ({}->{})",entry->gen_revision.loaded,candidate_revision);
                 director.upload_generated_chunk(newGen);
-                entry->loaded_gen_revision = candidate_revision;
+                entry->gen_revision.loaded = candidate_revision;
                 entry->state_transition(gen_dequeue);
             }else{
                 log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                                candidate_revision,entry->loaded_gen_revision));
+                                candidate_revision,entry->gen_revision.loaded));
             }
         }else{
             log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
         }
         auto ttg = gen_rtt_bencher.bench_end(chunk_coord, candidate_revision);
         gen_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
-        log_to_chunk(chunk_coord,"time to gen: {:2.4f}ms",ttg);
+//        log_to_chunk(chunk_coord,"time to gen: {:2.4f}ms",ttg);
     }
     profiler.bench_end("drainGen");
     gen_res_this_frame = genResults.size();
@@ -749,8 +750,8 @@ void Engine::remesh_world(){
 }
 void Engine::regenerate_world(){
     // 1. clear job queues: (no more inputs to the threads)
-    rend.meshers.meshJobQueue.clear();
-    world.generators.genJobQueue.clear();
+    rend.meshers.job_queue.clear();
+    world.generators.job_queue.clear();
     {
         std::lock_guard lock(per_chunk_log_mut);
         per_chunk_log.clear();
@@ -791,22 +792,24 @@ void Engine::count_states(){
     n_gen_on_queue               ={};
     n_gen_done                   ={};
 
-    n_mesh_awaiting_generation   ={};
+    n_mesh_pending   ={};
     n_mesh_ready_for_enqueue     ={};
     n_mesh_on_queue              ={};
     n_mesh_done                  ={};
     for (const auto& [key, val]: world.chunkMap.entries){
         switch(val.state.gen){
-            case GenState::on_queue: n_gen_on_queue++; break;
-            case GenState::done: n_gen_done++; break;
-            case GenState::ready_for_enqueue: n_gen_ready_for_enqueue++; break;
+            // TODO: add
+            case PipelineState::pending: n_gen_pending++; break;
+            case PipelineState::on_queue: n_gen_on_queue++; break;
+            case PipelineState::done: n_gen_done++; break;
+            case PipelineState::ready_for_enqueue: n_gen_ready_for_enqueue++; break;
         }
 
         switch(val.state.mesh){
-            case MeshState::awaiting_generation: n_mesh_awaiting_generation++; break;
-            case MeshState::ready_for_enqueue  : n_mesh_ready_for_enqueue  ++; break;
-            case MeshState::on_queue           : n_mesh_on_queue           ++; break;
-            case MeshState::done               : n_mesh_done               ++; break;
+            case PipelineState::pending : n_mesh_pending++; break;
+            case PipelineState::ready_for_enqueue  : n_mesh_ready_for_enqueue  ++; break;
+            case PipelineState::on_queue           : n_mesh_on_queue           ++; break;
+            case PipelineState::done               : n_mesh_done               ++; break;
         }
     }
 

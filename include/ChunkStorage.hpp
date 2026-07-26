@@ -1,99 +1,80 @@
 #pragma once 
 
+#include <concepts/concepts.hpp>
 #include <mdspan>
 #include <utility>
+
 #include "Block.hpp"
 #include "ChunkConstants.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "PendingBlockWrites.hpp"
+#include "SharedShaderConfig.hpp"
 #include "cppslop.hpp"
 #include "Assertion.hpp"
 #include "ChunkView.hpp"
 
+#include "GenericChunkStore.hpp"
 
-struct ChunkStore{
-public:
-    // Default construct to be ChunkInfo::SIZE
-    ChunkStore(): buf(ChunkInfo::SIZE) {}
-    ChunkStore(const ChunkStore&) = default;
-    ChunkStore(ChunkStore&&) = default;
-    ChunkStore& operator=(const ChunkStore&) = default;
-    ChunkStore& operator=(ChunkStore&&) = default;
-    ~ChunkStore() = default;
+struct BlockLightData{
+    u16 packed_data{0};
 
-    // Construct from view
-    explicit ChunkStore(ConstChunkView src): 
-        buf(src.data_handle(), src.data_handle()+ChunkInfo::SIZE) {}
+    void incr_sunlight_intensity()noexcept{
+		set_sunlight_intensity(get_sunlight_intensity()+1);
+	}
+    void incr_blocklight_r()noexcept{
+		set_blocklight_r(get_blocklight_r()+1);
+	}
+    void incr_blocklight_g()noexcept{
+		set_blocklight_g(get_blocklight_g()+1);
+	}
+    void incr_blocklight_b()noexcept{
+		set_blocklight_b(get_blocklight_b()+1);
+	}
 
-private:
-    constexpr decltype(auto) span(this auto& self){
-        return std::mdspan(self.buf.data(), ChunkInfo::XWIDTH, ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH);
-    }
-public:
-    constexpr decltype(auto) at(this auto& self, ChunkBlockPos p){
-        self.bounds_check(p.x,p.y,p.z);
-        return self.span()[p.x,p.y,p.z];
-    }
-    constexpr decltype(auto) at(this auto& self, i32 x, i32 y, i32 z){
-        self.bounds_check(x,y,z);
-        return self.span()[x,y,z];
-    }
-    constexpr decltype(auto) operator[](this auto& self, i32 x, i32 y, i32 z){
-        self.bounds_check(x,y,z);
-        return self.span()[x,y,z];
-    }
-    constexpr auto empty() const noexcept{
-        return buf.empty();
-    }
-    // Obtain a non owning ChunkView from this chunk.
-    constexpr auto view (){
-        return ChunkView{span()};
-    }
+    void decr_sunlight_intensity()noexcept{
+		set_sunlight_intensity(get_sunlight_intensity()-1);
+	}
+    void decr_blocklight_r()noexcept{
+		set_blocklight_r(get_blocklight_r()-1);
+	}
+    void decr_blocklight_g()noexcept{
+		set_blocklight_g(get_blocklight_g()-1);
+	}
+    void decr_blocklight_b()noexcept{
+		set_blocklight_b(get_blocklight_b()-1);
+	}
 
-    // Obtain a non owning, ConstChunkView from this chunk.
-    constexpr auto view () const{
-        return ConstChunkView{span()};
+    void set_sunlight_intensity(u8 val) noexcept{
+        return ::set_sunlight_intensity(packed_data,val);
     }
-
-    ChunkStore clone() const {
-        return ChunkStore{view()};
+    void set_blocklight_r(u8 val) noexcept {
+        return ::set_blocklight_r(packed_data,val);
+    }
+    void set_blocklight_g(u8 val) noexcept {
+        return ::set_blocklight_g(packed_data,val);
+    }
+    void set_blocklight_b(u8 val) noexcept {
+        return ::set_blocklight_b(packed_data,val);
     }
 
-    constexpr auto begin(){
-        return buf.begin();
+    u8 get_sunlight_intensity() const noexcept{
+        return UNPACK_BITFIELD_MEMBER(packed_data, sunlight_intensity_mask,sunlight_intensity_offset);
     }
-    constexpr auto end(){
-        return buf.end();
+    u8 get_blocklight_r() const noexcept {
+        return UNPACK_BITFIELD_MEMBER(packed_data, blocklight_r_mask,blocklight_r_offset);
     }
-    //
-
-
-    // HACK: required stuff for MapLike<> so we dont upset my AT() wrapper
-    using key_type = ChunkBlockPos;
-    using mapped_type = Block;
-    constexpr size_t size()const noexcept{ return ChunkInfo::SIZE;}
-    constexpr bool contains(ChunkBlockPos p)const noexcept{
-        return  0 <= p.x && p.x < ChunkInfo::Extents3D.x && 
-                0 <= p.y && p.y < ChunkInfo::Extents3D.y && 
-                0 <= p.z && p.z < ChunkInfo::Extents3D.z ;
+    u8 get_blocklight_g() const noexcept {
+        return UNPACK_BITFIELD_MEMBER(packed_data, blocklight_g_mask,blocklight_g_offset);
     }
-    std::vector<Block> buf={};
-
-private:
-    void bounds_check(i32 cx, i32 cy, i32 cz) const {
-        if (
-            cx < 0 || cx >= ChunkInfo::XWIDTH ||
-            cy < 0 || cy >= ChunkInfo::HEIGHT ||
-            cz < 0 || cz >= ChunkInfo::ZWIDTH
-        ){
-            throw std::out_of_range("Outside of local chunk bounds");
-        }
+    u8 get_blocklight_b() const noexcept {
+        return UNPACK_BITFIELD_MEMBER(packed_data, blocklight_b_mask,blocklight_b_offset);
     }
 };
-
-static_assert(!array_like<ChunkStore>);
-static_assert(map_like<ChunkStore>);
+using ChunkBlockStore = GenericChunkStore<Block>;
+using ChunkLightStore = GenericChunkStore<BlockLightData>;
+static_assert(!array_like<ChunkBlockStore>);
+static_assert(map_like<ChunkBlockStore>);
 
 // A slice can be taken out of a 
 enum struct SliceType{

@@ -3,7 +3,6 @@
 #include "Chunk.hpp"
 #include "CoordTypes.hpp"
 #include "Geometry.hpp"
-#include "ChunkGenerator.hpp"
 #include "ChunkHelpers.hpp"
 #include "ChunkEntry.hpp"
 #include "Breakpoints.hpp"

@@ -63,6 +63,10 @@ using i3 = ubits<2, true>;
 using i2 = ubits<2, true>;
 using i1 = ubits<1, true>;
 
+// Parity with glsl
+using uint = u32;
+
+
 #define arrlen(x) (sizeof(x) / sizeof(x[0]))
 
 #define NOP ((void)0)

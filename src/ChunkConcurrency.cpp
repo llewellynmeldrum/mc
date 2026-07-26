@@ -12,14 +12,11 @@ MeshJob::MeshJob(
         const ChunkEntry* entry
     ):
         bench(std::move(_bench)), 
-        meshRevisionID(entry->target_mesh_revision),
+        meshRevisionID(entry->mesh_revision.target),
         chunkCoord(key),
         blocks(entry->block_data.clone()),
         atlas_map(_atlas_list)
 {
-#ifdef CHUNK_NOISE_DEBUG
-    std::ranges::copy(entry->noise.buffer(), this->noise.buffer().begin());
-#endif 
     for (const auto& [dir, dir_idx]: eachDirIndex2D){
         const auto& neighbour_coord = entry->neighbours[dir_idx];
         if (!neighbour_coord){

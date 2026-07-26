@@ -4,6 +4,7 @@
 
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
+#include "SharedShaderConfig.hpp"
 #include "DebugChunkLog.hpp"
 #include "DebugOptions.hpp"
 #include "FormatSpecs.hpp"
@@ -44,14 +45,20 @@ Renderer::Renderer() {
     atlas_list.push_back(&cross_atlas);
     atlas_list.push_back(&cactus_atlas);
     atlas_list.push_back(&half_slab_atlas);
+    assert(atlas_list.size() == TEX_ATLAS_COUNT);
 
-    u_textures_loc = prog.getUniformLoc("textures");
+    u_textures_loc = prog.getUniformLoc("u_texture_atlases");
     u_enable_cutout_loc = prog.getUniformLoc("u_enable_cutout");
 
-    u_model_loc = prog.getUniformLoc("model");
-    u_proj_loc = prog.getUniformLoc("proj");
-    u_view_loc = prog.getUniformLoc("view");
+    u_model_loc =   prog.getUniformLoc("u_model");
+    u_proj_loc =    prog.getUniformLoc("u_proj");
+    u_view_loc =    prog.getUniformLoc("u_view");
+
+    u_sunlight_color_loc =    prog.getUniformLoc("u_sunlight_color");
+    prog.setUniform(u_sunlight_color_loc, glm::vec3{1.0f, 1.0f, 0.75f});
     
+    // NOTE: REMINDER!!!!
+    // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!
     prog.setUniform(
         u_textures_loc,
         std::vector{
@@ -59,13 +66,10 @@ Renderer::Renderer() {
             std::to_underlying(BlockShape::CROSS),
             std::to_underlying(BlockShape::CACTUS),
             std::to_underlying(BlockShape::BOT_HALF_SLAB),
-            // NOTE: REMINDER!!!!
-            // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!
-            // for the vertices, change only the position ones but not the scale
         }
     );
     prog.stop();
-    meshers.launch();
+    meshers.launch_threads(mesh_chunks);
 
     dbg_rend.setup();
     line3d_rend.setup();

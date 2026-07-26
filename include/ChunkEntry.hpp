@@ -1,4 +1,5 @@
 #pragma once 
+
 #include <functional>
 
 #include "Breakpoints.hpp"
@@ -19,98 +20,60 @@
 
 #include "Assertion.hpp"
 
-FORWARD_DECL_STRUCT(Engine)
+#include "ChunkState.hpp"
+struct RevisionState{
+    using ID = u64;
+    RevisionState() = default;
+    RevisionState(ID _target) : target(_target) {}
 
-#define GEN_STATE_LIST \
-X(ready_for_enqueue     )\
-X(on_queue              )\
-X(done                  )
-
-#define MESH_STATE_LIST \
-X(awaiting_generation   )\
-X(ready_for_enqueue     )\
-X(on_queue              )\
-X(done                  )
-
-
-enum struct GenState{
-#define X(name)\
-    name,
-    GEN_STATE_LIST
-#undef X
+    u64 target{0uz};     // The actual underlying data's revision    (++ on MakeDirty())
+    u64 inflight{0uz};   // newest revision in flight (on queue)     
+    u64 loaded{0uz};     // The data loaded right now
+    
+    bool is_dirty()const noexcept;
+    bool is_clean()const noexcept;
+    bool qualifies_for_enqueue(const PipelineState& state)const noexcept;
+    bool qualifies_for_dequeue(const PipelineState& state)const noexcept;
+    bool is_candidate_newer_than_loaded(ID candidate_id) const noexcept;
+    void mark_deleted();
+    void mark_dirty()noexcept;
 };
-
-
-enum struct MeshState{
-#define X(name)\
-    name,
-    MESH_STATE_LIST
-#undef X
-};
-
-
-struct ChunkState{
-    ChunkState(WorldChunkCoord _key) : coord(_key){}
-    ~ChunkState()=default;
-    WorldChunkCoord coord;
-    GenState gen{};
-    MeshState mesh{};
-};
-
-
-void transition_logger(const ChunkState& before, const ChunkState& after);
-void gen_enqueue (ChunkState* e);
-void gen_dequeue (ChunkState* e);
-void delete_gen(ChunkState* e);
-
-void mesh_enqueue(ChunkState* e);
-void mesh_dequeue(ChunkState* e);
-void delete_mesh(ChunkState* e);
-
-
-
-
-
 // @Brief:
 // represents the in memory store of a chunks data.
 // A ChunkEntry is created upon request for chunk generation.
-// It should be:
-// 1. default constructible, probably not movable or copyable. no reason to do either
 struct ChunkEntry{
 
-    ChunkEntry(WorldChunkCoord chunkCoord, i32 worldgen_epoch):
-        bounding_box(
-                    toWorldOrigin(chunkCoord).raw(),
-                    toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents3D
-        ),
-        neighbours(N_NEIGHBOURS, std::nullopt),
-        state(chunkCoord),
-        target_gen_revision(worldgen_epoch)
+    ChunkEntry(WorldChunkCoord chunkCoord, i32 worldgen_epoch)
+        :coord(chunkCoord)
+        ,bounding_box(
+            toWorldOrigin(chunkCoord).raw(),
+            toWorldOrigin(chunkCoord).raw()+ChunkInfo::Extents3D
+        )
+        ,neighbours(N_NEIGHBOURS, std::nullopt)
+        ,state(chunkCoord)
+        ,gen_revision(worldgen_epoch)
         {}
 
-#ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<NoiseParams> noise{};
-#endif 
+    WorldChunkCoord coord;
     AABB bounding_box; 
     std::vector<std::optional<WorldChunkCoord>> neighbours;
-    ChunkStore block_data;
+    ChunkBlockStore block_data;
     ChunkState state;
-    bool is_mesh_dirty()const noexcept;
-    bool is_mesh_clean()const noexcept;
-    bool qualifies_for_mesh_enqueue()const noexcept;
-    bool qualifies_for_mesh_dequeue()const noexcept; 
-    bool is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept;
+    ChunkLightStore light_data;
+
+    RevisionState mesh_revision;
+    RevisionState gen_revision;
+    RevisionState light_revision;
+
     void mark_mesh_deleted();
-    void _mark_mesh_dirty(std::string_view reason = "n/a")noexcept;
-
-
-    bool is_gen_dirty() const noexcept;
-    bool is_gen_clean() const noexcept;
-    bool qualifies_for_gen_enqueue() const noexcept;
-    bool qualifies_for_gen_dequeue() const noexcept;
-    bool is_candidate_gen_newer_than_loaded(GenRevisionID candidate_gen_revision_id) const noexcept;
     void mark_gen_deleted();
-    bool _mark_gen_dirty() noexcept;
+    bool qualifies_for_mesh_enqueue()const noexcept;
+    bool qualifies_for_mesh_dequeue()const noexcept;
+    bool qualifies_for_gen_enqueue()const noexcept;
+    bool qualifies_for_gen_dequeue()const noexcept;
+
+
+
 
     template<typename Fn>
     void state_transition(Fn&& fn) {
@@ -119,11 +82,4 @@ struct ChunkEntry{
         auto after = ChunkState(state);
         transition_logger(before,after);
     }
-    MeshRevisionID target_mesh_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
-    MeshRevisionID inflight_mesh_revision{0};  // newest revision in flight (on queue)     ()
-    MeshRevisionID loaded_mesh_revision{0};     // The data on the gpu right now
-    //
-    GenRevisionID target_gen_revision{0};     // The actual underlying data's revision    (++ on MakeDirty())
-    GenRevisionID inflight_gen_revision{0};  // newest revision in flight (on queue)     ()
-    GenRevisionID loaded_gen_revision{0};     // The data on the gpu right now
 };

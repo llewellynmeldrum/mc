@@ -4,13 +4,13 @@
 #include "DebugOptions.hpp"
 #include "cpp23_ranges.hpp"
 
+#include "World.hpp"
 
 #include "Chunk.hpp"
 #include "CoordIteration.hpp"
 #include "Breakpoints.hpp"
 #include "Direction.hpp"
 #include "FormatSpecs.hpp"
-#include "ChunkMesher.hpp"
 #include "Block.hpp"
 #include "ChunkHelpers.hpp"
 #include "ChunkConstants.hpp"
@@ -41,11 +41,8 @@ struct BlockMeshContext{
     const Block& block;
     const ChunkBlockPos& chunk_local_block;
     const TextureAtlas* atlas;
-    const ChunkStore& blocks;
+    const ChunkBlockStore& blocks;
     const_span<std::optional<ChunkSlice2D>> surrounding_chunks;
-#ifdef CHUNK_NOISE_DEBUG
-    PerColumnDebugStore<NoiseParams> noise{};
-#endif
 };
 
 std::array<Block, Direction_Count> get_surrounding_blocks(const BlockMeshContext& ctx);
@@ -72,12 +69,11 @@ const auto& snow_quad_data(Direction dir) {
 }
 
 template<BlockShape block_shape>
-void mesh_quad(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexList quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
-    using vec3 = glm::vec3;
+void mesh_quad(BlockMeshContext& ctx, u8 quad_opacity, QuadVertexList quad_vertices, ChunkBlockPos chunk_local, QuadUVList uvs, i32 face_idx=0){
     constexpr auto atlas_id = shape_atlas_id<block_shape>;
     for (const auto& [vtx_idx, vtx] : views::enumerate(quad_vertices)) {
         vtx.offset_by_chunk_pos(chunk_local);
-        vtx.txCoords = uvs[vtx_idx];
+        vtx.tx_coords = uvs[vtx_idx];
         vtx.set_face_opacity(quad_opacity);
         if constexpr (block_shape != BlockShape::CROSS){
             vtx.set_face_dir(face_idx);
@@ -89,7 +85,7 @@ void mesh_quad(BlockMeshContext& ctx, f32 quad_opacity, QuadVertexList quad_vert
 }
 
 template<typename MeshDataType>
-auto mesh_type_predicate(ChunkStore& chunk){
+auto mesh_type_predicate(ChunkBlockStore& chunk){
     if constexpr(std::same_as<MeshDataType,OpaqueMeshData>){
         return [&chunk](auto xyz){
             auto [x,y,z]=xyz;
@@ -302,7 +298,7 @@ void mesh_lower_half_slab(BlockMeshContext& ctx){
 
 template<typename MaterialType>
 void mesh_cross(BlockMeshContext ctx){
-    const f32 block_opacity = ctx.block.get_opacity();
+    const auto block_opacity = ctx.block.get_opacity();
 
     const auto& block = ctx.block;
     const auto& atlas = ctx.atlas;
@@ -391,9 +387,6 @@ MeshDataType mesh_chunk(const MeshJob& job){
         const auto& atlas = atlas_map[block_shape_to_texture_atlas[block_shape]];
         auto ctx = BlockMeshContext{
             vtx_count,out_vertices,out_indices,block,chunk_local_block,atlas,blocks,surrounding_chunks
-#ifdef CHUNK_NOISE_DEBUG
-            ,job.noise
-#endif
         };
         mesh_shape<MeshDataType>(block_shape,ctx);
     }
@@ -401,7 +394,7 @@ MeshDataType mesh_chunk(const MeshJob& job){
 }
 
 
-void ChunkMesher::mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue){
+void mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue){
     ThreadTracker::assign_my_thread_type(ThreadType::mesh);
     while (!stopToken.stop_requested()){
         

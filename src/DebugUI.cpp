@@ -3,6 +3,8 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+#include "ChunkState.hpp"
+#include "DebugChunkRenderer.hpp"
 #include "GlobalDebugLog.hpp"
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
@@ -528,15 +530,15 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         window.section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
-            #define X(name) UI::ColoredText(GenDebugOutlineColor(GenState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
-            GEN_STATE_LIST
+            #define X(name) UI::ColoredText(GenDebugOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
+            PIPELINE_STATE_LIST
             #undef X
 
-            IG::Separator();
             UI::Text("MeshStates:");
-            #define X(name) UI::ColoredText(MeshDebugOutlineColor(MeshState:: name),"{}: {}", #name, ctx->n_mesh_ ##name);
-            MESH_STATE_LIST
+            #define X(name) UI::ColoredText(MeshDebugOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_mesh_##name);
+            PIPELINE_STATE_LIST
             #undef X
+
             UI::Text("Chunk Entries: {}",ctx->world.chunkMap.entries.size());
         });
         window.dropdown.show();
@@ -546,7 +548,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
-            bool showGenState = DebugOption::gen_state_mode;
+            bool showPipelineState = DebugOption::gen_state_mode;
             std::string gen_state_str{"No state entry."};
             std::string mesh_state_str{"No state entry."};
             auto target_mesh_id = 0uz;
@@ -555,11 +557,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             ctx->world.chunkMap.entries.if_contains(
                 ch_pos,
                 [&](ChunkEntry& entry){
-                    target_mesh_id = entry.target_mesh_revision;
-                    inflight_mesh_id = entry.inflight_mesh_revision;
-                    loaded_mesh_id = entry.loaded_mesh_revision;
+                    target_mesh_id = entry.mesh_revision.target;
+                    inflight_mesh_id = entry.mesh_revision.inflight;
+                    loaded_mesh_id = entry.mesh_revision.loaded;
                     ChunkState& state = entry.state;
-                    GenState gen_stage{};
+                    PipelineState gen_stage{};
                     bool gen_clean{};
                     bool noBlocks{};
                     bool opaque_loaded{};
@@ -567,9 +569,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     bool opaque_empty{};
                     bool transp_empty{};
                     bool mesh_clean{};
-                    MeshState mesh_stage{};
+                    PipelineState mesh_stage{};
                     gen_stage = state.gen;
-                    gen_clean = entry.is_gen_clean();
+                    gen_clean = entry.gen_revision.is_clean();
 
                     
                     ctx->world.chunkMap.entries.if_contains(
@@ -588,7 +590,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     gen_state_color = GenDebugOutlineColor(state.gen);
 
                     mesh_stage=state.mesh;
-                    mesh_clean = entry.is_mesh_clean();
+                    mesh_clean = entry.mesh_revision.is_clean();
 
                     
                     ctx->rend.opaque_chunk_meshes.if_contains(
@@ -666,9 +668,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                 ctx->world.chunkMap.entries.if_contains_else(
                     key,
                     [&](ChunkEntry& entry){
-                        if (entry.state.mesh == MeshState::done){
-                            n_pending_clean_meshed += entry.is_mesh_clean();
-                            n_pending_dirty_meshed += entry.is_mesh_dirty();
+                        if (entry.state.mesh == PipelineState::done){
+                            n_pending_clean_meshed += entry.mesh_revision.is_clean();
+                            n_pending_dirty_meshed += entry.mesh_revision.is_dirty();
                         }  else{
                             n_pending_unmeshed++;
                         }
@@ -751,25 +753,25 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             idk(
                 ctx->n_generating,
                 ctx->rb_generating,
-                gen.genJobQueue.capacity + gen.genResultQueue.capacity,
+                gen.job_queue.capacity + gen.res_queue.capacity,
                 "Generating"
             );
 
             idk(
                 ctx->n_meshing,
                 ctx->rb_meshing,
-                ctx->rend.meshers.meshJobQueue.capacity + ctx->rend.meshers.meshResultQueue.capacity,
+                ctx->rend.meshers.job_queue.capacity + ctx->rend.meshers.res_queue.capacity,
                 "Meshing"
             );
 
                 
             IG::Separator();
 
-            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.genJobQueue,ctx->gen_jobs_this_frame, ctx->rb_genJobsAdded);
-            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.genResultQueue,ctx->gen_res_this_frame,ctx->rb_genJobsAdded);
+            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.job_queue,ctx->gen_jobs_this_frame, ctx->rb_genJobsAdded);
+            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.res_queue,ctx->gen_res_this_frame,ctx->rb_genJobsAdded);
 
-            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.meshJobQueue,ctx->mesh_jobs_this_frame,ctx->rb_meshJobsAdded);
-            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.meshResultQueue,ctx->mesh_results_this_frame,ctx->rb_meshResultsAdded);
+            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.job_queue,ctx->mesh_jobs_this_frame,ctx->rb_meshJobsAdded);
+            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.res_queue,ctx->mesh_results_this_frame,ctx->rb_meshResultsAdded);
 
             });
         window.section("Padding:",[ctx]{

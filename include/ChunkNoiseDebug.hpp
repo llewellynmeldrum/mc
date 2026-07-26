@@ -1,7 +1,6 @@
 #pragma once 
 #include "CoordTypes.hpp"
 #include "CoordIteration.hpp"
-#define CHUNK_NOISE_DEBUG
 template<typename T>
 struct PerColumnDebugStore{
 private:

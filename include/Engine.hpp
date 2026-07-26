@@ -20,7 +20,7 @@ struct Engine {
         win(), 
         profiler(),
         input(win.ptr), 
-        player_cam({+24.315,+154.162,+71.009}, -38.100,-49.203),
+        player_cam({-3.770,+10.624,-6.345}, -26.367,+54.275),
         drone_cam(),
         rend(),
         fixedCamTarget({0,0},{640,480}),
@@ -154,11 +154,13 @@ struct Engine {
 
     i64 mesh_jobs_this_frame = 0;
     i64 mesh_results_this_frame = 0;
+
+    i64 n_gen_pending {};
     i64 n_gen_ready_for_enqueue{};
     i64 n_gen_on_queue               {};
     i64 n_gen_done                   {};
 
-    i64 n_mesh_awaiting_generation   {};
+    i64 n_mesh_pending   {};
     i64 n_mesh_ready_for_enqueue     {};
     i64 n_mesh_on_queue              {};
     i64 n_mesh_done                  {};

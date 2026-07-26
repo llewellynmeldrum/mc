@@ -1,3 +1,18 @@
+# TODO:
+- [X] add block light r,g,b and sunlight to vertex data
+- [X] pack vertex data
+- [ ] Create storage for block light and sunlight within ChunkEntry
+- [ ] Make a block which emits light, add the light emission as a property of the block
+- [ ] create propogation algorithms (BFS flood fill) 
+- [ ] Implement shader logic for light levels
+- [ ] Implement a working prototype of a red cube lighting up its surroundings
+- [ ] Add a sunlight_color uniform, set by the world (later seeded from time of day)
+- [ ] Add sunlight propogation algorithms, implement shader logic for that as well
+
+
+
+
+
 # Light level design
 
 Similar to minecraft, there will be two 'light levels', howeverone will be component-style rgb, and the other will simply be a single value. 

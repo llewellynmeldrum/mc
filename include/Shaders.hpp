@@ -13,11 +13,13 @@
 struct Shader{
     Shader(i32 shader_type, const std::string& src_path);
     ~Shader(); // custom
+    std::string parse_include_directives(std::string& shader_file_contents);
 
     i32 ShaderType;
     u32 id;
     std::string src_path;
     std::string file_contents;
+    std::vector<std::string> file_lines;
     static std::string shader_type_to_str(i32 shader_type);
     bool compile();
     void load_shader(const std::string& file_contents);
@@ -66,6 +68,7 @@ struct ShaderProgram{
     void setUniform(i32 id, const i32& val);
     void setUniform(i32 id, const glm::mat4& val);
     void setUniform(i32 id, const glm::vec2& val);
+    void setUniform(i32 loc_id, const glm::vec3& val);
     void setUniform(i32 id, const f32& val);
     void setUniform(i32 id, const f64& val);
     void setUniform(i32 id, std::vector<i32> val);

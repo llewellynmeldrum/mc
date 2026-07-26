@@ -1,4 +1,5 @@
 #pragma once
+#include "ChunkState.hpp"
 #include "Mesh.hpp"
 #include "PendingBlockWrites.hpp"
 
@@ -114,7 +115,7 @@ template<>
 struct std::formatter<Vertex>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const Vertex& val, std::format_context& ctx)const {
-		return std::format_to(ctx.out(), "[{}, {}]", val.pos, val.txCoords);
+		return std::format_to(ctx.out(), "[{}, {}]", val.pos, val.tx_coords);
     }
 };
 
@@ -284,48 +285,19 @@ struct std::formatter<T, CharT> : std::formatter<const void*, CharT> {
 };
 #include "ChunkEntry.hpp"
 
-#define state_set_str(Enum, str_identifier, name) case Enum :: name: str_identifier=#name; break;
-#define X(name) state_set_str(GenState, str, name)
+#define X(name) case PipelineState:: name: str=#name; break;
 template<>
-struct std::formatter<GenState>{
-    constexpr auto parse(std::format_parse_context& ctx) {
-        auto it = ctx.begin();
-        if (it != ctx.end() && *it != '}') {
-            throw std::format_error("Invalid format specifier for Point.");
-        }
-        return it;
-    }
-    auto format(GenState s, std::format_context& ctx) const{
-        std::string_view str = "???GenState???";
+struct std::formatter<PipelineState>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    auto format(const PipelineState& s, std::format_context& ctx) const{
+        std::string_view str = "???PipelineState???";
         switch (s){
-            GEN_STATE_LIST
-        }
-        return format_to(ctx.out(), "{}", str);
-    }
-};
-#if defined(X)
-    #undef X
-#endif
-#define X(name) state_set_str(MeshState, str, name)
-template<>
-struct std::formatter<MeshState>{
-    inline constexpr auto parse(std::format_parse_context& ctx) {
-        auto it = ctx.begin();
-        if (it != ctx.end() && *it != '}') {
-            throw std::format_error("Invalid format specifier for MeshState.");
-        }
-        return it;
-    }
-    inline auto format(MeshState s, std::format_context& ctx) const{
-        std::string_view str = "???ChunkMeshState???";
-        switch (s){
-            MESH_STATE_LIST 
+           PIPELINE_STATE_LIST 
         }
         return format_to(ctx.out(), "{}", str);
     }
 };
 #undef X
-#undef state_set_str
 
 template<>
 struct std::formatter<ChunkState>{

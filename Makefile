@@ -35,6 +35,7 @@ CMAKE_COMMON := -G "$(GENERATOR)" \
         compile-commands
 
 export OPT_LEVEL
+configure: OPT_LEVEL=2
 configure:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
 		-DENABLE_CPPTRACE=ON\
@@ -46,6 +47,7 @@ configure-debug:
 		-DMC_O1=ON \
 		-DCMAKE_BUILD_TYPE=Debug 
 
+build: OPT_LEVEL=2
 build: configure
 	cmake --build $(BUILD_DIR) $(BUILD_FLAGS)
 

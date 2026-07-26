@@ -6,48 +6,52 @@
 
 #include "Engine.hpp"
 
+using PipelineState::pending;
+using PipelineState::ready_for_enqueue;
+using PipelineState::on_queue;
+using PipelineState::done;
 //TODO: change all but mark_mesh_dirty to accept chunkState instead of ChunkEntry
+//
 void gen_enqueue(ChunkState* e) {
-    assert(e->gen == GenState::ready_for_enqueue || e->gen == GenState::done);
-    e->gen = GenState::on_queue;
-    // This is a NOP that exists for logging/symmetry purposes.
+    assert(e->gen == ready_for_enqueue || e->gen == done);
+    e->gen = on_queue;
 }
+
 void gen_dequeue(ChunkState* e) {
-    assert_eq(e->gen,GenState::on_queue);
-    assert_eq(e->mesh,MeshState::awaiting_generation);
-    e->mesh = MeshState::ready_for_enqueue;
-    e->gen = GenState::done;
+    assert_eq(e->gen,on_queue);
+    assert_eq(e->mesh,pending);
+    e->mesh = ready_for_enqueue;
+    e->gen = done;
 }
 void delete_gen(ChunkState* e) {
-    assert_eq(e->gen,GenState::done);
-
-    e->gen = GenState::ready_for_enqueue;
+    assert_eq(e->gen,done);
+    e->gen = ready_for_enqueue;
 }
 
 void mesh_enqueue(ChunkState* e) {
-    assert_eq(e->gen,GenState::done);
-    assert(e->mesh == MeshState::ready_for_enqueue || e->mesh == MeshState::done);
-
-    e->mesh = MeshState::on_queue;
+    assert_eq(e->gen,done);
+    assert(e->mesh == ready_for_enqueue || e->mesh == done);
+    e->mesh = on_queue;
 }
 
 void mesh_dequeue(ChunkState* e) {
-    assert_eq(e->gen,GenState::done);
-    assert_eq(e->mesh,MeshState::on_queue);
-    e->mesh = MeshState::done;
+    assert_eq(e->gen,done);
+    assert_eq(e->mesh,on_queue);
+    e->mesh = done;
 }
 
 void delete_mesh(ChunkState* e) {
-    assert_eq(e->gen,GenState::done);
-    assert(e->mesh == MeshState::done);
+    assert_eq(e->gen,done);
+    assert(e->mesh == done);
 
-    e->mesh = MeshState::ready_for_enqueue;
+    e->mesh = ready_for_enqueue;
 }
 
 void transition_logger(const ChunkState& before, const ChunkState& after){
     if (before.mesh != after.mesh){
         std::string s = std::format("M: {} -> {}",before.mesh,after.mesh);
         log_to_chunk("mesh_state_change", before.coord,"{}",s);
+        //     TODO: FIxxx
     }
     if (before.gen != after.gen){
         std::string s = std::format("G: {} -> {}",before.gen,after.gen);
@@ -60,74 +64,50 @@ void transition_logger(const ChunkState& before, const ChunkState& after){
 // NOTE: GEN STUFF
 // NOTE: ===========
 
-bool ChunkEntry::is_gen_dirty() const noexcept{
-    return loaded_gen_revision != target_gen_revision;
+bool RevisionState::is_dirty() const noexcept{
+    return loaded != target;
 }
-bool ChunkEntry::is_gen_clean() const noexcept{
-    return loaded_gen_revision == target_gen_revision;
+bool RevisionState::is_clean() const noexcept{
+    return loaded == target;
 }
-bool ChunkEntry::qualifies_for_gen_enqueue()const noexcept {
-    const bool target_is_newer_than_inflight = (target_gen_revision > inflight_gen_revision);
-    const bool ready = state.gen == GenState::ready_for_enqueue;
-    const bool dirty_done = state.gen == GenState::done && is_gen_dirty();
+
+bool RevisionState::qualifies_for_enqueue(const PipelineState& state) const noexcept {
+    const bool target_is_newer_than_inflight = (target > inflight);
+    const bool ready = state == ready_for_enqueue;
+    const bool dirty_done = state == done && is_dirty();
     return target_is_newer_than_inflight && (ready || dirty_done);
 }
-bool ChunkEntry::qualifies_for_gen_dequeue() const noexcept{
-    return state.gen==GenState::on_queue;
+
+bool RevisionState::qualifies_for_dequeue(const PipelineState& state) const noexcept{
+    return state == on_queue;
 }
 
-bool ChunkEntry::is_candidate_gen_newer_than_loaded(GenRevisionID candidate_gen_revision_id) const noexcept{
-    return candidate_gen_revision_id > loaded_gen_revision;
+bool RevisionState::is_candidate_newer_than_loaded(GenRevisionID candidate_id) const noexcept{
+    return candidate_id > loaded;
 }
 
-void ChunkEntry::mark_gen_deleted(){
-    state_transition(delete_gen);
-    inflight_gen_revision = 0;
-    loaded_gen_revision = 0;
-}
-bool ChunkEntry::_mark_gen_dirty() noexcept{
-    return target_gen_revision++;
+void RevisionState::mark_dirty() noexcept{
+    target++;
 }
 
 
-// NOTE: ===========
-// NOTE: MESH STUFF
-// NOTE: ===========
-
-bool ChunkEntry::is_mesh_dirty()const noexcept{
-    return loaded_mesh_revision!=target_mesh_revision;
-}
-bool ChunkEntry::is_mesh_clean()const noexcept{
-    return loaded_mesh_revision==target_mesh_revision;
-}
-
-bool ChunkEntry::qualifies_for_mesh_enqueue()const noexcept{
-    const bool target_is_newer_than_inflight = (target_mesh_revision > inflight_mesh_revision);
-    const bool gen_done = state.gen == GenState::done;
-    const bool ready = state.mesh==MeshState::ready_for_enqueue;
-    const bool dirty_done = state.mesh==MeshState::done && is_mesh_dirty();
-    return target_is_newer_than_inflight && gen_done && (ready || dirty_done);
-}
-bool ChunkEntry::qualifies_for_mesh_dequeue()const noexcept {
-    return state.mesh == MeshState::on_queue;
-}
-
-
-// WARNING: DO NOT USE THIS FUNCTION BY ITSELF! SHOULD ONLY BE USED FROM DIRECTOR
-void ChunkEntry::_mark_mesh_dirty(std::string_view reason)noexcept{
-    log_to_chunk("mesh_endirtying",state.coord, 
-                 "Mesh dirtied ({}->{}). Reason:{}",
-                 target_mesh_revision,
-                 target_mesh_revision+1,
-                 reason);
-    target_mesh_revision++;
-}
-
-bool ChunkEntry::is_candidate_mesh_newer_than_loaded(MeshRevisionID candidate_mesh_revision_id) const noexcept{
-    return candidate_mesh_revision_id > loaded_mesh_revision;
-}
 void ChunkEntry::mark_mesh_deleted(){
     state_transition(delete_mesh);
-    inflight_mesh_revision = 0;
-    loaded_mesh_revision = 0;
+    mesh_revision.loaded = 0;
+}
+void ChunkEntry::mark_gen_deleted(){
+    state_transition(delete_gen);
+    gen_revision.loaded = 0;
+}
+bool ChunkEntry::qualifies_for_mesh_enqueue()const noexcept{
+    return state.gen == done && mesh_revision.qualifies_for_enqueue(state.mesh);
+}
+bool ChunkEntry::qualifies_for_mesh_dequeue()const noexcept{
+    return mesh_revision.qualifies_for_dequeue(state.mesh);
+}
+bool ChunkEntry::qualifies_for_gen_enqueue()const noexcept{
+    return gen_revision.qualifies_for_enqueue(state.gen);
+}
+bool ChunkEntry::qualifies_for_gen_dequeue()const noexcept{
+    return gen_revision.qualifies_for_dequeue(state.gen);
 }

@@ -65,22 +65,23 @@ inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
 
 #define state_color_match(Enum, name, col) case Enum :: name: return col(DebugOption::ChunkDebugFillOpacity); break;
 
-inline glm::vec4 MeshDebugColor(MeshState stage){
+inline glm::vec4 MeshDebugColor(PipelineState stage){
     using namespace Color01;
     switch (stage){
-        state_color_match(MeshState, awaiting_generation   , GREY_50_a)
-        state_color_match(MeshState, ready_for_enqueue     , RED_a)
-        state_color_match(MeshState, on_queue              , ORANGE_a)
-        state_color_match(MeshState, done                  , GREEN_a)
+        state_color_match(PipelineState, pending , GREY_50_a)
+        state_color_match(PipelineState, ready_for_enqueue     , RED_a)
+        state_color_match(PipelineState, on_queue              , ORANGE_a)
+        state_color_match(PipelineState, done                  , GREEN_a)
     }
     return {};
 }
-inline glm::vec4 GenDebugColor(GenState stage){
+inline glm::vec4 GenDebugColor(PipelineState stage){
     using namespace Color01;
     switch (stage){
-        state_color_match(GenState, ready_for_enqueue, RED_a)
-        state_color_match(GenState, on_queue, ORANGE_a)
-        state_color_match(GenState, done, GREEN_a)
+        state_color_match(PipelineState, pending , GREY_50_a)
+        state_color_match(PipelineState, ready_for_enqueue, RED_a)
+        state_color_match(PipelineState, on_queue, ORANGE_a)
+        state_color_match(PipelineState, done, GREEN_a)
     }
     return {};
 }
@@ -89,10 +90,10 @@ inline glm::vec4 GenDebugColor(GenState stage){
 
 
 
-inline glm::vec4 GenDebugOutlineColor(GenState state) { 
+inline glm::vec4 GenDebugOutlineColor(PipelineState state) { 
     return {glm::vec3{GenDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
 }
-inline glm::vec4 MeshDebugOutlineColor(MeshState state) { 
+inline glm::vec4 MeshDebugOutlineColor(PipelineState state) { 
     return {glm::vec3{MeshDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
 }
 

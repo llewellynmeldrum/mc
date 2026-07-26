@@ -81,6 +81,16 @@ static GenResult generate_chunk(GenJob job){
     auto& pendingWrites = res.deferredWrites;
 
     const GenConfig& cfg = job.cfg;
+    if (cfg.is_superflat){
+        for_each_xyz_in_chunk([&](i32 cx, i32 cy, i32 cz){
+            if (cy==4){
+                block_store.at(cx,cy,cz) = BlockType::GRASS_BLOCK;
+            }else if (cy<3){
+                block_store.at(cx,cy,cz) = BlockType::DIRT_BLOCK;
+            } 
+        });
+        return res;
+    }
 
 
 
@@ -99,14 +109,14 @@ static GenResult generate_chunk(GenJob job){
 
 
     GenContext ctx{world_block_origin,cfg};
+    auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
+
+
+
     auto noise_map = generate_chunk_terrain_noise(cfg,world_block_origin);
     auto biome_map = classify_chunk_biomes(noise_map);
     auto terrain_height_map = ctx.gen_heightmap(cfg,noise_map,biome_map);
-    auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
 
-#ifdef CHUNK_NOISE_DEBUG
-    std::ranges::copy(noise_map, res.noise.begin());
-#endif
 
 
     for_each_xz_in_chunk([&](i32 cx, i32 cz){
@@ -203,8 +213,7 @@ static GenResult generate_chunk(GenJob job){
     // 5. Create trees.
 }
 
-void ChunkGenerator::genChunks(std::stop_token stopToken, 
-                      Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
+void generate_chunks(std::stop_token stopToken, Queue<GenJob>& input_queue, Queue<GenResult>& output_queue){
 
     ThreadTracker::assign_my_thread_type(ThreadType::gen);
     while (!stopToken.stop_requested()){

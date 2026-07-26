@@ -2,11 +2,13 @@
 #include <iostream>
 
 #include "Shaders.hpp"
+#include "FmtStyle.hpp"
 #include "GlobalDebugLog.hpp"
 #include "UnixHelpers.hpp"
 #include "glbindingWrapper.hpp"
 #include "Breakpoints.hpp"
 #include "Logger.hpp"
+#include "cpp23_ranges.hpp"
 
 #include <string_view>
 std::string read_file_contents(std::string const& filename){
@@ -26,7 +28,7 @@ std::string read_file_contents(std::string const& filename){
     file_stream.close();
     return file_contents;
 }
-std::string parse_include_directives(std::string& shader_file_contents){
+std::string Shader::parse_include_directives(std::string& shader_file_contents){
     auto iss = std::istringstream(shader_file_contents);
     std::string line;
     std::vector<std::string> lines;
@@ -82,12 +84,49 @@ void Shader::load_shader_file(const std::string& filename, bool enable_includes)
 // given a file containing 0 or many #include "xyz.h" statements, find and paste the file contents
 // of the file xyz.
 
+auto split_lines(auto&& str){
+    return str | ranges::views::split('\n') | ranges::to<std::vector<std::string>>();
+}
 bool Shader::compile() {
     glCompileShader(id);
     if (has_error(static_cast<i32>(GL_COMPILE_STATUS))) {
-        LOG_ERROR("{} shader failed to compile:\nin {}:\n{}", shader_type_to_str(ShaderType), src_path,
-                  get_info_log());
-        LOG_DEBUG("Shader file contents:\n{}",file_contents);
+        file_lines = split_lines(file_contents);
+        LOG_DEBUG("ERROR IN SHADER, file contents:\n{}",file_contents);
+        LOG_ERROR("{} shader failed to compile:\nin {}:", shader_type_to_str(ShaderType), src_path);
+        auto log_lines = split_lines(get_info_log());
+        for (const auto& line: log_lines){
+            i32 first_colon = line.find_first_of(":");
+            i32 second_colon = line.find_first_of(":",first_colon+1);
+            i32 third_colon = line.find_first_of(":",second_colon+1);
+            auto err_msg = line.substr(third_colon+1);
+            auto err_line_no = std::stoi(std::string(line.begin()+second_colon+1, line.begin() + third_colon));
+            constexpr static i32 ctx_radius = 2;
+            auto min_i  =std::max(0,err_line_no-ctx_radius);
+            auto max_i = std::min(file_lines.size(),(size_t)err_line_no+ctx_radius);
+            std::println("=====================");
+            for (i32 i = min_i; i<max_i; i++){
+                auto line_str = std::format("{:>4} : {}",std::format("{}",i),file_lines.at(i-1));
+                if (i == err_line_no){
+                    std::println(
+                        "{}", 
+                        fmt::styled_fg(
+                            fmt::fg_red(),
+                            line_str
+                        )
+                    );
+                }else{
+                    std::println( "{}", line_str);
+                }
+            }
+            std::println("=====================");
+            std::println(
+                "{}",
+                fmt::styled_fg(
+                    fmt::bold_red(),
+                    std::format("On line {}: {}\n",err_line_no, err_msg) 
+                )
+            );
+        }
         return false;
     }
     return true;
@@ -159,6 +198,9 @@ void ShaderProgram::setUniform(i32 loc_id, const mat4& val) {
 }
 void ShaderProgram::setUniform(i32 loc_id, const vec2& val) {
     glUniform2fv(loc_id, 1, glm::value_ptr(val));
+}
+void ShaderProgram::setUniform(i32 loc_id, const glm::vec3& val) {
+    glUniform3fv(loc_id, 1, glm::value_ptr(val));
 }
 void ShaderProgram::setUniform(i32 loc_id, const f32& val) {
     //        LOG_DEBUG("Deduced unform type as f32 (1f){} = {}", name,val);

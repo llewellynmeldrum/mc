@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "Camera.hpp"
+#include "ChunkConcurrency.hpp"
 #include "DebugOptions.hpp"
 #include "CoordTypes.hpp"
 #include "Line3DRenderer.hpp"
@@ -12,7 +13,6 @@
 #include "Mesh.hpp"
 #include "SlotMap.hpp"
 #include "TextureAtlas.hpp"
-#include "ChunkMesher.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "RenderTargets.hpp"
 
@@ -30,7 +30,7 @@ struct Renderer {
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
     std::vector <TextureAtlas*> atlas_list;
-    ChunkMesher  meshers;
+    JobProcessor<MeshJob, MeshResult> meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
     DebugChunkMesher dbg_rend;
     Line3DRenderer line3d_rend;
@@ -53,6 +53,7 @@ struct Renderer {
     i32 u_model_loc{};
     i32 u_proj_loc{};
     i32 u_view_loc{};
+    i32 u_sunlight_color_loc{};
 
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_blended_chunks(WorldFloatPos cam_pos);

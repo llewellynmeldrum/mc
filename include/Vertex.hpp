@@ -17,7 +17,7 @@
 
 struct Vertex {
     glm::vec3 pos;
-    glm::vec2 txCoords;
+    glm::vec2 tx_coords;
     u32 packed_0{0};
 
     constexpr Vertex(
@@ -27,35 +27,35 @@ struct Vertex {
         BlockShape block_shape
     )
         : pos(pos)
-        , txCoords(txCoords)
+        , tx_coords(txCoords)
     {
         i32 tex_atlas_id = block_shape_to_texture_atlas.at(block_shape);
-        set_val(packed_0, face_dir_mask, face_dir_offset, face_direction);
-        set_val(packed_0, tex_atlas_id_mask, tex_atlas_id_offset, tex_atlas_id);
+        SET_BITFIELD_MEMBER_VAL(packed_0, face_dir_mask, face_dir_offset, face_direction);
+        SET_BITFIELD_MEMBER_VAL(packed_0, tex_atlas_id_mask, tex_atlas_id_offset, tex_atlas_id);
     }
 
     constexpr void set_sunlight_intensity(u8 val) noexcept{
-        set_val(packed_0, sunlight_intensity_mask, sunlight_intensity_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, sunlight_intensity_mask, sunlight_intensity_offset, val);
     }
 
     constexpr void set_blocklight_r(u8 val) noexcept{
-        set_val(packed_0, blocklight_r_mask, blocklight_r_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, blocklight_r_mask, blocklight_r_offset, val);
     }
 
     constexpr void set_blocklight_g(u8 val) noexcept{
-        set_val(packed_0, blocklight_g_mask, blocklight_g_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, blocklight_g_mask, blocklight_g_offset, val);
     }
 
     constexpr void set_blocklight_b(u8 val) noexcept{
-        set_val(packed_0, blocklight_b_mask, blocklight_b_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, blocklight_b_mask, blocklight_b_offset, val);
     }
 
     constexpr void set_face_dir(u8 val) noexcept{
-        set_val(packed_0, face_dir_mask, face_dir_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, face_dir_mask, face_dir_offset, val);
     }
 
     constexpr void set_face_opacity(u8 val) noexcept{
-        set_val(packed_0, face_opacity_mask, face_opacity_offset, val);
+        SET_BITFIELD_MEMBER_VAL(packed_0, face_opacity_mask, face_opacity_offset, val);
     }
 
     constexpr void offset_by_chunk_pos(ChunkBlockPos local_pos)noexcept{
@@ -70,7 +70,7 @@ struct Vertex {
             .stride = sizeof(Vertex),
             .attrs = {
                make_attr<glm::vec3>(0, offsetof(Vertex, pos)),            // 12 bytes (4*3)
-               make_attr<glm::vec2>(1, offsetof(Vertex, txCoords)),       // 08 bytes (4*2)
+               make_attr<glm::vec2>(1, offsetof(Vertex, tx_coords)),       // 08 bytes (4*2)
                make_attr<u32>      (2, offsetof(Vertex, packed_0)),       // 4 bytes ()
             }, 
         };

@@ -12,9 +12,9 @@ namespace DebugOption{
     constexpr inline bool ON = true;
     constexpr inline bool OFF = false;
 
-    inline bool enable_cutout_optimisation            = OFF;
+    inline bool enable_cutout_optimisation      = OFF;
     inline bool enable_drone_cam                = OFF;
-    inline bool enable_3d_debug_visuals         = OFF;
+    inline bool enable_3d_debug_visuals         = ON;
 
     inline bool gen_state_mode                  = OFF; // OFF = mesh state mode
     inline bool outline_neighbour_boundaries    = OFF;

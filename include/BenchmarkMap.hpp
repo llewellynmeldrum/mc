@@ -161,7 +161,8 @@ public:
             duration_ms.write(static_cast<f32>(dt_s * 1000.0));
         }else{
             std::println(stderr, "key: does not exist in (ChunkBenchmarker) ringbufs.");
-            BREAKPOINT();
+//            BREAKPOINT();
+            return FLT_MAX;
         }
         return dt_s * 1000.0;
     }
@@ -215,7 +216,10 @@ struct ConcurrentChunkBenchmarkerBase{
         key_type key = key_type(std::forward<Args>(vargs)...);
         std::shared_lock read_lock_start_times(start_times_mut);
         auto it = obj.start_times.find(key);
-        assert(it != obj.start_times.end());
+        if (it == obj.start_times.end()){
+            LOG_ERROR("broski we missed a benchmark {}:{}",__FILE_NAME__,__LINE__ );
+            return FLT_MAX;
+        }
         return it->second;
     }
 };

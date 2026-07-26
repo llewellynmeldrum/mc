@@ -99,8 +99,8 @@ std::pair<size_t,size_t> ChunkDirector::discover_candidates(
                 key,
                 [&](ChunkEntry& entry){
                     if (LM::sq_dist(chunkCoord, key) < std::pow(mesh_radius,2)
-                    && entry.state.mesh == MeshState::ready_for_enqueue){
-//                        mesh_enqueue_delay_bench.bench_start(key);
+                    && entry.state.mesh == PipelineState::ready_for_enqueue){
+                        mesh_enqueue_delay_bench.bench_start(key);
                         ready_for_mesh.push(key);
                         res.second++;
                     }
@@ -123,7 +123,7 @@ std::pair<size_t,size_t> ChunkDirector::discover_candidates(
     return res;
 }
 void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
-    ChunkStore& generatedBlocks = gen_res.chunkBlocks;
+    ChunkBlockStore& generatedBlocks = gen_res.chunkBlocks;
     const auto& deferredWrites = gen_res.deferredWrites;
     const auto& chunkCoord = gen_res.chunkCoord;
 
@@ -133,9 +133,6 @@ void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
     ranges::copy(generatedBlocks, entry->block_data.begin());
-#ifdef CHUNK_NOISE_DEBUG
-        ranges::copy(gen_res.noise, entry->noise.begin());
-#endif
     update_neighbour_map(chunkCoord);
     update_bounding_boxes_map(chunkCoord);
     //mark_neighbours_dirty(chunkCoord,"Neighbour generated");
@@ -173,7 +170,7 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
         // a.) if the TARGET chunk IS GENERATED, apply the write IMMEDIATELY to the TARGET chunk
         const auto& targetChunkCoord = toWorldChunkCoord(write.target_world);
         auto* target_entry = chunk_map.entries.try_get(targetChunkCoord);
-        bool target_chunk_is_generated = target_entry && target_entry->state.gen == GenState::done;
+        bool target_chunk_is_generated = target_entry && target_entry->state.gen == PipelineState::done;
         if (target_entry && target_chunk_is_generated){
             // if target exists, and is generated, attempt the write
             if (tryWrite(write,target_entry->block_data.view())){

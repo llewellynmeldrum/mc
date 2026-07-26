@@ -29,6 +29,23 @@ T& operator=(const T&) = delete;
     CLASS_NAME& operator=(const CLASS_NAME&) = delete;
 
 
+
+#define COPY_CTOR(default_or_delete) CLASS_NAME(const CLASS_NAME&) = default_or_delete;
+#define MOVE_CTOR(default_or_delete) CLASS_NAME(CLASS_NAME&&) = default_or_delete;
+#define COPY_ASSN(default_or_delete) CLASS_NAME& operator=(const CLASS_NAME&) = default_or_delete;
+#define MOVE_ASSN(default_or_delete) CLASS_NAME& operator=(CLASS_NAME&&) = default_or_delete;
+#define DTOR(default_or_delete) ~CLASS_NAME() = default_or_delete;
+
+#define ALL_SPECIAL_MEMBERS(CLASS_NAME, default_or_delete) \
+    CLASS_NAME(const CLASS_NAME&) = default_or_delete;                                    \
+    CLASS_NAME(CLASS_NAME&&) = default_or_delete;                                         \
+    CLASS_NAME& operator=(const CLASS_NAME&) = default_or_delete;                         \
+    CLASS_NAME& operator=(CLASS_NAME&&) = default_or_delete;                              \
+
+//==================== 
+// SECTION: FORWARD DECLS
+//==================== 
+
 #define FORWARD_DECL_ENUM_STRUCT(NAME, UNDERLYING)                                                \
     enum class NAME : UNDERLYING;
 

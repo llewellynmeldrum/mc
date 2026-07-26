@@ -3,49 +3,35 @@ layout (location = 0)       in vec3 in_local_pos;
 layout (location = 1)       in vec2 in_tx_coord; 
 layout (location = 2)       in uint in_packed_0; 
 #include "include/SharedShaderConfig.hpp"
-flat out uint texture_id;
+flat out uint tex_atlas_id;
 
-out vec2 texCoord;
+out vec2 tx_coord;
 out vec4 faceOverlayColor;
 out float fakeShadowOpacity;
 out float face_opacity;
+out vec3 light_color;
 
+uniform vec3 u_sunlight_color;
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_proj;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 proj;
-
-
-uint unpack_sunlight_intensity(uint p) {
-    return get_val(p, sunlight_intensity_mask,sunlight_intensity_offset);
-}
-uint unpack_blocklight_r(uint p) {
-    return get_val(p, blocklight_r_mask,blocklight_r_offset);
-}
-uint unpack_blocklight_g(uint p) {
-    return get_val(p, blocklight_g_mask,blocklight_g_offset);
-}
-uint unpack_blocklight_b(uint p) {
-    return get_val(p, blocklight_b_mask,blocklight_b_offset);
-}
-float unpack_face_opacity(uint p) {
-    return (get_val(p, face_opacity_mask,face_opacity_offset)) / 255.0f;
-}
-uint unpack_tex_atlas_id(uint p) {
-    return get_val(p, tex_atlas_id_mask,tex_atlas_id_offset);
-}
-uint unpack_face_dir(uint p) {
-    return get_val(p, face_dir_mask,face_dir_offset);
-}
 
 void main(){
-    texCoord = in_tx_coord;
+    tx_coord = in_tx_coord;
 
-    texture_id = unpack_tex_atlas_id(in_packed_0);
+    tex_atlas_id = unpack_tex_atlas_id(in_packed_0);
     face_opacity = unpack_face_opacity(in_packed_0);
+    // set these back, then create a bfs flood fill light propogation thing
+    //vec3 block_light_color = vec3(unpack_blocklight_r(in_packed_0),unpack_blocklight_g(in_packed_0),unpack_blocklight_b(in_packed_0));
+    vec3 block_light_color = vec3(0.9f,0.0f,0.0f);
+
+//    float sunlight_intensity = unpack_sunlight_intensity(in_packed_0);
+    float sunlight_intensity = 0.5f;
+    light_color = mix(block_light_color, u_sunlight_color, sunlight_intensity);
 
     uint face_dir = unpack_face_dir(in_packed_0);
     fakeShadowOpacity = faceShadowOpacity[face_dir];
 
-    gl_Position = proj * view * model * vec4(in_local_pos.xyz, 1.0);
+    gl_Position = u_proj * u_view * u_model * vec4(in_local_pos.xyz, 1.0);
 }

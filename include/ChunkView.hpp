@@ -6,8 +6,9 @@
 #include <stdexcept>
 
 FORWARD_DECL_STRUCT(Block)
-    template<typename T>
-struct BasicChunkView :std::mdspan<T, ChunkExtent>{
+
+template<typename T>
+struct GenericChunkView : std::mdspan<T, ChunkExtent>{
     using std::mdspan<T,ChunkExtent>::mdspan;
     using std::mdspan<T,ChunkExtent>::operator[];
 
@@ -46,5 +47,5 @@ private:
     }
 };
 
-using ChunkView = BasicChunkView<Block>;
-using ConstChunkView = BasicChunkView<const Block>;
+using ChunkView = GenericChunkView<Block>;
+using ConstChunkView = GenericChunkView<const Block>;

@@ -102,7 +102,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     if (DebugOption::outline_all_boundaries){
         sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
             if (sim->is_chunk_in_frustum(sim->player_cam.getCullFrustum(), key)){
-                if (DebugOption::HIDE_CLEAN_CHUNKS && entry.is_mesh_clean()){
+                if (DebugOption::HIDE_CLEAN_CHUNKS && entry.mesh_revision.is_clean()){
                     return;
                 }
                 if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
@@ -164,14 +164,14 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
             });
         }
     }
-    bool showGenState = DebugOption::gen_state_mode;
+    bool showPipelineState = DebugOption::gen_state_mode;
     if(DebugOption::fill_all_boundaries)
     for (const auto& [hasStateEntry, entryCoord]: inRadius){
         auto entryColor = DefaultDebugColor();
         if (hasStateEntry){
             const auto* entry = sim->world.chunkMap.entries.at(entryCoord);
             const auto& state = entry->state;
-            if (DebugOption::HIDE_CLEAN_CHUNKS && entry->is_mesh_clean()){
+            if (DebugOption::HIDE_CLEAN_CHUNKS && entry->mesh_revision.is_clean()){
                 continue; // skip, else visual clutter is too bad
             }
             auto skip = sim->world.chunkMap.entries.if_contains(
@@ -184,7 +184,7 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
                 }
             );
             if (skip) continue;
-            entryColor = showGenState ? GenDebugColor(state.gen) :
+            entryColor = showPipelineState ? GenDebugColor(state.gen) :
                                          MeshDebugColor(state.mesh);
         }
         instances.emplace_back(toWorldBlockPos(entryCoord,BlockOffset{0,0,0}).raw(), entryColor);
