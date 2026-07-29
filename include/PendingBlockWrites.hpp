@@ -1,13 +1,13 @@
 #pragma once
 
+#include <queue>
+#include <type_traits>
 
 #include "Block.hpp"
 #include "ChunkView.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
 #include "glmWrapper.hpp"
-#include <queue>
-#include <type_traits>
 
 #define OVERWRITE_POLICY_LIST   \
     X(OnlyAir)                  \
@@ -78,6 +78,6 @@ inline bool canMakeWrite(const PendingBlockWrite& pending, const Block& target){
 // unordered, heap allocated list of block writes
 using PendingWriteList = std::vector<PendingBlockWrite>;
 
-bool tryWrite(PendingBlockWrite write, ChunkView view);
+bool tryWrite(PendingBlockWrite write, ChunkBlockView view);
 //
 //

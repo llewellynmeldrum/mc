@@ -60,7 +60,7 @@ inline void report_oor_intermediate(C& cont, K key,std::string_view cont_name, s
         if constexpr(map_like<C>){ 
             sz=-1;
         }
-        report_OOR(
+        report_out_of_range(
             sz, "Index out of bounds!", 
             make_variable(cont,cont_name),
             make_variable(key,key_name),

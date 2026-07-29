@@ -75,10 +75,9 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     }
 }
 
-std::pair<size_t,size_t> ChunkDirector::discover_candidates(
+void ChunkDirector::discover_candidates(
     ChunkBenchmarkerNoRevision & mesh_enqueue_delay_bench, 
-    ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench, 
-    i64 max_jobs, i64 gen_radius, i64 mesh_radius){
+    ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench){
     // if we come across a chunk which:
     // - has an entry
     // - has been generated
@@ -88,57 +87,76 @@ std::pair<size_t,size_t> ChunkDirector::discover_candidates(
     const auto chunkCoord = cur_chunk_pos;
     // enumerate them based on their range to the player, such that nearest chunks come first.
 
-    std::pair<size_t,size_t> res{};
-    for_each_spiral(
-        max_jobs,
-        chunkCoord, 
-        gen_radius, 
-        [&](i32 x, i32 z) -> bool {
+    const auto mesh_sq_dist_req = std::pow(RENDER_DIST,2);
+    const auto lighting_sq_dist_req = std::pow(LIGHTING_DIST,2);
+    auto gen_count = 0uz;
+    auto light_count = 0uz;
+    auto mesh_count = 0uz;
+    for_each_spiral(chunkCoord, GENERATION_DIST, 
+        [&](i32 x, i32 z) {
             const auto key = WorldChunkCoord{x,z};
-            bool candidate_qualifies = chunk_map.entries.if_contains_else(
-                key,
-                [&](ChunkEntry& entry){
-                    if (LM::sq_dist(chunkCoord, key) < std::pow(mesh_radius,2)
-                    && entry.state.mesh == PipelineState::ready_for_enqueue){
-                        mesh_enqueue_delay_bench.bench_start(key);
-                        ready_for_mesh.push(key);
-                        res.second++;
-                    }
+            auto* chunk = chunk_map.entries.try_get(key);
+            bool is_mesh_candidate = false;
+            bool is_gen_candidate = false;
+            bool is_light_candidate = false;
+            if (chunk){
+                if (chunk->can_be_generated()){
                     // 1. if an entry exists, check if it needs regeneration.
-                    return entry.qualifies_for_gen_enqueue();
-                },
-                [&](){
-                    // 2. if no entry exists; then the chunk hasnt been generated => it qualifies.
-                    return true;
+                    is_gen_candidate = true;
                 }
-            );
-            if (candidate_qualifies){
+                if (chunk->can_be_lit()
+                    && LM::sq_dist(chunkCoord, key) < lighting_sq_dist_req){
+                    is_light_candidate = true;
+                }
+                if (chunk->can_be_meshed() 
+                    && LM::sq_dist(chunkCoord, key) < mesh_sq_dist_req){
+                    is_mesh_candidate = true;
+                }
+            }else{
+                // 2. if an entry doesnt exists, it needs to be generated.
+                is_gen_candidate = true;
+            }
+
+            if (is_gen_candidate && gen_count < max_gen_discovery_pf){
                 gen_enqueue_delay_bench.bench_start(key);
                 ready_for_gen.push(key);
-                res.first++;
+                gen_count++;
             }
-            return candidate_qualifies;
+            if (is_light_candidate && light_count < max_light_discovery_pf){
+                //light_enqueue_delay_bench.bench_start(key);
+                ready_for_lighting.push(key);
+                light_count++;
+            }
+            if (is_mesh_candidate && mesh_count < max_mesh_discovery_pf){
+                mesh_enqueue_delay_bench.bench_start(key);
+                ready_for_mesh.push(key);
+                mesh_count++;
+            }
+            bool max_meshes_found = mesh_count >= max_mesh_discovery_pf;
+            bool max_gens_found = gen_count >= max_gen_discovery_pf;
+            bool max_lights_found = light_count >= max_light_discovery_pf;
+
+            return !(max_meshes_found && max_gens_found && max_lights_found);
         }
     );
-    return res;
 }
+
 void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
     ChunkBlockStore& generatedBlocks = gen_res.chunkBlocks;
     const auto& deferredWrites = gen_res.deferredWrites;
     const auto& chunkCoord = gen_res.chunkCoord;
 
     auto* entry = AT(chunk_map.entries,chunkCoord);
-    // update entry to reflect generation data
     handle_pending_writes(chunkCoord, generatedBlocks.view(), deferredWrites);
-    
     // why the fuck did they make it (src,dst) fucking AT&T propaganda
+    
     ranges::copy(generatedBlocks, entry->block_data.begin());
-    update_neighbour_map(chunkCoord);
-    update_bounding_boxes_map(chunkCoord);
+
     //mark_neighbours_dirty(chunkCoord,"Neighbour generated");
-    mark_mesh_dirty(*entry,"Newly generated"); // allow for meshing
+    mark_lighting_dirty(entry, "newly generated");
+//    mark_mesh_dirty(*entry,"Newly generated"); // allow for meshing
 }
-void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkView srcBlocks, const PendingWriteList& newWriteList) {
+void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
     chunk_map.pending_writes.if_contains(
         chunkCoord,
@@ -153,7 +171,7 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
                     // potentially on the border.
                     // In future, it might be good to distinguish this, i.e only endirty
                     // the actual chunks it impacts (if on border/corner it impacts however many)
-                    mark_neighbours_dirty(chunkCoord);
+                    mark_neighbour_meshes_dirty(chunkCoord);
                 }
                 chunk_map.pendingWritesAttempted++;
             }
@@ -170,14 +188,14 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
         // a.) if the TARGET chunk IS GENERATED, apply the write IMMEDIATELY to the TARGET chunk
         const auto& targetChunkCoord = toWorldChunkCoord(write.target_world);
         auto* target_entry = chunk_map.entries.try_get(targetChunkCoord);
-        bool target_chunk_is_generated = target_entry && target_entry->state.gen == PipelineState::done;
-        if (target_entry && target_chunk_is_generated){
+        bool target_chunk_is_generated = target_entry && target_entry->gen.has_data();
+        if (target_chunk_is_generated){
             // if target exists, and is generated, attempt the write
             if (tryWrite(write,target_entry->block_data.view())){
                 chunk_map.pendingWritesSuccessful++;
                 // also mark the target as dirty,
                 // alongside all its neighbours
-                mark_neighbours_dirty(targetChunkCoord);
+                mark_neighbour_meshes_dirty(targetChunkCoord);
             }
             chunk_map.pendingWritesAttempted++;
         }else{
@@ -192,43 +210,5 @@ void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, Chun
 
 
 
-// assign our neighbours if they exist in the chunkmap,
-// also add ourselves  to our neighbours neighbourlist.
-void ChunkDirector::update_neighbour_map(WorldChunkCoord chunkCoord) {
-    auto* self_ptr = &(chunk_map.entries[chunkCoord]->block_data);
 
-    std::array<std::optional<WorldChunkCoord>, N_NEIGHBOURS> my_neighbours{};
-    for (const auto& [dir,offset] : eachDirOffset2D) {
-        const i32   dir_idx = static_cast<i32>(dir);
-        const auto neighbourChunkCoord = chunkCoord + ChunkOffset{offset};
-        chunk_map.entries.if_contains(
-            neighbourChunkCoord,
-            [&](ChunkEntry& neighbour_entry){
-                // 1. assign NEIGHBOUR to OUR NeighbourList @dir
-                my_neighbours[dir_idx] = std::make_optional(neighbourChunkCoord);
-                        // 2. INVALIDATE THEIR MESH, we have just generated next to them,
-                        // and they need to be made aware of our blocks to correctly cull faces.
-                    mark_mesh_dirty(neighbour_entry,"Neighbour is newly generated. (update_neighbour_map)");
-
-
-                // 3. assign OURSELVES to NEIGHBOUR.dir @inverseDir
-                const auto inverseDir_idx = inverseDirection_n.at(dir_idx);
-                
-                auto& neighbours_neighbours = chunk_map.entries[neighbourChunkCoord]->neighbours;
-                neighbours_neighbours[inverseDir_idx] = std::make_optional(chunkCoord);
-            }
-        );
-    }
-    // ALSO!!! invalidate all neighbours mesh as invalid here
-    
-    // what the fuck am i looking at 
-    AT(chunk_map.entries,chunkCoord)->neighbours.assign_range(std::move(my_neighbours));
-
-}
-
-void ChunkDirector::update_bounding_boxes_map(WorldChunkCoord chunkCoord) {
-    const auto min = toWorldOrigin(chunkCoord).raw();
-    const auto max = min + ChunkInfo::Extents3D;
-    AT(chunk_map.entries,chunkCoord)->bounding_box = {min, max};
-}
 

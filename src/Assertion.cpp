@@ -1,16 +1,15 @@
-
-//#include "FormatSpecs.hpp"
-
-#include "FmtStyle.hpp"
-#include "Assertion.hpp"
-#include "Breakpoints.hpp"
-#include "UnixHelpers.hpp"
-
 #include <cstdio>
 #include <string>
 #include <format>
 #include <print>
 #include <exception>
+
+#include "FmtStyle.hpp"
+#include "Assertion.hpp"
+#include "Breakpoints.hpp"
+#include "UnixHelpers.hpp"
+#include "cpp23_ranges.hpp"
+
 
 inline auto fn_fmt = fmt::fg_rgb(141, 189, 251);
 inline auto file_fmt = fmt::fg_rgb(0, 203, 0);
@@ -43,7 +42,7 @@ auto banner_str(auto ch,  size_t n = unix::term_cols()){
     }
     return s+"\n";
 };
-void report_OOR(i64 cont_size, std::string_view err_msg, 
+void report_out_of_range(i64 cont_size, std::string_view err_msg, 
                        refl::variable cont_var, refl::variable key_var,  refl::source_location loc){
     using namespace std;
     std::cout.flush();
@@ -74,7 +73,7 @@ void report_OOR(i64 cont_size, std::string_view err_msg,
     BREAKPOINT(3);
     std::abort();
 }
-void assert_failure(std::string_view name, refl::source_location loc,std::string_view note){
+void assert_failure_unary(std::string_view name, refl::source_location loc,std::string_view msg){
     using namespace std;
     std::cout.flush();
     std::cerr.flush();
@@ -95,7 +94,7 @@ void assert_failure(std::string_view name, refl::source_location loc,std::string
             fmt::styled_fg(         misc_fmt, "<--"),
             fmt::styled(fmt::underline() + intense_red_fmt, "FALSE")
     );
-    auto line3 = format("\tnote:'{}'",fmt::styled(red_fmt,note));
+    auto line3 = format("\tnote:'{}'",fmt::styled(red_fmt,msg));
     println(stderr, "\n{}\n{}{}{}\n{}\n",
             fmt::styled(intense_red_fmt, banner_str("▔")),
             line1,line2,line3,
@@ -105,12 +104,12 @@ void assert_failure(std::string_view name, refl::source_location loc,std::string
     std::abort();
 }
 
-void assert_failure(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc){
+void assert_failure_binary(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc){
     std::cout.flush();
     std::cerr.flush();
     using namespace std;
 
-    string line1 = format(
+    auto header = format(
         "{} {} {} {} {} {}\n",
             fmt::styled(intense_red_fmt, "ASSERT FAIL in:"),
                      fmt::styled(fn_fmt,   loc.pretty_fn()),
@@ -119,18 +118,20 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
                    fmt::styled(misc_fmt,               ":"),
                     fmt::styled(num_fmt,        loc.line())
     );
-    auto line2 = format( "\t{}{} {} {} {} {}{} {} {}\n",
+    auto evaluated_assertion = format( "\t{} {} {}{} {} {} {} {}{} {} {}\n",
+            fmt::styled(fmt::underline()+intense_red_fmt,    "FALSE"),
+                                 fmt::styled_fg(misc_fmt,      "--> ("),
                           fmt::styled_fg(fmt::reset_fg(),         ""),
                          fmt::styled_fg(fmt::bg_code()+type_fmt,        "T"),
                                  fmt::styled_fg(iden_fmt,   a.name()),
-                   fmt::styled_fg(fmt::strike()+misc_fmt, comparator),
+                   fmt::styled_fg(misc_fmt, comparator),
                                  fmt::styled_fg(type_fmt,        "U"),
                                  fmt::styled_bg(iden_fmt,   b.name()),
                           fmt::styled_fg(fmt::reset_fg(),         ""),
-                                 fmt::styled_fg(misc_fmt,      "<--"),
+                                 fmt::styled_fg(misc_fmt,      ") <--"),
             fmt::styled(fmt::underline()+intense_red_fmt,    "FALSE")
     );
-    auto line3=format(
+    auto type_names=format(
             "\t{}[with {}{}{}{} {}{}{}]{}\n",
 
                       fmt::italic(),
@@ -144,7 +145,7 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
                fmt::styled(type_fmt, b.type()),
                    fmt::no_italic()
     );
-    auto line4 = format(
+    auto variable_contents = format(
             "\t{}[and  {}{}{}{} {}{}{}]{}",
 
             fmt::italic(),
@@ -158,6 +159,27 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
             fmt::styled_fg(fmt::reset(), b.val()),
             fmt::no_italic()
     );
+    auto byte_hex_str = [](refl::variable const& v){
+        // 1. convert to bytes
+        std::vector<char> bytes;
+        const char* addr = static_cast<const char*>(v.addr);
+        for (auto i = 0uz; i<v.size_bytes; i++){
+            bytes.push_back(addr[i]);
+        }
+        std::string byte_string; 
+        // we want big endian 
+        for (int i = v.size_bytes-1; i>=0; i--){
+
+            byte_string.append_range(std::format("{:08b} ",bytes[i]));
+        }
+        return byte_string;
+    };
+    if (a.is_integral() && b.is_integral()){
+        variable_contents.append(
+            std::format("\n\t({:>10} = {})\n\t({:>10} = {})", a.val(), byte_hex_str(a), b.val(), byte_hex_str(b))
+        );
+    }
+    
 
     auto stripe_n_str = [](auto ch,  size_t n){
         std::string s{};
@@ -166,10 +188,15 @@ void assert_failure(std::string_view comparator, refl::variable a, refl::variabl
         }
         return s;
     };
+    auto TOP_BANNER = fmt::styled(intense_red_fmt,    banner_str("▔"));
+    auto BOT_BANNER = fmt::styled(intense_red_fmt,    banner_str("▁"));
     println(stderr, "\n{}\n{}{}{}{}\n{}\n",
-            fmt::styled(intense_red_fmt,    banner_str("▔")),
-            line1,line2,line3,line4,
-            fmt::styled(intense_red_fmt,banner_str("▁"))
+            TOP_BANNER,
+            header,
+            evaluated_assertion,
+            type_names,
+            variable_contents,
+            BOT_BANNER
     );
     BREAKPOINT();
     std::terminate();

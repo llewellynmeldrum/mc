@@ -29,6 +29,24 @@ struct ChunkBenchContext{
     ConcurrentChunkBenchmarker& res_idle;
 };
 
+FORWARD_DECL_STRUCT(ChunkMap)
+struct LightingJob{
+    WorldChunkCoord coord;
+    RevisionState::ID rev;
+    std::vector<ChunkLightSlice> neighbour_light_slices;
+    std::vector<ChunkBlockSlice> neighbour_block_slices;
+    ChunkLightStore light_data;
+    ChunkBlockStore block_data;
+    LightingJob(
+        WorldChunkCoord _coord, 
+        ChunkMap const* chunk_map,
+        ChunkEntry const* entry
+    );
+};
+struct LightingResult{
+    RevisionState::ID rev;
+    ChunkLightStore lights;
+};
 
 
 // QUEUE: GenJobQueue
@@ -55,13 +73,15 @@ struct GenResult{
 // PRODUCER: Main Thread
 // CONSUMER: Mesher thread.
 FORWARD_DECL_STRUCT(TextureAtlas)
-FORWARD_DECL_STRUCT(ChunkMap)
 struct MeshJob{
+    using SurroundingChunkStore = std::vector<std::optional<ChunkBlockSlice>>;
     ChunkBenchContext bench;
     size_t meshRevisionID;
     WorldChunkCoord chunkCoord;
     ChunkBlockStore blocks;
-    std::vector<std::optional<ChunkSlice2D>> surroundingChunks;
+    ChunkLightStore light_data;
+    std::vector<ChunkBlockSlice> surrounding_chunks_block_slices;
+    std::vector<ChunkLightSlice> surrounding_chunks_light_slices;
     const_span<TextureAtlas*> atlas_map;
 
 
@@ -69,7 +89,7 @@ struct MeshJob{
         ChunkBenchContext bench,
         WorldChunkCoord key, 
         const_span<TextureAtlas*> _atlas_list, 
-        ChunkMap* chunk_map,
+        const ChunkMap* chunk_map,
         const ChunkEntry* entry
     );
     // TODO: to 4-5x reduce the size of a mesh jobs allocation, 
@@ -105,7 +125,8 @@ struct MeshResult{
 
 
 
-template<typename JobType, typename ResType> struct JobProcessor{
+template<typename JobType, typename ResType, size_t thread_count=1>
+struct JobProcessor{
     JobProcessor() = default;
     ~JobProcessor() = default;
 
@@ -121,5 +142,5 @@ template<typename JobType, typename ResType> struct JobProcessor{
 
     Queue<JobType> job_queue;
     Queue<ResType> res_queue;
-    ThreadPool threads{1};
+    ThreadPool threads{thread_count};
 };

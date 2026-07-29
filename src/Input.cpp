@@ -1,3 +1,5 @@
+#include <print>
+
 #include "DebugOptions.hpp"
 #include "FormatSpecs.hpp"
 
@@ -7,25 +9,20 @@
 #include "KeyCodes.hpp"
 #include "Engine.hpp"
 #include "GLFWWrapper.hpp"
-#include <print>
 
-KeyModifiers::KeyModifiers(int mods) :
-    // mods| MOD_KEY
-    // 010 | 010 == 010 YES
-    // 010 | 100 == 110 NO!!
-    // 000 | 100 == 100 NO!!
-    shift       ( (mods | GLFW_MOD_SHIFT     ) == mods     ),
-    ctrl        ( (mods | GLFW_MOD_CONTROL   ) == mods   ),
-    alt         ( (mods | GLFW_MOD_ALT       ) == mods       ),
-    super       ( (mods | GLFW_MOD_SUPER     ) == mods     ),
-    caps        ( (mods | GLFW_MOD_CAPS_LOCK ) == mods ),
-    num_lock    ( (mods | GLFW_MOD_NUM_LOCK  ) == mods  )
-{}
+void KeyModifiers::apply(int mods) {
+    shift       =( (mods | GLFW_MOD_SHIFT     ) == mods     );
+    ctrl        =( (mods | GLFW_MOD_CONTROL   ) == mods   );
+    alt         =( (mods | GLFW_MOD_ALT       ) == mods       );
+    super       =( (mods | GLFW_MOD_SUPER     ) == mods     );
+    caps        =( (mods | GLFW_MOD_CAPS_LOCK ) == mods );
+    num_lock    =( (mods | GLFW_MOD_NUM_LOCK  ) == mods  );
+}
 
 void Input::key_callback(GLFWwindow* win_ptr, int key, int scancode, int action, int mods) {
     auto* ctx = (Engine*)glfwGetWindowUserPointer(win_ptr);
 //    LOG_DEBUG("cb MODS: {}, ({})",mods, KeyModifiers{mods});
-    ctx->input.mods = {mods};
+    ctx->input.mods.apply(mods);
 }
 
 Input::Input(GLFWwindow* _win_ptr): win_ptr(_win_ptr){

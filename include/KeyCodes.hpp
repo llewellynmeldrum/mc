@@ -158,15 +158,48 @@ inline constexpr KeyCode KEY_RIGHT_SUPER(347);
 inline constexpr KeyCode KEY_MENU(348);//////////////////////////////////////////////
 ///
 struct KeyModifiers{
-    KeyModifiers()=default;
-    KeyModifiers(int mods);
+    void apply(int mods);
     bool shift{false};
     bool ctrl{false};
     bool alt{false};
     bool super{false}; // aka CMD on macos, WIN on windows
     bool caps{false};
     bool num_lock{false};
+
+    bool special = false;
+    bool operator==(const KeyModifiers& rhs) const noexcept{
+        return 
+            this->special 
+            || rhs.special 
+            ||( 
+                this->shift == rhs.shift
+                && this->ctrl == rhs.ctrl
+                && this->alt == rhs.alt
+                && this->super == rhs.super
+                && this->caps == rhs.caps
+                && this->num_lock == rhs.num_lock
+            )
+        ;
+    }
+    //bool operator<=>(const KeyModifiers& rhs) const noexcept =default;
+    static consteval KeyModifiers none(){
+        return {
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        };
+    }
+    static consteval KeyModifiers any(){
+        return {
+            .special=true,
+        };
+    }
 };
+
 inline constexpr KeyMod MOD_SHIFT     (0);
 inline constexpr KeyMod MOD_CONTROL   (1);
 inline constexpr KeyMod MOD_ALT       (2);

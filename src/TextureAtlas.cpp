@@ -48,29 +48,3 @@ glm::vec2 TextureAtlas::get_base_cross_uv(i64 idx) const {
     return { x / (f32)spriteCols, y / (f32)spriteRows };
 }
 
-QuadUVList TextureAtlas::apply_texture_uvs_cube(i64 texture_idx, Direction dir, const_span<Vertex, 4> vertices) const {
-    vec2 uvmin = get_base_cube_uv(texture_idx, std::to_underlying(dir));
-    std::array<vec2, 4> res;
-    for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
-        f32 u = vertices[vtx].tx_coords.x;
-        f32 v = vertices[vtx].tx_coords.y;
-        u = uvmin.x + u * abs_sprite_w;
-        v = 1 - (uvmin.y + v * abs_sprite_h);
-        res[vtx] = { u, v };
-    }
-    return res;
-}
-
-QuadUVList TextureAtlas::get_texture_uvs_cross(i64 texture_idx, const_span<Vertex, 4> vertices) const {
-    QuadUVList res;
-
-    vec2 uvmin = get_base_cross_uv(texture_idx);
-    for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
-        f32 u = vertices[vtx].tx_coords.x;
-        f32 v = vertices[vtx].tx_coords.y;
-        u = uvmin.x + u * abs_sprite_w;
-        v = 1 - (uvmin.y + v * abs_sprite_h);
-        res[vtx] = { u, v };
-    }
-    return res;
-}

@@ -3,6 +3,9 @@
 #include "NumericConcepts.hpp"
 #include "Types.h"
 
+template<typename T>
+using vec_of_optionals = std::vector<std::optional<T>>;
+
 using size_t = std::size_t;
 #define NO_MOVE(T)          \
 T(T&&) = delete;            \

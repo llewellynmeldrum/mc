@@ -25,3 +25,4 @@
 #endif 
 
 namespace views = ranges::views;
+namespace range_v3 = ranges;

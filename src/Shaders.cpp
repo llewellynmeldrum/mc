@@ -213,8 +213,8 @@ void ShaderProgram::setUniform(i32 loc_id, const f64& val) {
 void ShaderProgram::setUniform(i32 loc_id, const i32& val) {
     glUniform1i(loc_id, val);
 }
-void ShaderProgram::setUniform(i32 loc_id, bool val) {
-    glUniform1i(loc_id, val);
+void ShaderProgram::setUniform(i32 loc_id, bool const& val) {
+    glUniform1i(loc_id, static_cast<int>(val));
 }
 void ShaderProgram::setUniform(i32 loc_id, std::vector<i32> val) {
     glUniform1iv(loc_id, val.size(), val.data());

@@ -114,7 +114,7 @@ void IndexedMesh::setup_mesh(const_span<Vertex> vertices, const_span<u32> indice
     offset_count = indices.size();
     vertex_count = vertices.size();
     vao.bind();
-    assert((indices.size() / 6) * 4 == vertices.size());
+    assert_eq((indices.size() / 6) * 4,vertices.size());
     vbo.load<Vertex>(vertices);
     ebo.load(indices);
     vao.apply_layout(Vertex::layout());

@@ -1,7 +1,7 @@
 #include "WorldGen_BlockWriter.hpp"
 #include "ChunkEntry.hpp"
 BlockWriter::BlockWriter(
-        ChunkView _src_block_store, 
+        ChunkBlockView _src_block_store, 
         PendingWriteList& _pending_writes,
         WorldChunkCoord _source_chunk
     ):

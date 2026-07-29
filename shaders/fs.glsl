@@ -18,20 +18,22 @@ uniform bool u_enable_cutout;
 
 void main(){
     // 1. sample the texture 
-    vec4 tx_color = texture(u_texture_atlases[tex_atlas_id],tx_coord);
+    vec4 obj_color = texture(u_texture_atlases[tex_atlas_id],tx_coord);
 
     // 2. handle cutouts 
     if (u_enable_cutout){
-        if (tx_color.a < 0.5f){
+        if (obj_color.a < 0.5f){
             discard;
         }
     }
 
+    const f32 ambient_strength = 0.5f;
     // 3. apply lighting
-    vec3 shadow = vec3(1.0f - fakeShadowOpacity);
-    vec3 light = light_color;
-    vec3 tx_color_3 = vec3(tx_color);
-    FragColor = vec4(tx_color_3 * light , tx_color.a);
+    //vec3 shadow = vec3(1.0f - fakeShadowOpacity);
+    vec3 ambient = ambient_strength * light_color;
+    vec3 light = ambient;
+    vec3 color = vec3(obj_color) * light;
+    FragColor = vec4(color, obj_color.a);
 
 
 

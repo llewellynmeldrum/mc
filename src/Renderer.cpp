@@ -47,20 +47,27 @@ Renderer::Renderer() {
     atlas_list.push_back(&half_slab_atlas);
     assert(atlas_list.size() == TEX_ATLAS_COUNT);
 
-    u_textures_loc = prog.getUniformLoc("u_texture_atlases");
+    #define get_apply_uniform_location(v) v##_loc = prog.getUniformLoc(#v)
+
+    u_texture_atlases_loc = prog.getUniformLoc("u_texture_atlases");
     u_enable_cutout_loc = prog.getUniformLoc("u_enable_cutout");
 
-    u_model_loc =   prog.getUniformLoc("u_model");
-    u_proj_loc =    prog.getUniformLoc("u_proj");
-    u_view_loc =    prog.getUniformLoc("u_view");
+    u_model_loc = prog.getUniformLoc("u_model");
+    u_proj_loc = prog.getUniformLoc("u_proj");
+    u_view_loc = prog.getUniformLoc("u_view");
 
-    u_sunlight_color_loc =    prog.getUniformLoc("u_sunlight_color");
+    u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
+    u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
+
+    u_smooth_light_falloff_base_loc = prog.getUniformLoc("u_smooth_light_falloff_base");
+    u_enable_smooth_light_falloff_loc = prog.getUniformLoc("u_enable_smooth_light_falloff");
+
     prog.setUniform(u_sunlight_color_loc, glm::vec3{1.0f, 1.0f, 0.75f});
     
     // NOTE: REMINDER!!!!
     // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!
     prog.setUniform(
-        u_textures_loc,
+        u_texture_atlases_loc,
         std::vector{
             std::to_underlying(BlockShape::CUBE),
             std::to_underlying(BlockShape::CROSS),
@@ -122,6 +129,7 @@ void Renderer::prepare_opaque_pass(){
     disableColorBlending();
     enableBackfaceCulling();
 }
+
 void Renderer::prepare_cutout_pass(){
     enableDepthTesting();
     enableDepthMask();
@@ -131,6 +139,7 @@ void Renderer::prepare_cutout_pass(){
     disableColorBlending();
     enableBackfaceCulling();
 }
+
 void Renderer::draw_to(Camera& cam, RenderTargetView target, FrameProfiler* prof){
     {
         prof->bench_start("02_rendinit");

@@ -26,7 +26,7 @@ public:
             q.push_back(key);
         }
     }
-    void erase(T victim_key) noexcept{
+    void pop(T victim_key) noexcept{
         auto it = q_idx.find(victim_key);
         if (it == q_idx.end()){
             return;
@@ -44,7 +44,7 @@ public:
     }
 
     T&& pop() {
-        erase(q.back());
+        pop(q.back());
     }
     auto size() const noexcept{
         return q.size();

@@ -47,5 +47,4 @@ private:
     }
 };
 
-using ChunkView = GenericChunkView<Block>;
-using ConstChunkView = GenericChunkView<const Block>;
+using ChunkBlockView = GenericChunkView<Block>;

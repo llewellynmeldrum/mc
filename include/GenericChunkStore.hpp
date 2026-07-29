@@ -19,9 +19,10 @@ public:
     static constexpr size_t z_extent = ChunkInfo::ZWIDTH;
 
     // Default construct to be ChunkInfo::SIZE
-    GenericChunkStore()
-        : buf(ChunkInfo::SIZE, mapped_type{}) 
-    {}
+    GenericChunkStore() {init();}
+    void init() noexcept{
+        buf.resize(ChunkInfo::SIZE, mapped_type{});
+    }
     COPY_CTOR(default)
     MOVE_CTOR(default)
     COPY_ASSN(default)
@@ -62,13 +63,14 @@ public:
 
     // Obtain a non owning ChunkView from this chunk.
     constexpr auto view (){
-        return ChunkView{span()};
+        return GenericChunkView<mapped_type>{span()};
     }
 
     // Obtain a non owning, const ChunkView from this chunk.
     constexpr auto view () const{
-        return ConstChunkView{span()};
+        return GenericChunkView<const mapped_type>{span()};
     }
+
 
     // Construct a clone from the view ctor
     GenericChunkStore clone() const {
@@ -76,11 +78,11 @@ public:
     }
 
     // iterator support
-    constexpr auto begin(){
-        return buf.begin();
+    constexpr auto begin(this auto& self){
+        return self.buf.begin();
     }
-    constexpr auto end(){
-        return buf.end();
+    constexpr auto end(this auto& self){
+        return self.buf.end();
     }
 
 

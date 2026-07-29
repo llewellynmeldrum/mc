@@ -44,6 +44,11 @@ struct World {
         LOG_DEBUG("{}->{}",active_cfg.cont_cfg.seed_offset, editable_cfg.world_seed);
         GenConfig::copy(active_cfg,editable_cfg);
     }
+    // stuff
+    inline void tick(){
+        tick_count++;
+    }
+    i32 tick_count;
 
     // Mutable state which gets fed to gen workers
     i32 world_seed;

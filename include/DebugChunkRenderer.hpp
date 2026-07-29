@@ -53,19 +53,9 @@ private:
     VertexBuffer  instance_vbo{LM::deferred_init};
     ShaderProgram prog{};
 };
-inline glm::vec4 NeighbourDebugColor(){
-    using namespace Color01;
-    return GREY_50_a(64);
-}
-
-inline glm::vec4 NeighbourDebugOutlineColor(u8 opacity_255=212){
-    using namespace Color01;
-    return PURPLE_a(opacity_255);
-}
 
 #define state_color_match(Enum, name, col) case Enum :: name: return col(DebugOption::ChunkDebugFillOpacity); break;
-
-inline glm::vec4 MeshDebugColor(PipelineState stage){
+inline glm::vec4 PipelineStateColor(PipelineState stage){
     using namespace Color01;
     switch (stage){
         state_color_match(PipelineState, pending , GREY_50_a)
@@ -75,35 +65,18 @@ inline glm::vec4 MeshDebugColor(PipelineState stage){
     }
     return {};
 }
-inline glm::vec4 GenDebugColor(PipelineState stage){
-    using namespace Color01;
-    switch (stage){
-        state_color_match(PipelineState, pending , GREY_50_a)
-        state_color_match(PipelineState, ready_for_enqueue, RED_a)
-        state_color_match(PipelineState, on_queue, ORANGE_a)
-        state_color_match(PipelineState, done, GREEN_a)
-    }
-    return {};
-}
 #undef state_color_match
 
-
-
-
-inline glm::vec4 GenDebugOutlineColor(PipelineState state) { 
-    return {glm::vec3{GenDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
-}
-inline glm::vec4 MeshDebugOutlineColor(PipelineState state) { 
-    return {glm::vec3{MeshDebugColor(state)},DebugOption::ChunkDebugOutlineOpacity};
+inline glm::vec4 PipelineStateOutlineColor(PipelineState state) { 
+    return {glm::vec3{PipelineStateColor(state)},DebugOption::ChunkDebugOutlineOpacity};
 }
 
 
 
-// Default states
 inline glm::vec4 DefaultDebugColor(){ 
-    return Color01::GREY_50_a(DebugOption::ChunkDebugFillOpacity); 
+    return PipelineStateColor(PipelineState::pending);
 }
 
 inline glm::vec4 DefaultDebugOutlineColor() { 
-    return {glm::vec3{DefaultDebugColor()},DebugOption::ChunkDebugOutlineOpacity};
+    return PipelineStateOutlineColor(PipelineState::pending);
 }

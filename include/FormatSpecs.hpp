@@ -334,13 +334,7 @@ struct std::formatter<QuadIndices>{
 };
 template<>
 struct std::formatter<KeyModifiers>{
-    inline constexpr auto parse(std::format_parse_context& ctx) {
-        auto it = ctx.begin();
-        if (it != ctx.end() && *it != '}') {
-            throw std::format_error("Invalid format specifier for ChunkState.");
-        }
-        return it;
-    }
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
     inline auto format(KeyModifiers s, std::format_context& ctx) const{
         std::string_view str = "?ChunkState?";
 		return std::format_to( ctx.out(), 
@@ -362,6 +356,25 @@ struct std::formatter<KeyModifiers>{
 };
 
 template<>
+struct std::formatter<UnpackedLightValue>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    inline auto format(UnpackedLightValue const& s, std::format_context& ctx) const{
+        std::string_view str = "?ChunkState?";
+		return std::format_to(
+            ctx.out(), "r={}, g={}, b={}, s={}",
+            s.r,s.g,s.b,s.s);
+    }
+};
+template<>
+struct std::formatter<PackedLightValue>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    inline auto format(PackedLightValue const& s, std::format_context& ctx) const{
+        std::string_view str = "?ChunkState?";
+		return std::format_to( ctx.out(), "{}",unpack(s));
+    }
+};
+
+template<>
 struct std::formatter<IndexedMesh>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
@@ -379,5 +392,18 @@ struct std::formatter<IndexedMesh>{
             val.ebo.id,
     val.offset_count,
     val.vertex_count);
+    }
+};
+
+inline constexpr EnumMap<LogType, std::string_view> LogType_NAMES{
+#define X(name) {LogType::name, #name}, 
+    LogType_LIST
+#undef X
+};
+template<>
+struct std::formatter<LogType>{
+    constexpr auto parse(std::format_parse_context& ctx){ return ctx.begin();}
+    constexpr auto format(LogType const& v, std::format_context& ctx) const noexcept{
+        return std::format_to(ctx.out(), "{}", LogType_NAMES.at(v));
     }
 };

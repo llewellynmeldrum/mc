@@ -16,19 +16,34 @@ uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_proj;
 
+uniform bool u_enable_smooth_light_falloff;
+uniform float u_smooth_light_falloff_base;
+
 
 void main(){
     tx_coord = in_tx_coord;
 
     tex_atlas_id = unpack_tex_atlas_id(in_packed_0);
     face_opacity = unpack_face_opacity(in_packed_0);
-    // set these back, then create a bfs flood fill light propogation thing
-    //vec3 block_light_color = vec3(unpack_blocklight_r(in_packed_0),unpack_blocklight_g(in_packed_0),unpack_blocklight_b(in_packed_0));
-    vec3 block_light_color = vec3(0.9f,0.0f,0.0f);
 
-//    float sunlight_intensity = unpack_sunlight_intensity(in_packed_0);
-    float sunlight_intensity = 0.5f;
-    light_color = mix(block_light_color, u_sunlight_color, sunlight_intensity);
+    
+    uint blocklight_r = get_blocklight_r(in_packed_0);
+    uint blocklight_g = get_blocklight_g(in_packed_0);
+    uint blocklight_b = get_blocklight_b(in_packed_0);
+    vec3 block_light_color = vec3(
+        blocklight_r,
+        blocklight_g,
+        blocklight_b
+    );
+    if (u_enable_smooth_light_falloff){
+        block_light_color = pow(vec3(u_smooth_light_falloff_base),vec3(15u)-block_light_color);
+    }else{
+        block_light_color = block_light_color / vec3(15u);
+    }
+   // vec3 block_light_color = vec3(0.9f,0.0f,0.0f);
+
+    float sunlight_intensity = unpack_sunlight_intensity(in_packed_0);
+    light_color = block_light_color; //block_light_color;
 
     uint face_dir = unpack_face_dir(in_packed_0);
     fakeShadowOpacity = faceShadowOpacity[face_dir];

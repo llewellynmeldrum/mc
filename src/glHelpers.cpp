@@ -48,11 +48,15 @@ std::string normalize_ws(const std::string& in) {
 
 std::string lookup_gl_error_description( 
     const std::string& function_name,
-    const std::string& error){
-    const std::string url =
+    const std::string& error
+){
+    std::string url =
         "https://registry.khronos.org/OpenGL-Refpages/gl4/html/"
         + function_name + ".xhtml";
-
+    // special case for gl uniform functions, they only have one page
+    if (function_name.starts_with("glUniform")){
+        url = "https://registry.khronos.org/OpenGL-Refpages/gl4/html/glUniform.xhtml";
+    }
     const auto html = fetch_url(url,false);
     if (!html) return std::format("unable to fetch html. Try visiting: {}",url);
 

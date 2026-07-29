@@ -1,6 +1,8 @@
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkViewHelpers.hpp"
+#include "CoordIteration.hpp"
+#include "DebugOptions.hpp"
 #include "Renderer.hpp"
 #include "Engine.hpp"
 #include "DebugChunkRenderer.hpp"
@@ -96,23 +98,32 @@ void DebugChunkMesher::draw(Camera& cam){
 
 void DebugChunkMesher::update(Camera& cam, Engine* sim){
     // solid geometry
+    auto outline_color = [](ChunkEntry const & entry){
+        switch (DebugOption::render_state_mode){
+        case DebugOption::DebugRenderStateTarget::MESH:
+            return PipelineStateOutlineColor(entry.mesh_pipeline_state());
+        break;
+        case DebugOption::DebugRenderStateTarget::GEN:
+            return PipelineStateOutlineColor(entry.gen_pipeline_state());
+        break;
+        case DebugOption::DebugRenderStateTarget::LIGHTING:
+            return PipelineStateOutlineColor(entry.lighting_pipeline_state());
+        break;
+        }
+    };
     updateInstances(cam,sim);
     // lines
     chunk_outlines.clear();
     if (DebugOption::outline_all_boundaries){
         sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
             if (sim->is_chunk_in_frustum(sim->player_cam.getCullFrustum(), key)){
-                if (DebugOption::HIDE_CLEAN_CHUNKS && entry.mesh_revision.is_clean()){
+                if (DebugOption::HIDE_CLEAN_CHUNKS && entry.mesh.is_clean()){
                     return;
                 }
                 if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
                     return;
                 }
-                const auto& state = entry.state;
-                auto color = DebugOption::gen_state_mode
-                        ? GenDebugOutlineColor(state.gen)
-                        : MeshDebugOutlineColor(state.mesh);
-
+                auto color = outline_color(entry);
                 chunk_outlines.append_range(entry.bounding_box.getLines(color));
             }
         });
@@ -124,20 +135,14 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
             sim->world.chunkMap.entries.if_contains(
                 neighbour,
                 [&](ChunkEntry& entry){
-                    const auto& state = entry.state;
-                    auto color = DebugOption::gen_state_mode
-                            ? GenDebugOutlineColor(state.gen)
-                            : MeshDebugOutlineColor(state.mesh);
+                    auto color = outline_color(entry);
                     chunk_outlines.append_range(entry.bounding_box.getLines(color));
                 });
         }
         sim->world.chunkMap.entries.if_contains(
             cam_chunk,
             [&](ChunkEntry& entry){
-                    const auto& state = entry.state;
-                    auto color = DebugOption::gen_state_mode
-                            ? GenDebugOutlineColor(state.gen)
-                            : MeshDebugOutlineColor(state.mesh);
+                auto color = outline_color(entry);
                 chunk_outlines.append_range(entry.bounding_box.getLines(color));
             });
     }
@@ -147,8 +152,20 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     vao.unbind();
 }
 void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
+    auto fill_color = [](ChunkEntry const & entry){
+        switch (DebugOption::render_state_mode){
+        case DebugOption::DebugRenderStateTarget::MESH:
+            return PipelineStateColor(entry.mesh_pipeline_state());
+        break;
+        case DebugOption::DebugRenderStateTarget::GEN:
+            return PipelineStateColor(entry.gen_pipeline_state());
+        break;
+        case DebugOption::DebugRenderStateTarget::LIGHTING:
+            return PipelineStateColor(entry.lighting_pipeline_state());
+        break;
+        }
+    };
     auto cam_chunk = toWorldChunkCoord(cam.pos);
-    const auto& inRadius = sim->world.chunksStatesInRadius(cam_chunk,cam.DebugChunkRenderDistance);
     instances.clear();
     if (DebugOption::fill_neighbour_boundaries){
         for (const auto& [dir, offset]: eachDirOffset2D){
@@ -156,37 +173,32 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
             sim->world.chunkMap.entries.if_contains(
                 neighbour,
                 [&](ChunkEntry& entry){
-                        const auto& state = entry.state;
-                        auto color = DebugOption::gen_state_mode
-                                ? GenDebugColor(state.gen)
-                                : MeshDebugColor(state.mesh);
+                    auto color = fill_color(entry);
                     instances.emplace_back(toWorldBlockPos(neighbour,BlockOffset{0,0,0}).raw(), color);
             });
         }
     }
-    bool showPipelineState = DebugOption::gen_state_mode;
-    if(DebugOption::fill_all_boundaries)
-    for (const auto& [hasStateEntry, entryCoord]: inRadius){
-        auto entryColor = DefaultDebugColor();
-        if (hasStateEntry){
-            const auto* entry = sim->world.chunkMap.entries.at(entryCoord);
-            const auto& state = entry->state;
-            if (DebugOption::HIDE_CLEAN_CHUNKS && entry->mesh_revision.is_clean()){
-                continue; // skip, else visual clutter is too bad
-            }
-            auto skip = sim->world.chunkMap.entries.if_contains(
-                entryCoord,
-                [](ChunkEntry& entry)->bool{
-                    if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
+    if(DebugOption::fill_all_boundaries){
+        for_each_spiral(
+            cam_chunk, 
+            cam.DebugChunkRenderDistance,
+            [&](i32 x, i32 y){
+                auto coord = WorldChunkCoord{x,y};
+                auto entryColor = DefaultDebugColor();
+                auto* entry = sim->world.chunkMap.entries.try_get(coord);
+                if (entry){
+                    if (DebugOption::HIDE_CLEAN_CHUNKS && entry->mesh.is_clean()){
+                        return true; // skip, else visual clutter is too bad
+                    }else if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry->block_data.view())){
                         return true;
+                    }else{
+                        entryColor = fill_color(*entry);
                     }
-                    return false;
+
                 }
-            );
-            if (skip) continue;
-            entryColor = showPipelineState ? GenDebugColor(state.gen) :
-                                         MeshDebugColor(state.mesh);
-        }
-        instances.emplace_back(toWorldBlockPos(entryCoord,BlockOffset{0,0,0}).raw(), entryColor);
+                instances.emplace_back(toWorldBlockPos(coord,BlockOffset{0,0,0}).raw(), entryColor);
+                return true;
+            }
+        );
     }
 }

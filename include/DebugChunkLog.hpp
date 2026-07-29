@@ -8,19 +8,38 @@
 #include "CommonUtils.hpp"
 #include "CoordTypes.hpp"
 #include "Assertion.hpp"
+#include "EnumMap.hpp"
 #include "Logger.hpp"
 #include "NothrowLookup.hpp"
 
-inline constexpr std::string_view default_log_type = "all";
-inline std::unordered_map<std::string_view, bool> is_log_type_enabled = {
-    {"mesh_uploads",false},
-    {"gen_uploads",true},
-    {"mesh_state_change",false},
-    {"gen_state_change",false},
-    {"mesh_endirtying",true},
-    {"pending_write",true},
-    {default_log_type,false},
+#include "locking_container.hpp"
 
+#define LogType_LIST        \
+    X(all)       \
+    X(pending_write)       \
+    X(gen_uploads)         \
+    X(mesh_uploads)        \
+    X(gen_state)           \
+    X(lighting_state)      \
+    X(mesh_state)
+
+enum struct LogType{
+#define X(name) name, 
+    LogType_LIST
+    COUNT
+#undef X
+};
+
+
+
+inline std::unordered_map<LogType, bool> is_log_type_enabled = {
+    {LogType::mesh_uploads,false},
+    {LogType::gen_uploads,false},
+    {LogType::pending_write,false},
+    {LogType::lighting_state,true},
+    {LogType::mesh_state,true},
+    {LogType::gen_state,true},
+    {LogType::all,false},
 };
 
 struct DebugLog{
@@ -28,12 +47,9 @@ public:
     using Clock = std::chrono::steady_clock;
     using TimePoint= Clock::time_point;
     using Duration = Clock::duration;
-    using LogType = std::string_view;
     using DebugEntry = std::tuple<LogType, Duration, std::string>;
 
 public:
-    static_assert(same_type<decltype(is_log_type_enabled)::key_type, LogType>, 
-                  "DebugLog::LogType must be the same as the key type of the is_log_type_enabled map");
     DebugLog() = default;
     DebugLog(Clock::time_point _epoch, bool _is_fading=false):
         epoch(_epoch),
@@ -61,11 +77,11 @@ public:
         }
     }
 
-    inline void make_entry(std::string_view log_type, std::string_view msg) noexcept{
+    inline void make_entry(auto log_type, std::string_view msg) noexcept{
         log.emplace_back(log_type, since_epoch(), msg);
     }
     inline void make_entry(std::string_view msg) noexcept{
-        make_entry(default_log_type,msg);
+        make_entry(LogType::all,msg);
     }
 
     static std::string elapsed_tostr(Duration dt){
@@ -102,25 +118,13 @@ public:
         return opacity;
     }
 };
-// inline DebugLog global_log;
-// template <typename ...Args>
-// inline void log_to_ui(std::format_string<Args...> fmt, Args&& ...vargs){
-//     global_log.make_entry(fmt,std::forward<Args>(vargs)...);
-// }
-// 
-// template <typename ...Args>
-// inline void log_to_chunk(std::format_string<Args...> fmt, Args&& ...vargs){
-//     global_log(std::format(fmt,std::forward<Args>(vargs)...));
-// }
 
-inline std::unordered_map<WorldChunkCoord, DebugLog> per_chunk_log;
-inline static std::mutex per_chunk_log_mut;
+inline locking<std::unordered_map<WorldChunkCoord, DebugLog>> per_chunk_log;
 inline bool pause_logging = false;
-struct DebugChunkLogger{
-    using LogType = DebugLog::LogType;
+struct PerChunkLogHandler{
     DebugLog::Clock::time_point global_epoch;
 
-    DebugChunkLogger(){
+    PerChunkLogHandler(){
         global_epoch = DebugLog::Clock::now();
     }
 
@@ -142,18 +146,18 @@ struct DebugChunkLogger{
     }
     void log_to_chunk(WorldChunkCoord key, std::string_view msg);
 
-    void log_to_chunk(std::string_view log_type, WorldChunkCoord key, std::string_view msg);
+    void log_to_chunk(LogType log_type, WorldChunkCoord key, std::string_view msg);
 };
 
-inline DebugChunkLogger _dbg_chunk_logger;
+inline PerChunkLogHandler _dbg_chunk_logger;
 
 template <typename ...Args>
 inline void log_to_chunk(WorldChunkCoord key, std::format_string<Args...> fmt, Args&& ...vargs){
-    log_to_chunk(default_log_type,key,fmt,std::forward<Args>(vargs)...);
+    log_to_chunk(LogType::all,key,fmt,std::forward<Args>(vargs)...);
 }
 
 template <typename ...Args>
-inline void log_to_chunk(std::string_view log_type, WorldChunkCoord key, std::format_string<Args...> fmt, Args&& ...vargs){
+inline void log_to_chunk(LogType log_type, WorldChunkCoord key, std::format_string<Args...> fmt, Args&& ...vargs){
     _dbg_chunk_logger.log_to_chunk(log_type,key,std::format(fmt,std::forward<Args>(vargs)...));
 }
 

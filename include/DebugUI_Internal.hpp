@@ -209,28 +209,32 @@ struct WindowConfig{
             std::invoke(std::forward<Fn>(section));
     };
     template<typename T, size_t N=1>
-    inline void slider(std::string_view name, T* val, T min=numeric_min<T>(), T max=numeric_min<T>()){
+    inline bool slider(std::string_view name, T* val, T min=numeric_min<T>(), T max=numeric_min<T>()){
         std::string name_str = std::string(name);
         if constexpr (N > 1 && is_vec_N<T, N>){
             using element_t = vec_traits<T>::element;
             int count = vec_traits<T>::length;
-            IG::SliderScalarN(name_str.c_str(), IG_DataType<element_t>, count, val, &min, &max);
+            return IG::SliderScalarN(name_str.c_str(), IG_DataType<element_t>, count, val, &min, &max);
         }else{
-            IG::SliderScalar(name_str.c_str(), IG_DataType<T>, val, &min, &max);
+            return IG::SliderScalar(name_str.c_str(), IG_DataType<T>, val, &min, &max);
         }
     }
 
-    inline void checkbox(std::string_view name, bool* on){
+    inline bool checkbox(std::string_view name, bool* on){
         // NOTE: we cant use a default argument on the below function and must instead overload,
         // as Fn is a universal reference (deduced&&), which cannot bind to lambdas (as they are prvalues)
-        checkbox(name,on,[]{});
+        return checkbox(name,on,[]{});
     }
     template <typename Fn>
-    inline void checkbox(std::string_view name, bool* on, Fn&& on_click){
+    inline bool checkbox(std::string_view name, bool* on, Fn&& on_click){
         auto flags = ImGuiTreeNodeFlags_CollapsingHeader ^ ImGuiTreeNodeFlags_DefaultOpen;
         std::string name_str = std::string(name);
-        if (IG::Checkbox(name_str.c_str(),on))
+        if (IG::Checkbox(name_str.c_str(),on)){
             std::invoke(std::forward<Fn>(on_click));
+            return true;
+        }else{
+            return false;
+        }
     };
     DropDown<std::string,7> dropdown ={"combo 2", { "AAAA", "BBBB", "CCCC", "DDDD", "EEEE", "FFFF", "GGGG"}};
 };

@@ -71,6 +71,10 @@ public:
         start_of_frame = now;
     }
 
+    void end_frame(){
+        dt_s = seconds_now() - start_of_frame;
+    }
+
     void bench_start(key_type const& key){
         start_time.insert_or_assign(key,seconds_now());
     }
@@ -87,11 +91,6 @@ public:
         }
     }
 
-    void end_frame(){
-        f64 now = seconds_now();
-        f64 before = start_of_frame;
-        dt_s = now - before;
-    }
 
 
     map_type<MirroredRingBuf<f32, BENCHMARK_MAP_RB_SIZE >> map{};

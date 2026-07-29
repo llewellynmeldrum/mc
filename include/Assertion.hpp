@@ -4,14 +4,14 @@
 #define assert_binary_valuewise(a, COMPARATOR, b)do{\
     [[unlikely]] \
     if  ((a COMPARATOR b) == false){\
-        assert_failure(#COMPARATOR,  MAKE_VAR(a),MAKE_VAR(b),SRC_LOC_CURRENT());\
+        assert_failure_binary(#COMPARATOR,  MAKE_VAR(a),MAKE_VAR(b),SRC_LOC_CURRENT());\
     }\
 }while(0)
 
 #define assert_unary(invariant, ...)do{\
     [[unlikely]]\
     if  (!(invariant)){\
-        assert_failure(static_cast<std::string>(#invariant),  SRC_LOC_CURRENT(), "" __VA_OPT__( ) __VA_ARGS__);\
+        assert_failure_unary(static_cast<std::string>(#invariant),  SRC_LOC_CURRENT(), "" __VA_OPT__( ) __VA_ARGS__);\
     }\
 }while(0)
 
@@ -31,11 +31,11 @@
 
 
 [[gnu::cold, gnu::noinline, noreturn]] 
-void assert_failure(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc);
+void assert_failure_binary(std::string_view comparator, refl::variable a, refl::variable b, refl::source_location loc);
 
 [[gnu::cold, gnu::noinline, noreturn]] 
-void assert_failure(std::string_view name, refl::source_location loc,std::string_view  desc);
+void assert_failure_unary(std::string_view name, refl::source_location loc,std::string_view  desc);
 
 [[noreturn]] 
-void report_OOR(i64 cont_sz, std::string_view err_msg, refl::variable cont_var, refl::variable key_var,  refl::source_location loc);
+void report_out_of_range(i64 cont_sz, std::string_view err_msg, refl::variable cont_var, refl::variable key_var,  refl::source_location loc);
 

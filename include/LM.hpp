@@ -54,14 +54,14 @@ constexpr inline bool linear_contains(const Cont& cont, const T& e){
 
 template<typename T>
     requires Numeric<T>
-constexpr inline T random(T min = numeric_min<T>(), T max = numeric_max<T>()){
+constexpr inline T random(T min_inclusive = numeric_min<T>(), T max_inclusive = numeric_max<T>()){
     auto get_seed = [](){
         std::random_device rd;
         auto seed = rd();
         return ((seed == 0) ? 1uz : seed);
     };
     thread_local std::minstd_rand0 gen(get_seed());
-    std::uniform_int_distribution dist{min,max};
+    std::uniform_int_distribution dist{min_inclusive,max_inclusive};
     return dist(gen);
 }
 

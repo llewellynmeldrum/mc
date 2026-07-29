@@ -123,14 +123,14 @@ namespace std {
 template <typename tag, typename datatype>
 struct hash<Coord3<tag,datatype>> {
     using glm_vec_type = Coord3<tag,datatype>::glm_vec_type;
-    auto operator()(const WorldChunkCoord& val) const noexcept {
+    constexpr auto operator()(const Coord3<tag,datatype>& val) const noexcept {
         return std::hash<glm_vec_type>{}(val.raw());
     };
 };
 template <typename tag, typename datatype>
 struct hash<Coord2<tag,datatype>> {
     using glm_vec_type = Coord2<tag,datatype>::glm_vec_type;
-    auto operator()(const WorldChunkCoord& val) const noexcept {
+    constexpr auto operator()(const Coord2<tag,datatype>& val) const noexcept {
         return std::hash<glm_vec_type>{}(val.raw());
     };
 };
@@ -266,6 +266,12 @@ inline constexpr auto toChunkBlockPos(WorldBlockPos p) -> ChunkBlockPos {
 
 inline constexpr auto toWorldChunkCoord(WorldBlockPos block) -> WorldChunkCoord {
     return WorldChunkCoord{
+        LM::floor_div(block.x,ChunkInfo::XWIDTH),
+        LM::floor_div(block.z,ChunkInfo::ZWIDTH)
+    };
+}
+inline constexpr auto toChunkOffset(ChunkBlockPos block) -> ChunkOffset{
+    return ChunkOffset{
         LM::floor_div(block.x,ChunkInfo::XWIDTH),
         LM::floor_div(block.z,ChunkInfo::ZWIDTH)
     };

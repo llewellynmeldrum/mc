@@ -28,18 +28,34 @@ struct Input {
 
     template<typename ...Args>
         requires variadic_all_same<KeyCode, Args...>
+    bool is_down(KeyModifiers a_mods, Args... args){
+        return a_mods == mods && (is_down_impl(args) && ...);
+    }
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
+    bool just_pressed(KeyModifiers a_mods, Args... args){
+        return a_mods == mods &&  (just_pressed_impl(args) && ...);
+    }
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
+    bool just_released(KeyModifiers a_mods, Args... args){
+        return  a_mods == mods && (just_released_impl(args) && ...);
+    }
+
+    template<typename ...Args>
+        requires variadic_all_same<KeyCode, Args...>
     bool is_down(Args... args){
-        return (is_down_impl(args) && ...);
+        return no_mods() && (is_down_impl(args) && ...);
     }
     template<typename ...Args>
         requires variadic_all_same<KeyCode, Args...>
     bool just_pressed(Args... args){
-        return (just_pressed_impl(args) && ...);
+        return no_mods()  && (just_pressed_impl(args) && ...);
     }
     template<typename ...Args>
         requires variadic_all_same<KeyCode, Args...>
     bool just_released(Args... args){
-        return (just_released_impl(args) && ...);
+        return  no_mods() && (just_released_impl(args) && ...);
     }
 
     bool is_down_impl(KeyCode code);

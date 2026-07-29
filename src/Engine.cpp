@@ -1,16 +1,24 @@
 #include <algorithm>
 #include <optional>
+#include <queue>
+#include <chrono>
 #include <print>
+#include <ratio>
+#include <flat_map>
+#include <unordered_map>
+#include <utility>
 
 #include "ChunkStorage.hpp"
 #include "DebugChunkLog.hpp"
 #include "DebugOptions.hpp"
+#include "Direction.hpp"
 #include "GlobalDebugLog.hpp"
 #include "PendingBlockWrites.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 
 #include "Chunk.hpp"
+#include "cpp23_ranges.hpp"
 #include "ChunkConcurrency.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkHelpers.hpp"
@@ -21,6 +29,7 @@
 #include "TextureAtlas.hpp"
 
 #include "Engine.hpp"
+#include "Timer.hpp"
 
 #include "LM.hpp"
 #include "Line3D.hpp"
@@ -30,17 +39,30 @@
 #include "UnixHelpers.hpp"
 #include "FormatSpecs.hpp"
 
+
+void Engine::per_tick_update(){
+    update_player_cam(player_cam);
+    update_drone_cam(drone_cam, player_cam.pos);
+    world.tick();
+    tick_counter++;
+}
 void Engine::loop(){
     while (!win.shouldClose()) {
+        auto dt = timer::now() - t_last_frame_ended;
         profiler.start_frame();
         profiler.bench_start("frame");
 
         profiler.bench_start("input");
-        input.poll(); 
-        handle_input();
+            input.poll(); 
+            handle_input();
         profiler.bench_end("input");
 
-        if (!paused){ update_scene(); }
+        if (!paused){
+            if (!chunk_updates_paused){
+                handle_chunk_scheduling(); 
+            }
+            update(dt);
+        }
         rend.dbg_rend.update(player_cam,this);
     
         if (DebugOption::show_debug_ui){
@@ -60,6 +82,7 @@ void Engine::loop(){
         input.end_frame();
         profiler.bench_end("frame");
         profiler.end_frame();
+        t_last_frame_ended = timer::now();
     }
 }
 
@@ -100,19 +123,15 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
 
     // Prior to a meshes' erasure, update its chunk entry to reflect its erasure
-    auto outside_range = [](ChunkMap& map, auto lo, auto hi){
-        return [&map,lo,hi](IndexedMesh& mesh){
+    auto outside_range = [&](ChunkMap& map, auto lo, auto hi){
+        return [&, lo, hi](IndexedMesh& mesh){
             bool out_of_bounds = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
             if (out_of_bounds){
                 auto coord = mesh.chunkCoord;
-                map.entries.if_contains(
-                    coord,
-                    [](ChunkEntry& entry){
-                        if (entry.state.mesh == PipelineState::done){
-                            entry.mark_mesh_deleted();
-                        }
-                    }
-                );
+                auto* entry = map.entries.try_get(coord);
+                if (entry){
+                    director.mark_mesh_deleted(entry);
+                }
             }
             return out_of_bounds;
         };
@@ -125,45 +144,220 @@ void Engine::evict_meshes_outside_radius(i32 radius){
     rend.cutout_chunk_meshes.erase_if(outside_range(world.chunkMap, lo,hi));
 }
 
-void Engine::update_scene() {
+
+
+Direction get_cpos_overflow_direction(ChunkBlockPos p){
+    constexpr auto const& ext = ChunkInfo::Extents3D;
+    static constexpr auto lo = ChunkBlockPos{-1,0,-1};
+    static constexpr auto hi = ChunkBlockPos{ext.x+1, ext.y, ext.z+1};
+    if (!LM::isVecInBounds(p, lo, hi)){
+        std::println(stderr, "oob: {}",p);
+        BREAKPOINT();
+    }
+    // given a chunk block pos which is out of the bounds of a chunk,
+    // return the direction of the chunk, from the center, that this overflow is in.
+    if (p.x <= -1){ return Direction::LEFT; }
+    if (p.x >= ext.x){ return Direction::RIGHT; }
+    if (p.z <= -1){ return Direction::FORWARD; }
+    if (p.z >= ext.x){ return Direction::BACKWARD; }
+     //FORWARD,    glm::ivec3{  0,  0, -1 },
+     //BACKWARD,   glm::ivec3{  0,  0, +1 },
+     //LEFT,       glm::ivec3{ -1,  0,  0 },
+     //RIGHT,//    glm::ivec3{ +1,  0,  0 },
+    std::abort();
+}
+
+LightingResult Engine::process_lighting(LightingJob && job){
+    auto is_in_chunk = [](ChunkBlockPos p){
+        return LM::isVecInBounds(p.raw(), glm::ivec3{0,0,0}, ChunkInfo::Extents3D);
+    };
+    LightingResult res{
+        .rev = job.rev,
+        .lights = std::move(job.light_data),
+    };
+    // TODO:
+    // zero light is propogating now. awesome
+    // There was a problem with std move and accessing the old value, fixed it but like still this is flimsy
+    auto const& neighbour_light_slices = job.neighbour_light_slices;
+    auto const& neighbour_block_slices = job.neighbour_block_slices;
+    auto& lights = res.lights;
+    auto& blocks = job.block_data;
+    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+
+    // Currently we are 100% sure that neighbours are generated, since this is running on the main thread.
+    // But even if it wasnt, this would still only fire and contain snapshots of generated chunks.
+    // So we really dont need to check if the chunk exists.
+    // Mirror the structure of meshchunks neighbour behaviour methinks.
+
+
+    auto local_light_at = [&](ChunkBlockPos pos) { 
+        static constexpr auto lo = ChunkBlockPos{0};
+        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
+        if (LM::isVecInBounds(pos, lo, hi)){
+            return lights.at(pos);
+        }else{
+            auto const neighbour_dir = get_cpos_overflow_direction(pos);
+            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
+            auto const& neighbour = neighbour_light_slices.at(neighbour_dir_idx);
+
+            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+            return neighbour.at(corrected_pos);
+        }
+    };
+    auto local_block_at = [&](ChunkBlockPos pos){ 
+        static constexpr auto lo = ChunkBlockPos{0};
+        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
+        if (LM::isVecInBounds(pos, lo, hi)){
+            return blocks.at(pos);
+        }else{
+            auto const neighbour_dir = get_cpos_overflow_direction(pos);
+            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
+            auto const& neighbour = neighbour_block_slices.at(neighbour_dir_idx);
+
+            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+            return neighbour.at(corrected_pos);
+        }
+    };
+    // TODO: Seed with neighbours, but do not allow any WRITES to neighbours. 
+    // They will update when they process their own lighting updates, and grab our edges to propogate.
+    auto neighbour_block_coords = [&](ChunkBlockPos p){ 
+        return Direction_offset | views::transform([p](auto const& o){ return ChunkBlockPos{p.raw()+o};});
+    };
+
+    // NOTE: Constrained to the current chunk, CANNOT write into neighbours
+    auto set_blocklight = [&](ChunkBlockPos p, PackedLightValue const& v){ 
+        assert(is_in_chunk(p));
+        assert(p.x >=0);
+        assert(p.y >=0);
+        assert(p.z >=0);
+        assert(p.x < ChunkInfo::Extents3D.x);
+        assert(p.y < ChunkInfo::Extents3D.y);
+        assert(p.z < ChunkInfo::Extents3D.z);
+        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+        std::println("{}",lights.at(p));
+    };
+
+    std::deque<ChunkBlockPos> q;
+
+    // 1. Seed bfs with light emitting blocks, including those at the borders of neighbour chunks
+    // TODO:
+    // Seed, including neighbour slices. 
+    // Seed on either:
+    // -> emitters OR >=1 light values in the 
+    static constexpr auto const& ext = ChunkInfo::Extents3D;
+        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+    for (auto cx = -1; cx <= ext.x; cx++){
+        for (auto cz = -1; cz <= ext.z; cz++){
+            for (auto cy = 0; cy < ext.y; cy++){
+                // skip corner blocks, we dont store those neighbours nor evaluate them
+                if (cx == -1    && ext.z == cz) continue; 
+                if (cx == ext.x && -1 == cz) continue; 
+                if (cx == -1    && -1 == cz) continue; 
+                if (cx == ext.x && ext.z == cz) continue; 
+                ChunkBlockPos p{cx,cy,cz};
+                auto block = local_block_at(p);
+                auto const& emission = block.get_emission();
+                if (emission.is_nonzero()){
+                    if (is_in_chunk(p)){
+                        set_blocklight(p, pack(emission));
+                    }
+                    // NOTE: Blocks in neighbouring chunks seed the bfs but do not actually get their light values modified
+                    q.emplace_back(p);
+                    std::println("Placed a light emitter @ {}",p);
+                }
+            }
+        }
+    }
+    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+
+    // 2. perform bfs
+    while (!q.empty()){
+        auto u = q.front(); q.pop_front();
+        const auto u_light_rgb = unpack(local_light_at(u));
+        // 1. If a node contains zero channels >1, it will not propogate anything.
+        for (const auto& v: neighbour_block_coords(u)){
+            if (!is_in_chunk(v)) continue; // NOTE: lights in neighbour chunks are seeds but are not modified
+
+            auto const& v_block = local_block_at(v);
+            auto const v_light_each = unpack(local_light_at(v));
+            auto const& v_absorptance_each = v_block.absorptance();
+            auto resolved_v_each = v_light_each;
+            if (v_block.is_opaque()) continue;
+
+            for (i32 channel_id = 0; channel_id < 3; channel_id++){
+                auto const& u_light = u_light_rgb.rgb[channel_id];
+                if (u_light <= 1) continue;
+                auto const& v_light = v_light_each.rgb[channel_id];
+                auto const& v_absorptance = v_absorptance_each.rgb[channel_id];
+
+                // 1. apply absorptance to the new neighbour
+                u8 candidate = std::clamp(u_light - v_absorptance, 0,15);
+                resolved_v_each.rgb[channel_id] = std::max(candidate, v_light);
+            }
+            if (resolved_v_each != v_light_each){
+                std::println("{}({}) -> {}({})",u,u_light_rgb,v,resolved_v_each);
+                set_blocklight(v, pack(resolved_v_each));
+                q.push_back(v);
+            }
+        }
+    }
+    return res;
+}
+
+void Engine::process_lighting_updates(){
+    constexpr static auto N_LIGHTING_JOBS = 128uz;
+    for (const auto& coord: director.find_lighting_jobs(128)){
+        auto* entry = director.chunk_map.entries.try_get(coord);
+        if (director.qualifies_for_light_work(entry)){
+            auto candidate_rev = entry->lighting.get_candidate_rev();
+            if (candidate_rev == RevisionState::FIRST_JOB){
+                entry->light_data.init();
+            }
+
+            assert(entry->light_data.buf.size() == ChunkInfo::SIZE);
+            auto res = process_lighting(LightingJob(coord,&director.chunk_map,entry));
+            entry->light_data = res.lights;
+
+            entry->lighting.complete_inflight(res.rev);
+            director.ready_for_lighting.pop(coord);
+
+            director.mark_mesh_dirty(entry);
+        }
+    }
+}
+
+void Engine::handle_chunk_scheduling() {
     profiler.bench_start("update");
     director.start_frame(player_cam.pos);
 
 
-    if (!chunk_updates_paused){
-        if (director.block_at({4,5,4}) != BlockType::TORCH){
-            bool success = director.place_block(WorldBlockPos{4,5,4},BlockType::TORCH);
-            std::println("Placing torch: {}", success ? "success" : "failed");
-        }
-
-        auto [n_mesh_job_disc, n_gen_jobs_disc] =
-            director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher,
-                                         max_gen_discovery_pf, GENERATION_DIST, RENDER_DIST);
-
-        submit_gen_jobs(maxGenJobsPerFrame);
-        upload_gen_results(maxGenUploadsPerFrame);
-
-
-        evict_meshes_outside_radius(MESH_CULL_DIST());
-        refresh_visible_chunks();
-        classify_visible_chunks();
-
-
-        submit_mesh_jobs(maxMeshJobsPerFrame);
-        upload_mesh_results(maxMeshUploadsPerFrame);
-
-        //NOTE: We must perform mesh sorting AFTER mesh upload this frame,
-        // otherwise the size of sorted_keys diverges from the mesh_lists.
-        director.handle_mesh_sorting(rend,player_cam.pos);
-        count_states();
+    if (director.block_at({4,5,4}) != BlockType::TORCH){
+        bool success = director.place_block(WorldBlockPos{4,5,4},BlockType::TORCH);
+        std::println("Placing torch: {}", success ? "success" : "failed");
     }
 
+    if (director.player_crossed_chunk_boundary()){
+        director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
+    }
+
+    submit_gen_jobs(maxGenJobsPerFrame);
+    upload_gen_results(maxGenUploadsPerFrame);
 
 
-    update_player_cam(player_cam);
-    update_drone_cam(drone_cam, player_cam.pos);
+    evict_meshes_outside_radius(director.MESH_CULL_DIST());
+    refresh_visible_chunks();
+    classify_visible_chunks();
 
+    
+    process_lighting_updates();
 
+    submit_mesh_jobs(maxMeshJobsPerFrame);
+    upload_mesh_results(maxMeshUploadsPerFrame);
+
+    //NOTE: We must perform mesh sorting AFTER mesh upload this frame,
+    // otherwise the size of sorted_keys diverges from the mesh_lists.
+    director.handle_mesh_sorting(rend,player_cam.pos);
+    count_states();
     director.end_frame();
     profiler.bench_end("update");
 }
@@ -172,6 +366,7 @@ void Engine::update_scene() {
 void Engine::update_player_cam(Camera& player_cam){
     player_cam.vertical_fov = DebugOption::player_cam_vfov;
 }
+
 void Engine::update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height){
     auto follow_pos = WorldFloatPos{player_cam.pos.raw()+glm::vec3{0,100,0}};
     drone_cam.set_pos_ori(follow_pos, -89.0, 0.0);
@@ -195,17 +390,14 @@ void Engine::submit_gen_jobs(i64 maxJobs){
             gen_enqueue_delay_bencher.bench_end(candidate_coord);
             gen_rtt_bencher.bench_start(candidate_coord,world.worldgen_epoch);
             gen_job_queue_idle_bencher.bench_start(candidate_coord,world.worldgen_epoch);
-            world.chunkMap.entries.if_contains_else(
-                candidate_coord, 
-                [&](ChunkEntry& entry){
-                    director.mark_gen_enqueue(entry);
-                },
-                [&](){
-                    auto* entry = world.make_chunk_entry(candidate_coord);
-                    director.mark_gen_enqueue(*entry);
-                }
-            );
+            auto* entry = world.chunkMap.entries.try_get(candidate_coord);
+            if (!entry){
+                entry = world.make_chunk_entry(candidate_coord);
+            }
+            director.mark_gen_enqueue(entry);
             count++;
+        }else{
+            // did not upload (mutex contention)
         }
     }
     profiler.bench_end("enqueueGen");
@@ -226,7 +418,7 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
         auto* entry = world.chunkMap.entries.at(candidate_coord);
 
         assert(entry);
-        if (director.qualifies_for_mesh_enqueue(*entry)){
+        if (director.qualifies_for_mesh_enqueue(entry)){
             // BlockShape 
             static_assert(BlockShape::CUBE == static_cast<BlockShape>(0));
             static_assert(BlockShape::CROSS == static_cast<BlockShape>(1));
@@ -237,11 +429,10 @@ void Engine::submit_mesh_jobs(i64 maxJobs){
                 &world.chunkMap,
                 entry
             );
-            // MeshJob(size_t _meshRevisionID, WorldChunkCoord key, const TextureAtlas* _atlas, const ChunkEntry* entry, std::span<std::optional<ChunkSlice2D>> neighbourChunks):
             if (success){
-                mesh_rtt_bencher.bench_start(candidate_coord,entry->mesh_revision.target);
-                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->mesh_revision.target);
-                director.mark_mesh_enqueue(*entry);
+                mesh_rtt_bencher.bench_start(candidate_coord,entry->mesh.target);
+                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->mesh.target);
+                director.mark_mesh_enqueue(entry);
                 count++;
             }
         }
@@ -283,42 +474,27 @@ void Engine::upload_mesh_results(i64 maxUploads){
             continue;
         }
 
-        if (entry->qualifies_for_mesh_dequeue()){
-            if (entry->mesh_revision.is_candidate_newer_than_loaded(candidate_revision)){
-                log_to_chunk("mesh_uploads",chunk_coord, "Mesh upload success ({}->{})",entry->mesh_revision.loaded,candidate_revision);
-                log_to_chunk("mesh_uploads",chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),blended.vertices.size(),cutout.vertices.size());
-                //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
-                //log_to_chunk(chunk_coord,"transp new: {}",blended.vertices.size());
-                if (rend.opaque_chunk_meshes.contains(chunk_coord)){
-                //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
-                }
-                if (opaque.vertices.size()>0){
-                    rend.uploadMesh(chunk_coord, std::move(opaque));
-                } 
-                if (blended.vertices.size()>0){
-                    rend.uploadMesh(chunk_coord, std::move(blended));
-                } 
-                if (cutout.vertices.size()>0){
-                    rend.uploadMesh(chunk_coord, std::move(cutout));
-                } 
-                //log_to_chunk(chunk_coord,"opaque after: {}",rend.opaqueChunkMeshes.at(chunk_coord));
-            }else{
-                log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                                candidate_revision,entry->mesh_revision.loaded));
-                continue;
+        if (try_upload_candidate(entry->mesh, candidate_revision)){
+            log_to_chunk(LogType::mesh_uploads,chunk_coord, "Mesh upload success ({}->{})",entry->mesh.loaded,candidate_revision);
+            log_to_chunk(LogType::mesh_uploads,chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),blended.vertices.size(),cutout.vertices.size());
+            //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
+            //log_to_chunk(chunk_coord,"transp new: {}",blended.vertices.size());
+            if (rend.opaque_chunk_meshes.contains(chunk_coord)){
+            //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
             }
-            entry->mesh_revision.loaded = candidate_revision;
-            entry->state_transition(mesh_dequeue);
-            this->chunksMeshed++;
-            auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
-            mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
-           // log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
-            count++;
+            opaque.vertices.size() > 0   ? rend.uploadMesh(chunk_coord, std::move(opaque)) : void();
+            blended.vertices.size() > 0  ? rend.uploadMesh(chunk_coord, std::move(blended)) : void();
+            cutout.vertices.size() > 0   ? rend.uploadMesh(chunk_coord, std::move(cutout)) : void();
         }else{
-            log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
-            continue;
+                log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                                candidate_revision,entry->mesh.loaded));
+                continue;
         }
-        
+        this->chunksMeshed++;
+        auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
+        mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
+       // log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
+        count++;
     }
     profiler.bench_end("drainMesh");
     mesh_results_this_frame = count;
@@ -353,18 +529,13 @@ void Engine::upload_gen_results(i64 maxUploads){
             continue;
         }
 
-        if (entry->qualifies_for_gen_dequeue()){
-            if (entry->gen_revision.is_candidate_newer_than_loaded(candidate_revision)){
-                log_to_chunk("gen_uploads",chunk_coord, "gen upload success ({}->{})",entry->gen_revision.loaded,candidate_revision);
-                director.upload_generated_chunk(newGen);
-                entry->gen_revision.loaded = candidate_revision;
-                entry->state_transition(gen_dequeue);
-            }else{
-                log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                                candidate_revision,entry->gen_revision.loaded));
-            }
+        if (try_upload_candidate(entry->gen, candidate_revision)){
+            log_to_chunk(LogType::gen_uploads,chunk_coord, "gen upload success ({}->{})",entry->gen.loaded,candidate_revision);
+            director.upload_generated_chunk(newGen);
+            entry->gen.loaded = candidate_revision;
         }else{
-            log_fail_upload(std::format("Result popped, however state!=on_queue, rather:{}",entry->state));
+            log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                            candidate_revision,entry->gen.loaded));
         }
         auto ttg = gen_rtt_bencher.bench_end(chunk_coord, candidate_revision);
         gen_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
@@ -432,7 +603,7 @@ void Engine::unGenerateAllChunks(){
 void Engine::unMeshAllChunks(){
     world.chunkMap.entries.for_each(
         [&](WorldChunkCoord coord, ChunkEntry& entry){
-            director.mark_mesh_dirty(entry);
+            director.mark_mesh_dirty(&entry);
         }
     );
     rend.opaque_chunk_meshes.clear();
@@ -455,6 +626,18 @@ void Engine::set_debug_params() {
     }
 }
 
+void Engine::update(timer::duration dt){
+    tick_gap_accumulator += std::min(dt, maxGapContributionPerFrame);
+
+    auto ticks_this_frame {0uz};
+    while (tick_gap_accumulator > msPerTick && ticks_this_frame < max_ticks_per_frame ){
+        per_tick_update();
+        tick_gap_accumulator-=msPerTick;
+        ticks_this_frame++;
+    }
+
+    //std::println("{} ticks this frame.",ticks_this_frame);
+}
 void Engine::setup() {
     for (auto& v: block_defs){
         std::println("{}",v);
@@ -502,8 +685,10 @@ void Engine::setup() {
     LOG_DEBUG("Finished World setup.");
 
     // enqueue the starting chunks
+    director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
+
     world.worldgen_epoch++;
-    auto n =( RENDER_DIST*2+ 1);
+    auto n =( director.RENDER_DIST*2+ 1);
     global_logger.epoch = Logger::clock::now();
     LOG_DEBUG("Beginning timer to load initial chunks ({}x{} = {} chunks).",n,n,n*n);
     //submit_gen_jobs(maxGenJobsPerFrame);
@@ -534,10 +719,15 @@ void Engine::handle_input(){
             return;
         }
     }
+
+    if(input.just_pressed(KeyModifiers{.shift = true}, KEY_S)){
+        rend.enable_smooth_light_falloff = !rend.enable_smooth_light_falloff;
+        rend.update_debug_uniforms();
+    }
     if(input.just_pressed(KEY_GRAVE_ACCENT)){
         ui.is_ui_expanded = !ui.is_ui_expanded;
     }
-    if(input.just_pressed(KEY_C) && input.mods.shift && input.mods.super){
+    if(input.just_pressed({.shift=true, .super=true }, KEY_C)){
         const auto& pos=player_cam.pos;
         const auto& yaw=player_cam.yaw;
         const auto& pitch=player_cam.pitch;
@@ -628,13 +818,13 @@ void Engine::handle_input(){
     if(input.just_pressed(KEY_B)){
         dbg_modify_chunks = !dbg_modify_chunks;
     }
-    if(input.just_pressed(KEY_W) && input.mods.alt){
+    if(input.just_pressed({.alt=true},KEY_W) ){
         rend.debug.wireframe = !rend.debug.wireframe;
     }
     if(input.just_pressed(KEY_H)){
         DebugOption::show_debug_ui = !DebugOption::show_debug_ui;
     }
-    if(input.just_pressed(KEY_C) && input.no_mods()){
+    if(input.just_pressed(KEY_C)){
         DebugOption::fill_neighbour_boundaries = !DebugOption::fill_neighbour_boundaries;
         DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
     }
@@ -652,8 +842,8 @@ void Engine::handle_input(){
 
     // NOTE: MOVEMENT
     if(input.is_down(KEY_LEFT_SHIFT)){
-            player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
-            player_cam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
+        player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
+        player_cam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
     }else if(input.is_down(KEY_LEFT_CONTROL)){
         player_cam.moveSpeed = Camera::WALK_MOVESPEED;
     }else{
@@ -661,50 +851,50 @@ void Engine::handle_input(){
         player_cam.keyboard_sensitivity= Camera::BASE_KEYBOARD_SENSITIVITY;
     }
 
-    if(input.is_down(KEY_W)){
+    if(input.is_down(KeyModifiers::any(), KEY_W)){
 		player_cam.move(Direction::FORWARD, profiler.dt_s);
 	}
-    if(input.is_down(KEY_S)){
+    if(input.is_down(KeyModifiers::any(), KEY_S)){
 		player_cam.move(Direction::BACKWARD, profiler.dt_s);
 	}
-    if(input.is_down(KEY_A)){
+    if(input.is_down(KeyModifiers::any(), KEY_A)){
 		player_cam.move(Direction::LEFT, profiler.dt_s);
 	}
-    if(input.is_down(KEY_D)){
+    if(input.is_down(KeyModifiers::any(), KEY_D)){
 		player_cam.move(Direction::RIGHT, profiler.dt_s);
 	}
-    if(input.is_down(KEY_SPACE)){
+    if(input.is_down(KeyModifiers::any(), KEY_SPACE)){
 		player_cam.move(Direction::UP, profiler.dt_s);
 	    drone_cam.move(Direction::UP, profiler.dt_s);
 	}
-    if(input.is_down(KEY_E)){
+    if(input.is_down(KeyModifiers::any(), KEY_E)){
 		player_cam.move(Direction::UP, profiler.dt_s);
 	}
-    if(input.is_down(KEY_Q)){
+    if(input.is_down(KeyModifiers::any(), KEY_Q)){
 		player_cam.move(Direction::DOWN, profiler.dt_s);
 	}
 
-    if(input.is_down(KEY_LEFT)){
+    if(input.is_down(KeyModifiers::any(), KEY_LEFT)){
 		player_cam.rotate(Direction::LEFT, profiler.dt_s);
 	}
-    if(input.is_down(KEY_RIGHT)){
+    if(input.is_down(KeyModifiers::any(), KEY_RIGHT)){
 		player_cam.rotate(Direction::RIGHT, profiler.dt_s);
 	}
-    if(input.is_down(KEY_UP)){
+    if(input.is_down(KeyModifiers::any(), KEY_UP)){
 		player_cam.rotate(Direction::UP, profiler.dt_s);
 	}
-    if(input.is_down(KEY_DOWN)){
+    if(input.is_down(KeyModifiers::any(), KEY_DOWN)){
 		player_cam.rotate(Direction::DOWN, profiler.dt_s);
 	}
 
     if (dbg_modify_chunks){
         dbg_modify_chunks = false;
         auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-        director.mark_neighbours_dirty(cur_chunk, "test");
+        director.mark_neighbour_meshes_dirty(cur_chunk, "test");
         world.chunkMap.entries.if_contains(
             cur_chunk,
             [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(entry);
+                director.mark_mesh_dirty(&entry);
                 for (auto& block : entry.block_data){
                     if (block.type == BlockType::GRASS_BLOCK){
                         block = (BlockType::AIR);
@@ -718,7 +908,7 @@ void Engine::handle_input(){
         world.chunkMap.entries.if_contains(
             cur_chunk,
             [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(entry);
+                director.mark_mesh_dirty(&entry);
             }
         );
     }
@@ -745,7 +935,7 @@ void Engine::remesh_world(){
     rend.blended_chunk_meshes.clear();
     rend.cutout_chunk_meshes.clear();
     for (auto& [key, entry]: world.chunkMap.entries){
-        director.mark_mesh_dirty(entry);
+        director.mark_mesh_dirty(&entry);
     }
 }
 void Engine::regenerate_world(){
@@ -753,7 +943,7 @@ void Engine::regenerate_world(){
     rend.meshers.job_queue.clear();
     world.generators.job_queue.clear();
     {
-        std::lock_guard lock(per_chunk_log_mut);
+        auto lock = per_chunk_log.lock_guard();
         per_chunk_log.clear();
     }
 
@@ -789,6 +979,8 @@ void Engine::count_states(){
     n_meshing = n_meshing + mesh_jobs_this_frame - mesh_results_this_frame;
     rb_meshing.write(n_meshing);
 
+    n_gen_pending ={};
+    n_gen_ready_for_enqueue={};
     n_gen_on_queue               ={};
     n_gen_done                   ={};
 
@@ -796,8 +988,19 @@ void Engine::count_states(){
     n_mesh_ready_for_enqueue     ={};
     n_mesh_on_queue              ={};
     n_mesh_done                  ={};
+    n_light_pending   ={};
+    n_light_ready_for_enqueue     ={};
+    n_light_on_queue              ={};
+    n_light_done                  ={};
     for (const auto& [key, val]: world.chunkMap.entries){
-        switch(val.state.gen){
+        switch(val.lighting_pipeline_state()){
+            // TODO: add
+            case PipelineState::pending: n_light_pending++; break;
+            case PipelineState::on_queue: n_light_on_queue++; break;
+            case PipelineState::done: n_light_done++; break;
+            case PipelineState::ready_for_enqueue: n_light_ready_for_enqueue++; break;
+        }
+        switch(val.gen_pipeline_state()){
             // TODO: add
             case PipelineState::pending: n_gen_pending++; break;
             case PipelineState::on_queue: n_gen_on_queue++; break;
@@ -805,7 +1008,7 @@ void Engine::count_states(){
             case PipelineState::ready_for_enqueue: n_gen_ready_for_enqueue++; break;
         }
 
-        switch(val.state.mesh){
+        switch(val.mesh_pipeline_state()){
             case PipelineState::pending : n_mesh_pending++; break;
             case PipelineState::ready_for_enqueue  : n_mesh_ready_for_enqueue  ++; break;
             case PipelineState::on_queue           : n_mesh_on_queue           ++; break;

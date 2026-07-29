@@ -35,6 +35,7 @@ target_compile_options(mc PRIVATE
     -Werror
     -Wimplicit-fallthrough
     -Wno-unused
+    -Wunused-result
     -Wfatal-errors
     -fdiagnostics-color=always
     -ffile-prefix-map=${CMAKE_SOURCE_DIR}=. # gives stack traces a relative path to cwd

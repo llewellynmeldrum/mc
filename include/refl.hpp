@@ -1,6 +1,7 @@
 #pragma once 
 #include "Types.h"
 #include <string_view>
+#include "MetaUtils.hpp"
 namespace refl{
 #define SRC_LOC_CURRENT()\
     refl::source_location{\
@@ -9,12 +10,10 @@ namespace refl{
         ._pretty_fn=__PRETTY_FUNCTION__,\
         ._line=__LINE__,\
     }
-#define MAKE_VAR(val)\
-    refl::variable{\
-        .type_str = pretty_type_name<decltype(val)>(),\
-        .val_str = std::format("{}",val),\
-        .name_str= #val,\
-    }
+// The type must be formatted at the callsite, 
+// so then this header doesnt need to pull in the formatter overloads 
+#define MAKE_VAR(val) refl::make_var(val,std::format("{}",val),pretty_type_name<decltype(val)>(),#val)
+
 #define MAKE_VAR_NO_VAL(val)\
     refl::variable{\
         .type_str = pretty_type_name<decltype(val)>(),\
@@ -26,10 +25,40 @@ struct variable{
     std::string_view type_str;
     std::string_view  val_str;
     std::string_view  name_str;
+    std::size_t size_bytes;
+    const void* addr;
     const auto& val(){return val_str;}
     const auto& type(){return type_str;}
     const auto& name(){return name_str;}
+
+    bool is_integral()const noexcept;
 };
+
+template<typename T>
+concept is_addressable = requires(T&& x){
+    { &x } -> std::same_as<std::remove_reference_t<T>*>;
+};
+
+template<typename T>
+constexpr const void* resolve_var_addr(T&& val){
+    if constexpr (is_addressable<T>){
+        return &val;
+    }else {
+        return nullptr;
+    }
+}
+
+template<typename T>
+constexpr refl::variable make_var(T&& val, std::string_view s_val, std::string_view s_type, std::string_view s_name){
+    return refl::variable{
+        .type_str = s_type,
+        .val_str = s_val,
+        .name_str= s_name,
+        .size_bytes = sizeof(val),
+        .addr = resolve_var_addr(std::forward<T>(val)),
+    };
+}
+
 enum struct ContType: i8{
     ARRAY_LIKE,
     MAP_LIKE,

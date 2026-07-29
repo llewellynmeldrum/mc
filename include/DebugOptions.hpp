@@ -9,15 +9,27 @@
 
 
 namespace DebugOption{
+    enum struct DebugRenderStateTarget{
+        MESH,
+        GEN,
+        LIGHTING,
+    };
+    inline const std::vector<char const*> DebugRenderStateTarget_names
+    {
+        "MESH",
+        "GEN",
+        "LIGHTING",
+	};
     constexpr inline bool ON = true;
+
     constexpr inline bool OFF = false;
 
     inline bool enable_cutout_optimisation      = OFF;
     inline bool enable_drone_cam                = OFF;
     inline bool enable_3d_debug_visuals         = ON;
 
-    inline bool gen_state_mode                  = OFF; // OFF = mesh state mode
-    inline bool outline_neighbour_boundaries    = OFF;
+    inline DebugRenderStateTarget render_state_mode                  = DebugRenderStateTarget::GEN; // OFF = mesh state mode
+    inline bool outline_neighbour_boundaries    = ON;
     inline bool fill_neighbour_boundaries       = OFF;
     inline bool fill_all_boundaries             = OFF;
     inline bool outline_all_boundaries          = OFF;

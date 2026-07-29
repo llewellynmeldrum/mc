@@ -3,9 +3,12 @@
 #include <mdspan>
 #include <concepts>
 #include <string>
+
+
 #include "ChunkState.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "GlobalDebugLog.hpp"
+#include "LM.hpp"
 #include "WorldGen_BiomeBlockPalettes.hpp"
 #include "WorldGen_BiomeClassification.hpp"
 #include "WorldGen_NoiseGeneration.hpp"
@@ -136,6 +139,23 @@ void draw_worldgen_window(WindowConfig& self, Engine* ctx){
         });
     });
 }
+void draw_graphics_window(WindowConfig& self, Engine* ctx){
+    self.setAlpha(0.9f);
+    self.setup();
+    self.setSize(UVSize{0.4,0.4});
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+        auto& window = self;
+        auto& cfg = ctx->world.editable_cfg;
+        bool dirty = false;
+        dirty |= window.checkbox("enable smooth light falloff", &(ctx->rend.enable_smooth_light_falloff));
+        IG::BeginDisabled(!ctx->rend.enable_smooth_light_falloff);
+            dirty |= window.slider<f32>("smooth light falloff base", &(ctx->rend.smooth_light_falloff_base), 0, 1);
+        IG::EndDisabled();
+        if (dirty) ctx->rend.update_debug_uniforms();
+    });
+}
 void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
     self.setup();
@@ -147,7 +167,7 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
 
         
         window.open_section("DebugOption::",[&]{
-            window.checkbox("Show gen state", &DebugOption::gen_state_mode);
+            edit_enum("Debug chunk mode", &DebugOption::render_state_mode, DebugOption::DebugRenderStateTarget_names);
             window.checkbox("outline neighbour boundaries", &DebugOption::outline_neighbour_boundaries);
             window.checkbox("fill    neighbour boundaries", &DebugOption::fill_neighbour_boundaries);
             window.checkbox("outline ALL boundaries", &DebugOption::outline_all_boundaries);
@@ -189,12 +209,13 @@ void drawPerChunkLogWindow(WindowConfig& self, Engine* ctx){
     self.setFlags();
     self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
         auto& window = self;
-        for (auto& [key, val]: is_log_type_enabled ){
-            window.checkbox(key, &val);
+        for (auto& [log_type, enabled]: is_log_type_enabled ){
+            window.checkbox(std::format("{}",log_type), &enabled);
         }
         window.open_section("Per chunk log:",[&self, &ctx]{
             // Shown in most->least recent vertical order
             WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->player_cam.pos);
+            auto lock = per_chunk_log.lock_guard();
             if (per_chunk_log.contains(cur_chunk)){
                 for (const auto& entry: per_chunk_log.at(cur_chunk) | ranges::views::reverse){
                     auto [log_type, duration, contents] = entry;
@@ -417,7 +438,11 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         const auto pos = ctx->player_cam.pos;
         const auto round_pos = glm::ivec3{LM::floor(ctx->player_cam.pos).raw()};
         const auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
-        const auto cl_pos = glm::vec3{0,0,0};
+        const auto cl_pos = glm::vec3{
+            LM::ieuclid_mod(static_cast<i32>(pos.x),CHUNK_XWIDTH),
+            pos.y,
+            LM::ieuclid_mod(static_cast<i32>(pos.z),CHUNK_XWIDTH),
+        };//toChunkBlockPos(ctx->player_cam.pos).raw();
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
         UI::Separator();
@@ -426,6 +451,12 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Separator();
         UI::Text("pos :{: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
                  pos.x,pos.y,pos.z,std::floor(pos.x),std::floor(pos.y),std::floor(pos.z));
+        auto* entry = ctx->director.chunk_map.entries.try_get(ch_pos);
+        if (entry){
+            ChunkBlockPos pos = ChunkBlockPos{cl_pos};
+            if (LM::isVecInBounds(glm::ivec3{0,0,0}, ChunkInfo::Extents3D, pos.raw()))
+            UI::Text("light data: {}",entry->light_data.at(pos));
+        }
         UI::Text("chunk :{: 3},{: 3}",ch_pos.x,ch_pos.z);
         UI::Text("chunk local: {: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
                  cl_pos.x,cl_pos.y,cl_pos.z,std::floor(cl_pos.x),std::floor(cl_pos.y),std::floor(cl_pos.z));
@@ -530,12 +561,16 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         window.section("Chunk States:",[ctx]{
             IG::Separator();
             UI::Text("GenStates:");
-            #define X(name) UI::ColoredText(GenDebugOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
+            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
+            PIPELINE_STATE_LIST
+            #undef X
+            UI::Text("LightStates:");
+            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_light_##name);
             PIPELINE_STATE_LIST
             #undef X
 
             UI::Text("MeshStates:");
-            #define X(name) UI::ColoredText(MeshDebugOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_mesh_##name);
+            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_mesh_##name);
             PIPELINE_STATE_LIST
             #undef X
 
@@ -548,7 +583,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
-            bool showPipelineState = DebugOption::gen_state_mode;
             std::string gen_state_str{"No state entry."};
             std::string mesh_state_str{"No state entry."};
             auto target_mesh_id = 0uz;
@@ -557,10 +591,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             ctx->world.chunkMap.entries.if_contains(
                 ch_pos,
                 [&](ChunkEntry& entry){
-                    target_mesh_id = entry.mesh_revision.target;
-                    inflight_mesh_id = entry.mesh_revision.inflight;
-                    loaded_mesh_id = entry.mesh_revision.loaded;
-                    ChunkState& state = entry.state;
+                    target_mesh_id = entry.mesh.target;
+                    inflight_mesh_id = entry.mesh.inflight;
+                    loaded_mesh_id = entry.mesh.loaded;
                     PipelineState gen_stage{};
                     bool gen_clean{};
                     bool noBlocks{};
@@ -570,8 +603,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     bool transp_empty{};
                     bool mesh_clean{};
                     PipelineState mesh_stage{};
-                    gen_stage = state.gen;
-                    gen_clean = entry.gen_revision.is_clean();
+
+                    gen_stage = entry.gen_pipeline_state();
+                    gen_clean = entry.gen.is_clean();
 
                     
                     ctx->world.chunkMap.entries.if_contains(
@@ -583,14 +617,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     
                     gen_state_str = std::format(
                         "{} ({})  {}",
-                        state.gen,
+                        gen_stage,
                         (gen_clean ? "clean"     : "dirty"),
                         (noBlocks ? "(empty)" : "")
                     );
-                    gen_state_color = GenDebugOutlineColor(state.gen);
+                    gen_state_color = PipelineStateOutlineColor(gen_stage);
 
-                    mesh_stage=state.mesh;
-                    mesh_clean = entry.mesh_revision.is_clean();
+                    mesh_stage=entry.mesh_pipeline_state();
+                    mesh_clean = entry.mesh.is_clean();
 
                     
                     ctx->rend.opaque_chunk_meshes.if_contains(
@@ -610,14 +644,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     
                     mesh_state_str = std::format(
                         "{} ({})  OP:{}{} TR:{}{}",
-                        state.mesh,
+                        entry.mesh_pipeline_state(),
                         (mesh_clean ? "clean"     : "dirty"    ),
                         (opaque_loaded ? "LOADED" : "UNLOADED" ),
                         (opaque_empty ? "(empty)" : ""         ),
                         (transp_loaded ? "LOADED" : "UNLOADED" ),
                         (transp_empty ? "(empty)" : ""         )
                     );
-                    mesh_state_color = MeshDebugOutlineColor(state.mesh);
+                    mesh_state_color = PipelineStateOutlineColor(entry.mesh_pipeline_state());
                     // state.gen 
                     // opqMesh: [Loaded|Unloaded] [(empty)] 
                     // trnMesh: [Loaded|Unloaded] [(empty)] 
@@ -668,9 +702,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                 ctx->world.chunkMap.entries.if_contains_else(
                     key,
                     [&](ChunkEntry& entry){
-                        if (entry.state.mesh == PipelineState::done){
-                            n_pending_clean_meshed += entry.mesh_revision.is_clean();
-                            n_pending_dirty_meshed += entry.mesh_revision.is_dirty();
+                        if (entry.mesh.has_data()){
+                            n_pending_clean_meshed += entry.mesh.is_clean();
+                            n_pending_dirty_meshed += entry.mesh.is_dirty();
                         }  else{
                             n_pending_unmeshed++;
                         }
@@ -799,6 +833,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"GLOBAL LOG", UI::WinFlagGroup::MovableOverlay,drawGlobalLogWindow,this},
             {"DBG OPTS", UI::WinFlagGroup::MovableOverlay,drawDebugSettingsWindow,this},
             {"WORLDGEN", UI::WinFlagGroup::MovableOverlay,draw_worldgen_window,this},
+            {"GRAPHICS", UI::WinFlagGroup::MovableOverlay,draw_graphics_window,this},
         }
     );
 }

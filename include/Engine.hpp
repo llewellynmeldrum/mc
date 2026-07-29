@@ -2,6 +2,7 @@
 
 #include "Camera.hpp"
 #include "MirroredRingBuf.hpp"
+#include "Timer.hpp"
 #include "Window.hpp"
 #include "BenchmarkMap.hpp"
 #include "Input.hpp"
@@ -14,13 +15,14 @@
 #include "World.hpp"
 #include "Concurrency.hpp"
 // src/Simulation.cpp
+using namespace std::chrono_literals;
 struct Engine {
   public:
     Engine() : 
         win(), 
         profiler(),
         input(win.ptr), 
-        player_cam({-3.770,+10.624,-6.345}, -26.367,+54.275),
+        player_cam({-0.509,+5.908,+12.423}, -4.476,+303.021),
         drone_cam(),
         rend(),
         fixedCamTarget({0,0},{640,480}),
@@ -30,9 +32,26 @@ struct Engine {
     {}
     ~Engine() = default;
 
+
+    size_t tick_counter = 0;
+
+    // tick machinery
+    timer::duration tick_gap_accumulator{0};
+    timer::time_point t_last_frame_ended = timer::now();
+    constexpr static auto ticksPerSecond {20uz};
+    constexpr static auto msPerTick = timer::milliseconds(1000.0);
+
+    constexpr static auto maxGapContributionPerFrame = timer::milliseconds(250.0); // limit on how many 'lagging' ticks are CREATED
+    constexpr static auto max_ticks_per_frame = 8uz; // limit on how many 'lagging' ticks are ACCEPTED
+    
+    
     void setup();
-    void loop();
     i32 exit(i32 exit_code);
+
+    void loop();
+    void update(timer::duration dt); // called once per frame
+    void per_tick_update(); // called [1,8] times per frame
+    
 
 
     Window   win;
@@ -83,6 +102,8 @@ struct Engine {
     World    world;
     ChunkDirector director;
 
+    void process_lighting_updates();
+    LightingResult process_lighting(LightingJob&& job);
 
     void regenerate_world();
     void remesh_world();
@@ -92,7 +113,6 @@ struct Engine {
     void classify_visible_chunks();
 
     static constexpr i64 maxGenUploadsPerFrame= 128;
-    static constexpr i64 max_gen_discovery_pf= 128;
     static constexpr i64 maxGenJobsPerFrame = 128;
     static constexpr i64 maxMeshUploadsPerFrame= 64;
     static constexpr i64 maxMeshEnqueueAttempts = 64;
@@ -113,7 +133,7 @@ struct Engine {
     void update_player_cam(Camera& player_cam);
     void update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height=100.0f);
 
-    void update_scene();
+    void handle_chunk_scheduling();
     void draw_scene();
     void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
     bool paused{false};
@@ -122,16 +142,6 @@ struct Engine {
     bool dbg_modify_chunks{false};
     bool dirty_current_chunk{false};
 
-    // =========
-    // Generation
-    // =========
-    static constexpr i32 RENDER_DIST = 16;
-    static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
-    
-    // =========
-    // Meshing 
-    // =========
-    static constexpr i32 MESH_CULL_DIST(){return RENDER_DIST+2;}
     // =========
     // telemetry
     // =========
@@ -159,6 +169,11 @@ struct Engine {
     i64 n_gen_ready_for_enqueue{};
     i64 n_gen_on_queue               {};
     i64 n_gen_done                   {};
+
+    i64 n_light_pending {};
+    i64 n_light_ready_for_enqueue{};
+    i64 n_light_on_queue               {};
+    i64 n_light_done                   {};
 
     i64 n_mesh_pending   {};
     i64 n_mesh_ready_for_enqueue     {};

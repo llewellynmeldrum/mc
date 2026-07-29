@@ -2,59 +2,36 @@
 #include "ChunkMap.hpp"
 #include "TextureAtlas.hpp"
 #include "ChunkNoiseDebug.hpp"
-#include <ranges>
+#include "ChunkMap.hpp"
 
 MeshJob::MeshJob(
         ChunkBenchContext _bench,
         WorldChunkCoord key, 
         const_span<TextureAtlas*> _atlas_list, 
-        ChunkMap* chunk_map,
+        const ChunkMap* chunk_map,
         const ChunkEntry* entry
     ):
         bench(std::move(_bench)), 
-        meshRevisionID(entry->mesh_revision.target),
+        meshRevisionID(entry->mesh.get_candidate_rev()),
         chunkCoord(key),
         blocks(entry->block_data.clone()),
+        light_data(entry->light_data.clone()),
         atlas_map(_atlas_list)
+
 {
-    for (const auto& [dir, dir_idx]: eachDirIndex2D){
-        const auto& neighbour_coord = entry->neighbours[dir_idx];
-        if (!neighbour_coord){
-            surroundingChunks.emplace_back(std::nullopt);
-        }else{
-            ChunkBlockPos p0{}, p1{};
-            constexpr auto XE = ChunkInfo::XWIDTH;
-            constexpr auto YE = ChunkInfo::HEIGHT;
-            constexpr auto ZE = ChunkInfo::ZWIDTH;
-            SliceType slice_type = {};
-            switch (dir){
-                // -Z
-                case Direction ::BACKWARD: p0 = {0,0,0}; p1 ={XE,YE,1}; slice_type = SliceType::Z; break;
-                // +Z
-                case Direction ::FORWARD: p0 = {0,0,ZE-1}; p1 ={XE,YE,ZE}; slice_type = SliceType::Z; break;
-
-                // -X
-                case Direction ::RIGHT: p0 = {0,0,0}; p1 ={1,YE,ZE}; slice_type = SliceType::X; break;
-                // +X
-                case Direction ::LEFT   : p0 = {XE-1,0,0}; p1 ={XE,YE,ZE}; slice_type = SliceType::X; break;
-
-                default:
-                    break;
-            }
-            chunk_map->entries.if_contains_else(
-                neighbour_coord.value(),
-                [&](ChunkEntry& neighbour){
-                    surroundingChunks.emplace_back(
-                        std::in_place,
-                        neighbour.block_data.view(),
-                        slice_type,
-                        p0,p1);
-                },
-                [&](){
-                    surroundingChunks.emplace_back(std::nullopt);
-                }
-            );
-        }
-    }
-    assert(surroundingChunks.size()==N_NEIGHBOURS);
+    surrounding_chunks_block_slices = chunk_map->populate_neighbour_slices<Block>(entry);
+    surrounding_chunks_light_slices = chunk_map->populate_neighbour_slices<PackedLightValue>(entry);
+}
+LightingJob::LightingJob(
+        WorldChunkCoord _coord, 
+        ChunkMap const* chunk_map,
+        ChunkEntry const* entry
+)
+    :coord(_coord)
+    ,rev(entry->lighting.get_candidate_rev())
+    ,light_data(entry->light_data.clone())
+    ,block_data(entry->block_data.clone())
+{
+    neighbour_light_slices = chunk_map->populate_neighbour_slices<PackedLightValue>(entry);
+    neighbour_block_slices = chunk_map->populate_neighbour_slices<Block>(entry);
 }

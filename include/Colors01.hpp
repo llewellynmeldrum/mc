@@ -22,4 +22,4 @@ decl_color(BLUE   ,rgb(000,000,255))
 decl_color(PURPLE ,rgb(255,000,255))
 decl_color(GREY_50,rgb(127,127,127))
 }; // Namespace Color01
-#undef color
+#undef rgb

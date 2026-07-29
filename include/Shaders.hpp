@@ -72,7 +72,7 @@ struct ShaderProgram{
     void setUniform(i32 id, const f32& val);
     void setUniform(i32 id, const f64& val);
     void setUniform(i32 id, std::vector<i32> val);
-    void setUniform(i32 id, bool val);
+    void setUniform(i32 loc_id, bool const& val) ;
 
 private:
   bool has_error(i32 param_name);

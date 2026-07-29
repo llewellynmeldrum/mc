@@ -25,8 +25,25 @@ struct TextureAtlas {
 
     static constexpr i64     sprite_sz_px = 16;
 
-    std::array<glm::vec2, 4> get_texture_uvs_cross(i64 texture_idx, const_span<Vertex, 4> vertices) const;
-    std::array<glm::vec2, 4> apply_texture_uvs_cube(i64 texture_idx, Direction dir, const_span<Vertex, 4> vertices) const ;
+
+    template<BlockShape shape>
+    auto quad_texture_uvs(i64 texture_idx, [[maybe_unused]]u8 dir, const_span<Vertex, 4> vertices) const{
+        QuadUVList res;
+        glm::vec2 uvmin{};
+        if constexpr (shape == BlockShape::CROSS){
+            uvmin = get_base_cross_uv(texture_idx);
+        }else{
+            uvmin = get_base_cube_uv(texture_idx,dir);
+        }
+        for (size_t vtx = 0; vtx < VTX_PER_QUAD; vtx++) {
+            f32 u = vertices[vtx].tx_coords.x;
+            f32 v = vertices[vtx].tx_coords.y;
+            u = uvmin.x + u * abs_sprite_w;
+            v = 1 - (uvmin.y + v * abs_sprite_h);
+            res[vtx] = { u, v };
+        }
+        return res;
+    }
 
     glm::vec2 get_base_cube_uv(i64 tex_idx, i32 dir) const;
     glm::vec2 get_base_cross_uv(i64 tex_idx) const ;

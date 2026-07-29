@@ -30,7 +30,7 @@ struct Renderer {
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
     std::vector <TextureAtlas*> atlas_list;
-    JobProcessor<MeshJob, MeshResult> meshers;
+    JobProcessor<MeshJob, MeshResult,7> meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
     DebugChunkMesher dbg_rend;
     Line3DRenderer line3d_rend;
@@ -48,13 +48,27 @@ struct Renderer {
 
     i32 cutout_enable_radius {0};
     // UNIFORMS
-    i32 u_textures_loc{};
+    i32 u_texture_atlases_loc{};
     i32 u_enable_cutout_loc{};
     i32 u_model_loc{};
     i32 u_proj_loc{};
     i32 u_view_loc{};
     i32 u_sunlight_color_loc{};
 
+    i32 u_enable_smooth_light_falloff_loc{};
+    i32 u_smooth_light_falloff_base_loc{};
+
+    bool enable_smooth_light_falloff = true;
+    f32 smooth_light_falloff_base = 0.902f;
+
+    void update_debug_uniforms(){
+        // 1. add the slider to move around the falloff base
+        // 2. in the future, maybe make it so that light falloff base depends on the torches brightness?
+        // or smth
+        prog.use();
+        prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
+        prog.setUniform("u_smooth_light_falloff_base",smooth_light_falloff_base);
+    }
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_blended_chunks(WorldFloatPos cam_pos);
     void sort_cutout_chunks(WorldFloatPos cam_pos);
