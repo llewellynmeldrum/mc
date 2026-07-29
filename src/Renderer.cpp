@@ -21,6 +21,12 @@
 using namespace gl;
 using namespace glm;
 
+void Renderer::update_debug_uniforms(){
+    prog.use();
+    prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
+    prog.setUniform("u_smooth_light_falloff_base",smooth_light_falloff_base);
+    prog.setUniform("u_enable_lighting", DebugOption::show_lighting_system);
+}
 static bool is_mesh_loaded (const Mesh& mesh){
     return mesh.isLoaded(); 
 };
@@ -59,8 +65,6 @@ Renderer::Renderer() {
     u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
     u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
 
-    u_smooth_light_falloff_base_loc = prog.getUniformLoc("u_smooth_light_falloff_base");
-    u_enable_smooth_light_falloff_loc = prog.getUniformLoc("u_enable_smooth_light_falloff");
 
     prog.setUniform(u_sunlight_color_loc, glm::vec3{1.0f, 1.0f, 0.75f});
     

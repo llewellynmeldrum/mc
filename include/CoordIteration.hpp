@@ -71,6 +71,26 @@ void for_each_xz_in_chunk(Fn&& task){
 break_signal:
 }
 
+template<typename Vec3, typename Fn>
+    requires is_vec3<Vec3>
+void for_each_xyz_exclusive(Vec3 lo, Vec3 hi, Fn&& task){
+    using T = Vec3::value_type;
+    for (T x = lo.x; x<hi.x; x++){
+        for (T y = lo.y; y<hi.y; y++){
+            for (T z = lo.z; z<hi.z; z++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T,T>){
+                switch(std::invoke(std::forward<Fn>(task),x,y,z)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),x,y,z);
+            }
+        }
+        }
+    }
+break_signal:
+}
 template<bool floating_point = false, typename Fn>
 void for_each_xyz_in_chunk(Fn&& task){
     using T = std::conditional_t<floating_point, f32, i32>;

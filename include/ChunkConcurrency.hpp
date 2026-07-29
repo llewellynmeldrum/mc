@@ -64,9 +64,9 @@ struct GenJob{
 // CONSUMER: Main Thread
 struct GenResult{
     size_t genRevisionID;
-    WorldChunkCoord chunkCoord;
-    ChunkBlockStore chunkBlocks;
-    PendingWriteList deferredWrites; // for if a leaf from a tree in chunk generates outside the chunk.
+    WorldChunkCoord chunk_coord;
+    ChunkBlockStore chunk_blocks;
+    PendingWriteList deferred_writes; // for if a leaf from a tree in chunk generates outside the chunk.
 };
 
 // QUEUE: MeshJobQueue

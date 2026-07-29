@@ -47,7 +47,7 @@ struct Renderer {
     std::vector<WorldChunkCoord> sorted_cutout_coords;
 
     i32 cutout_enable_radius {0};
-    // UNIFORMS
+    // SECTION: UNIFORMS
     i32 u_texture_atlases_loc{};
     i32 u_enable_cutout_loc{};
     i32 u_model_loc{};
@@ -55,20 +55,11 @@ struct Renderer {
     i32 u_view_loc{};
     i32 u_sunlight_color_loc{};
 
-    i32 u_enable_smooth_light_falloff_loc{};
-    i32 u_smooth_light_falloff_base_loc{};
 
     bool enable_smooth_light_falloff = true;
-    f32 smooth_light_falloff_base = 0.902f;
+    f32 smooth_light_falloff_base = 0.840f;
 
-    void update_debug_uniforms(){
-        // 1. add the slider to move around the falloff base
-        // 2. in the future, maybe make it so that light falloff base depends on the torches brightness?
-        // or smth
-        prog.use();
-        prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
-        prog.setUniform("u_smooth_light_falloff_base",smooth_light_falloff_base);
-    }
+    void update_debug_uniforms();
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_blended_chunks(WorldFloatPos cam_pos);
     void sort_cutout_chunks(WorldFloatPos cam_pos);

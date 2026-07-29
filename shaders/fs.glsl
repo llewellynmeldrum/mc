@@ -13,6 +13,7 @@ out vec4    FragColor;
 
 uniform sampler2D u_texture_atlases[TEX_ATLAS_COUNT];
 uniform bool u_enable_cutout;
+uniform bool u_enable_lighting;
 
 
 
@@ -27,6 +28,10 @@ void main(){
         }
     }
 
+    if (!u_enable_lighting) {
+        FragColor = obj_color;
+        return;
+    }
     const f32 ambient_strength = 0.5f;
     // 3. apply lighting
     //vec3 shadow = vec3(1.0f - fakeShadowOpacity);
@@ -34,10 +39,5 @@ void main(){
     vec3 light = ambient;
     vec3 color = vec3(obj_color) * light;
     FragColor = vec4(color, obj_color.a);
-
-
-
-
-    //FragColor = mix(faceOverlayColor,FragColor,0.2f);
 
 }

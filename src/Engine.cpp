@@ -85,6 +85,170 @@ void Engine::loop(){
         t_last_frame_ended = timer::now();
     }
 }
+Direction get_cpos_overflow_direction(ChunkBlockPos p){
+    constexpr auto const& ext = ChunkInfo::Extents3D;
+    static constexpr auto lo = ChunkBlockPos{-1,0,-1};
+    static constexpr auto hi = ChunkBlockPos{ext.x+1, ext.y, ext.z+1};
+    if (!LM::isVecInBounds(p, lo, hi)){
+        std::println(stderr, "oob: {}",p);
+        BREAKPOINT();
+    }
+    // given a chunk block pos which is out of the bounds of a chunk,
+    // return the direction of the chunk, from the center, that this overflow is in.
+    if (p.x <= -1){ return Direction::LEFT; }
+    if (p.x >= ext.x){ return Direction::RIGHT; }
+    if (p.z <= -1){ return Direction::FORWARD; }
+    if (p.z >= ext.x){ return Direction::BACKWARD; }
+     //FORWARD,    glm::ivec3{  0,  0, -1 },
+     //BACKWARD,   glm::ivec3{  0,  0, +1 },
+     //LEFT,       glm::ivec3{ -1,  0,  0 },
+     //RIGHT,//    glm::ivec3{ +1,  0,  0 },
+    std::abort();
+}
+WorldChunkCoord log_coord = {0,0};
+template<typename... Args>
+inline void log0(std::format_string<Args...> fmt, Args&&... args){
+    if (log_coord == WorldChunkCoord{0,0}){
+        LOG_DEBUG(fmt,std::forward<Args>(args)...);
+    }
+}
+
+LightingResult Engine::process_lighting(LightingJob && job){
+    LightingResult res{
+        .rev = job.rev,
+        .lights = {},
+    };
+    res.lights.reset();
+    auto const& neighbour_light_slices = job.neighbour_light_slices;
+    auto const& neighbour_block_slices = job.neighbour_block_slices;
+    auto& lights = res.lights;
+    auto& blocks = job.block_data;
+    auto const& center_coord = job.coord;
+    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+
+    // Currently we are 100% sure that neighbours are generated, since this is running on the main thread.
+    // But even if it wasnt, this would still only fire and contain snapshots of generated chunks.
+    // So we really dont need to check if the chunk exists.
+    // Mirror the structure of meshchunks neighbour behaviour methinks.
+
+
+    auto local_light_at = [&](ChunkBlockPos pos) { 
+        static constexpr auto lo = ChunkBlockPos{0};
+        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
+        if (LM::isVecInBounds(pos, lo, hi)){
+            return lights.at(pos);
+        }else{
+            auto const neighbour_dir = get_cpos_overflow_direction(pos);
+            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
+            auto const& neighbour = neighbour_light_slices.at(neighbour_dir_idx);
+
+            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+            return neighbour.at(corrected_pos);
+        }
+    };
+    auto local_block_at = [&](ChunkBlockPos pos){ 
+        static constexpr auto lo = ChunkBlockPos{0};
+        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
+        if (LM::isVecInBounds(pos, lo, hi)){
+            return blocks.at(pos);
+        }else{
+            auto const neighbour_dir = get_cpos_overflow_direction(pos);
+            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
+            auto const& neighbour = neighbour_block_slices.at(neighbour_dir_idx);
+
+            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+            return neighbour.at(corrected_pos);
+        }
+    };
+    // TODO: Seed with neighbours, but do not allow any WRITES to neighbours. 
+    // They will update when they process their own lighting updates, and grab our edges to propogate.
+    auto neighbour_block_coords = [&](ChunkBlockPos p){ 
+        return Direction_offset | views::transform([p](auto const& o){ return ChunkBlockPos{p.raw()+o};});
+    };
+
+    // NOTE: Constrained to the current chunk, CANNOT write into neighbours
+    auto set_blocklight = [&](ChunkBlockPos p, PackedLightValue const& v){ 
+        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+//        std::println("{}",lights.at(p));
+        lights.at(p).set_blocklight_rgb(v);
+    };
+
+    std::deque<ChunkBlockPos> q;
+
+    // 1. Seed bfs with light emitting blocks, including those at the borders of neighbour chunks
+    // TODO:
+    // Seed, including neighbour slices. 
+    // Seed on either:
+    // -> emitters OR >=1 light values in the 
+    static constexpr auto const& ext = ChunkInfo::Extents3D;
+        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+    for (auto cx = -1; cx <= ext.x; cx++){
+        for (auto cz = -1; cz <= ext.z; cz++){
+            for (auto cy = 0; cy < ext.y; cy++){
+                // skip corner blocks, we dont store those neighbours nor evaluate them
+                if (cx == -1    && ext.z == cz) continue; 
+                if (cx == ext.x && -1 == cz) continue; 
+                if (cx == -1    && -1 == cz) continue; 
+                if (cx == ext.x && ext.z == cz) continue; 
+                ChunkBlockPos p{cx,cy,cz};
+                auto block = local_block_at(p);
+                auto const& block_light_emission = block.get_emission();
+                bool in_center_chunk = is_in_chunk(p);
+                if (in_center_chunk){
+                    // Blocks in center chunk may propogate its light, AND be written to.
+                    if (block_light_emission.is_nonzero()){
+                        set_blocklight(p, pack(block_light_emission));
+                        q.emplace_back(p);
+                    }
+                }else {
+                    // Blocks in neighbour chunks may propogate their light.
+                    auto const& light = unpack(local_light_at(p));
+                    if (light.can_propogate() || block_light_emission.is_nonzero()){
+                        q.emplace_back(p);
+                    }
+                }
+            }
+        }
+    }
+    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
+
+    log_coord = center_coord;
+    // 2. perform bfs
+    while (!q.empty()){
+        auto u = q.front(); q.pop_front();
+        const auto u_light_each = unpack(local_light_at(u));
+//        log0("Popped ({} : {})",u,u_light_each);
+        auto child_count = 0uz;
+        for (const auto& v: neighbour_block_coords(u)){
+            if (!is_in_chunk(v)) continue; // NOTE: lights in neighbour chunks are seeds but are not modified
+
+            auto const& v_block = local_block_at(v);
+            auto const v_light_each = unpack(local_light_at(v));
+            auto const& v_absorptance_each = v_block.absorptance();
+            auto resolved_v_each = v_light_each;
+            if (v_block.is_opaque()) continue;
+
+            for (i32 channel_id = 0; channel_id < 3; channel_id++){
+                auto const& u_light = u_light_each.rgb[channel_id];
+                if (u_light <= 1) continue;
+                auto const& v_light = v_light_each.rgb[channel_id];
+                auto const& v_absorptance = v_absorptance_each.rgb[channel_id];
+
+                // 1. apply absorptance to the new neighbour
+                u8 candidate = std::clamp(u_light - v_absorptance, 0,15);
+                resolved_v_each.rgb[channel_id] = std::max(candidate, v_light);
+            }
+            if (resolved_v_each != v_light_each){
+ //               log0("\tPushed ({} : {})", v, resolved_v_each);
+                set_blocklight(v, pack(resolved_v_each));
+                q.push_back(v);
+                child_count++;
+            }
+        }
+  //      log0("Finished ({} : {}) ({} children)",u, u_light_each,child_count);
+    }
+    return res;
+}
 
 
 
@@ -146,163 +310,6 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
 
 
-Direction get_cpos_overflow_direction(ChunkBlockPos p){
-    constexpr auto const& ext = ChunkInfo::Extents3D;
-    static constexpr auto lo = ChunkBlockPos{-1,0,-1};
-    static constexpr auto hi = ChunkBlockPos{ext.x+1, ext.y, ext.z+1};
-    if (!LM::isVecInBounds(p, lo, hi)){
-        std::println(stderr, "oob: {}",p);
-        BREAKPOINT();
-    }
-    // given a chunk block pos which is out of the bounds of a chunk,
-    // return the direction of the chunk, from the center, that this overflow is in.
-    if (p.x <= -1){ return Direction::LEFT; }
-    if (p.x >= ext.x){ return Direction::RIGHT; }
-    if (p.z <= -1){ return Direction::FORWARD; }
-    if (p.z >= ext.x){ return Direction::BACKWARD; }
-     //FORWARD,    glm::ivec3{  0,  0, -1 },
-     //BACKWARD,   glm::ivec3{  0,  0, +1 },
-     //LEFT,       glm::ivec3{ -1,  0,  0 },
-     //RIGHT,//    glm::ivec3{ +1,  0,  0 },
-    std::abort();
-}
-
-LightingResult Engine::process_lighting(LightingJob && job){
-    auto is_in_chunk = [](ChunkBlockPos p){
-        return LM::isVecInBounds(p.raw(), glm::ivec3{0,0,0}, ChunkInfo::Extents3D);
-    };
-    LightingResult res{
-        .rev = job.rev,
-        .lights = std::move(job.light_data),
-    };
-    // TODO:
-    // zero light is propogating now. awesome
-    // There was a problem with std move and accessing the old value, fixed it but like still this is flimsy
-    auto const& neighbour_light_slices = job.neighbour_light_slices;
-    auto const& neighbour_block_slices = job.neighbour_block_slices;
-    auto& lights = res.lights;
-    auto& blocks = job.block_data;
-    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
-
-    // Currently we are 100% sure that neighbours are generated, since this is running on the main thread.
-    // But even if it wasnt, this would still only fire and contain snapshots of generated chunks.
-    // So we really dont need to check if the chunk exists.
-    // Mirror the structure of meshchunks neighbour behaviour methinks.
-
-
-    auto local_light_at = [&](ChunkBlockPos pos) { 
-        static constexpr auto lo = ChunkBlockPos{0};
-        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
-        if (LM::isVecInBounds(pos, lo, hi)){
-            return lights.at(pos);
-        }else{
-            auto const neighbour_dir = get_cpos_overflow_direction(pos);
-            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
-            auto const& neighbour = neighbour_light_slices.at(neighbour_dir_idx);
-
-            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
-            return neighbour.at(corrected_pos);
-        }
-    };
-    auto local_block_at = [&](ChunkBlockPos pos){ 
-        static constexpr auto lo = ChunkBlockPos{0};
-        static constexpr auto hi = ChunkBlockPos{ChunkInfo::Extents3D};
-        if (LM::isVecInBounds(pos, lo, hi)){
-            return blocks.at(pos);
-        }else{
-            auto const neighbour_dir = get_cpos_overflow_direction(pos);
-            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
-            auto const& neighbour = neighbour_block_slices.at(neighbour_dir_idx);
-
-            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
-            return neighbour.at(corrected_pos);
-        }
-    };
-    // TODO: Seed with neighbours, but do not allow any WRITES to neighbours. 
-    // They will update when they process their own lighting updates, and grab our edges to propogate.
-    auto neighbour_block_coords = [&](ChunkBlockPos p){ 
-        return Direction_offset | views::transform([p](auto const& o){ return ChunkBlockPos{p.raw()+o};});
-    };
-
-    // NOTE: Constrained to the current chunk, CANNOT write into neighbours
-    auto set_blocklight = [&](ChunkBlockPos p, PackedLightValue const& v){ 
-        assert(is_in_chunk(p));
-        assert(p.x >=0);
-        assert(p.y >=0);
-        assert(p.z >=0);
-        assert(p.x < ChunkInfo::Extents3D.x);
-        assert(p.y < ChunkInfo::Extents3D.y);
-        assert(p.z < ChunkInfo::Extents3D.z);
-        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
-        std::println("{}",lights.at(p));
-    };
-
-    std::deque<ChunkBlockPos> q;
-
-    // 1. Seed bfs with light emitting blocks, including those at the borders of neighbour chunks
-    // TODO:
-    // Seed, including neighbour slices. 
-    // Seed on either:
-    // -> emitters OR >=1 light values in the 
-    static constexpr auto const& ext = ChunkInfo::Extents3D;
-        assert_eq(lights.buf.size(), ChunkInfo::SIZE);
-    for (auto cx = -1; cx <= ext.x; cx++){
-        for (auto cz = -1; cz <= ext.z; cz++){
-            for (auto cy = 0; cy < ext.y; cy++){
-                // skip corner blocks, we dont store those neighbours nor evaluate them
-                if (cx == -1    && ext.z == cz) continue; 
-                if (cx == ext.x && -1 == cz) continue; 
-                if (cx == -1    && -1 == cz) continue; 
-                if (cx == ext.x && ext.z == cz) continue; 
-                ChunkBlockPos p{cx,cy,cz};
-                auto block = local_block_at(p);
-                auto const& emission = block.get_emission();
-                if (emission.is_nonzero()){
-                    if (is_in_chunk(p)){
-                        set_blocklight(p, pack(emission));
-                    }
-                    // NOTE: Blocks in neighbouring chunks seed the bfs but do not actually get their light values modified
-                    q.emplace_back(p);
-                    std::println("Placed a light emitter @ {}",p);
-                }
-            }
-        }
-    }
-    assert_eq(lights.buf.size(), ChunkInfo::SIZE);
-
-    // 2. perform bfs
-    while (!q.empty()){
-        auto u = q.front(); q.pop_front();
-        const auto u_light_rgb = unpack(local_light_at(u));
-        // 1. If a node contains zero channels >1, it will not propogate anything.
-        for (const auto& v: neighbour_block_coords(u)){
-            if (!is_in_chunk(v)) continue; // NOTE: lights in neighbour chunks are seeds but are not modified
-
-            auto const& v_block = local_block_at(v);
-            auto const v_light_each = unpack(local_light_at(v));
-            auto const& v_absorptance_each = v_block.absorptance();
-            auto resolved_v_each = v_light_each;
-            if (v_block.is_opaque()) continue;
-
-            for (i32 channel_id = 0; channel_id < 3; channel_id++){
-                auto const& u_light = u_light_rgb.rgb[channel_id];
-                if (u_light <= 1) continue;
-                auto const& v_light = v_light_each.rgb[channel_id];
-                auto const& v_absorptance = v_absorptance_each.rgb[channel_id];
-
-                // 1. apply absorptance to the new neighbour
-                u8 candidate = std::clamp(u_light - v_absorptance, 0,15);
-                resolved_v_each.rgb[channel_id] = std::max(candidate, v_light);
-            }
-            if (resolved_v_each != v_light_each){
-                std::println("{}({}) -> {}({})",u,u_light_rgb,v,resolved_v_each);
-                set_blocklight(v, pack(resolved_v_each));
-                q.push_back(v);
-            }
-        }
-    }
-    return res;
-}
 
 void Engine::process_lighting_updates(){
     constexpr static auto N_LIGHTING_JOBS = 128uz;
@@ -311,17 +318,13 @@ void Engine::process_lighting_updates(){
         if (director.qualifies_for_light_work(entry)){
             auto candidate_rev = entry->lighting.get_candidate_rev();
             if (candidate_rev == RevisionState::FIRST_JOB){
-                entry->light_data.init();
+                entry->light_data.reset();
             }
+            // we rebuild the light data every time
 
             assert(entry->light_data.buf.size() == ChunkInfo::SIZE);
             auto res = process_lighting(LightingJob(coord,&director.chunk_map,entry));
-            entry->light_data = res.lights;
-
-            entry->lighting.complete_inflight(res.rev);
-            director.ready_for_lighting.pop(coord);
-
-            director.mark_mesh_dirty(entry);
+            director.upload_light_result(entry,std::move(res));
         }
     }
 }
@@ -331,10 +334,12 @@ void Engine::handle_chunk_scheduling() {
     director.start_frame(player_cam.pos);
 
 
-    if (director.block_at({4,5,4}) != BlockType::TORCH){
-        bool success = director.place_block(WorldBlockPos{4,5,4},BlockType::TORCH);
-        std::println("Placing torch: {}", success ? "success" : "failed");
-    }
+//    for_each_xz_in_chunk([&](i32 cx, i32 cz){
+        if (director.block_at({3,5,3}) != BlockType::TORCH){
+            bool success = director.place_block(WorldBlockPos{3,5,3},BlockType::TORCH);
+            std::println("Placing torch: {}", success ? "success" : "failed");
+        }
+//    });
 
     if (director.player_crossed_chunk_boundary()){
         director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
@@ -517,8 +522,8 @@ void Engine::upload_gen_results(i64 maxUploads){
         return output;
     };
     auto genResults = drain_gen_results(world.generators.res_queue,maxUploads);
-    for (const auto& newGen : genResults){
-        const auto& chunk_coord = newGen.chunkCoord;
+    for (auto& newGen : genResults){
+        const auto& chunk_coord = newGen.chunk_coord;
         const auto& candidate_revision = newGen.genRevisionID;
         auto log_fail_upload = [&](std::string_view str){
             log_to_chunk(chunk_coord, "Gen upload rejected: {}.",str);
@@ -531,7 +536,7 @@ void Engine::upload_gen_results(i64 maxUploads){
 
         if (try_upload_candidate(entry->gen, candidate_revision)){
             log_to_chunk(LogType::gen_uploads,chunk_coord, "gen upload success ({}->{})",entry->gen.loaded,candidate_revision);
-            director.upload_generated_chunk(newGen);
+            director.upload_generated_chunk(entry, std::move(newGen));
             entry->gen.loaded = candidate_revision;
         }else{
             log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
@@ -603,7 +608,7 @@ void Engine::unGenerateAllChunks(){
 void Engine::unMeshAllChunks(){
     world.chunkMap.entries.for_each(
         [&](WorldChunkCoord coord, ChunkEntry& entry){
-            director.mark_mesh_dirty(&entry);
+            director.mark_mesh_dirty(&entry, "unmeshed all chunks");
         }
     );
     rend.opaque_chunk_meshes.clear();
@@ -684,6 +689,7 @@ void Engine::setup() {
     world.setup();
     LOG_DEBUG("Finished World setup.");
 
+    rend.update_debug_uniforms();
     // enqueue the starting chunks
     director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
 
@@ -765,8 +771,11 @@ void Engine::handle_input(){
             player_cam.disableMousePanning();
         }
     }
-
     if (paused) return; // WARNING: Anything below here is ignored during paused frames
+    if(input.just_pressed(KEY_L)){
+        DebugOption::show_lighting_system = !DebugOption::show_lighting_system;
+        rend.update_debug_uniforms();
+    }
 
 
     if (input.mousepos != input.prevmousepos) {
@@ -802,7 +811,8 @@ void Engine::handle_input(){
                 1.0f,
                 writer
             );
-            director.mark_mesh_dirty(entry);
+            director.mark_mesh_dirty(entry, "Placed tree");
+            director.mark_lighting_dirty(entry, "Placed tree");
         }
 
     }
@@ -894,7 +904,7 @@ void Engine::handle_input(){
         world.chunkMap.entries.if_contains(
             cur_chunk,
             [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(&entry);
+                director.mark_mesh_dirty(&entry, "dbg modified chunks");
                 for (auto& block : entry.block_data){
                     if (block.type == BlockType::GRASS_BLOCK){
                         block = (BlockType::AIR);
@@ -908,7 +918,7 @@ void Engine::handle_input(){
         world.chunkMap.entries.if_contains(
             cur_chunk,
             [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(&entry);
+                director.mark_mesh_dirty(&entry, "forced dirty");
             }
         );
     }
@@ -931,11 +941,13 @@ RenderTargetView Engine::secondaryView() {
 // ========
 void Engine::remesh_world(){
     director.ready_for_mesh.clear();
+    director.ready_for_lighting.clear();
     rend.opaque_chunk_meshes.clear();
     rend.blended_chunk_meshes.clear();
     rend.cutout_chunk_meshes.clear();
     for (auto& [key, entry]: world.chunkMap.entries){
-        director.mark_mesh_dirty(&entry);
+        director.mark_mesh_dirty(&entry, "remeshed world");
+        director.mark_lighting_dirty(&entry, "remeshed world");
     }
 }
 void Engine::regenerate_world(){

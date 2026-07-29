@@ -149,6 +149,7 @@ void draw_graphics_window(WindowConfig& self, Engine* ctx){
         auto& window = self;
         auto& cfg = ctx->world.editable_cfg;
         bool dirty = false;
+        dirty |= window.checkbox("show lighting system", &DebugOption::show_lighting_system);
         dirty |= window.checkbox("enable smooth light falloff", &(ctx->rend.enable_smooth_light_falloff));
         IG::BeginDisabled(!ctx->rend.enable_smooth_light_falloff);
             dirty |= window.slider<f32>("smooth light falloff base", &(ctx->rend.smooth_light_falloff_base), 0, 1);
@@ -453,9 +454,14 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                  pos.x,pos.y,pos.z,std::floor(pos.x),std::floor(pos.y),std::floor(pos.z));
         auto* entry = ctx->director.chunk_map.entries.try_get(ch_pos);
         if (entry){
-            ChunkBlockPos pos = ChunkBlockPos{cl_pos};
-            if (LM::isVecInBounds(glm::ivec3{0,0,0}, ChunkInfo::Extents3D, pos.raw()))
-            UI::Text("light data: {}",entry->light_data.at(pos));
+            ChunkBlockPos cl_pos_ = ChunkBlockPos{cl_pos};
+            if (is_in_chunk(cl_pos_)){
+                UI::Text("light data: {}",entry->light_data.at(cl_pos_));
+            }else{
+                UI::Text("light data: n/a, out of bounds?");
+            }
+        }else{
+            UI::Text("light data: n/a, no entry");
         }
         UI::Text("chunk :{: 3},{: 3}",ch_pos.x,ch_pos.z);
         UI::Text("chunk local: {: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
@@ -463,7 +469,13 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Separator();
         UI::Text("ready4gen :{}",ctx->director.ready_for_gen.size());
         UI::Text("ready4mesh:{}",ctx->director.ready_for_mesh.size());
+        UI::Text("ready4light:{}",ctx->director.ready_for_lighting.size());
         UI::Separator();
+
+        if (!ctx->ui.is_ui_expanded){
+            UI::Text("Press '`' to expand.");
+            return;
+        }
         auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
         std::string biome_str = "N/A (no chunk entry)";
         const auto & [wx,_,wz] = pos;
@@ -537,10 +549,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
 //        plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "2.2lfms", true);
 
 
-        if (!ctx->ui.is_ui_expanded){
-            UI::Text("Press '`' to expand.");
-            return;
-        }
         UI::Text("Press '`' to minimize.");
         window.open_section("Perf:",[ctx]{
             UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);

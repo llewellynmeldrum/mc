@@ -23,6 +23,10 @@ public:
     void init() noexcept{
         buf.resize(ChunkInfo::SIZE, mapped_type{});
     }
+    void reset() noexcept{
+        buf.clear();
+        init();
+    }
     COPY_CTOR(default)
     MOVE_CTOR(default)
     COPY_ASSN(default)

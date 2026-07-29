@@ -24,6 +24,7 @@ namespace DebugOption{
 
     constexpr inline bool OFF = false;
 
+    inline bool show_lighting_system            = ON;
     inline bool enable_cutout_optimisation      = OFF;
     inline bool enable_drone_cam                = OFF;
     inline bool enable_3d_debug_visuals         = ON;

@@ -1,6 +1,9 @@
 #include "ChunkDirector.hpp"
+#include "CoordTypes.hpp"
+#include "Direction.hpp"
 #include "Renderer.hpp"
 #include "ChunkNoiseDebug.hpp"
+#include <utility>
 
 void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos){
     // NOTE: 
@@ -141,22 +144,88 @@ void ChunkDirector::discover_candidates(
     );
 }
 
-void ChunkDirector::upload_generated_chunk(GenResult gen_res) {
-    ChunkBlockStore& generatedBlocks = gen_res.chunkBlocks;
-    const auto& deferredWrites = gen_res.deferredWrites;
-    const auto& chunkCoord = gen_res.chunkCoord;
-
-    auto* entry = AT(chunk_map.entries,chunkCoord);
-    handle_pending_writes(chunkCoord, generatedBlocks.view(), deferredWrites);
-    // why the fuck did they make it (src,dst) fucking AT&T propaganda
-    
-    ranges::copy(generatedBlocks, entry->block_data.begin());
-
-    //mark_neighbours_dirty(chunkCoord,"Neighbour generated");
-    mark_lighting_dirty(entry, "newly generated");
-//    mark_mesh_dirty(*entry,"Newly generated"); // allow for meshing
+template<Direction d>
+consteval auto precompute_hoz_boundary_coords(){
+    static_assert(ChunkInfo::XWIDTH == ChunkInfo::ZWIDTH);
+    std::array<ChunkBlockPos, ChunkInfo::HOZ_EXTENT * ChunkInfo::HEIGHT> res{};
+    ChunkBlockPos lo;
+    ChunkBlockPos hi;
+    constexpr static i32 X = ChunkInfo::Extents3D.x;
+    constexpr static i32 Y = ChunkInfo::Extents3D.y;
+    constexpr static i32 Z = ChunkInfo::Extents3D.z;
+    if constexpr (d == Direction::FORWARD){
+        lo = {0,    0,  0};
+        hi = {X,    Y,  1};
+    } else if constexpr (d == Direction::BACKWARD){
+        lo = {0,    0,  Z-1};
+        hi = {X,    Y,  Z};
+    }else if constexpr (d== Direction::LEFT){
+        lo = {X-1,  0,  0};
+        hi = {X,    Y,  Z};
+    }else if constexpr(d==Direction::RIGHT){
+        lo = {0,    0,  0};
+        hi = {1,    Y,  Z};
+    }else{
+        static_assert(false);
+    }
+    i32 i = 0;
+    for (i32 cx = lo.x; cx<hi.x; cx++){
+        for (i32 cy = lo.y; cy<hi.y; cy++){
+            for (i32 cz = lo.z; cz<hi.z; cz++){
+                res[i++] = {cx,cy,cz};
+            }
+        }
+    }
+    if (i!=res.size()){
+        throw "hi";
+    }
+    return res;
 }
-void ChunkDirector::handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList) {
+constexpr static size_t hoz_slice_sz = ChunkInfo::HOZ_EXTENT * ChunkInfo::HEIGHT;
+
+constexpr EnumMap<Direction, std::array<ChunkBlockPos, hoz_slice_sz>> each_boundary_coord{
+    {Direction::FORWARD,    precompute_hoz_boundary_coords<Direction::FORWARD>()},
+    {Direction::BACKWARD,    precompute_hoz_boundary_coords<Direction::BACKWARD>()},
+    {Direction::LEFT,    precompute_hoz_boundary_coords<Direction::LEFT>()},
+    {Direction::RIGHT,    precompute_hoz_boundary_coords<Direction::RIGHT>()},
+};
+
+template<typename T>
+bool boundary_differs(Direction dir, GenericChunkStore<T> const& a, GenericChunkStore<T> const& b){
+    assert_neq(dir,Direction::UP);
+    assert_neq(dir,Direction::DOWN);
+    bool is_same = true;
+    for (auto const& cpos : each_boundary_coord.at(dir)){
+        if (a.at(cpos) != b.at(cpos)){
+            return true;
+        }
+    }
+    return false;
+}
+void ChunkDirector::upload_light_result(ChunkEntry* entry, LightingResult&& res) {
+    entry->lighting.complete_inflight(res.rev);
+    ready_for_lighting.pop(entry->coord);
+    mark_mesh_dirty(entry, "Lighting done!");
+    // TODO: Dirty neighbours conditionally, based on whether or not blocks on the boundary changed light values
+    for (const auto& [dir_idx, neigh_coord] : entry->each_dir_neighbour_chunk_coords()){
+        auto dir = static_cast<Direction>(dir_idx);
+        if (boundary_differs(dir, entry->light_data,res.lights)){
+            auto* neighbour = chunk_map.entries.try_get(neigh_coord);
+            mark_lighting_dirty(neighbour,"Neighbour has boundary changes, must check for spillover");
+        }
+    }
+    entry->light_data = std::move(res.lights);
+}
+
+void ChunkDirector::upload_generated_chunk(ChunkEntry * entry, GenResult&& gen_res) {
+    ChunkBlockStore& blocks = gen_res.chunk_blocks;
+    const auto& deferred_writes = gen_res.deferred_writes;
+    const auto& chunk_coord = gen_res.chunk_coord;
+    handle_pending_writes(chunk_coord, blocks.view(), deferred_writes);
+    entry->block_data = std::move(blocks);
+    mark_lighting_dirty(entry, "newly generated");
+}
+void ChunkDirector::handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
     chunk_map.pending_writes.if_contains(
         chunkCoord,

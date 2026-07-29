@@ -13,6 +13,7 @@ struct PackedLightValue{
     PackedLightValue(PackedLightValue&&) = default;
     PackedLightValue& operator=(const PackedLightValue&) = default;
     PackedLightValue& operator=(PackedLightValue&&) = default;
+    auto operator<=>(const PackedLightValue&)const  = default;
 
     u16 packed_data{0};
     // (lower 16 bits of packed_0 in Vertex)

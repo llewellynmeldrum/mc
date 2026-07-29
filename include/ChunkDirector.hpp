@@ -62,6 +62,7 @@ struct ChunkDirector{
         return (entry && entry->can_be_meshed() && neighbours_are_lit(entry));
     }
     bool qualifies_for_light_work(ChunkEntry* entry){
+        // Neighbour slices are read unconditionally, therefore they must be generated first
         return (entry && entry->can_be_lit() && neighbours_are_generated(entry));
     }
 
@@ -218,15 +219,17 @@ struct ChunkDirector{
                 || entry->lighting.is_clean();
             }
         );
-        if (s.size() != 0 || ready_for_lighting.size() !=0)
-            LOG_DEBUG("found {}/{} lighting jobs", s.size(),ready_for_lighting.size());
+        //if (s.size() != 0 || ready_for_lighting.size() !=0){
+        //    //LOG_DEBUG("found {}/{} lighting jobs", s.size(),ready_for_lighting.size());
+        //}
         return s;
     }
 
     // ============
     // Generation
     // ============
-    void upload_generated_chunk(GenResult gen_res);
+    void upload_generated_chunk(ChunkEntry * entry, GenResult&& gen_res);
+    void upload_light_result(ChunkEntry* entry, LightingResult&& res) ;
 
     void discover_candidates(ChunkBenchmarkerNoRevision & mesh_enqueue_delay_bench, ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench);
 
@@ -239,6 +242,14 @@ struct ChunkDirector{
         return {ready_for_gen.begin(), ready_for_gen.begin()+count};
     }
 
+    inline void mark_neighbour_lights_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
+        auto* entry = chunk_map.entries.try_get(key);
+        if (!entry) return;
+        for (const auto& neighbour_coord : entry->neighbour_coords4()){
+            auto* neighbour = chunk_map.entries.try_get(neighbour_coord);
+            mark_lighting_dirty(neighbour,"Neighbour is newly lit");
+        }
+    }
     inline void mark_neighbour_meshes_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
         auto* entry = chunk_map.entries.try_get(key);
         if (!entry) return;
@@ -254,8 +265,8 @@ struct ChunkDirector{
             ChunkBlockPos cpos = toChunkBlockPos(wpos);
             std::println("cpos:{}",cpos);
             chunk->block_data.at(cpos) = block;
-            mark_lighting_dirty(chunk);
-            mark_mesh_dirty(chunk);
+            mark_lighting_dirty(chunk, "Block placed");
+            mark_mesh_dirty(chunk, "Block placed");
             return true;
         }
         return false;
@@ -295,5 +306,5 @@ struct ChunkDirector{
     WorldChunkCoord prev_chunk_pos{};
     WorldChunkCoord cur_chunk_pos{};
 private:
-    void handle_pending_writes(const WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList);
+    void handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList);
 };

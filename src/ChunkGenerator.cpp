@@ -72,13 +72,13 @@ auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> n
 static GenResult generate_chunk(GenJob job){
     GenResult res{
         .genRevisionID = job.genRevisionID,
-        .chunkCoord=job.chunkCoord,
-        .chunkBlocks = {},
-        .deferredWrites = {}
+        .chunk_coord=job.chunkCoord,
+        .chunk_blocks = {},
+        .deferred_writes = {}
     };
-    const auto& chunk_coord = res.chunkCoord;
-    auto& block_store = res.chunkBlocks;
-    auto& pendingWrites = res.deferredWrites;
+    const auto& chunk_coord = res.chunk_coord;
+    auto& block_store = res.chunk_blocks;
+    auto& pendingWrites = res.deferred_writes;
 
     const GenConfig& cfg = job.cfg;
     if (cfg.is_superflat){
