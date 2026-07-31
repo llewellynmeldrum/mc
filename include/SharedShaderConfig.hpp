@@ -29,13 +29,13 @@
 #define ENABLE_FAKE_SHADOWS 
 #define DIR_COUNT 6u
 
-START_DECL_ARRAY(float, DIR_COUNT, faceShadowOpacity)
-    0.15, // FORWARD,
-    0.45, // BACKWARD
-    0.35, // LEFT,   
-    0.35, // RIGHT,//
-    0.7, // DOWN, //
-    0.0 // UP,     
+START_DECL_ARRAY(float, DIR_COUNT, fake_shadow_multiplier_per_face)
+    0.80f, // FORWARD,
+    0.80f, // BACKWARD
+    0.60f, // LEFT,   
+    0.60f, // RIGHT,//
+    0.50f, // DOWN, //
+    1.00f // UP,     
 END_DECL_ARRAY()
 // SECTION: SHARED (glsl and c++)
 

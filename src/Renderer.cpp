@@ -24,8 +24,12 @@ using namespace glm;
 void Renderer::update_debug_uniforms(){
     prog.use();
     prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
-    prog.setUniform("u_smooth_light_falloff_base",smooth_light_falloff_base);
+    prog.setUniform("u_blocklight_smooth_falloff_factor",blocklight_smooth_falloff_factor);
+    prog.setUniform("u_sunlight_smooth_falloff_factor",sunlight_smooth_falloff_factor);
     prog.setUniform("u_enable_lighting", DebugOption::show_lighting_system);
+    prog.setUniform("u_gamma", gamma);
+    prog.setUniform("u_enable_sunlight", DebugOption::draw_sunlight);
+    prog.setUniform("u_enable_blocklight", DebugOption::draw_blocklight);
 }
 static bool is_mesh_loaded (const Mesh& mesh){
     return mesh.isLoaded(); 
@@ -62,11 +66,10 @@ Renderer::Renderer() {
     u_proj_loc = prog.getUniformLoc("u_proj");
     u_view_loc = prog.getUniformLoc("u_view");
 
-    u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
-    u_sunlight_color_loc = prog.getUniformLoc("u_sunlight_color");
+    u_sunlight_rgb_loc = prog.getUniformLoc("u_sunlight_rgb");
 
 
-    prog.setUniform(u_sunlight_color_loc, glm::vec3{1.0f, 1.0f, 0.75f});
+    prog.setUniform(u_sunlight_rgb_loc, glm::vec3{1.0f, 1.0f, 0.75f});
     
     // NOTE: REMINDER!!!!
     // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!

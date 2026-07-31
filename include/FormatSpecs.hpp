@@ -251,7 +251,7 @@ template<typename T>
 struct std::formatter<Bounded<T>>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
 	auto format(const Bounded<T>& bounded, std::format_context& ctx)const {
-        return std::formatter<T>{}.format(bounded.val,ctx);
+        return std::formatter<T>{}.format(bounded.cur,ctx);
     }
 };
 template<typename Tag, typename ScalarType>
@@ -355,6 +355,16 @@ struct std::formatter<KeyModifiers>{
     }
 };
 
+template<>
+struct std::formatter<BlockLight>{
+    inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
+    inline auto format(BlockLight const& s, std::format_context& ctx) const{
+        std::string_view str = "?ChunkState?";
+		return std::format_to(
+            ctx.out(), "r={}, g={}, b={}",
+            s.r,s.g,s.b);
+    }
+};
 template<>
 struct std::formatter<UnpackedLightValue>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}

@@ -17,6 +17,7 @@
 #define LogType_LIST        \
     X(all)       \
     X(pending_write)       \
+    X(lighting)       \
     X(gen_uploads)         \
     X(mesh_uploads)        \
     X(gen_state)           \
@@ -33,6 +34,7 @@ enum struct LogType{
 
 
 inline std::unordered_map<LogType, bool> is_log_type_enabled = {
+    {LogType::lighting,false},
     {LogType::mesh_uploads,false},
     {LogType::gen_uploads,false},
     {LogType::pending_write,false},

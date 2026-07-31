@@ -12,7 +12,7 @@ constexpr static inline i32 default_sea_level = {130};
 constexpr static inline i32 default_world_seed = {1237};
 
 struct GenConfig{
-    bool is_superflat = true;
+    bool is_superflat = false;
     GenConfig() = default;
     GenConfig(GenConfig&&) = default;
     GenConfig(const GenConfig&) = default;

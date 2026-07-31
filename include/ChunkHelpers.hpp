@@ -1,5 +1,6 @@
 #pragma once
 #include "CoordTypes.hpp"
+#include "Direction.hpp"
 #include "cppslop.hpp"
 #include "glm/vec3.hpp"
 #include "ChunkConstants.hpp"
@@ -27,3 +28,8 @@ constexpr inline auto EachBlockInChunk(Pred&& pred) {
     views::filter(std::forward<Pred>(pred));
 }
 
+// given some chunk block position, which direction does it overflow in?
+Direction get_cpos_overflow_direction(ChunkBlockPos p);
+inline constexpr auto neighbour_block_coords (ChunkBlockPos p){ 
+    return Direction_offset | views::transform([p](auto const& o){ return ChunkBlockPos{p.raw()+o};});
+};

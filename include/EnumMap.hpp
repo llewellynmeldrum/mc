@@ -28,6 +28,12 @@ struct EnumMap{
     constexpr decltype(auto) at(this auto& self, key_type key)noexcept{
         return self.data.at(std::to_underlying(key));
     }
+    constexpr auto begin(this auto& self)noexcept{
+        return self.data.begin();
+    }
+    constexpr auto end(this auto& self)noexcept{
+        return self.data.end();
+    }
 
     std::array<mapped_type,capacity> data{};
 };

@@ -5,12 +5,14 @@
 #include <string_view>
 #include <utility>
 
+#include "BlockLight.hpp"
 #include "UnpackedLightValue.hpp"
 #include "CommonConcepts.hpp"
 #include "Types.h"
 #include "EnumMap.hpp"
 #include "glm/fwd.hpp"
 
+constexpr BlockLight leaf_absorp{8,8,8};
 // We use an X-macro here to keep the definition of all attributes centralized.
 // It is the most flexible means to do this; later we could even swap to SOA instead of AOS if that is 
 // necessary for performance (extremely doubtful but still). Main benefit is in serialization + reducing the
@@ -26,32 +28,32 @@ inline constexpr i32 MISSING_CROSS_TEX = 0;
     X(STONE_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 3)                                        \
     X(OAK_LOG, .shape = BlockShape::CUBE, .tex_idx = 4)                                            \
     X(OAK_LEAF, .shape = BlockShape::CUBE, .tex_idx = 5, .rend_layer = BlockRenderLayer::CUTOUT,   \
-      .absorptance = {2,2,2})                                                                         \
+      .absorptance = leaf_absorp)                                                                         \
     X(WATER_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 6,                                        \
       .rend_layer = BlockRenderLayer::BLENDED, .opacity = 155, .absorptance = {5,5,5})               \
     X(SAND_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 7)                                         \
     X(SANDSTONE, .shape = BlockShape::CUBE, .tex_idx = 8)                                          \
     X(DBG_OUTLINE, .shape = BlockShape::CUBE, .tex_idx = 9)                                        \
     X(SNOW_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 10)                                        \
-    X(SNOW_1, .shape = BlockShape::SNOW_1_15, .tex_idx = 10)                                       \
-    X(SNOW_2, .shape = BlockShape::SNOW_2_15, .tex_idx = 10)                                       \
-    X(SNOW_3, .shape = BlockShape::SNOW_3_15, .tex_idx = 10)                                       \
-    X(SNOW_4, .shape = BlockShape::SNOW_4_15, .tex_idx = 10)                                       \
-    X(SNOW_5, .shape = BlockShape::SNOW_5_15, .tex_idx = 10)                                       \
-    X(SNOW_6, .shape = BlockShape::SNOW_6_15, .tex_idx = 10)                                       \
-    X(SNOW_7, .shape = BlockShape::SNOW_7_15, .tex_idx = 10)                                       \
-    X(SNOW_8, .shape = BlockShape::SNOW_8_15, .tex_idx = 10)                                       \
-    X(SNOW_9, .shape = BlockShape::SNOW_9_15, .tex_idx = 10)                                       \
-    X(SNOW_10, .shape = BlockShape::SNOW_10_15, .tex_idx = 10)                                     \
-    X(SNOW_11, .shape = BlockShape::SNOW_11_15, .tex_idx = 10)                                     \
-    X(SNOW_12, .shape = BlockShape::SNOW_12_15, .tex_idx = 10)                                     \
-    X(SNOW_13, .shape = BlockShape::SNOW_13_15, .tex_idx = 10)                                     \
-    X(SNOW_14, .shape = BlockShape::SNOW_14_15, .tex_idx = 10)                                     \
-    X(SNOW_15, .shape = BlockShape::SNOW_15_15, .tex_idx = 10)                                     \
-    X(PALM_LEAF, .shape = BlockShape::CUBE, .tex_idx = 11, .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2}) \
+    X(SNOW_1, .shape = BlockShape::SNOW_1_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_2, .shape = BlockShape::SNOW_2_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_3, .shape = BlockShape::SNOW_3_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_4, .shape = BlockShape::SNOW_4_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_5, .shape = BlockShape::SNOW_5_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_6, .shape = BlockShape::SNOW_6_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_7, .shape = BlockShape::SNOW_7_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_8, .shape = BlockShape::SNOW_8_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_9, .shape = BlockShape::SNOW_9_15, .tex_idx = 10   ,.absorptance = {3,3,3} )                                       \
+    X(SNOW_10, .shape = BlockShape::SNOW_10_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(SNOW_11, .shape = BlockShape::SNOW_11_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(SNOW_12, .shape = BlockShape::SNOW_12_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(SNOW_13, .shape = BlockShape::SNOW_13_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(SNOW_14, .shape = BlockShape::SNOW_14_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(SNOW_15, .shape = BlockShape::SNOW_15_15, .tex_idx = 10 ,.absorptance = {3,3,3} )                                     \
+    X(PALM_LEAF, .shape = BlockShape::CUBE, .tex_idx = 11, .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = leaf_absorp) \
     X(PALM_LOG, .shape = BlockShape::CUBE, .tex_idx = 12)                                          \
     X(SPRUCE_LEAF, .shape = BlockShape::CUBE, .tex_idx = 13,                                       \
-      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2})                                                      \
+      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = leaf_absorp)                                                      \
     X(SPRUCE_LOG, .shape = BlockShape::CUBE, .tex_idx = 14)                                        \
     X(SNOW_GRASS_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 15)                                  \
     X(GRAVEL_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 16)                                      \
@@ -69,13 +71,13 @@ inline constexpr i32 MISSING_CROSS_TEX = 0;
       .rend_layer = BlockRenderLayer::BLENDED, .absorptance = {9,9,9})                                                     \
                                                                                                    \
     X(GRASS_TUFT0, .shape = BlockShape::CROSS, .tex_idx = 1,                                       \
-      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2})                                                      \
+      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {1,1,1})                                                      \
     X(GRASS_TUFT1, .shape = BlockShape::CROSS, .tex_idx = 2,                                       \
-      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2})                                                      \
+      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {1,1,1})                                                      \
     X(GRASS_TUFT2, .shape = BlockShape::CROSS, .tex_idx = 3,                                       \
-      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2})                                                      \
+      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {1,1,1})                                                      \
     X(GRASS_TUFT3, .shape = BlockShape::CROSS, .tex_idx = 4,                                       \
-      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {2,2,2})                                                      \
+      .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {1,1,1})                                                      \
                                                                                                    \
     X(DEAD_BUSH, .shape = BlockShape::CROSS, .tex_idx = 5, .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {3,3,3}) \
     X(OAK_SAPLING, .shape = BlockShape::CROSS, .tex_idx = 6,                                       \
@@ -97,7 +99,6 @@ inline constexpr i32 MISSING_CROSS_TEX = 0;
       .rend_layer = BlockRenderLayer::CUTOUT )                                                      \
     X(TORCH, .shape = BlockShape::CROSS, .tex_idx = 15, .rend_layer = BlockRenderLayer::CUTOUT,    \
        .absorptance={1,1,1}, .emission = { 15, 14, 8 })
-// HACK: for the time being set OAK_LEAF to 0% transparency as i fix up some issues with pending writes
 
 enum class BlockType : u8 {
 #define X(var, ...) var,
@@ -201,6 +202,16 @@ struct Light{
     RGB rgb;
 };
 
+#define BLOCKDEF_FIELD_LIST \
+name\
+block_type\
+shape\
+tex_idx\
+rend_layer\
+opacity\
+absorptance\
+emission
+
 struct BlockDef{
     const std::string_view name;   // DEFINED BY MACRO
     const BlockType block_type;    // DEFINED BY MACRO
@@ -208,8 +219,8 @@ struct BlockDef{
     const i32 tex_idx{numeric_min<i32>()};
     const BlockRenderLayer rend_layer{BlockRenderLayer::OPAQUE};
     const u8 opacity{255};
-    const UnpackedLightValue absorptance{15,15,15}; // light = prev * absorptance
-    const UnpackedLightValue emission{0,0,0,0};
+    const BlockLight absorptance{15,15,15}; // light = prev * absorptance
+    const BlockLight emission{0,0,0};
 };
 
 inline constexpr std::array<BlockDef, std::to_underlying(BlockType::COUNT)> block_defs{
@@ -282,6 +293,10 @@ struct Block {
     constexpr auto absorptance() const noexcept {
         return def().absorptance; 
     }
+    // Air has no sunlight absorptance.
+    constexpr auto sunlight_ray_absorptance() const noexcept {
+        return type == BlockType::AIR ? u8{0} : def().absorptance.avg(); 
+    }
     constexpr auto get_shape() const noexcept {
         return def().shape; 
     }
@@ -302,6 +317,9 @@ struct Block {
         return def().rend_layer==BlockRenderLayer::CUTOUT;
     }
 
+    constexpr auto not_air() const noexcept {
+       return type!=BlockType::AIR; 
+    }
     constexpr auto is_air() const noexcept {
        return type==BlockType::AIR; 
     }

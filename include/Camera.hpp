@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "Colors01.hpp"
 #include "CoordTypes.hpp"
 #include "Breakpoints.hpp"
@@ -9,7 +10,6 @@
 #include "CommonUtils.hpp"
 #include "glmWrapper.hpp"
 #include "Geometry.hpp"
-#include <memory>
 // src/Camera.cpp
 #include "cppslop.hpp"
 FORWARD_DECL_STRUCT(Frustum)
@@ -48,7 +48,7 @@ struct Camera {
 
     //f32 ortho_zoom{1.0f};
     Bounded<f32> ortho_zoom{
-        .base = 1.0f,
+        .def = 1.0f,
         .min = 0.1f,
         .max = 10.f,
     };

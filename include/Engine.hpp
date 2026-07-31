@@ -17,6 +17,8 @@
 // src/Simulation.cpp
 using namespace std::chrono_literals;
 struct Engine {
+    bool enqueue_gen(WorldChunkCoord candidate_coord);
+    bool auto_decide_spawn_pos_on_first_load {true}; 
   public:
     Engine() : 
         win(), 
@@ -103,7 +105,6 @@ struct Engine {
     ChunkDirector director;
 
     void process_lighting_updates();
-    LightingResult process_lighting(LightingJob&& job);
 
     void regenerate_world();
     void remesh_world();

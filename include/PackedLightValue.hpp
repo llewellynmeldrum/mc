@@ -1,6 +1,8 @@
 #pragma once 
+#include "BlockLight.hpp"
 #include "SharedShaderConfig.hpp"
 #include "Types.h"
+#include "UnpackedLightValue.hpp"
 struct PackedLightValue{
     PackedLightValue(u8 r, u8 g, u8 b, u8 sun = 15) {
         set_blocklight_r(r);
@@ -14,6 +16,14 @@ struct PackedLightValue{
     PackedLightValue& operator=(const PackedLightValue&) = default;
     PackedLightValue& operator=(PackedLightValue&&) = default;
     auto operator<=>(const PackedLightValue&)const  = default;
+    auto pack(UnpackedLightValue const& v){
+        return PackedLightValue{
+            v.r,v.g,v.b,v.s
+        };
+    }
+    auto pack(BlockLight const& v){
+        return PackedLightValue{v.r,v.g,v.b};
+    }
 
     u16 packed_data{0};
     // (lower 16 bits of packed_0 in Vertex)
@@ -21,8 +31,12 @@ struct PackedLightValue{
     // blocklight_r       ->  0000000011110000
     // blocklight_g       ->  0000111100000000
     // blocklight_b       ->  1111000000000000
+
+    void set_blocklight_rgb(BlockLight rhs){
+        set_blocklight_rgb(pack(rhs));
+    }
     void set_blocklight_rgb(PackedLightValue rhs){
-        packed_data = (reset_blocklight_rgb() | rhs.mask_blocklight_rgb());
+        packed_data = (this->reset_blocklight_rgb() | rhs.mask_blocklight_rgb());
     }
     u16 mask_blocklight_rgb() const noexcept{
         return packed_data & BLOCKLIGHT_MASK;

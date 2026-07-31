@@ -10,6 +10,7 @@
 
 
 #include "ChunkConcurrency.hpp"
+#include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
 #include "ChunkMap.hpp"
 #include "CoordIteration.hpp"
@@ -246,24 +247,24 @@ struct ChunkDirector{
         auto* entry = chunk_map.entries.try_get(key);
         if (!entry) return;
         for (const auto& neighbour_coord : entry->neighbour_coords4()){
-            auto* neighbour = chunk_map.entries.try_get(neighbour_coord);
-            mark_lighting_dirty(neighbour,"Neighbour is newly lit");
+            chunk_map.entries.if_contains(neighbour_coord, [&](ChunkEntry& entry){
+                mark_lighting_dirty(&entry,"Neighbour is newly lit");
+            });
         }
     }
     inline void mark_neighbour_meshes_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
         auto* entry = chunk_map.entries.try_get(key);
         if (!entry) return;
         for (const auto& neighbour_coord : entry->neighbour_coords4()){
-            auto* neighbour = chunk_map.entries.try_get(neighbour_coord);
-            mark_mesh_dirty(neighbour,"Neighbour is newly generated");
+            chunk_map.entries.if_contains(neighbour_coord, [&](ChunkEntry& entry){
+                mark_mesh_dirty(&entry,"Neighbour is newly lit");
+            });
         }
     }
     bool place_block(WorldBlockPos wpos, BlockType block){
         auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
-        std::println("chunk:{}",toWorldChunkCoord(wpos));
         if (chunk){
             ChunkBlockPos cpos = toChunkBlockPos(wpos);
-            std::println("cpos:{}",cpos);
             chunk->block_data.at(cpos) = block;
             mark_lighting_dirty(chunk, "Block placed");
             mark_mesh_dirty(chunk, "Block placed");
@@ -272,6 +273,8 @@ struct ChunkDirector{
         return false;
     }
     std::optional<Block> block_at(WorldBlockPos wpos)const noexcept{
+        assert_geq(wpos.y, 0);
+        assert_leq(wpos.y, WORLD_YMAX-1);
         auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
         if (chunk){
             ChunkBlockPos cpos = toChunkBlockPos(wpos);

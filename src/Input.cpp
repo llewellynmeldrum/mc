@@ -21,8 +21,9 @@ void KeyModifiers::apply(int mods) {
 
 void Input::key_callback(GLFWwindow* win_ptr, int key, int scancode, int action, int mods) {
     auto* ctx = (Engine*)glfwGetWindowUserPointer(win_ptr);
-//    LOG_DEBUG("cb MODS: {}, ({})",mods, KeyModifiers{mods});
+    auto before = mods;
     ctx->input.mods.apply(mods);
+//    LOG_DEBUG("cb MODS: {}, ({})",ctx->input.mods, ctx->input.mods);
 }
 
 Input::Input(GLFWwindow* _win_ptr): win_ptr(_win_ptr){

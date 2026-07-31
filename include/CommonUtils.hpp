@@ -20,68 +20,71 @@
 template<typename T>
     requires Numeric<T>
 struct Bounded{
-    const T base;
+    const T def;
     const T min;
     const T max;
-    T val{base};
+    T cur{def};
+    constexpr inline T get() const noexcept{
+        return cur;
+    }
     constexpr inline operator T() const noexcept{
-        return val;
+        return cur;
     }
     inline Bounded& operator=(T rhs)& noexcept{
-        val=rhs;
+        cur=rhs;
         clamp();
         return *this;
     }
     constexpr inline Bounded& operator+=(T rhs)& noexcept{
-        val+=rhs;
+        cur+=rhs;
         return *this;
     }
     constexpr inline Bounded& operator-=(T rhs)& noexcept{
-        val-=rhs;
+        cur-=rhs;
         return *this;
     }
     constexpr inline Bounded& operator*=(T rhs)& noexcept{
-        val*=rhs;
+        cur*=rhs;
         return *this;
     }
     constexpr inline Bounded& operator/=(T rhs)& noexcept{
-        val/=rhs;
+        cur/=rhs;
         return *this;
     }
 
     // postincrement
     constexpr inline T operator++() & noexcept{
-        ++val;
+        ++cur;
         clamp();
         return *this;
     }
 
     // preincrement
     constexpr inline T operator++(int _)& noexcept{
-        T before = val;
+        T before = cur;
         ++(*this);
         return before;
     }
     constexpr inline T operator--() & noexcept{
-        --val;
+        --cur;
         clamp();
         return *this;
     }
 
     // preincrement
     constexpr inline T operator--(int _)& noexcept{
-        T before = val;
+        T before = cur;
         --(*this);
         return before;
     }
 
     inline Bounded& clamp()& noexcept{
-        val = std::clamp(val,min,max);
+        cur = std::clamp(cur,min,max);
         return *this;
     }
 
     inline Bounded& reset()& noexcept{
-        val = base;
+        cur = def;
         return *this;
     }
 

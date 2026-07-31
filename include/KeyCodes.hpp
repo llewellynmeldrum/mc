@@ -169,17 +169,15 @@ struct KeyModifiers{
     bool special = false;
     bool operator==(const KeyModifiers& rhs) const noexcept{
         return 
-            this->special 
-            || rhs.special 
-            ||( 
-                this->shift == rhs.shift
+              (this->special)
+            ||( rhs.special )
+            ||( this->shift == rhs.shift
                 && this->ctrl == rhs.ctrl
                 && this->alt == rhs.alt
                 && this->super == rhs.super
                 && this->caps == rhs.caps
                 && this->num_lock == rhs.num_lock
-            )
-        ;
+            );
     }
     //bool operator<=>(const KeyModifiers& rhs) const noexcept =default;
     static consteval KeyModifiers none(){

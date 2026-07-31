@@ -53,11 +53,13 @@ struct Renderer {
     i32 u_model_loc{};
     i32 u_proj_loc{};
     i32 u_view_loc{};
-    i32 u_sunlight_color_loc{};
+    i32 u_sunlight_rgb_loc{};
 
 
     bool enable_smooth_light_falloff = true;
-    f32 smooth_light_falloff_base = 0.840f;
+    f32 blocklight_smooth_falloff_factor = 0.840f;
+    f32 gamma = 0.8f;
+    f32 sunlight_smooth_falloff_factor = 0.150f;
 
     void update_debug_uniforms();
     void sort_opaque_chunks(WorldFloatPos cam_pos);

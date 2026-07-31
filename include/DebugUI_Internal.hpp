@@ -208,6 +208,30 @@ struct WindowConfig{
         if (IG::CollapsingHeader(name.c_str(),flags))
             std::invoke(std::forward<Fn>(section));
     };
+
+    void hint_icon(std::string const& s) {
+        ImGui::TextDisabled("(?)");
+        ImGui::SameLine();
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+            UI::Text(s);
+            ImGui::PopTextWrapPos();
+            ImGui::EndTooltip();
+        }
+        
+    }
+    template<typename T>
+    inline bool dbg_opt_slider(DebugVal<T>& opt){
+        hint_icon(opt.desc);
+        return slider(opt.name, &opt.cur, opt.min,opt.max);
+    }
+    void same_line(){ImGui::SameLine();}
+    inline bool dbg_toggle(DebugOpt& opt){
+        hint_icon(opt.desc);
+        same_line();
+        return checkbox(opt.name,&opt.val);
+    }
     template<typename T, size_t N=1>
     inline bool slider(std::string_view name, T* val, T min=numeric_min<T>(), T max=numeric_min<T>()){
         std::string name_str = std::string(name);

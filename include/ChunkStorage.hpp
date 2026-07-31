@@ -9,6 +9,7 @@
 #include "CoordTypes.hpp"
 #include "PendingBlockWrites.hpp"
 #include "SharedShaderConfig.hpp"
+#include "BlockLight.hpp"
 #include "cppslop.hpp"
 #include "Assertion.hpp"
 #include "ChunkView.hpp"
@@ -38,6 +39,7 @@ private:
 public:
     bool is_empty{false};
     using key_type = ChunkBlockPos;
+    using value_type = V;
 
     GenericChunkSlice(nullptr_t null_ctor):is_empty(true){}
     GenericChunkSlice( GenericChunkView<const mapped_type> src, SliceType _slice_type, ChunkBlockPos p1, ChunkBlockPos p2) 
@@ -162,16 +164,3 @@ private:
 using ChunkBlockSlice = GenericChunkSlice<Block>;
 using ChunkLightSlice = GenericChunkSlice<PackedLightValue>;
 
-inline auto unpack(PackedLightValue const& v){
-    return UnpackedLightValue{
-         (v.get_blocklight_r()),
-         (v.get_blocklight_g()),
-         (v.get_blocklight_b()),
-         (v.get_sunlight()),
-    };
-}
-inline auto pack(UnpackedLightValue const& v){
-    return PackedLightValue{
-        v.r,v.g,v.b,v.s
-    };
-}

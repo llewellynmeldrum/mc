@@ -149,10 +149,14 @@ void draw_graphics_window(WindowConfig& self, Engine* ctx){
         auto& window = self;
         auto& cfg = ctx->world.editable_cfg;
         bool dirty = false;
-        dirty |= window.checkbox("show lighting system", &DebugOption::show_lighting_system);
+        dirty |= window.dbg_toggle(DebugOption::show_lighting_system);
+        dirty |= window.dbg_toggle(DebugOption::draw_blocklight);
+        dirty |= window.dbg_toggle(DebugOption::draw_sunlight);
+        dirty |= window.slider("gamma",&ctx->rend.gamma, 0.0f, 2.0f);
         dirty |= window.checkbox("enable smooth light falloff", &(ctx->rend.enable_smooth_light_falloff));
         IG::BeginDisabled(!ctx->rend.enable_smooth_light_falloff);
-            dirty |= window.slider<f32>("smooth light falloff base", &(ctx->rend.smooth_light_falloff_base), 0, 1);
+            dirty |= window.slider<f32>("smooth light falloff (sunlight)", &(ctx->rend.sunlight_smooth_falloff_factor), 0, 1);
+            dirty |= window.slider<f32>("smooth light falloff (blocklight)", &(ctx->rend.blocklight_smooth_falloff_factor), 0, 1);
         IG::EndDisabled();
         if (dirty) ctx->rend.update_debug_uniforms();
     });
@@ -169,18 +173,20 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
         
         window.open_section("DebugOption::",[&]{
             edit_enum("Debug chunk mode", &DebugOption::render_state_mode, DebugOption::DebugRenderStateTarget_names);
-            window.checkbox("outline neighbour boundaries", &DebugOption::outline_neighbour_boundaries);
-            window.checkbox("fill    neighbour boundaries", &DebugOption::fill_neighbour_boundaries);
-            window.checkbox("outline ALL boundaries", &DebugOption::outline_all_boundaries);
-            window.checkbox("fill    ALL boundaries", &DebugOption::fill_all_boundaries);
+            window.dbg_toggle(DebugOption::outline_neighbour_boundaries);
+            window.dbg_toggle(DebugOption::fill_neighbour_boundaries);
+            window.dbg_toggle(DebugOption::outline_all_boundaries);
+            window.dbg_toggle(DebugOption::fill_all_boundaries);
 
+            window.dbg_toggle(DebugOption::show_debug_ui);
+            window.dbg_toggle(DebugOption::HIDE_AIR_CHUNKS);
+            window.dbg_toggle(DebugOption::HIDE_CLEAN_CHUNKS);
 
-            window.checkbox("show debug ui", &DebugOption::show_debug_ui);
-            window.checkbox("Hide Air Chunks", &DebugOption::HIDE_AIR_CHUNKS);
-            window.checkbox("Hide Clean Chunks", &DebugOption::HIDE_CLEAN_CHUNKS);
             window.slider<u8>("Boundary fill opacity", &DebugOption::ChunkDebugFillOpacity, 0, 255);
             window.slider<f32>("Boundary outline opacity",&DebugOption::ChunkDebugOutlineOpacity, 0.0f, 1.0f);
-            window.slider<f32>("Cam vertical fov",&DebugOption::player_cam_vfov, 10.0f, 90.0f);
+
+            window.dbg_opt_slider(DebugOption::player_cam_vfov);
+//            window.slider<f32>("Cam vertical fov",&DebugOption::player_cam_vfov, 10.0f, 90.0f);
         });
     });
 }

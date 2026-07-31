@@ -11,6 +11,7 @@ template<typename V>
     requires has_default_ctor<V>
 struct GenericChunkStore{
 public:
+    using value_type = V;
     #define CLASS_NAME GenericChunkStore
     using mapped_type = V;
     using this_type = GenericChunkStore;

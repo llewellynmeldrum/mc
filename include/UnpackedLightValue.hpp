@@ -29,7 +29,7 @@ struct UnpackedLightValue{
     }
     u8 s{};
     auto can_propogate()const noexcept{ return (r>1||g>1||b>1); };
-    auto is_nonzero()const noexcept{ return (r|g|b) != 0; };
+    auto blocklight_is_nonzero()const noexcept{ return (r|g|b) != 0; };
     auto each_rgb(this auto& self){
         return std::ranges::subrange{self.rgb.begin(), self.rgb.end()};
     }

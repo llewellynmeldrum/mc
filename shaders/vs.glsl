@@ -7,17 +7,21 @@ flat out uint tex_atlas_id;
 
 out vec2 tx_coord;
 out vec4 faceOverlayColor;
-out float fakeShadowOpacity;
+out float fake_shadow;
 out float face_opacity;
-out vec3 light_color;
+out vec3 final_light;
 
-uniform vec3 u_sunlight_color;
+uniform vec3 u_sunlight_rgb;
 uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_proj;
 
+
+uniform bool u_enable_sunlight;
+uniform bool u_enable_blocklight;
 uniform bool u_enable_smooth_light_falloff;
-uniform float u_smooth_light_falloff_base;
+uniform float u_blocklight_smooth_falloff_factor;
+uniform float u_sunlight_smooth_falloff_factor;
 
 
 void main(){
@@ -26,27 +30,33 @@ void main(){
     tex_atlas_id = unpack_tex_atlas_id(in_packed_0);
     face_opacity = unpack_face_opacity(in_packed_0);
 
-    
-    uint blocklight_r = get_blocklight_r(in_packed_0);
-    uint blocklight_g = get_blocklight_g(in_packed_0);
-    uint blocklight_b = get_blocklight_b(in_packed_0);
-    vec3 block_light_color = vec3(
-        blocklight_r,
-        blocklight_g,
-        blocklight_b
-    );
-    if (u_enable_smooth_light_falloff){
-        block_light_color = pow(vec3(u_smooth_light_falloff_base),vec3(15u)-block_light_color);
-    }else{
-        block_light_color = block_light_color / vec3(15u);
-    }
-   // vec3 block_light_color = vec3(0.9f,0.0f,0.0f);
-
-    float sunlight_intensity = unpack_sunlight_intensity(in_packed_0);
-    light_color = block_light_color; //block_light_color;
-
     uint face_dir = unpack_face_dir(in_packed_0);
-    fakeShadowOpacity = faceShadowOpacity[face_dir];
-
+    fake_shadow = fake_shadow_multiplier_per_face[face_dir];
     gl_Position = u_proj * u_view * u_model * vec4(in_local_pos.xyz, 1.0);
+
+    
+    // SECTION: LIGHTING 
+    vec3 blocklight_rgb = vec3(0.0f); 
+    if (u_enable_blocklight){
+        blocklight_rgb = vec3(
+            get_blocklight_r(in_packed_0), // [0,15]
+            get_blocklight_g(in_packed_0), // [0,15]
+            get_blocklight_b(in_packed_0) // [0,15]
+        );
+        if (u_enable_smooth_light_falloff){
+            blocklight_rgb = pow(vec3(u_blocklight_smooth_falloff_factor),vec3(15u) - blocklight_rgb);
+        }else{
+            blocklight_rgb = blocklight_rgb / vec3(15u);
+        }
+    }
+    vec3 sunlight_rgb = vec3(0.0f);
+    if (u_enable_sunlight){
+        float sunlight_intensity = unpack_sunlight_intensity(in_packed_0);
+        if (u_enable_smooth_light_falloff){
+            sunlight_intensity = 0.1 + pow(u_sunlight_smooth_falloff_factor,(1.0f - sunlight_intensity));
+        }
+        sunlight_rgb = u_sunlight_rgb * sunlight_intensity ;
+    }
+    final_light = max(sunlight_rgb, blocklight_rgb);
+
 }
