@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#define GLM_ENABLE_EXPERIMENTAL 
+#include "glm/gtx/norm.hpp"
 
 #include "CoordTypes.hpp"
 #include "Types.h"
@@ -11,7 +13,6 @@
 #include "BufferObjects.hpp"
 #include "Shaders.hpp"
 #include "Vertex.hpp"
-#include "glm/gtx/norm.hpp"
 
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 

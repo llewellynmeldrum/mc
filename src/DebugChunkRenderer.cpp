@@ -6,9 +6,11 @@
 #include "Renderer.hpp"
 #include "Engine.hpp"
 #include "DebugChunkRenderer.hpp"
+#include "VertexLayoutHelpers.hpp"
 #include "World.hpp"
 #include <optional>
 #include <print>
+#include <span>
 using namespace gl;
 
 
@@ -72,11 +74,11 @@ void DebugChunkMesher::setup(){
     vao.bind();
 
     cube_vbo.bind();
-    cube_vbo.load<DebugChunkVertex>(DebugChunkVertices);
-    vao.apply_layout(DebugChunkVertex::layout());
+    cube_vbo.load(const_span{DebugChunkVertices});
+    apply_vertex_layout<DebugChunkVertex>();
 
     instance_vbo.bind();
-    vao.apply_layout(DebugChunkInstance::layout());
+    apply_vertex_layout<DebugChunkInstance>();
 
     cube_ebo.bind();
     cube_ebo.load(DebugChunkIndices);
@@ -148,7 +150,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     }
 
     vao.bind();
-    instance_vbo.load<DebugChunkInstance>(instances);
+    instance_vbo.load<DebugChunkInstance, std::dynamic_extent>(instances);
     vao.unbind();
 }
 void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){

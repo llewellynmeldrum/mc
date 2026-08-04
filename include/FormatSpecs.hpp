@@ -4,6 +4,7 @@
 #include "PendingBlockWrites.hpp"
 
 #include <format>
+#include <type_traits>
 
 #include "Direction.hpp"
 #include "Block.hpp"
@@ -17,15 +18,11 @@
 #include "ChunkEntry.hpp"
 #include "Assertion.hpp"
 
-// specializations of dbg_fmt for glm types
-//
-#define dbg_fmt(val) assert_failure(#val, SRC_LOC_CURRENT(), "Tried to use deprecated dbg_fmt. Replace with std::formatter specialization")
-
 template<>
 struct std::formatter<glm::vec4>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::vec4& val, std::format_context& ctx)const {
+	auto format(const glm::vec4& val, auto& ctx)const {
 		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", "", val.x, "", "",
                        val.y, "", "", val.z, "", "", val.w,
                        "");
@@ -36,7 +33,7 @@ template<>
 struct std::formatter<glm::vec3>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::vec3& val, std::format_context& ctx)const {
+	auto format(const glm::vec3& val, auto& ctx)const {
 		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", "", val.x, "", "", val.y,
                        "", "", val.z, "");
     }
@@ -46,7 +43,7 @@ template<>
 struct std::formatter<glm::vec2>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::vec2& val, std::format_context& ctx)const {
+	auto format(const glm::vec2& val, auto& ctx)const {
 		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", "", val.x, "", "", val.y,
                        "");
     }
@@ -56,7 +53,7 @@ template<>
 struct std::formatter<glm::ivec4>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::ivec4& val, std::format_context& ctx)const {
+	auto format(const glm::ivec4& val, auto& ctx)const {
 		return std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}, {}{}{}]", "", val.x, "", "",
                        val.y, "", "", val.z, "", "", val.w,
                        "");
@@ -67,7 +64,7 @@ template<>
 struct std::formatter<glm::ivec3>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::ivec3& val, std::format_context& ctx)const {
+	auto format(const glm::ivec3& val, auto& ctx)const {
 		return 
 std::format_to(ctx.out(), "[{}{}{}, {}{}{}, {}{}{}]", "", val.x, "", "", val.y,
                        "", "", val.z, "");
@@ -77,7 +74,7 @@ template<>
 struct std::formatter<glm::ivec2>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::ivec2& val, std::format_context& ctx)const {
+	auto format(const glm::ivec2& val, auto& ctx)const {
 		return 
 std::format_to(ctx.out(), "[{}{}{}, {}{}{}]", "", val.x, "", "", val.y,
                        "");
@@ -87,7 +84,7 @@ template<>
 struct std::formatter<glm::mat4>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const glm::mat4& val, std::format_context& ctx)const {
+	auto format(const glm::mat4& val, auto& ctx)const {
         std::string expr_str{};
         expr_str.append("\n");
         i64 ext = 4;
@@ -114,7 +111,7 @@ struct std::formatter<glm::mat4>{
 template<>
 struct std::formatter<Vertex>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const Vertex& val, std::format_context& ctx)const {
+	auto format(const Vertex& val, auto& ctx)const {
 		return std::format_to(ctx.out(), "[{}, {}]", val.pos, val.tx_coords);
     }
 };
@@ -123,7 +120,7 @@ template<>
 struct std::formatter<KeyState>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const KeyState& val, std::format_context& ctx)const {
+	auto format(const KeyState& val, auto& ctx)const {
         std::string s{"INVALID_KEYSTATE"};
         switch (val) {
         case KeyState::JustPressed:
@@ -152,7 +149,7 @@ template<>
 struct std::formatter<BlockType>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const BlockType& val, std::format_context& ctx)const {
+	auto format(const BlockType& val, auto& ctx)const {
         std::string s{"INVALID_BLOCK_TYPE"};
         #define X(var, ...) case BlockType:: var: s=#var; break;
         switch (val) {
@@ -167,7 +164,7 @@ struct std::formatter<BlockType>{
 template<>
 struct std::formatter<BlockDef>{
   constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-  auto format(const BlockDef& val, std::format_context& ctx)const {
+  auto format(const BlockDef& val, auto& ctx)const {
     return std::format_to(ctx.out(),
       "BlockDef{{name={}, block_type={}, shape={}, tex_idx={}, rend_layer={}, opacity={}}}",
       val.name,
@@ -182,7 +179,7 @@ template<>
 struct std::formatter<OverwritePolicy>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const OverwritePolicy& val, std::format_context& ctx)const {
+	auto format(const OverwritePolicy& val, auto& ctx)const {
         std::string s{"INVALID_overwrite_policy"};
         #define X(var, ...) case OverwritePolicy:: var: s=#var; break;
         switch (val) {
@@ -199,7 +196,7 @@ template<>
 struct std::formatter<Block>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const Block& val, std::format_context& ctx)const {
+	auto format(const Block& val, auto& ctx)const {
 		return std::formatter<BlockType>{}.format(val.type,ctx);
     }
 };
@@ -209,7 +206,7 @@ template<>
 struct std::formatter<Direction>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const Direction& val, std::format_context& ctx)const {
+	auto format(const Direction& val, auto& ctx)const {
         std::string s{"INVALID_DIRECTION"};
         switch (val) {
         case Direction::FORWARD:
@@ -243,14 +240,14 @@ struct std::formatter<Direction>{
 template<>
 struct std::formatter<gl::GLenum>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const gl::GLenum& val, std::format_context& ctx)const {
+	auto format(const gl::GLenum& val, auto& ctx)const {
 		return glbinding::aux::Meta::getString(val);
     }
 };
 template<typename T>
 struct std::formatter<Bounded<T>>{
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const Bounded<T>& bounded, std::format_context& ctx)const {
+	auto format(const Bounded<T>& bounded, auto& ctx)const {
         return std::formatter<T>{}.format(bounded.cur,ctx);
     }
 };
@@ -258,16 +255,19 @@ template<typename Tag, typename ScalarType>
 struct std::formatter<Coord3<Tag,ScalarType>>{
     using T = Coord3<Tag,ScalarType>;
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const T& val, std::format_context& ctx)const {
-        return std::formatter<typename T::glm_vec_type>{}.format(val.raw(),ctx);
+	auto format(const T& val, auto& ctx)const {
+        return format_to(ctx.out(), "{}",val.raw());
     }
 };
+
+// glm_vec_type is just:
+// using glm_vec_type = glm::vec<Extent, ScalarType, glm::defaultp>;
 template<typename Tag, typename ScalarType>
 struct std::formatter<Coord2<Tag,ScalarType>>{
     using T = Coord2<Tag,ScalarType>;
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const T& val, std::format_context& ctx)const {
-        return std::formatter<typename T::glm_vec_type>{}.format(val.raw(),ctx);
+	auto format(T const& val, auto& ctx)const {
+        return format_to(ctx.out(), "{}",val.raw());
     }
 };
 
@@ -289,7 +289,7 @@ struct std::formatter<T, CharT> : std::formatter<const void*, CharT> {
 template<>
 struct std::formatter<PipelineState>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    auto format(const PipelineState& s, std::format_context& ctx) const{
+    auto format(const PipelineState& s, auto& ctx) const{
         std::string_view str = "???PipelineState???";
         switch (s){
            PIPELINE_STATE_LIST 
@@ -308,8 +308,7 @@ struct std::formatter<ChunkState>{
         }
         return it;
     }
-    inline auto format(ChunkState s, std::format_context& ctx) const{
-        std::string_view str = "?ChunkState?";
+    inline auto format(ChunkState s, auto& ctx) const{
         return format_to(ctx.out(), "G:{},M:{}", s.gen,s.mesh);
     }
 };
@@ -317,7 +316,7 @@ template<typename T>
     requires std::formattable<T,char>
 struct std::formatter<std::optional<T>>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(std::optional<T> s, std::format_context& ctx) const{
+    inline auto format(std::optional<T> s, auto& ctx) const{
         if (s){
             return format_to(ctx.out(), "{}",s.value());
         }else{
@@ -328,15 +327,14 @@ struct std::formatter<std::optional<T>>{
 template<>
 struct std::formatter<QuadIndices>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(const QuadIndices& s, std::format_context& ctx) const{
+    inline auto format(const QuadIndices& s, auto& ctx) const{
             return format_to(ctx.out(), "??");
     }
 };
 template<>
 struct std::formatter<KeyModifiers>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(KeyModifiers s, std::format_context& ctx) const{
-        std::string_view str = "?ChunkState?";
+    inline auto format(KeyModifiers s, auto& ctx) const{
 		return std::format_to( ctx.out(), 
             "shift:{}\n"
             "ctrl:{}\n"
@@ -358,8 +356,7 @@ struct std::formatter<KeyModifiers>{
 template<>
 struct std::formatter<BlockLight>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(BlockLight const& s, std::format_context& ctx) const{
-        std::string_view str = "?ChunkState?";
+    inline auto format(BlockLight const& s, auto& ctx) const{
 		return std::format_to(
             ctx.out(), "r={}, g={}, b={}",
             s.r,s.g,s.b);
@@ -368,8 +365,7 @@ struct std::formatter<BlockLight>{
 template<>
 struct std::formatter<UnpackedLightValue>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(UnpackedLightValue const& s, std::format_context& ctx) const{
-        std::string_view str = "?ChunkState?";
+    inline auto format(UnpackedLightValue const& s, auto& ctx) const{
 		return std::format_to(
             ctx.out(), "r={}, g={}, b={}, s={}",
             s.r,s.g,s.b,s.s);
@@ -378,8 +374,7 @@ struct std::formatter<UnpackedLightValue>{
 template<>
 struct std::formatter<PackedLightValue>{
     inline constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin();}
-    inline auto format(PackedLightValue const& s, std::format_context& ctx) const{
-        std::string_view str = "?ChunkState?";
+    inline auto format(PackedLightValue const& s, auto& ctx) const{
 		return std::format_to( ctx.out(), "{}",unpack(s));
     }
 };
@@ -388,7 +383,7 @@ template<>
 struct std::formatter<IndexedMesh>{
 
 	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const IndexedMesh& val, std::format_context& ctx)const {
+	auto format(const IndexedMesh& val, auto& ctx)const {
 		return std::format_to(
             ctx.out(), 
             "vao:{}\n"
@@ -413,7 +408,29 @@ inline constexpr EnumMap<LogType, std::string_view> LogType_NAMES{
 template<>
 struct std::formatter<LogType>{
     constexpr auto parse(std::format_parse_context& ctx){ return ctx.begin();}
-    constexpr auto format(LogType const& v, std::format_context& ctx) const noexcept{
+    constexpr auto format(LogType const& v, auto& ctx) const noexcept{
         return std::format_to(ctx.out(), "{}", LogType_NAMES.at(v));
+    }
+};
+
+template<typename T>
+    requires std::is_enum_v<T>
+struct std::formatter<T>{
+    constexpr auto parse(std::format_parse_context& ctx){ return ctx.begin();}
+    constexpr auto format(T const& v, auto& ctx) const noexcept{
+        return std::format_to(ctx.out(), "{}", reflect::enum_name(v));
+    }
+};
+template<typename K, typename V>
+    requires std::formattable<K,char>
+        && std::formattable<V,char>
+struct std::formatter<std::unordered_map<K,V>>{
+    constexpr auto parse(std::format_parse_context& ctx)const noexcept{ return ctx.begin();}
+    constexpr auto format(std::unordered_map<K,V> const& map, auto& ctx) const noexcept{
+        std::string s;
+        for (const auto& [k,v]: map){
+            s+= std::format("[{} : {}]\n", k,v);
+        }
+        return std::format_to(ctx.out(),"{}",s);
     }
 };

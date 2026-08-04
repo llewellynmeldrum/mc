@@ -224,7 +224,7 @@ namespace features{
                 BlockType::GRASS_BLOCK
             },
         },
-        .block = BlockType::OAK_SAPLING,
+        .block = BlockType::TORCH,
         .jitter {RandOffset::DeadBush, 2} 
     };
 

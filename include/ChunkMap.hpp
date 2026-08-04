@@ -1,4 +1,11 @@
 #pragma once 
+#include <functional>
+#include <memory>
+#include <optional>
+#include <print>
+#include <queue>
+#include <type_traits>
+
 #include "HashMap.hpp"
 #include "Chunk.hpp"
 #include "CoordTypes.hpp"
@@ -8,20 +15,10 @@
 #include "Breakpoints.hpp"
 #include "cppslop.hpp"
 #include "CommonConcepts.hpp"
-
-#include <functional>
-#include <memory>
-#include <optional>
-#include <print>
-#include <queue>
-#include <type_traits>
-
 #include "Assertion.hpp"
 
-// should the mesh queue be a prio queue? 
-// idk bro what makes you ask
-
 struct ChunkMap {
+public:
     ChunkMap() = default;
     ~ChunkMap() = default;
     ChunkMap(ChunkMap const&) = delete;
@@ -105,9 +102,5 @@ struct ChunkMap {
         assert(slices.size()==N_NEIGHBOURS);
         return slices;
 }
-    
-
-private:
-
 
 };

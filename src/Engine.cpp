@@ -46,13 +46,15 @@
 
 void Engine::per_tick_update(){
     update_player_cam(player_cam);
+    rend.per_tick_update(player_cam);
     update_drone_cam(drone_cam, player_cam.pos);
     world.tick();
     tick_counter++;
 }
 void Engine::loop(){
+    auto dt = timer::milliseconds(16);
     while (!win.shouldClose()) {
-        auto dt = timer::now() - t_last_frame_ended;
+        t_frame_start = timer::now();
         profiler.start_frame();
         profiler.bench_start("frame");
 
@@ -74,6 +76,7 @@ void Engine::loop(){
         }
         ui.update();
 
+
         draw_scene(); 
         if (DebugOption::show_debug_ui){ ui.draw(); }
 
@@ -86,7 +89,7 @@ void Engine::loop(){
         input.end_frame();
         profiler.bench_end("frame");
         profiler.end_frame();
-        t_last_frame_ended = timer::now();
+        dt = timer::now() - t_frame_start;
     }
 }
 
@@ -153,55 +156,29 @@ void Engine::evict_meshes_outside_radius(i32 radius){
 
 
 
-void Engine::process_lighting_updates(){
-    constexpr static auto N_LIGHTING_JOBS = 128uz;
-    for (const auto& coord: director.find_lighting_jobs(128)){
-        auto* entry = director.chunk_map.entries.try_get(coord);
-        if (director.qualifies_for_light_work(entry)){
-            auto candidate_rev = entry->lighting.get_candidate_rev();
-            if (candidate_rev == RevisionState::FIRST_JOB){
-                entry->light_data.reset();
-            }
-            assert(entry->light_data.buf.size() == ChunkInfo::SIZE);
-
-            auto res = process_lighting(LightingJob(coord,&director.chunk_map,entry));
-            director.upload_light_result(entry,std::move(res));
-        }
-    }
-}
 
 void Engine::handle_chunk_scheduling() {
     profiler.bench_start("update");
     director.start_frame(player_cam.pos);
 
 
-//    for_each_xz_in_chunk([&](i32 cx, i32 cz){
-        if (director.block_at({3,5,3}) != BlockType::TORCH){
-            bool success = director.place_block(WorldBlockPos{3,5,3},BlockType::TORCH);
-            std::println("Placing torch: {}", success ? "success" : "failed");
-            for_each_xz_exclusive(glm::ivec2{2,2},glm::ivec2{10,10},[&](auto wx, auto wz){
-                director.place_block(WorldBlockPos{wx,10,wz},BlockType::COBBLESTONE);
-            });
-        }
-//    });
-
     if (director.player_crossed_chunk_boundary()){
-        director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
+        director.discover_candidates();
     }
 
-    submit_gen_jobs(maxGenJobsPerFrame);
-    upload_gen_results(maxGenUploadsPerFrame);
+    enqueue_jobs<JobType::Gen>();
+    upload_results<JobType::Gen>();
 
 
-    evict_meshes_outside_radius(director.MESH_CULL_DIST());
+    enqueue_jobs<JobType::Light>();
+    upload_results<JobType::Light>();
+
+    evict_meshes_outside_radius(director.MESH_CULL_DIST()*1.5f);
     refresh_visible_chunks();
     classify_visible_chunks();
 
-    
-    process_lighting_updates();
-
-    submit_mesh_jobs(maxMeshJobsPerFrame);
-    upload_mesh_results(maxMeshUploadsPerFrame);
+    enqueue_jobs<JobType::Mesh>();
+    upload_results<JobType::Mesh>();
 
     //NOTE: We must perform mesh sorting AFTER mesh upload this frame,
     // otherwise the size of sorted_keys diverges from the mesh_lists.
@@ -220,178 +197,120 @@ void Engine::update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 f
     auto follow_pos = WorldFloatPos{player_cam.pos.raw()+glm::vec3{0,100,0}};
     drone_cam.set_pos_ori(follow_pos, -89.0, 0.0);
 }
+LightingJob Engine::make_light_job(WorldChunkCoord coord){
+    auto* entry = world.chunkMap.entries.try_get(coord);
+    assert(entry);
+    return {
+        make_bench_ctx<JobType::Light>(),
+        coord,
+        &director.chunk_map,
+        entry
+    };
+}
 
-bool Engine::enqueue_gen(WorldChunkCoord candidate_coord){
-    auto& genQ = world.generators.job_queue;
-    bool success = genQ.try_emplace(
-        ChunkBenchContext{gen_work_bencher,gen_job_queue_idle_bencher, gen_res_queue_idle_bencher},
+GenJob Engine::make_gen_job(WorldChunkCoord coord){
+    return {
+        make_bench_ctx<JobType::Gen>(),
+        coord, 
         world.worldgen_epoch,
-        candidate_coord, 
         world.active_cfg
-    );
-    if (success){
-        gen_enqueue_delay_bencher.bench_end(candidate_coord);
-        gen_rtt_bencher.bench_start(candidate_coord,world.worldgen_epoch);
-        gen_job_queue_idle_bencher.bench_start(candidate_coord,world.worldgen_epoch);
-        auto* entry = world.chunkMap.entries.try_get(candidate_coord);
-        if (!entry){
-            entry = world.make_chunk_entry(candidate_coord);
-        }
-        director.mark_gen_enqueue(entry);
-        gen_jobs_this_frame++;
+    };
+}
+MeshJob Engine::make_mesh_job(WorldChunkCoord coord){
+    auto* entry = world.chunkMap.entries.try_get(coord);
+    assert(entry);
+
+    return {
+        make_bench_ctx<JobType::Mesh>(),
+        coord,
+        rend.atlas_list,
+        &world.chunkMap,
+        entry
+    };
+}
+
+
+
+bool Engine::upload_light(LightingResult&& res){
+    auto [coord, rev, lights] = res;
+    auto log_fail_upload = [&](std::string_view str){
+        log_to_chunk(coord, "lighting upload rejected: {}.",str);
+    };
+    auto* entry = world.chunkMap.entries.try_get(coord);
+    if (!entry){
+        // NOTE: this should probably be an assert.
+        log_fail_upload("Entry does not exist????");
+        return false;
+    }
+
+    if (try_upload_candidate_revision(entry->lighting, rev)){
+        log_to_chunk(LogType::lighting_state,coord, "lighting upload success ({}->{})",entry->lighting.loaded,rev);
+        director.upload_light_result(entry, std::move(res));
     }else{
-        // did not upload (mutex contention)
+        entry->lighting.drop_inflight();
+        log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                        rev,entry->lighting.loaded));
+        return false;
     }
-    return success;
+    this->chunksLit++;
+    return true;
 }
 
-void Engine::submit_gen_jobs(i64 maxJobs){
-    profiler.bench_start("enqueueGen");
-    for (const auto& candidate_coord: director.find_gen_jobs(maxJobs)){
-        enqueue_gen(candidate_coord);
-    }
-    profiler.bench_end("enqueueGen");
-}
-
-
-void Engine::submit_mesh_jobs(i64 maxJobs){
-    profiler.bench_start("enqueueMesh");
-    auto candidates = director.find_mesh_jobs(maxJobs);
-
-    i64 count = 0;
-    for (const auto& candidate_coord: candidates){
-//        if (!is_chunk_in_frustum(player_cam.getCullFrustum(),coord)){
-//            continue;
-//        }
-        auto& meshQ = rend.meshers.job_queue;
-        auto* entry = world.chunkMap.entries.at(candidate_coord);
-
-        assert(entry);
-        if (director.qualifies_for_mesh_enqueue(entry)){
-            // BlockShape 
-            static_assert(BlockShape::CUBE == static_cast<BlockShape>(0));
-            static_assert(BlockShape::CROSS == static_cast<BlockShape>(1));
-            bool success = meshQ.try_emplace(
-                ChunkBenchContext{mesh_work_bencher,mesh_job_queue_idle_bencher, mesh_res_queue_idle_bencher},
-                candidate_coord,
-                rend.atlas_list,
-                &world.chunkMap,
-                entry
-            );
-            if (success){
-                mesh_rtt_bencher.bench_start(candidate_coord,entry->mesh.target);
-                mesh_job_queue_idle_bencher.bench_start(candidate_coord,entry->mesh.target);
-                director.mark_mesh_enqueue(entry);
-                count++;
-            }
-        }
-    }
-
-    profiler.bench_end("enqueueMesh");
-    if (count>0 || candidates.size()>0){
-    //    std::println("found {} mesh-ready candidates. {} uploaded.", candidates.size(),count);
-    }
-    mesh_jobs_this_frame =count;
-
-}
-
-
-void Engine::upload_mesh_results(i64 maxUploads){
-    profiler.bench_start("drainMesh");
-    i64 count = 0;
-    auto drain_mesh_results = [](auto& queue,auto maxUploads)->std::vector<MeshResult>{
-        for (i64 mesh_dq_attempts = 0; mesh_dq_attempts < maxUploads; mesh_dq_attempts++){
-            auto res = queue.try_batch_dequeue(maxUploads);
-            if (res) return res.value();
-        }
-        return {};
+bool Engine::upload_mesh(MeshResult&& res){
+    const auto& [candidate_revision, chunk_coord, opaque, blended, cutout] = res;
+    auto log_fail_upload = [&](std::string_view str){
+        log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
     };
-    auto candidate_results = drain_mesh_results(rend.meshers.res_queue,maxUploads);
-    for (const auto& [candidate_revision, chunk_coord, opaque, blended, cutout] : candidate_results){
-        auto log_fail_upload = [&](std::string_view str){
-            log_to_chunk(chunk_coord, "Mesh upload rejected: {}.",str);
-        };
-
-//        if (director.is_chunk_outside_cull_distance(chunkCoord,MESH_CULL_DIST())){
-//            // skip the result, it would otherwise be culled instantly 
-//            continue;
-//        }
-        auto* entry = world.chunkMap.entries.try_get(chunk_coord);
-        if (!entry){
-            // NOTE: this should probably be an assert.
-            log_fail_upload("Entry does not exist????");
-            continue;
-        }
-
-        if (try_upload_candidate(entry->mesh, candidate_revision)){
-            log_to_chunk(LogType::mesh_uploads,chunk_coord, "Mesh upload success ({}->{})",entry->mesh.loaded,candidate_revision);
-            log_to_chunk(LogType::mesh_uploads,chunk_coord, "OPQ:{},TRN:{},CUT:{}",opaque.vertices.size(),blended.vertices.size(),cutout.vertices.size());
-            //log_to_chunk(chunk_coord,"opaque new: {}",opaque.vertices.size());
-            //log_to_chunk(chunk_coord,"transp new: {}",blended.vertices.size());
-            if (rend.opaque_chunk_meshes.contains(chunk_coord)){
-            //    log_to_chunk(chunk_coord,"opaque before: {}",rend.opaqueChunkMeshes.at(chunk_coord));
-            }
-            opaque.vertices.size() > 0   ? rend.uploadMesh(chunk_coord, std::move(opaque)) : void();
-            blended.vertices.size() > 0  ? rend.uploadMesh(chunk_coord, std::move(blended)) : void();
-            cutout.vertices.size() > 0   ? rend.uploadMesh(chunk_coord, std::move(cutout)) : void();
-        }else{
-                log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                                candidate_revision,entry->mesh.loaded));
-                continue;
-        }
-        this->chunksMeshed++;
-        auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
-        mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
-       // log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
-        count++;
+    auto* entry = world.chunkMap.entries.try_get(chunk_coord);
+    if (!entry){
+        // NOTE: this should probably be an assert.
+        log_fail_upload("Entry does not exist????");
+        return false;
     }
-    profiler.bench_end("drainMesh");
-    mesh_results_this_frame = count;
+
+    if (try_upload_candidate_revision(entry->mesh, candidate_revision)){
+        log_to_chunk(LogType::mesh_uploads,chunk_coord, "Mesh upload success ({}->{})",entry->mesh.loaded,candidate_revision);
+        director.upload_mesh_result(entry, rend, std::move(res));
+    }else{
+        entry->mesh.drop_inflight();
+        log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                        candidate_revision,entry->mesh.loaded));
+        return false;
+    }
+    this->chunksMeshed++;
+//    auto ttm = mesh_rtt_bencher.bench_end(chunk_coord,candidate_revision);
+    mesh_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
+   // log_to_chunk(chunk_coord,"time to mesh: {:2.4f}ms",ttm);
+    return true;
 }
 
+bool Engine::upload_gen(GenResult&& res){
+    const auto& chunk_coord = res.coord;
+    const auto& candidate_revision = res.rev;
 
-void Engine::upload_gen_results(i64 maxUploads){
-    profiler.bench_start("drainGen");
-    auto drain_gen_results = [](Queue<GenResult>& queue, i64 maxUploads){
-        std::vector<GenResult> output; output.reserve(maxUploads);
-
-        for (i64 mesh_count = 0; mesh_count < maxUploads; mesh_count++){
-            std::optional<GenResult> result = queue.try_dequeue();
-            if (result.has_value()){
-                output.emplace_back(*result);
-            } else{
-                break; // give up this frame
-            }
-        }
-        return output;
+    auto log_fail_upload = [&](std::string_view str){
+        log_to_chunk(chunk_coord, "Gen upload rejected: {}.",str);
     };
-    auto genResults = drain_gen_results(world.generators.res_queue,maxUploads);
-    for (auto& newGen : genResults){
-        const auto& chunk_coord = newGen.chunk_coord;
-        const auto& candidate_revision = newGen.genRevisionID;
-        auto log_fail_upload = [&](std::string_view str){
-            log_to_chunk(chunk_coord, "Gen upload rejected: {}.",str);
-        };
-        auto* entry = world.chunkMap.entries.try_get(chunk_coord);
-        if (!entry){
-            log_fail_upload("Entry does not exist????");
-            continue;
-        }
-
-        if (try_upload_candidate(entry->gen, candidate_revision)){
-            log_to_chunk(LogType::gen_uploads,chunk_coord, "gen upload success ({}->{})",entry->gen.loaded,candidate_revision);
-            director.upload_generated_chunk(entry, std::move(newGen));
-            entry->gen.loaded = candidate_revision;
-        }else{
-            log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
-                            candidate_revision,entry->gen.loaded));
-        }
-        auto ttg = gen_rtt_bencher.bench_end(chunk_coord, candidate_revision);
-        gen_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
-//        log_to_chunk(chunk_coord,"time to gen: {:2.4f}ms",ttg);
+    auto* entry = world.chunkMap.entries.try_get(chunk_coord);
+    if (!entry){
+        log_fail_upload("Entry does not exist????");
+        return false;
     }
-    profiler.bench_end("drainGen");
-    gen_res_this_frame = genResults.size();
+
+    if (try_upload_candidate_revision(entry->gen, candidate_revision)){
+        log_to_chunk(LogType::gen_uploads,chunk_coord, "gen upload success ({}->{})",entry->gen.loaded,candidate_revision);
+        director.upload_gen_result(entry, std::move(res));
+        entry->gen.loaded = candidate_revision;
+    }else{
+        entry->gen.drop_inflight();
+        log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
+                        candidate_revision,entry->gen.loaded));
+        return false;
+    }
+//    auto ttg = gen_rtt_bencher.bench_end(chunk_coord, candidate_revision);
+    gen_res_queue_idle_bencher.bench_end(chunk_coord, candidate_revision);
+//    log_to_chunk(chunk_coord,"time to gen: {:2.4f}ms",ttg);
+    return true;
 }
 
 void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
@@ -404,12 +323,12 @@ void Engine::draw_scene() {
     rend.debug.reset_per_frame();
 
 
-    rend.clear_to(screen_view());
+    rend.draw_sky_to(screen_view());
     rend.draw_to(player_cam, screen_view(), &profiler);
 
 
     if( DebugOption::enable_drone_cam){
-        rend.clear_to(secondaryView());
+        rend.draw_sky_to(secondaryView());
         rend.draw_to(drone_cam, secondaryView(), &profiler);
         if (DebugOption::enable_3d_debug_visuals){
             // Drone cam sees players' frustum lines 
@@ -440,25 +359,6 @@ void Engine::draw_scene() {
 
 
 
-// BUG: 
-// These functions are kinda clarted. Im not clear on whether or not they properly interact with 
-// all the queues and stuff. They generate so many edge cases I question their usefulness.
-// For example:
-// -> How do we inform meshes on the queue that their entries have been nuked?
-//      What do we do with those homeless meshes? we must check for and discard them. 
-void Engine::unGenerateAllChunks(){
-    world.chunkMap.entries.clear();
-}
-void Engine::unMeshAllChunks(){
-    world.chunkMap.entries.for_each(
-        [&](WorldChunkCoord coord, ChunkEntry& entry){
-            director.mark_mesh_dirty(&entry, "unmeshed all chunks");
-        }
-    );
-    rend.opaque_chunk_meshes.clear();
-    rend.blended_chunk_meshes.clear();
-}
-
 void Engine::set_debug_params() {
     g_StyleConfig::disabled = unix::is_debugger_present();
 
@@ -477,6 +377,8 @@ void Engine::set_debug_params() {
 
 void Engine::update(timer::duration dt){
     tick_gap_accumulator += std::min(dt, maxGapContributionPerFrame);
+//    std::println("tick_gap_accum: {}",tick_gap_accumulator);
+//    std::println("dt: {}",dt);
 
     auto ticks_this_frame {0uz};
     while (tick_gap_accumulator > msPerTick && ticks_this_frame < max_ticks_per_frame ){
@@ -485,8 +387,8 @@ void Engine::update(timer::duration dt){
         ticks_this_frame++;
     }
 
-    //std::println("{} ticks this frame.",ticks_this_frame);
 }
+
 void Engine::setup() {
     for (auto& v: block_defs){
         std::println("{}",v);
@@ -513,36 +415,55 @@ void Engine::setup() {
         "frame",
         "input",
         "update",
+
         "enqueueGen",
         "drainGen",
+        "findJobsGen",
+
+        "enqueueLight",
+        "findJobsLight",
+        "drainLight",
+
         "enqueueMesh",
+        "findJobsMesh",
         "drainMesh",
+
         "render",
     });
     LOG_DEBUG("Finished Profiler setup.");
 
     player_cam.is_main_camera=true;
     drone_cam.vertical_fov = 50.0f;
-    director.init(player_cam.pos);
+    director.setup(player_cam.pos);
     LOG_DEBUG("Finished Camera setup.");
 
 
     ui.init(win.ptr);
     LOG_DEBUG("Finished UI setup.");
 
-    world.setup();
-    LOG_DEBUG("Finished World setup.");
 
     rend.update_debug_uniforms();
+    rend.per_tick_update(player_cam);
     // enqueue the starting chunks
-    director.discover_candidates(mesh_enqueue_delay_bench, gen_enqueue_delay_bencher);
-
     world.worldgen_epoch++;
+    director.discover_candidates();
+
     global_logger.epoch = Logger::clock::now();
+//    constexpr auto sq= [](auto n){
+//        return n*n;
+//    };
+    constexpr auto n_chunks = 1000;
+    //auto n_chunks = sq((director.GENERATION_DIST+1)*2);
+    //force_load_chunks(n_chunks);
 
 
+    force_load_chunks(n_chunks);
+//    for (int i = 0; i<1; i++){
+//        force_load_chunks(n_chunks);
+//        regenerate_world();
+//    }
 
-    //submit_gen_jobs(maxGenJobsPerFrame);
+
 }
 
 
@@ -676,8 +597,7 @@ void Engine::handle_input(){
         DebugOption::show_debug_ui = !DebugOption::show_debug_ui;
     }
     if(input.just_pressed(KEY_C)){
-        DebugOption::fill_neighbour_boundaries = !DebugOption::fill_neighbour_boundaries;
-        DebugOption::outline_neighbour_boundaries = !DebugOption::outline_neighbour_boundaries;
+        DebugOption::enable_3d_debug_visuals = !DebugOption::enable_3d_debug_visuals;
     }
 
     if(input.just_pressed(KEY_R)){
@@ -693,7 +613,6 @@ void Engine::handle_input(){
 
     // NOTE: MOVEMENT
     if(input.is_down(KeyModifiers{.shift=true})){
-        std::println("DOWN");
         player_cam.moveSpeed = Camera::SPRINT_MOVESPEED;
         player_cam.keyboard_sensitivity= Camera::SPRINT_KEYBOARD_SENSITVITY;
     }else if(input.is_down(KEY_LEFT_CONTROL)){
@@ -783,7 +702,7 @@ RenderTargetView Engine::secondaryView() {
 // ========
 void Engine::remesh_world(){
     director.ready_for_mesh.clear();
-    director.ready_for_lighting.clear();
+    director.ready_for_light.clear();
     rend.opaque_chunk_meshes.clear();
     rend.blended_chunk_meshes.clear();
     rend.cutout_chunk_meshes.clear();
@@ -793,81 +712,123 @@ void Engine::remesh_world(){
     }
 }
 void Engine::regenerate_world(){
-    // 1. clear job queues: (no more inputs to the threads)
-    rend.meshers.job_queue.clear();
-    world.generators.job_queue.clear();
+    
+
+    discard_results<JobType::Gen>();
+    discard_results<JobType::Light>();
+    discard_results<JobType::Mesh>();
+    director.ready_for_enqueue<JobType::Gen>().clear();
+    director.ready_for_enqueue<JobType::Light>().clear();
+    director.ready_for_enqueue<JobType::Mesh>().clear();
+
     {
         auto lock = per_chunk_log.lock_guard();
         per_chunk_log.clear();
     }
 
-    director.ready_for_gen.clear();
-    director.ready_for_mesh.clear();
+
     
-    // now, no more inputs into the threads are possible: 
-    // they only have the work which they have accepted.
-    // From here, we continuously pop off the queue until all the threads finish.
-    // But how do we know that all the threads are done?
-    
-    // ...
+
+    get_pf_accums<JobType::Gen>().reset();
+    get_pf_accums<JobType::Light>().reset();
+    get_pf_accums<JobType::Mesh>().reset();
 
     // _. clear the mesh lists
     rend.opaque_chunk_meshes.clear();
     rend.blended_chunk_meshes.clear();
     rend.cutout_chunk_meshes.clear();
+    rend.sorted_opaque_coords.clear();
+    rend.sorted_blended_coords.clear();
+    rend.sorted_cutout_coords.clear();
 
     // _. clear the chunk stores
-    world.regenerate();
+//    world.regenerate();
+    world.chunkMap.clear();
+//        worldgen_epoch++; // all new genjobs will have targetRevision incremented 
+//        LOG_DEBUG("{}->{}",active_cfg.cont_cfg.seed_offset, editable_cfg.world_seed);
+//        GenConfig::copy(active_cfg,editable_cfg);
 }
 void Engine::count_states(){
-    rb_genJobsAdded.write(gen_jobs_this_frame);
-    rb_genResultsAdded.write(gen_res_this_frame);
-    rb_meshJobsAdded.write(mesh_jobs_this_frame);
-    rb_meshResultsAdded.write(mesh_results_this_frame);
-
-    sizeof(long long int);
-    sizeof(i64);
-    n_generating = std::max(0ll,n_generating + gen_jobs_this_frame - gen_res_this_frame);
-    rb_generating.write(n_generating);
-
-    n_meshing = n_meshing + mesh_jobs_this_frame - mesh_results_this_frame;
-    rb_meshing.write(n_meshing);
-
-    n_gen_pending ={};
-    n_gen_ready_for_enqueue={};
-    n_gen_on_queue               ={};
-    n_gen_done                   ={};
-
-    n_mesh_pending   ={};
-    n_mesh_ready_for_enqueue     ={};
-    n_mesh_on_queue              ={};
-    n_mesh_done                  ={};
-    n_light_pending   ={};
-    n_light_ready_for_enqueue     ={};
-    n_light_on_queue              ={};
-    n_light_done                  ={};
-    for (const auto& [key, val]: world.chunkMap.entries){
-        switch(val.lighting_pipeline_state()){
-            // TODO: add
-            case PipelineState::pending: n_light_pending++; break;
-            case PipelineState::on_queue: n_light_on_queue++; break;
-            case PipelineState::done: n_light_done++; break;
-            case PipelineState::ready_for_enqueue: n_light_ready_for_enqueue++; break;
-        }
-        switch(val.gen_pipeline_state()){
-            // TODO: add
-            case PipelineState::pending: n_gen_pending++; break;
-            case PipelineState::on_queue: n_gen_on_queue++; break;
-            case PipelineState::done: n_gen_done++; break;
-            case PipelineState::ready_for_enqueue: n_gen_ready_for_enqueue++; break;
-        }
-
-        switch(val.mesh_pipeline_state()){
-            case PipelineState::pending : n_mesh_pending++; break;
-            case PipelineState::ready_for_enqueue  : n_mesh_ready_for_enqueue  ++; break;
-            case PipelineState::on_queue           : n_mesh_on_queue           ++; break;
-            case PipelineState::done               : n_mesh_done               ++; break;
-        }
-    }
-
+    update_state_counters<JobType::Gen>();
+    update_state_counters<JobType::Light>();
+    update_state_counters<JobType::Mesh>();
 };
+void Engine::force_load_chunks(i32 count){
+    std::println("===============================================================================");
+    std::println("Baking {} starting chunks...",count);
+    awaiting_initial_generation = true;
+//    assert(count > 32, "Small value can cause the queue to be jammed.");
+
+    auto t0 = timer::now();
+    timer::duration discovery_duration;
+    timer::duration gen_duration;
+    timer::duration light_duration;
+    timer::duration mesh_duration;
+    i32 gen_count = count;
+    i32 light_count = gen_count * .75; // not all chunks which are generated can be lit (edges)
+    i32 mesh_count = gen_count * .75; // not all chunks which are generated can be lit (edges)
+    // sleeps but still updates the ui.
+    
+    gen_bake_progress.set_total(count);
+    light_bake_progress.set_total(light_count);
+    mesh_bake_progress.set_total(mesh_count);
+    auto discovery_t0 = timer::now();
+    while(director.ready_for_enqueue<JobType::Gen>().size() < count){
+        std::println(stderr, "size:{} (count:{})",director.ready_for_enqueue<JobType::Gen>().size(),count);
+        director.discover_candidates();
+    }
+    discovery_duration = timer::now() - discovery_t0;
+
+
+    auto gen_t0 = timer::now();
+    gen_bake_progress.print_name();
+    render_busy_wait_until<JobType::Gen>(gen_count, [&](){
+        auto n_done = get_state_counters<JobType::Gen>().n_done;
+        gen_bake_progress.update(n_done);
+        return  n_done >= gen_count;
+    });
+    gen_duration = timer::now() - gen_t0;
+
+
+
+    auto light_t0 = timer::now();
+    light_bake_progress.print_name();
+    render_busy_wait_until<JobType::Light>(light_count,[&]{
+        auto n_done = get_state_counters<JobType::Light>().n_done;
+        light_bake_progress.update(n_done);
+        return  n_done >= light_count;
+    });
+    light_duration = timer::now() - light_t0;
+
+
+    auto mesh_t0= timer::now();
+    mesh_bake_progress.print_name();
+    render_busy_wait_until<JobType::Mesh>(mesh_count,[&]{
+        auto n_done = get_state_counters<JobType::Mesh>().n_done;
+        mesh_bake_progress.update(n_done);
+        return  n_done >= mesh_count;
+    });
+    mesh_duration = timer::now() - mesh_t0;
+
+    auto duration = timer::now() - t0;
+    auto fmt_var = [](auto v){
+        if (v<1.0f){
+            return std::format("{:>18}",std::format("{:4.2f}ms ({:4.2f}us)",v,v*1000.0f));
+        }else{
+            return std::format("{:>9}",std::format("{:4.2f}ms",v));
+        }
+    };
+    auto ms = [&](auto dur){ return fmt_var(timer::get_milliseconds(dur)); };
+    auto ms_per = [&](auto dur, auto n){ return fmt_var(timer::get_milliseconds(dur)/n); };
+
+    auto gen_pct = 100.0f * timer::get_milliseconds(gen_duration) / timer::get_milliseconds(duration);
+    auto lit_pct = 100.0f * timer::get_milliseconds(light_duration) / timer::get_milliseconds(duration);
+    auto mes_pct = 100.0f * timer::get_milliseconds(mesh_duration) / timer::get_milliseconds(duration);
+    std::println("===============================================================================");
+    std::println("Finished baking {} starting chunks, took {} ,{}/chunk",
+    count, ms(duration),ms_per(duration,count));
+    std::println("Generated {}, took {}({:4.1f}%) ,{}/chunk", gen_count,   ms(gen_duration),  gen_pct,  ms_per(gen_duration,count));
+    std::println("Lit       {}, took {}({:4.1f}%) ,{}/chunk", light_count, ms(light_duration),lit_pct,  ms_per(light_duration,count));
+    std::println("Meshed    {}, took {}({:4.1f}%) ,{}/chunk", mesh_count,  ms(mesh_duration), mes_pct,  ms_per(mesh_duration,count));
+    awaiting_initial_generation= false;
+}

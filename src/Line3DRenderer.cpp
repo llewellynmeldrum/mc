@@ -51,11 +51,11 @@ void Line3DRenderer::setup(){
     vao.bind();
 
     quad_vbo.bind();
-    quad_vbo.load<Line3DVertex>(Line3DVertices);
-    vao.apply_layout(Line3DVertex::layout());
+    quad_vbo.load(const_span{Line3DVertices});
+    apply_vertex_layout<Line3DVertex>();
 
     instance_vbo.bind();
-    vao.apply_layout(Line3DInstance::layout());
+    apply_vertex_layout<Line3DInstance>();
 
     quad_ebo.bind();
     quad_ebo.load(Line3DIndices);
@@ -79,7 +79,7 @@ void Line3DRenderer::update(Camera& cam, std::span<Line3D> lines){
     updateInstances(cam,lines);
 
     vao.bind();
-    instance_vbo.load<Line3DInstance>(instances);
+    instance_vbo.load<Line3DInstance,std::dynamic_extent>(instances);
     vao.unbind();
 }
 decltype(auto) makeLine3DInstance(const Line3D& val){

@@ -82,29 +82,49 @@ Added heaps of new blocks, overhauled wordlgen, added more trees and foliage, no
 
 # Tools used
 - gnu make
-- CMake (thanks chat gippity)
+- CMake 
 - lldb
-- gcc16 / clang22
-- GIMP
+- gcc16 / clang22 
+- GIMP (for the textures)
 - nvim (btw)
 
 # Libs used
-- glfw (for windowing and input)
-- glm (opengl math library, for vector types and matrix math)
-- glbinding (loads opengl functions with c++11 bindings, slightly stronger typing than GLAD)
-- ~FastNoise2~ FastNoiseLite (noise functions for terrain generation)
-- cpptrace (for debugging)
-- Tracy (for profiling)
-
+## Vendored (`./external`)
+```markdown
+|library|purpose|
+|-|-|
+| [glfw](https://github.com/glfw/glfw) | for windowing and input |
+| [glm](https://github.com/g-truc/glm) | opengl math library, for vector types and matrix math |
+| [glbinding](https://github.com/cginternals/glbinding) | loads opengl functions with c++11 bindings |
+| [Dear ImGui](https://github.com/ocornut/imgui) | All current ui functionality. Awesome library |
+| [cpptrace](https://github.com/jeremy-rifkin/cpptrace) | Provides cross platform stack traces |
+| [libassert](https://github.com/jeremy-rifkin/libassert) | Sister lib of cpptrace, excellent asserts and debugging helpers |
+| [ranges-v3](https://github.com/ericniebler/range-v3) | Temporary(tm) dependency whilst awaiting LLVM to finish libc++23 |
+| [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | single header noise generation lib|
+| [stb_image](https://github.com/nothings/stb) | Single header image loading library|
+| ~~[Tracy](https://github.com/wolfpld/tracy)~~ | ~~for profiling~~ |
+```
 
 # Resources used
 - [learnopengl.com](https://learnopengl.com/Introduction) - excellent resource for learning opengl for basic 3D, especially with backwards compatability in mind (macos users rejoice)
-
 - [An Analysis of Minecraft-like Engines - mikolalysenko](https://0fps.net/2012/01/14/an-analysis-of-minecraft-like-engines/) - Great (kinda math heavy) article about some chunk optimisations i hope to use
-
-- [Meshing in a Minecraft Game - mikolalysenko](https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/) - Another cool article
+- [Meshing in a Minecraft Game - mikolalysenko](https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/) - Another cool article. basically anything from this guy is really good
+- [Voxel lighting - mikolalysenko](https://0fps.net/2018/02/21/voxel-lighting/) - This guy basically built the entire engine for me at this point
+- [Fast flood fill lighting pt.1 - seedsofandromeda.com](https://web.archive.org/web/20210117212430/https://www.seedofandromeda.com/blogs/29-fast-flood-fill-lighting-in-a-blocky-voxel-game-pt-1) - note: archive.org link because the original link is dead.
+- [Fast flood fill lighting pt.2 - seedsofandromeda.com](https://web.archive.org/web/20210127110114/https://www.seedofandromeda.com/blogs/30-fast-flood-fill-lighting-in-a-blocky-voxel-game-pt-2) - note: archive.org link because the original link is dead.
 - [The World Generation Of Minecraft - Alan Zucconi](https://www.alanzucconi.com/2022/06/05/minecraft-world-generation/) - good intro to minecrafts world gen
 - [www.demangler.com](https://www.demangler.com/) - holy goated 
 - [vkguide multithreading blog](https://vkguide.dev/docs/extra-chapter/multithreading/#:~:text=The%20first%20and%20most%20classic,them%20perform%20their%20own%20task)
 - [Ex mcpe dev's article on optimizing caves](https://tomcc.github.io/2014/08/31/visibility-2.html)
-- [mcsrc.dev](https://mcsrc.dev) really cool tool for browsing minecraft source code legally. I am larping i barely understood 5% of the java slop
+- [Minecraft source code 'hoster' - mcsrc.dev](https://mcsrc.dev) really cool tool for browsing minecraft source code legally. I am larping i barely understood 5% of the java slop
+
+Probably more useful than any of the resources listed was the motivation provided by these excellent youtubers and their videos on minecraft clones:
+- [Low Level Game Dev](https://www.youtube.com/@lowlevelgamedev9330)
+- [WSAL Evan](https://www.youtube.com/@wsalevan)
+- [FinalForEach](https://www.youtube.com/@finalforeach)
+- [TheCherno](https://www.youtube.com/@TheCherno)
+
+And general c++ youtubers:
+- [Jason Turner](https://www.youtube.com/@cppweekly)
+- [Nathan Baggs](https://www.youtube.com/@nathanbaggs)
+- [Coding Jesus](https://www.youtube.com/@CodingJesus)

@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <concepts/concepts.hpp>
+#include <filesystem>
 #include <mdspan>
 #include <utility>
 
@@ -42,7 +43,7 @@ public:
     using value_type = V;
 
     GenericChunkSlice(nullptr_t null_ctor):is_empty(true){}
-    GenericChunkSlice( GenericChunkView<const mapped_type> src, SliceType _slice_type, ChunkBlockPos p1, ChunkBlockPos p2) 
+    GenericChunkSlice(GenericChunkView<const mapped_type> src, SliceType _slice_type, ChunkBlockPos p1, ChunkBlockPos p2) 
         : slice_type(_slice_type) 
     {
         switch (slice_type){
@@ -70,15 +71,16 @@ public:
         });
     }
     ~GenericChunkSlice() = default;
-
-
     SliceType slice_type;
+
+
     auto data(this auto& self){
         return self.buf.data(); 
     }
 
 
     constexpr decltype(auto) at(this auto& self, i32 cx, i32 cy, i32 cz) {
+        assert(!self.is_empty);
         switch(self.slice_type){
             case SliceType::X:
                 assert_eq(cx,self.locked_axis_val);
@@ -94,24 +96,8 @@ public:
             break;
         }
     }
-
     constexpr decltype(auto) at(this auto& self, ChunkBlockPos p) {
-        switch(self.slice_type){
-            case SliceType::X:
-                assert_eq(p.x,self.locked_axis_val);
-                return self.at_2d(p.y,p.z);
-            break;
-
-            case SliceType::Y:
-                assert_eq(p.y,self.locked_axis_val);
-                return self.at_2d(p.x,p.z);
-            break;
-
-            case SliceType::Z:
-                assert_eq(p.z,self.locked_axis_val);
-                return self.at_2d(p.x,p.y);
-            break;
-        }
+        return self.at(p.x,p.y,p.z);
     }
 
     // NOTE: 
@@ -125,6 +111,7 @@ public:
     }
 
     constexpr bool contains(ChunkBlockPos p)const noexcept{
+        assert(!is_empty);
         switch(slice_type){
             case SliceType::X:
                 return  p.x == locked_axis_val && 
@@ -147,12 +134,18 @@ public:
     }
 private:
     constexpr decltype(auto) span2d(this auto& self){
-        if (self.slice_type == SliceType::X){
+        switch(self.slice_type){
+        case SliceType::X:
             return std::mdspan(self.data(), ChunkInfo::HEIGHT, ChunkInfo::ZWIDTH);
-        }else if (self.slice_type == SliceType::Y){
+            break;
+
+        case SliceType::Y:
             return std::mdspan(self.data(), ChunkInfo::XWIDTH, ChunkInfo::ZWIDTH);
-        }else{
+            break;
+
+        case SliceType::Z:
             return std::mdspan(self.data(), ChunkInfo::XWIDTH, ChunkInfo::HEIGHT);
+            break;
         }
     }
     // eg: if an SliceType::X, a==y, b==z

@@ -31,29 +31,29 @@ namespace cross_vtx{
     inline const ShapeQuadList<QUADS_PER_CROSS> quads = {
         // Blue 
         Quad{
-            Vertex{NNP, {0,1}, 0,shape},
-            Vertex{PNN, {1,1}, 0,shape},
-            Vertex{PPN, {1,0}, 0,shape},
-            Vertex{NPP, {0,0}, 0,shape},
+            make_vtx<shape>(NNP, {0,1}, 0),
+            make_vtx<shape>(PNN, {1,1}, 0),
+            make_vtx<shape>(PPN, {1,0}, 0),
+            make_vtx<shape>(NPP, {0,0}, 0),
         },
         Quad{
-            Vertex{PNN, {1,1}, 0,shape},
-            Vertex{NNP, {0,1}, 0,shape},
-            Vertex{NPP, {0,0}, 0,shape},
-            Vertex{PPN, {1,0}, 0,shape},
+            make_vtx<shape>(PNN, {1,1}, 0),
+            make_vtx<shape>(NNP, {0,1}, 0),
+            make_vtx<shape>(NPP, {0,0}, 0),
+            make_vtx<shape>(PPN, {1,0}, 0),
         },
         // Red
         Quad{
-            Vertex{NNN, {0,1}, 1,shape},
-            Vertex{PNP, {1,1}, 1,shape},
-            Vertex{PPP, {1,0}, 1,shape},
-            Vertex{NPN, {0,0}, 1,shape},
+            make_vtx<shape>(NNN, {0,1}, 1),
+            make_vtx<shape>(PNP, {1,1}, 1),
+            make_vtx<shape>(PPP, {1,0}, 1),
+            make_vtx<shape>(NPN, {0,0}, 1),
         },
         Quad{
-            Vertex{PNP, {1,1}, 1,shape},
-            Vertex{NNN, {0,1}, 1,shape},
-            Vertex{NPN, {0,0}, 1,shape},
-            Vertex{PPP, {1,0}, 1,shape},
+            make_vtx<shape>(PNP, {1,1}, 1),
+            make_vtx<shape>(NNN, {0,1}, 1),
+            make_vtx<shape>(NPN, {0,0}, 1),
+            make_vtx<shape>(PPP, {1,0}, 1),
         },
     };
 }
@@ -72,46 +72,46 @@ namespace cube_vtx{
     inline ShapeQuadList<QUADS_PER_CUBE> quads = {
         // Direction::forward
         Quad{
-            Vertex{PNN, {0,1}, 0,shape},
-            Vertex{NNN, {1,1}, 0,shape},
-            Vertex{NPN, {1,0}, 0,shape},
-            Vertex{PPN, {0,0}, 0,shape},
+            make_vtx<shape>(PNN, {0,1}, 0),
+            make_vtx<shape>(NNN, {1,1}, 0),
+            make_vtx<shape>(NPN, {1,0}, 0),
+            make_vtx<shape>(PPN, {0,0}, 0),
         },
         // Direction::Backward
         Quad{
-            Vertex{NNP, {0,1}, 1,shape},
-            Vertex{PNP, {1,1}, 1,shape},
-            Vertex{PPP, {1,0}, 1,shape},
-            Vertex{NPP, {0,0}, 1,shape},
+            make_vtx<shape>(NNP, {0,1}, 1),
+            make_vtx<shape>(PNP, {1,1}, 1),
+            make_vtx<shape>(PPP, {1,0}, 1),
+            make_vtx<shape>(NPP, {0,0}, 1),
         },
         // Direction:: Left
         Quad{
-            Vertex{NNN, {0,1}, 2,shape},
-            Vertex{NNP, {1,1}, 2,shape},
-            Vertex{NPP, {1,0}, 2,shape},
-            Vertex{NPN, {0,0}, 2,shape},
+            make_vtx<shape>(NNN, {0,1}, 2),
+            make_vtx<shape>(NNP, {1,1}, 2),
+            make_vtx<shape>(NPP, {1,0}, 2),
+            make_vtx<shape>(NPN, {0,0}, 2),
         },
 
         // Direction::Right
         Quad{
-            Vertex{PNP, {0,1}, 3,shape},
-            Vertex{PNN, {1,1}, 3,shape},
-            Vertex{PPN, {1,0}, 3,shape},
-            Vertex{PPP, {0,0}, 3,shape},
+            make_vtx<shape>(PNP, {0,1}, 3),
+            make_vtx<shape>(PNN, {1,1}, 3),
+            make_vtx<shape>(PPN, {1,0}, 3),
+            make_vtx<shape>(PPP, {0,0}, 3),
         },
         // Direction::Down
         Quad{
-            Vertex{NNN, {0,0}, 4,shape},
-            Vertex{PNN, {1,0}, 4,shape},
-            Vertex{PNP, {1,1}, 4,shape},
-            Vertex{NNP, {0,1}, 4,shape},
+            make_vtx<shape>(NNN, {0,0}, 4),
+            make_vtx<shape>(PNN, {1,0}, 4),
+            make_vtx<shape>(PNP, {1,1}, 4),
+            make_vtx<shape>(NNP, {0,1}, 4),
         },
         // Direction::Up
         Quad{
-            Vertex{NPP, {0,0}, 5,shape},
-            Vertex{PPP, {1,0}, 5,shape},
-            Vertex{PPN, {1,1}, 5,shape},
-            Vertex{NPN, {0,1}, 5,shape},
+            make_vtx<shape>(NPP, {0,0}, 5),
+            make_vtx<shape>(PPP, {1,0}, 5),
+            make_vtx<shape>(PPN, {1,1}, 5),
+            make_vtx<shape>(NPN, {0,1}, 5),
         },
     };
 }
@@ -172,46 +172,46 @@ namespace cactus_vtx{
     inline const ShapeQuadList<QUADS_PER_CUBE> quads = {
         // Direction::forward
         Quad{
-            Vertex{{P,Z,HZ}, {0,1}, 0,shape},
-            Vertex{{Z,Z,HZ}, {1,1}, 0,shape},
-            Vertex{{Z,P,HZ}, {1,0}, 0,shape},
-            Vertex{{P,P,HZ}, {0,0}, 0,shape},
+            make_vtx<shape>({P,Z,HZ}, {0,1}, 0),
+            make_vtx<shape>({Z,Z,HZ}, {1,1}, 0),
+            make_vtx<shape>({Z,P,HZ}, {1,0}, 0),
+            make_vtx<shape>({P,P,HZ}, {0,0}, 0),
         },
         // Direction::Backward
         Quad{
-            Vertex{{Z,Z,HP}, {1,1}, 1,shape},
-            Vertex{{P,Z,HP}, {0,1}, 1,shape},
-            Vertex{{P,P,HP}, {0,0}, 1,shape},
-            Vertex{{Z,P,HP}, {1,0}, 1,shape},
+            make_vtx<shape>({Z,Z,HP}, {1,1}, 1),
+            make_vtx<shape>({P,Z,HP}, {0,1}, 1),
+            make_vtx<shape>({P,P,HP}, {0,0}, 1),
+            make_vtx<shape>({Z,P,HP}, {1,0}, 1),
         },
         // Direction:: Left
         Quad{
-            Vertex{{HZ,Z,Z}, {0,1}, 2,shape},
-            Vertex{{HZ,Z,P}, {1,1}, 2,shape},
-            Vertex{{HZ,P,P}, {1,0}, 2,shape},
-            Vertex{{HZ,P,Z}, {0,0}, 2,shape},
+            make_vtx<shape>({HZ,Z,Z}, {0,1}, 2),
+            make_vtx<shape>({HZ,Z,P}, {1,1}, 2),
+            make_vtx<shape>({HZ,P,P}, {1,0}, 2),
+            make_vtx<shape>({HZ,P,Z}, {0,0}, 2),
         },
 
         // Directio{n,:,:}Right
         Quad{
-            Vertex{{HP,Z,P}, {0,1}, 3,shape},
-            Vertex{{HP,Z,Z}, {1,1}, 3,shape},
-            Vertex{{HP,P,Z}, {1,0}, 3,shape},
-            Vertex{{HP,P,P}, {0,0}, 3,shape},
+            make_vtx<shape>({HP,Z,P}, {0,1}, 3),
+            make_vtx<shape>({HP,Z,Z}, {1,1}, 3),
+            make_vtx<shape>({HP,P,Z}, {1,0}, 3),
+            make_vtx<shape>({HP,P,P}, {0,0}, 3),
         },
         // Directio{n,:,:}Down
         Quad{
-            Vertex{{Z,HZ,Z}, {0,0}, 4,shape},
-            Vertex{{P,HZ,Z}, {1,0}, 4,shape},
-            Vertex{{P,HZ,P}, {1,1}, 4,shape},
-            Vertex{{Z,HZ,P}, {0,1}, 4,shape},
+            make_vtx<shape>({Z,HZ,Z}, {0,0}, 4),
+            make_vtx<shape>({P,HZ,Z}, {1,0}, 4),
+            make_vtx<shape>({P,HZ,P}, {1,1}, 4),
+            make_vtx<shape>({Z,HZ,P}, {0,1}, 4),
         },
         // Directio{n,:,:Up
         Quad{
-            Vertex{{Z,HP,P}, {0,0}, 5,shape},
-            Vertex{{P,HP,P}, {1,0}, 5,shape},
-            Vertex{{P,HP,Z}, {1,1}, 5,shape},
-            Vertex{{Z,HP,Z}, {0,1}, 5,shape},
+            make_vtx<shape>({Z,HP,P}, {0,0}, 5),
+            make_vtx<shape>({P,HP,P}, {1,0}, 5),
+            make_vtx<shape>({P,HP,Z}, {1,1}, 5),
+            make_vtx<shape>({Z,HP,Z}, {0,1}, 5),
         },
     };
 }
@@ -225,46 +225,46 @@ namespace lower_half_slab_vtx{
     inline const ShapeQuadList<QUADS_PER_CUBE> quads = {
         // Direction::forward
         Quad{
-            Vertex{{P,Z,Z},{0, 1},0,shape},
-            Vertex{{Z,Z,Z}, {1, 1}, 0,shape},
-            Vertex{{Z,H,Z}, {1,.5}, 0,shape},
-            Vertex{{P,H,Z}, {0,.5}, 0,shape},
+            make_vtx<shape>({P,Z,Z},{0, 1},0),
+            make_vtx<shape>({Z,Z,Z}, {1, 1}, 0),
+            make_vtx<shape>({Z,H,Z}, {1,.5}, 0),
+            make_vtx<shape>({P,H,Z}, {0,.5}, 0),
         },
         // Direction::Backward
         Quad{
-            Vertex{{Z,Z,P}, {1, 1}, 1,shape},
-            Vertex{{P,Z,P}, {0, 1}, 1,shape},
-            Vertex{{P,H,P}, {0,.5}, 1,shape},
-            Vertex{{Z,H,P}, {1,.5}, 1,shape},
+            make_vtx<shape>({Z,Z,P}, {1, 1}, 1),
+            make_vtx<shape>({P,Z,P}, {0, 1}, 1),
+            make_vtx<shape>({P,H,P}, {0,.5}, 1),
+            make_vtx<shape>({Z,H,P}, {1,.5}, 1),
         },
         // Direction:: Left
         Quad{
-            Vertex{{Z,Z,Z}, {0, 1}, 2,shape},
-            Vertex{{Z,Z,P}, {1, 1}, 2,shape},
-            Vertex{{Z,H,P}, {1,.5}, 2,shape},
-            Vertex{{Z,H,Z}, {0,.5}, 2,shape},
+            make_vtx<shape>({Z,Z,Z}, {0, 1}, 2),
+            make_vtx<shape>({Z,Z,P}, {1, 1}, 2),
+            make_vtx<shape>({Z,H,P}, {1,.5}, 2),
+            make_vtx<shape>({Z,H,Z}, {0,.5}, 2),
         },
 
         // Directio{n,:,:}Right
         Quad{
-            Vertex{{P,Z,P}, {0, 1}, 3,shape},
-            Vertex{{P,Z,Z}, {1, 1}, 3,shape},
-            Vertex{{P,H,Z}, {1,.5}, 3,shape},
-            Vertex{{P,H,P}, {0,.5}, 3,shape},
+            make_vtx<shape>({P,Z,P}, {0, 1}, 3),
+            make_vtx<shape>({P,Z,Z}, {1, 1}, 3),
+            make_vtx<shape>({P,H,Z}, {1,.5}, 3),
+            make_vtx<shape>({P,H,P}, {0,.5}, 3),
         },
         // Directio{n,:,:}Down
         Quad{
-            Vertex{{Z,Z,Z}, {0, 0}, 4,shape},
-            Vertex{{P,Z,Z}, {1, 0}, 4,shape},
-            Vertex{{P,Z,P}, {1, 1}, 4,shape},
-            Vertex{{Z,Z,P}, {0, 1}, 4,shape},
+            make_vtx<shape>({Z,Z,Z}, {0, 0}, 4),
+            make_vtx<shape>({P,Z,Z}, {1, 0}, 4),
+            make_vtx<shape>({P,Z,P}, {1, 1}, 4),
+            make_vtx<shape>({Z,Z,P}, {0, 1}, 4),
         },
         // Directio{n,:,:Up
         Quad{
-            Vertex{{Z,H,P}, {0, 0}, 5,shape},
-            Vertex{{P,H,P}, {1, 0}, 5,shape},
-            Vertex{{P,H,Z}, {1, 1}, 5,shape},
-            Vertex{{Z,H,Z}, {0, 1}, 5,shape},
+            make_vtx<shape>({Z,H,P}, {0, 0}, 5),
+            make_vtx<shape>({P,H,P}, {1, 0}, 5),
+            make_vtx<shape>({P,H,Z}, {1, 1}, 5),
+            make_vtx<shape>({Z,H,Z}, {0, 1}, 5),
         },
     };
 }
@@ -277,46 +277,46 @@ namespace top_half_slab_vtx{
     inline const ShapeQuadList<QUADS_PER_CUBE> quads = {
         // Direction::forward
         Quad{
-            Vertex{{P,H,Z}, {0, 1}, 0, shape},
-            Vertex{{Z,H,Z}, {1, 1}, 0, shape},
-            Vertex{{Z,P,Z}, {1,.5}, 0, shape},
-            Vertex{{P,P,Z}, {0,.5}, 0, shape},
+            make_vtx<shape>({P,H,Z}, {0, 1}, 0),
+            make_vtx<shape>({Z,H,Z}, {1, 1}, 0),
+            make_vtx<shape>({Z,P,Z}, {1,.5}, 0),
+            make_vtx<shape>({P,P,Z}, {0,.5}, 0),
         },
         // Direction::Backward
         Quad{
-            Vertex{{Z,H,P}, {1, 1}, 1, shape},
-            Vertex{{P,H,P}, {0, 1}, 1, shape},
-            Vertex{{P,P,P}, {0,.5}, 1, shape},
-            Vertex{{Z,P,P}, {1,.5}, 1, shape},
+            make_vtx<shape>({Z,H,P}, {1, 1}, 1),
+            make_vtx<shape>({P,H,P}, {0, 1}, 1),
+            make_vtx<shape>({P,P,P}, {0,.5}, 1),
+            make_vtx<shape>({Z,P,P}, {1,.5}, 1),
         },
         // Direction:: Left
         Quad{
-            Vertex{{Z,H,Z}, {0, 1}, 2, shape},
-            Vertex{{Z,H,P}, {1, 1}, 2, shape},
-            Vertex{{Z,P,P}, {1,.5}, 2, shape},
-            Vertex{{Z,P,Z}, {0,.5}, 2, shape},
+            make_vtx<shape>({Z,H,Z}, {0, 1}, 2),
+            make_vtx<shape>({Z,H,P}, {1, 1}, 2),
+            make_vtx<shape>({Z,P,P}, {1,.5}, 2),
+            make_vtx<shape>({Z,P,Z}, {0,.5}, 2),
         },
 
         // Directio{n,:,:}Right
         Quad{
-            Vertex{{P,H,P}, {0, 1}, 3, shape},
-            Vertex{{P,H,Z}, {1, 1}, 3, shape},
-            Vertex{{P,P,Z}, {1,.5}, 3, shape},
-            Vertex{{P,P,P}, {0,.5}, 3, shape},
+            make_vtx<shape>({P,H,P}, {0, 1}, 3),
+            make_vtx<shape>({P,H,Z}, {1, 1}, 3),
+            make_vtx<shape>({P,P,Z}, {1,.5}, 3),
+            make_vtx<shape>({P,P,P}, {0,.5}, 3),
         },
         // Directio{n,:,:}Down
         Quad{
-            Vertex{{Z,H,Z}, {0, 0}, 4, shape},
-            Vertex{{P,H,Z}, {1, 0}, 4, shape},
-            Vertex{{P,H,P}, {1, 1}, 4, shape},
-            Vertex{{Z,H,P}, {0, 1}, 4, shape},
+            make_vtx<shape>({Z,H,Z}, {0, 0}, 4),
+            make_vtx<shape>({P,H,Z}, {1, 0}, 4),
+            make_vtx<shape>({P,H,P}, {1, 1}, 4),
+            make_vtx<shape>({Z,H,P}, {0, 1}, 4),
         },
         // Directio{n,:,:Up
         Quad{
-            Vertex{{Z,P,P}, {0, 0}, 5, shape},
-            Vertex{{P,P,P}, {1, 0}, 5, shape},
-            Vertex{{P,P,Z}, {1, 1}, 5, shape},
-            Vertex{{Z,P,Z}, {0, 1}, 5, shape},
+            make_vtx<shape>({Z,P,P}, {0, 0}, 5),
+            make_vtx<shape>({P,P,P}, {1, 0}, 5),
+            make_vtx<shape>({P,P,Z}, {1, 1}, 5),
+            make_vtx<shape>({Z,P,Z}, {0, 1}, 5),
         },
     };
 }
@@ -328,7 +328,7 @@ static inline constexpr f32 Z = 0.0f;
 
 template<size_t N>
 static consteval inline Vertex make_snow_vtx(glm::vec3 pos, glm::vec2 uv, i32 dir){
-    return Vertex(pos, uv, dir,shape_of_snow_level<N>);
+    return make_vtx<shape_of_snow_level<N>>(pos, uv, dir);
 }
 template<size_t N, f32 PY=(N/16.0f)>
 static constexpr inline ShapeQuadList make_snow_quadlist{

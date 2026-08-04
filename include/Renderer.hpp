@@ -15,6 +15,7 @@
 #include "TextureAtlas.hpp"
 #include "DebugChunkRenderer.hpp"
 #include "RenderTargets.hpp"
+#include "Skybox.hpp"
 
 #include "Chunk.hpp"
 FORWARD_DECL_STRUCT(Engine)
@@ -25,17 +26,16 @@ struct Renderer {
     Renderer();
     ~Renderer() = default;
 
+    SkyboxRenderer skybox{{0.25,0.5,0.85}};
     TextureAtlas cube_atlas;
     TextureAtlas cross_atlas;
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
     std::vector <TextureAtlas*> atlas_list;
-    JobProcessor<MeshJob, MeshResult,7> meshers;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
     DebugChunkMesher dbg_rend;
     Line3DRenderer line3d_rend;
     std::vector<Line3D> player_cam_frustum_lines;
-    glm::vec4 clear_color = {0.25, 0.5, 0.85, 1.0};
 
     slot_map<WorldChunkCoord,Mesh> opaque_chunk_meshes;
     std::vector<WorldChunkCoord> sorted_opaque_coords;
@@ -61,6 +61,7 @@ struct Renderer {
     f32 gamma = 0.8f;
     f32 sunlight_smooth_falloff_factor = 0.150f;
 
+    void per_tick_update(Camera const& player_cam);
     void update_debug_uniforms();
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_blended_chunks(WorldFloatPos cam_pos);
@@ -69,6 +70,7 @@ struct Renderer {
     void draw_to(Camera& cam, RenderTargetView target, FrameProfiler* prof);
 
     void prepare_blended_pass();
+    void prepare_skybox_pass();
     void prepare_opaque_pass();
     void prepare_cutout_pass();
 
@@ -79,7 +81,7 @@ struct Renderer {
     void draw_debugChunks_to(Camera&cam, Engine* sim, RenderTargetView target);
     void draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
-    void clear_to(RenderTargetView target);
+    void draw_sky_to(RenderTargetView target);
 
     void update_player_cam_frustum_lines(Engine* sim);
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {

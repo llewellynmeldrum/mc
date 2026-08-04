@@ -47,7 +47,7 @@ void VertexBuffer::load_bytes(const void* data, size_t size_bytes,gl::GLenum usa
     glBufferData(BufferTarget(), size_bytes, data, usage);
 }
 
-void VertexArray::apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs) {
+void apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs) {
     int i = 0;
     for (const auto& attr : attrs) {
         if (attr.is_integer) {
@@ -56,7 +56,7 @@ void VertexArray::apply_layout_impl(i32 stride, const_span<VertexAttribute> attr
                 attr.count,              //
                 gl_type_from(attr.vat),  //
                 stride,                  //
-                attr.offset_ptr          //
+                reinterpret_cast<const void*>(attr.offset_ptr)//
             );
         } else {
             glVertexAttribPointer(       //
@@ -65,7 +65,7 @@ void VertexArray::apply_layout_impl(i32 stride, const_span<VertexAttribute> attr
                 gl_type_from(attr.vat),  //
                 attr.normalized,         //
                 stride,                  //
-                attr.offset_ptr          //
+                reinterpret_cast<const void*>(attr.offset_ptr)//
             );
         }
         glEnableVertexAttribArray(attr.location);
@@ -130,6 +130,9 @@ void VertexArray::drawElements(i32 num, GLenum usage_hint) const {
     assert(num != 0);
     glDrawElements(usage_hint, num, GL_UNSIGNED_INT, nullptr);
 }
-void VertexArray::drawArrays(i32 count, GLenum usage_hint, i32 offset) const {
-    glDrawArrays(usage_hint, offset, count);
+// @brief shit
+// @param vertex_count
+// @param usage_hint aka primitive type, GL_TRIANGLES etc 
+void VertexArray::drawArrays(i32 vertex_count, GLenum usage_hint, i32 offset) const {
+    glDrawArrays(usage_hint, offset, vertex_count);
 }

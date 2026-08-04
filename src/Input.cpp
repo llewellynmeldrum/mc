@@ -21,7 +21,7 @@ void KeyModifiers::apply(int mods) {
 
 void Input::key_callback(GLFWwindow* win_ptr, int key, int scancode, int action, int mods) {
     auto* ctx = (Engine*)glfwGetWindowUserPointer(win_ptr);
-    auto before = mods;
+//    auto before = mods;
     ctx->input.mods.apply(mods);
 //    LOG_DEBUG("cb MODS: {}, ({})",ctx->input.mods, ctx->input.mods);
 }
@@ -57,6 +57,11 @@ bool Input::just_released(KeyCode code) {
     return prev_pressed[code] && !pressed[code];
 }
 
+void Input::poll() {
+    glfwPollEvents();
+    update();
+}
+
 void Input::set_clipboard(std::string str){
     LOG_DEBUG("CLIPBOARD {}", str);
     push_notification("Copied '{}' to clipboard.", str);
@@ -67,8 +72,3 @@ std::string Input::get_clipboard(){
     const char* res = glfwGetClipboardString(win_ptr);
     return {res}; //NOLINT
 }
-void Input::poll() {
-    glfwPollEvents();
-    update();
-}
-

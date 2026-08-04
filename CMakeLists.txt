@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 4.3.3)
 
 project(mc LANGUAGES CXX)
 
@@ -18,7 +18,6 @@ endif()
 # -- deps --
 add_subdirectory(external/imgui)
 add_subdirectory(external/glbinding EXCLUDE_FROM_ALL)
-add_subdirectory(external/cpptrace)
 
 # -- source files --
 file( GLOB_RECURSE APP_SRC CONFIGURE_DEPENDS
@@ -61,6 +60,9 @@ target_include_directories(mc PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/qlibs-reflect"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/libassert"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/magic_enum"
 
 #    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
 #    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
@@ -79,13 +81,23 @@ set_target_properties( mc PROPERTIES
 # ===========
 # range-v3 : to get some missing c++23 ranges in clang22
 # ===========
+set(CPPTRACE_BUILD_SHARED   OFF)   # static → no runtime .dylib path juggling
+set(CPPTRACE_BUILD_TESTING  OFF)
+set(MAGIC_ENUM_OPT_BUILD_TESTS OFF)
+set(MAGIC_ENUM_OPT_INSTALL     OFF)
+
 include(FetchContent)
-FetchContent_Declare(range-v3
-  GIT_REPOSITORY https://github.com/ericniebler/range-v3.git
-  GIT_TAG master)          # 0.12.0 is old (2022); master is friendlier to clang-22/C++23
-FetchContent_MakeAvailable(range-v3)
-target_link_libraries(mc PRIVATE range-v3::range-v3)
-target_include_directories(mc SYSTEM PRIVATE ${range-v3_SOURCE_DIR}/include)
+FetchContent_Declare(cpptrace   SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/cpptrace)
+FetchContent_Declare(magic_enum SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/magic_enum)
+FetchContent_Declare(libassert  SOURCE_DIR ${CMAKE_SOURCE_DIR}/external/libassert)
+
+FetchContent_MakeAvailable(cpptrace)
+
+target_include_directories( mc SYSTEM PRIVATE  ${CMAKE_SOURCE_DIR}/external/range-v3/include)
+
+# libassert pulls magic_enum + cpptrace by name, since its already declared there is no fetch
+FetchContent_MakeAvailable(libassert)
+target_link_libraries(mc PRIVATE libassert::assert)
 
 
 
@@ -100,11 +112,11 @@ target_compile_options(     imgui    PRIVATE    ${GLFW3_CFLAGS_OTHER})
 target_link_libraries(      imgui    PUBLIC     ${GLFW3_LIBRARIES})
 target_link_directories(    imgui    PUBLIC     ${GLFW3_LIBRARY_DIRS})
 
+
 # -- CPPTRACE (stack traces)
 if (ENABLE_CPPTRACE)
 target_link_libraries(mc PRIVATE cpptrace::cpptrace)
 endif()
-
 
 # -GLBINDING (gl function loader)
 target_link_directories(mc PRIVATE
@@ -118,18 +130,28 @@ if(TARGET glbinding::glbinding)
     )
 else()
     message(FATAL_ERROR "Could not find glbinding CMake targets after add_subdirectory(external/glbinding)")
-    #    target_link_libraries(mc PRIVATE
-    #        glbinding
-    #        glbinding-aux
-    #        imgui
-    #    )
 endif()
 
-# -- CURL (only needed for debugging opengl errors, we literally download the help pages to understand errrors)
+# ===========
+# CURL 
+# ===========
+# (only needed for debugging opengl errors, we literally download the help pages to understand errrors)
 find_package(CURL REQUIRED)
 
-# -- LibXML2 (also only for debugging opengl errors. Parses the webpages for us)
+# ===========
+# LibXML2  
+# ===========
+# (also only for debugging opengl errors. Parses the webpages for us)
 find_package(LibXml2 REQUIRED)
+
+
+# ===========
+# Precompiled header (pch.hpp)
+# ===========
+target_precompile_headers(mc PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/pch.hpp"
+)
+
 
 target_link_libraries(mc PRIVATE
     glbinding
@@ -138,13 +160,6 @@ target_link_libraries(mc PRIVATE
     CURL::libcurl
     LibXml2::LibXml2
 )
-
-# --- Precompiled headers
-target_precompile_headers(mc PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/pch.hpp"
-)
-
-
 # --- Optimization and sanitizers
 
 OPTION(MC_ENABLE_ASAN  "ENABLE ADDRESSSANITIZER" OFF)
@@ -201,40 +216,13 @@ add_custom_target(debug
     DEPENDS mc
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
 if(APPLE)
+    if(ENABLE_CPPTRACE)
     add_custom_command(TARGET mc POST_BUILD
     COMMAND dsymutil $<TARGET_FILE:mc>
-    COMMENT "Generating .dSYM for stack traces")
+    COMMENT "Generating .dSYM for stack traces for cpptrace/libassert")
+    endif()
 endif()
 
 
-#============================================
-#               TESTING
-#============================================
-
-#add_executable(test_queue
-#    tests/src/test_queue.cpp
-#    src/Assertion.cpp
-#    src/Concurrency.cpp
-#)
-#
-#target_link_libraries(test_queue PRIVATE cpptrace::cpptrace)
-#
-#target_include_directories(test_queue PRIVATE
-#    "${CMAKE_CURRENT_SOURCE_DIR}/include")
-#target_include_directories(test_queue PRIVATE
-#    "${CMAKE_CURRENT_SOURCE_DIR}/tests/include"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/KHR"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/OpenGL-Mathematics"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/fastnoiselite"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/cpptrace/include"
-#
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding/include"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/source/glbinding-aux/include"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding/include"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/external/glbinding/build/source/glbinding-aux/include"
-#)
-#
-#add_test(NAME Queue_tests COMMAND test_queue)

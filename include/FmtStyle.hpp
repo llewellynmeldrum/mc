@@ -171,6 +171,12 @@ inline std::string bg_rgb(Args ...vargs){
     return out;
 }
 
+inline std::string clear_row(){return "\e[2K";}
+inline std::string up_row(){return "\e[A";}
+inline std::string up_rows(int count){
+    if (count <= 0) return "";
+    return up_row() + up_rows(count-1);
+}
 inline std::string fg_rgb(int r, int g, int b){return style(ansi::fg_rgb(r,g,b));}
 inline std::string fg_rgb(int w){return style(ansi::fg_rgb(w));}
 inline std::string bg_rgb(int r, int g, int b){return style(ansi::bg_rgb(r,g,b));}

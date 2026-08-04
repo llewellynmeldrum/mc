@@ -86,6 +86,7 @@ int TEST_MAIN(){
 
 int MAIN(int argc, char** argv) {
     ThreadTracker::init();
+    TraceSettings::init();
     Engine eng{};
     eng.setup();
     eng.loop();

@@ -32,6 +32,7 @@
 
 #include "ChunkMesher_RawData.hpp"
 #include "ThreadTracker.hpp"
+#include "ChunkMesher.hpp"
 
 template<BlockShape shape>
 const auto& get_quad_data(i8 dir);
@@ -80,6 +81,7 @@ std::array<T, Direction_Count> get_block_neighbours(
             AT(res,dir_idx) = AT(center_chunk, neighbour_block_pos);
         } else {
             if (neighbour_chunk_slices[dir_idx].is_empty){ 
+                debug_assert(false, "neighbourhood built with a missing neighbour. Chunks should only be lit when their neighbours are generated.");
                 continue; // if other chunk is not stored, value is defaulted anyway
             }
             // The adjacent chunk has our neighbour. 
@@ -126,11 +128,9 @@ struct BlockMeshContext{
 template<BlockShape block_shape>
 void mesh_quad(BlockMeshContext& ctx, size_t facing_idx){
     const auto& block = ctx.block;
-    const auto& atlas = ctx.atlas;
     const auto& chunk_local = ctx.chunk_local_block;
     const auto& incoming_light = ctx.surrounding_lights[facing_idx];
 
-    constexpr auto atlas_id = shape_atlas_id<block_shape>;
     auto quad_vertices = get_quad_data<block_shape>(facing_idx);
     const auto& tx_coords = ctx.atlas->quad_texture_uvs<block_shape>(block.texture_id(), facing_idx, quad_vertices);
 
@@ -167,7 +167,6 @@ void mesh_cactus(BlockMeshContext& ctx){
 template<typename MaterialType>
 void mesh_cube(BlockMeshContext& ctx){
     const auto& block = ctx.block;
-    const auto& chunk_local_block = ctx.chunk_local_block;
 
     for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
@@ -202,8 +201,6 @@ void mesh_cube(BlockMeshContext& ctx){
 template<typename MaterialType, std::size_t N>
 void mesh_snow(BlockMeshContext& ctx){
     const auto& block = ctx.block;
-    const auto& atlas = ctx.atlas;
-    const auto& chunk_local_block = ctx.chunk_local_block;
 
     for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
@@ -231,8 +228,6 @@ void mesh_snow(BlockMeshContext& ctx){
 template<typename MaterialType>
 void mesh_top_half_slab(BlockMeshContext& ctx){
     const auto& block = ctx.block;
-    const auto& atlas = ctx.atlas;
-    const auto& chunk_local_block = ctx.chunk_local_block;
 
     for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
@@ -260,8 +255,6 @@ void mesh_top_half_slab(BlockMeshContext& ctx){
 template<typename MaterialType>
 void mesh_lower_half_slab(BlockMeshContext& ctx){
     const auto& block = ctx.block;
-    const auto& atlas = ctx.atlas;
-    const auto& chunk_local_block = ctx.chunk_local_block;
 
     for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
@@ -288,14 +281,6 @@ void mesh_lower_half_slab(BlockMeshContext& ctx){
 
 template<typename MaterialType>
 void mesh_cross(BlockMeshContext ctx){
-
-    const auto& block = ctx.block;
-    const auto& atlas = ctx.atlas;
-    const auto& chunk_local_block = ctx.chunk_local_block;
-
-
-    const auto directions = {Direction::FORWARD, Direction::BACKWARD};
-
     for (i8 quad_idx = 0; quad_idx < QUADS_PER_CROSS; quad_idx++){
         mesh_quad<BlockShape::CROSS>(ctx,quad_idx);
     }
@@ -373,7 +358,6 @@ MeshDataType mesh_chunk(const MeshJob& job){
     // out_vertices.reserve(MAX_VERTICES_PER_CHUNK);
     // out_indices.reserve(MAX_INDICES_PER_CHUNK);
 
-    const WorldBlockPos world_pos = toWorldOrigin(job.chunkCoord);
     const auto& blocks = job.blocks;
     const auto& lights = job.light_data;
     const auto& atlas_map = job.atlas_map;
@@ -393,10 +377,6 @@ MeshDataType mesh_chunk(const MeshJob& job){
         auto surrounding_blocks = get_block_neighbours(blocks, chunk_local_block, neighbour_chunks_block_slices);
         auto surrounding_lights = get_block_neighbours(lights, chunk_local_block, neighbour_chunks_light_slices);
 
-        if (job.chunkCoord == WorldChunkCoord{0,0}){
-            for (const auto& plv: lights){
-            }
-        }
         auto ctx = BlockMeshContext{ 
             vtx_count,
             out_vertices,
@@ -415,23 +395,11 @@ MeshDataType mesh_chunk(const MeshJob& job){
 }
 
 
-void mesh_chunks (std::stop_token stopToken, Queue<MeshJob>& in_queue, Queue<MeshResult>& out_queue){
-    ThreadTracker::assign_my_thread_type(ThreadType::mesh);
-    while (!stopToken.stop_requested()){
-        
-        auto job = in_queue.wait_dequeue();
-        job.bench.job_idle.bench_end(job.chunkCoord,job.meshRevisionID);
-
-        job.bench.work.bench_start(job.chunkCoord,job.meshRevisionID);
-            MeshResult res{job.meshRevisionID, job.chunkCoord};
-            res.blended = mesh_chunk<BlendedMeshData>(job); // mandatory copy elision on job i think
-            res.opaque = mesh_chunk<OpaqueMeshData>(job); // mandatory copy elision on job i think
-            res.cutout = mesh_chunk<CutoutMeshData>(job); // mandatory copy elision on job i think
-        job.bench.work.bench_end(job.chunkCoord,job.meshRevisionID);
-
-        job.bench.res_idle.bench_start(job.chunkCoord,job.meshRevisionID);
-        out_queue.wait_emplace(res);
-    }
-
+MeshResult perform_mesh_work(MeshJob&& job){
+    MeshResult res{job.rev, job.coord};
+    res.blended = mesh_chunk<BlendedMeshData>(job); // mandatory copy elision on job i think
+    res.opaque = mesh_chunk<OpaqueMeshData>(job); // mandatory copy elision on job i think
+    res.cutout = mesh_chunk<CutoutMeshData>(job); // mandatory copy elision on job i think
+    return res;
 }
 

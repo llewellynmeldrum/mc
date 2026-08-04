@@ -34,10 +34,13 @@ struct World {
     MOVE_ASSN(delete);
     COPY_ASSN(delete);
 
-    inline void setup(){
-        generators.launch_threads(generate_chunks);
-    }
 
+//    inline void regenerate(){
+//        chunkMap.clear();
+//        worldgen_epoch++; // all new genjobs will have targetRevision incremented 
+//        LOG_DEBUG("{}->{}",active_cfg.cont_cfg.seed_offset, editable_cfg.world_seed);
+//        GenConfig::copy(active_cfg,editable_cfg);
+//    }
     inline void regenerate(){
         chunkMap.clear();
         worldgen_epoch++; // all new genjobs will have targetRevision incremented 
@@ -54,10 +57,9 @@ struct World {
     i32 world_seed;
     GenConfig active_cfg;
     GenConfig editable_cfg;
-    i32 worldgen_epoch {0}; // aka. global target_gen_revision 
+    size_t worldgen_epoch {0}; // aka. global target_gen_revision 
 
     // Owner of the gen workers
-    JobProcessor<GenJob, GenResult> generators;
 
     // Chunk data store
     ChunkMap chunkMap;

@@ -6,6 +6,7 @@
 #include <shared_mutex>
 
 #include "Breakpoints.hpp"
+#include "CommonConcepts.hpp"
 #include "CoordTypes.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
@@ -80,15 +81,19 @@ public:
     }
 
     void bench_end(key_type const& key){
-        if(map.contains(key)){
+        auto it = map.find(key);
+        auto st_it = start_time.find(key);
+        if(it != map.end()){
             f64 now = seconds_now();
-            f64 before = start_time.at(key);
+            assert(st_it!=start_time.end());
+            f64 before = st_it->second;
             f64 dt_s = now - before;
             map.at(key).write(static_cast<f32>(dt_s * 1000.0));
         }else{
             std::println(stderr, "key: '{}' does not exist in ringbufs.", key);
-            BREAKPOINT();
+            //BREAKPOINT();
         }
+        start_time.erase(st_it);
     }
 
 
@@ -160,10 +165,23 @@ public:
             duration_ms.write(static_cast<f32>(dt_s * 1000.0));
         }else{
             std::println(stderr, "key: does not exist in (ChunkBenchmarker) ringbufs.");
-//            BREAKPOINT();
+            static_assert(std::formattable<std::pair<int,int>,char>);
+            static_assert(std::formattable<WorldChunkCoord,char>);
+            static_assert(std::formattable<u64,char>);
+            static_assert(std::formattable<std::pair<WorldChunkCoord,u64>,char>);
+            static_assert(std::formattable<decltype(start_times),char>);
+            std::println(stderr, "{}", start_times);
+            std::println(stderr, "->{}<- NOT FOUND!!", key);
+            //BREAKPOINT();
             return FLT_MAX;
         }
+        start_times.erase(it);
         return dt_s * 1000.0;
+    }
+    template<typename ...Args>
+        requires std::constructible_from<key_type, Args...>
+    void bench_cancel(Args&& ...vargs){
+        start_times.erase(key_type(std::forward<Args>(vargs)...));
     }
 
 
@@ -217,6 +235,7 @@ struct ConcurrentChunkBenchmarkerBase{
         auto it = obj.start_times.find(key);
         if (it == obj.start_times.end()){
             LOG_ERROR("broski we missed a benchmark {}:{}",__FILE_NAME__,__LINE__ );
+//            BREAKPOINT();
             return FLT_MAX;
         }
         return it->second;

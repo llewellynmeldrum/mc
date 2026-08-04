@@ -2,7 +2,10 @@
 
 #include <queue>
 #include <atomic>
+#include <type_traits>
+#include <functional>
 
+#include "JobTypes.hpp"
 #include "BenchmarkMap.hpp"
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
@@ -13,6 +16,7 @@
 #include "cppslop.hpp"
 #include "CoordTypes.hpp"
 
+#include "ThreadTracker.hpp"
 #include "Chunk.hpp"
 #include "ChunkStorage.hpp"
 #include "PendingBlockWrites.hpp"
@@ -23,6 +27,7 @@
 #include "WorldGen_Config.hpp"
 
 
+
 struct ChunkBenchContext{
     ConcurrentChunkBenchmarker& work;
     ConcurrentChunkBenchmarker& job_idle;
@@ -31,6 +36,7 @@ struct ChunkBenchContext{
 
 FORWARD_DECL_STRUCT(ChunkMap)
 struct LightingJob{
+    ChunkBenchContext bench;
     WorldChunkCoord coord;
     RevisionState::ID rev;
     std::vector<ChunkLightSlice> neighbour_light_slices;
@@ -38,12 +44,14 @@ struct LightingJob{
     ChunkLightStore light_data;
     ChunkBlockStore block_data;
     LightingJob(
+        ChunkBenchContext bench,
         WorldChunkCoord _coord, 
         ChunkMap const* chunk_map,
         ChunkEntry const* entry
     );
 };
 struct LightingResult{
+    WorldChunkCoord coord;
     RevisionState::ID rev;
     ChunkLightStore lights;
 };
@@ -54,8 +62,8 @@ struct LightingResult{
 // CONSUMER: Generator Thread
 struct GenJob{
     ChunkBenchContext bench;
-    size_t genRevisionID;
-    WorldChunkCoord chunkCoord;
+    WorldChunkCoord coord;
+    RevisionState::ID rev;
     const GenConfig cfg;
 };
 
@@ -63,8 +71,8 @@ struct GenJob{
 // PRODUCER: Generator Thread
 // CONSUMER: Main Thread
 struct GenResult{
-    size_t genRevisionID;
-    WorldChunkCoord chunk_coord;
+    WorldChunkCoord coord;
+    RevisionState::ID rev;
     ChunkBlockStore chunk_blocks;
     PendingWriteList deferred_writes; // for if a leaf from a tree in chunk generates outside the chunk.
 };
@@ -76,8 +84,8 @@ FORWARD_DECL_STRUCT(TextureAtlas)
 struct MeshJob{
     using SurroundingChunkStore = std::vector<std::optional<ChunkBlockSlice>>;
     ChunkBenchContext bench;
-    size_t meshRevisionID;
-    WorldChunkCoord chunkCoord;
+    WorldChunkCoord coord;
+    RevisionState::ID rev;
     ChunkBlockStore blocks;
     ChunkLightStore light_data;
     std::vector<ChunkBlockSlice> surrounding_chunks_block_slices;
@@ -116,8 +124,8 @@ struct CutoutMeshData{
 // PRODUCER: Mesher Thread
 // CONSUMER: Main thread.
 struct MeshResult{
-    size_t revisionID;
-    WorldChunkCoord chunkCoord;
+    RevisionState::ID rev;
+    WorldChunkCoord coord;
     OpaqueMeshData opaque;
     BlendedMeshData blended;
     CutoutMeshData cutout;
@@ -125,22 +133,61 @@ struct MeshResult{
 
 
 
-template<typename JobType, typename ResType, size_t thread_count=1>
+template<JobType jt, typename job_struct, typename res_struct, size_t n_threads=1>
 struct JobProcessor{
-    JobProcessor() = default;
+    template<typename Fn>
+        requires callable_with<Fn, std::stop_token, Queue<job_struct>&, Queue<res_struct>&>
+    JobProcessor(Fn&& work) :work_function(std::forward<Fn>(work)) {}
     ~JobProcessor() = default;
 
-    template<typename Fn, typename ...Args>
-        requires callable_with<Fn, std::stop_token, Queue<JobType>&, Queue<ResType>&>
-    inline void launch_threads(Fn&& work_fn){
+    constexpr static auto JT = jt;
+    constexpr static size_t thread_count = n_threads;
+    using work_func_t = std::function<void(std::stop_token, Queue<job_struct>&, Queue<res_struct>&)>;
+
+
+    work_func_t work_function;
+
+    Queue<job_struct> job_queue;
+    Queue<res_struct> res_queue;
+    ThreadPool threads{n_threads};
+
+    inline void launch_threads(){
+        std::println("launching {} {} threads",threads.count, JT);
         threads.launch(
-            std::forward<Fn>(work_fn),
+            work_function,
             std::ref(job_queue),
             std::ref(res_queue)
         );
     }
 
-    Queue<JobType> job_queue;
-    Queue<ResType> res_queue;
-    ThreadPool threads{thread_count};
 };
+
+template<JobType JT>
+struct job_type_traits{
+    using job_t = std::false_type;
+    using res_t = std::false_type;
+    using queue_t = Queue<job_t>;
+};
+
+template<>
+struct job_type_traits<JobType::Gen>{
+    using job_t = GenJob;
+    using res_t = GenResult;
+};
+template<>
+struct job_type_traits<JobType::Mesh>{
+    using job_t = MeshJob;
+    using res_t = MeshResult;
+};
+template<>
+struct job_type_traits<JobType::Light>{
+    using job_t = LightingJob;
+    using res_t = LightingResult;
+};
+
+template<JobType JT>
+using job_struct_t = job_type_traits<JT>::job_t;
+
+template<JobType JT>
+using res_struct_t = job_type_traits<JT>::res_t;
+

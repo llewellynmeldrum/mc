@@ -65,7 +65,7 @@ struct MirroredRingBuf {
     // use quick select to average the highest k=percent/size() elements .
     inline T n_percent_high(const f64 percent) const noexcept {
         size_t k = (percent / 100.0) * size();
-        // TODO: broken
+        // TODO: broken, i think 
         k = std::min(size(), k);
         auto v = buf;
         // quick select k largest elements

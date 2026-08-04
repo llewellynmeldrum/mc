@@ -11,9 +11,9 @@ MeshJob::MeshJob(
         const ChunkMap* chunk_map,
         const ChunkEntry* entry
     ):
-        bench(std::move(_bench)), 
-        meshRevisionID(entry->mesh.get_candidate_rev()),
-        chunkCoord(key),
+        bench(_bench), 
+        coord(key),
+        rev(entry->mesh.get_candidate_rev()),
         blocks(entry->block_data.clone()),
         light_data(entry->light_data.clone()),
         atlas_map(_atlas_list)
@@ -23,11 +23,13 @@ MeshJob::MeshJob(
     surrounding_chunks_light_slices = chunk_map->populate_neighbour_slices<PackedLightValue>(entry);
 }
 LightingJob::LightingJob(
+        ChunkBenchContext _bench,
         WorldChunkCoord _coord, 
         ChunkMap const* chunk_map,
         ChunkEntry const* entry
 )
-    :coord(_coord)
+    :bench(_bench)
+    ,coord(_coord)
     ,rev(entry->lighting.get_candidate_rev())
     ,light_data(entry->light_data.clone())
     ,block_data(entry->block_data.clone())

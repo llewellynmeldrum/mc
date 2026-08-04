@@ -1,6 +1,7 @@
 #include <algorithm>
-#include "cpp23_ranges.hpp"
 #include <utility>
+#include "glmWrapper.hpp"
+#include "cpp23_ranges.hpp"
 
 #include "ChunkConcurrency.hpp"
 #include "CoordTypes.hpp"
@@ -14,13 +15,16 @@
 #include "Engine.hpp"
 #include "glbinding/gl/functions.h"
 #include "glbindingWrapper.hpp"
-#include "glmWrapper.hpp"
 #include "World.hpp"
 #include "LM.hpp"
+#include "Skybox.hpp"
 
 using namespace gl;
 using namespace glm;
 
+void Renderer::per_tick_update(Camera const& player_cam){
+    skybox.per_tick_update(player_cam);
+}
 void Renderer::update_debug_uniforms(){
     prog.use();
     prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
@@ -43,6 +47,7 @@ void Renderer::updateViewport(int x, int y, int w, int h) {
 }
 
 Renderer::Renderer() {
+    skybox.setup();
     prog.load_vtx_and_frag("shaders/vs.glsl", "shaders/fs.glsl");
     prog.use();
 
@@ -83,7 +88,6 @@ Renderer::Renderer() {
         }
     );
     prog.stop();
-    meshers.launch_threads(mesh_chunks);
 
     dbg_rend.setup();
     line3d_rend.setup();
@@ -126,6 +130,14 @@ void Renderer::prepare_blended_pass(){
     enableDepthMask();
 
     enableColorBlending();
+    enableBackfaceCulling();
+}
+void Renderer::prepare_skybox_pass(){
+    disableDepthTesting();
+    disableDepthMask();
+
+
+    disableColorBlending();
     enableBackfaceCulling();
 }
 void Renderer::prepare_opaque_pass(){
@@ -230,9 +242,11 @@ void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTarge
     target.stop();
 }
 
-void Renderer::clear_to(RenderTargetView target){
+void Renderer::draw_sky_to(RenderTargetView target){
     target.use();
-    clear(clear_color);
+    clear({skybox.base_color, 1.0f});
+//    prepare_skybox_pass();
+//    skybox.draw();
     target.stop();
 }
 

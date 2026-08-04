@@ -32,7 +32,6 @@ void main(){
 
     uint face_dir = unpack_face_dir(in_packed_0);
     fake_shadow = fake_shadow_multiplier_per_face[face_dir];
-    gl_Position = u_proj * u_view * u_model * vec4(in_local_pos.xyz, 1.0);
 
     
     // SECTION: LIGHTING 
@@ -58,5 +57,6 @@ void main(){
         sunlight_rgb = u_sunlight_rgb * sunlight_intensity ;
     }
     final_light = max(sunlight_rgb, blocklight_rgb);
+    gl_Position = u_proj * u_view * u_model * vec4(in_local_pos.xyz, 1.0);
 
 }

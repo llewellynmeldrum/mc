@@ -3,32 +3,25 @@
 #include "BufferObjects.hpp"
 #include "Line3D.hpp"
 #include "Shaders.hpp"
+#include "VertexLayoutHelpers.hpp"
 #include "cppslop.hpp"
 
 struct Line3DVertex{
     glm::vec2 corner; // Encodes the side of the line and the perpendicular offset that the quad should have
-    static constexpr auto layout() {
-        return VertexLayout<1>{ 
-            .stride = sizeof(Line3DVertex),
-            .attrs = {
-               make_attr<decltype(corner)>(0, offsetof(Line3DVertex, corner)),
-            }, 
-        };
-    }
 };
 struct Line3DInstance{
     glm::vec3 w_start; // world pos of the chunk (i.e instance origin)
     glm::vec3 w_end; // the color of the debug overlay (i.e instance color )
     f32 thickness;
     glm::vec4 color;
-    static constexpr auto layout() {
+    static constexpr auto instanced_layout() {
         return VertexLayout<4>{ 
             .stride = sizeof(Line3DInstance),
             .attrs = {
-               make_attr<decltype(w_start)>(1, offsetof(Line3DInstance, w_start), 1),
-               make_attr<decltype(w_end)>(2, offsetof(Line3DInstance, w_end), 1),
-               make_attr<decltype(color)>(3, offsetof(Line3DInstance, color), 1),
-               make_attr<decltype(thickness)>(4, offsetof(Line3DInstance, thickness), 1),
+               make_attr_t<decltype(w_start)  ,1, offsetof(Line3DInstance, w_start)>(1),
+               make_attr_t<decltype(w_end)    ,2, offsetof(Line3DInstance, w_end)>(1),
+               make_attr_t<decltype(color)    ,3, offsetof(Line3DInstance, color)>(1),
+               make_attr_t<decltype(thickness),4, offsetof(Line3DInstance, thickness)>(1),
             }, 
         };
     }

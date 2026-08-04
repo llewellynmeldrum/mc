@@ -26,6 +26,7 @@
 #include "FormatSpecs.hpp"
 #undef DISABLE_STYLE
 
+#include "LM_Metaprogramming.hpp"
 #include "DebugUI.hpp"
 #include "Assertion.hpp"
 #include "ChunkConcurrency.hpp"
@@ -91,7 +92,7 @@ void DebugUI::draw() {
 
 
 void DebugUI::update() {
-    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
+//    auto* ctx = static_cast<Engine*>(glfwGetWindowUserPointer(win_ptr));
 }
 
 template<typename T>
@@ -119,11 +120,11 @@ void draw_worldgen_window(WindowConfig& self, Engine* ctx){
     self.setSize(UVSize{0.4,0.4});
     self.setAlign(WinAlign::TopMid());
     self.setFlags();
-    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+    self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
         auto& cfg = ctx->world.editable_cfg;
         window.open_section("Noise Config:",[&]{
-            bool dirty = false;
+            [[maybe_unused]] bool dirty = false;
 
             dirty |= IG::DragInt("sea level", &cfg.sea_level, 1, 0, 256);
             dirty |= IG::InputInt("seed",     &cfg.world_seed);
@@ -145,9 +146,8 @@ void draw_graphics_window(WindowConfig& self, Engine* ctx){
     self.setSize(UVSize{0.4,0.4});
     self.setAlign(WinAlign::TopMid());
     self.setFlags();
-    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+    self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
-        auto& cfg = ctx->world.editable_cfg;
         bool dirty = false;
         dirty |= window.dbg_toggle(DebugOption::show_lighting_system);
         dirty |= window.dbg_toggle(DebugOption::draw_blocklight);
@@ -167,13 +167,14 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
     self.setSize(UVSize{0.4,0.4});
     self.setAlign(WinAlign::TopMid());
     self.setFlags();
-    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+    self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
 
         
         window.open_section("DebugOption::",[&]{
             edit_enum("Debug chunk mode", &DebugOption::render_state_mode, DebugOption::DebugRenderStateTarget_names);
             window.dbg_toggle(DebugOption::outline_neighbour_boundaries);
+            window.dbg_toggle(DebugOption::enable_3d_debug_visuals);
             window.dbg_toggle(DebugOption::fill_neighbour_boundaries);
             window.dbg_toggle(DebugOption::outline_all_boundaries);
             window.dbg_toggle(DebugOption::fill_all_boundaries);
@@ -214,12 +215,12 @@ void drawPerChunkLogWindow(WindowConfig& self, Engine* ctx){
     self.setSize(UVSize{0.4,0.4});
     self.setAlign(WinAlign::TopMid());
     self.setFlags();
-    self.start_at(true, UVPos{0.7,0.5},[&self, &ctx]{
+    self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
         for (auto& [log_type, enabled]: is_log_type_enabled ){
             window.checkbox(std::format("{}",log_type), &enabled);
         }
-        window.open_section("Per chunk log:",[&self, &ctx]{
+        window.open_section("Per chunk log:",[&]{
             // Shown in most->least recent vertical order
             WorldChunkCoord cur_chunk = toWorldChunkCoord(ctx->player_cam.pos);
             auto lock = per_chunk_log.lock_guard();
@@ -319,10 +320,34 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
     //  - eg. UI::DrawText(str, pos, font_size, bool show_outlines=true)
     // 2. fix pending writes
     auto io = IG::GetIO();
-    auto* d = IG::GetForegroundDrawList();
     auto screen_size = io.DisplaySize;
     font_scale = 2.0f;
-    if (ctx->paused){
+    if (ctx->awaiting_initial_generation){
+        set_fill_rgba(20,20,20,16);
+        enable_stroke = false;
+        draw_rect({0,0},screen_size);
+        enable_stroke = true;
+        std::string ch_upd_paused_str = "";
+        auto ms = static_cast<i32>(ImGui::GetTime() * 1000.0f);
+        if (ms % 1000 <= 250){
+            ch_upd_paused_str = "BAKING STARTING CHUNKS";
+        }else if (ms %1000 <=500){
+            ch_upd_paused_str = "GENERATING WORLD.";
+        }else if (ms %1000 <=750){
+            ch_upd_paused_str = "GENERATING WORLD..";
+        }else {
+            ch_upd_paused_str = "GENERATING WORLD...";
+        }
+        ImVec2 text_size = calc_text_size(ch_upd_paused_str)*2.0f;
+
+        ImVec2 text_pos = ImVec2(
+            (screen_size.x - text_size.x) * 0.5f,
+            (screen_size.y - text_size.y) * 0.8f
+        );
+
+        set_stroke_rgba(255,255,255);
+        draw_text(ch_upd_paused_str,text_pos);
+    }else if (ctx->paused){
         set_fill_rgba(20,20,20,64);
         enable_stroke = false;
         draw_rect({0,0},screen_size);
@@ -388,7 +413,7 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
             (-text_size.y)
         };
         text_pos += offset;
-        auto red = IM_COL32(255,0,0,255);
+//        auto red = IM_COL32(255,0,0,255);
         auto opacity01= _notif_logger.log.fading_entry_opacity01(entry);
         auto opacity = static_cast<i32>(std::lerp(0.0f,255.0f,opacity01));
         set_stroke_rgba(255,255,255,opacity);
@@ -408,8 +433,8 @@ void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
     self.setSize(UVSize{xwidth, xwidth * aspect});
     self.setAlign(WinAlign::TopMid());
     self.setFlags(UI::WinFlags::NoResize);
-    self.start_at(true, UVPos{0.5,0},[&self, &ctx]{
-        self.section("Secondary View:",[&ctx]{
+    self.start_at(true, UVPos{0.5,0},[&]{
+        self.section("Secondary View:",[&]{
             UI::Text("scr: {}, {}",ctx->fixedCamTarget.pos, ctx->fixedCamTarget.size);
             UI::Text("  w: {}, {}",ctx->drone_cam.pos.raw(), ctx->drone_cam.ortho_zoom);
             UI::DrawTexture(ctx->fixedCamTarget);
@@ -420,27 +445,72 @@ void drawSecondCameraWindow(WindowConfig& self, Engine* ctx) {
     
 }
 
+template<JobType JT>
+void draw_graph(Engine* ctx) {
+    auto draw_sz_and_unique = [&]
+        (const std::string name, size_t max, auto& q, auto newcount, const auto& rb){
+
+        auto total_sz = q.wait_size();
+        std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
+
+        auto newcounts_per_second = rb.avg();
+        std::string additions = std::format("+{:<4}",newcount);
+        std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
+        UI::Text(cur_size); UI::SameLine();
+        {
+            UI::setTextColor(0,255,0);
+                UI::Text(additions.c_str()); 
+            UI::ResetTextColor();
+
+            UI::SameLine();
+
+            UI::setTextColor(0,255,0);
+                UI::Text(avg.c_str()); 
+            UI::ResetTextColor();
+        }
+        plotRingBuf(rb, max, name);
+    };
+    {
+        std::string name = std::format("{}jobQ",JT);
+        auto max = ctx->max_upload_per_frame<JT>;
+        auto const&  q = ctx->job_queue<JT>();
+        auto const this_frame = ctx->get_pf_accums<JT>().enqueues_this_frame;
+        auto const& rb = ctx->rb_enqueues<JT>();
+        draw_sz_and_unique(name, max,q,this_frame,rb);
+    }
+
+    {
+        std::string name = std::format("{}resQ",JT);
+        auto max = ctx->max_upload_per_frame<JT>;
+        auto const&  q = ctx->res_queue<JT>();
+        auto const this_frame = ctx->get_pf_accums<JT>().uploads_this_frame;
+        auto const& rb = ctx->rb_uploads<JT>();
+        draw_sz_and_unique(name, max,q,this_frame,rb);
+    }
+
+
+}
 void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
     self.setAlpha(0.65f);
     self.setup();
     self.setFlags(UI::WinFlags::AlwaysAutoResize);
     self.start_at(UVPos{0,0},[&self, ctx]{
         auto& window = self;
-        const auto& fps_rb = ctx->profiler.map.at("frame");
+        const auto& fps_rb = AT(ctx->profiler.map,"frame");
         const auto k = std::max(1.0f, fps_rb.n_percent_high(1.0));
         assert(k!=0);
         const auto p99 = 1000.0/k;
         const auto fps = 1000.0/fps_rb.avg();
         const auto ft_ms = fps_rb.avg();
 
-        const auto draw_ms = ctx->profiler.map.at("01_draw").avg();
-        const auto upd_ms = ctx->profiler.map.at("update").avg();
+        const auto draw_ms = AT(ctx->profiler.map,"01_draw").avg();
+        const auto upd_ms = AT(ctx->profiler.map,"update").avg();
         const auto upd_pcnt = 100.0 * upd_ms / ft_ms;
         const auto draw_pcnt = 100.0 * draw_ms / ft_ms;
 
         const auto n_chunks_loaded = ctx->rend.opaque_chunk_meshes.size();
-        const auto n_chunks_meshing = ctx->n_meshing;
-        const auto n_chunks_genning = ctx->n_generating;
+        const auto n_chunks_meshing = ctx->mesh_counters.n_on_queue;
+        const auto n_chunks_gening = ctx->gen_counters.n_on_queue;
 
         const auto pos = ctx->player_cam.pos;
         const auto round_pos = glm::ivec3{LM::floor(ctx->player_cam.pos).raw()};
@@ -452,8 +522,9 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         };//toChunkBlockPos(ctx->player_cam.pos).raw();
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
+        UI::Text("tick: {}",ctx->tick_counter);
         UI::Separator();
-        UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_genning,n_chunks_meshing);
+        UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_gening,n_chunks_meshing);
         UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());
         UI::Separator();
         UI::Text("pos :{: 4.1f},{: 4.1f},{: 4.1f} (B:{: 3},{: 3},{: 3})",
@@ -462,7 +533,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         if (entry){
             ChunkBlockPos cl_pos_ = ChunkBlockPos{cl_pos};
             if (is_in_chunk(cl_pos_)){
-                UI::Text("light data: {}",entry->light_data.at(cl_pos_));
+                UI::Text("light data: {}",AT(entry->light_data,cl_pos_));
             }else{
                 UI::Text("light data: n/a, out of bounds?");
             }
@@ -475,14 +546,13 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Separator();
         UI::Text("ready4gen :{}",ctx->director.ready_for_gen.size());
         UI::Text("ready4mesh:{}",ctx->director.ready_for_mesh.size());
-        UI::Text("ready4light:{}",ctx->director.ready_for_lighting.size());
+        UI::Text("ready4light:{}",ctx->director.ready_for_light.size());
         UI::Separator();
 
         if (!ctx->ui.is_ui_expanded){
             UI::Text("Press '`' to expand.");
             return;
         }
-        auto* cur_chunk_entry = ctx->world.chunkMap.entries.try_get(ch_pos);
         std::string biome_str = "N/A (no chunk entry)";
         const auto & [wx,_,wz] = pos;
         NoiseParams noise_samples_exact = ctx->world.active_cfg.noise.sample_each(wx,wz);
@@ -493,7 +563,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
 
         auto show_biome_score_table = [&](){
             UI::Separator("Biome Scores:");
-            const int columns = biome_match_tables.size();
             IG::BeginTable("##Table_thing",6,ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg);
             IG::TableNextRow();
             IG::TableNextColumn();
@@ -527,10 +596,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             IG::EndTable();
         };
         show_biome_score_table();
-        {
-            auto wpos = ctx->director.cur_block_pos;
-            auto density = noise_samples_exact.rain;
-        }
         UI::Text("Round trip times per chunk (enqueue job to upload of result)");
         plotRingBuf(ctx->mesh_rtt_bencher.duration_ms, 10, "mesh rtt", "6.1lfms", true);
         plotRingBuf(ctx->gen_rtt_bencher.duration_ms, 10, "gen rtt", "6.1lfms", true);
@@ -540,27 +605,27 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "6.1lfms", true);
 
         UI::Text("Time spent on job queue awaiting a worker");
-        plot_benchmarker(ctx->mesh_job_queue_idle_bencher, 10, "mesh job_queue_idle", "6.1lfms", true);
-        plot_benchmarker(ctx->gen_job_queue_idle_bencher, 10, "gen job_queue_idle", "6.1lfms", true);
+        plot_benchmarker(ctx->mesh_job_queue_idle_bencher, 10, "MESH JOB IDLE", "6.1lfms", true);
+        plot_benchmarker(ctx->gen_job_queue_idle_bencher, 10, "GNE JOB IDLE", "6.1lfms", true);
 
         UI::Text("Time spent on res queue awaiting main thread");
-        plot_benchmarker(ctx->mesh_res_queue_idle_bencher, 10, "mesh res_queue_idle", "6.1lfms", true);
-        plot_benchmarker(ctx->gen_res_queue_idle_bencher, 10, "gen res_queue_idle", "6.1lfms", true);
+        plot_benchmarker(ctx->mesh_res_queue_idle_bencher, 10, "MESH RES IDLE", "6.1lfms", true);
+        plot_benchmarker(ctx->gen_res_queue_idle_bencher, 10, "GEN RES IDLE", "6.1lfms", true);
 
         UI::Text("Time spent on res queue awaiting main thread");
-        plotRingBuf(ctx->mesh_enqueue_delay_bench.duration_ms, 10, "mesh enqueue delay", "6.1lfms", true);
-        plotRingBuf(ctx->gen_enqueue_delay_bencher.duration_ms, 10, "gen enqueue delay", "6.1lfms", true);
-//        UI::Text("Work times per chunk (start job to finish job)");
-//        plot_benchmarker(ctx->mesh_work_bencher, 10, "mesh work", "2.2lfms", true);
-//        plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "2.2lfms", true);
+        plotRingBuf(ctx->director.mesh_enqueue_delay_bencher.duration_ms, 10, "MESH ENQUEUE", "6.1lfms", true);
+        plotRingBuf(ctx->director.gen_enqueue_delay_bencher.duration_ms, 10, "GEN ENQUEUE", "6.1lfms", true);
+        UI::Text("Work times per chunk (start job to finish job)");
+        plot_benchmarker(ctx->mesh_work_bencher, 10, "mesh work", "2.2lfms", true);
+        plot_benchmarker(ctx->gen_work_bencher, 10, "gen work", "2.2lfms", true);
 
 
         UI::Text("Press '`' to minimize.");
-        window.open_section("Perf:",[ctx]{
+        window.open_section("Perf:",[&]{
             UI::Text("Optimization lvl: -O{}",DebugOption::compiler_optimisation_level);
             IG::Text("vsync: %s", ctx->win.enable_vsync ? "enabled" : "disabled");
 
-            const auto& fps_rb = ctx->profiler.map.at("frame");
+            const auto& fps_rb = AT(ctx->profiler.map,"frame");
             auto k =std::max(1.0f, fps_rb.n_percent_high(1.0));
             assert(k!=0);
             std::string one_pcnt_low = std::format("1% low: {:2.1f}", 1000.0/k);
@@ -572,20 +637,19 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             }
 
         });
-        window.section("Chunk States:",[ctx]{
+        window.section("Chunk States:",[&]{
             IG::Separator();
-            UI::Text("GenStates:");
-            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_gen_ ##name);
-            PIPELINE_STATE_LIST
-            #undef X
-            UI::Text("LightStates:");
-            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_light_##name);
-            PIPELINE_STATE_LIST
-            #undef X
+            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),\
+                            "{}: {}", #name, ctx-> CONCAT(gen,_counters).n_##name);
+                UI::Text("GenStates:");
+                PIPELINE_STATE_LIST
 
-            UI::Text("MeshStates:");
-            #define X(name) UI::ColoredText(PipelineStateOutlineColor(PipelineState :: name),"{}: {}", #name, ctx->n_mesh_##name);
-            PIPELINE_STATE_LIST
+                UI::Text("LightStates:");
+                PIPELINE_STATE_LIST
+
+                UI::Text("MeshStates:");
+                PIPELINE_STATE_LIST
+
             #undef X
 
             UI::Text("Chunk Entries: {}",ctx->world.chunkMap.entries.size());
@@ -593,7 +657,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         window.dropdown.show();
 
 
-        window.section("Chunk Data:",[ctx]{
+        window.section("Chunk Data:",[&]{
             auto mesh_state_color = DefaultDebugColor();
             auto gen_state_color = DefaultDebugColor();
             auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
@@ -616,7 +680,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     bool opaque_empty{};
                     bool transp_empty{};
                     bool mesh_clean{};
-                    PipelineState mesh_stage{};
 
                     gen_stage = entry.gen_pipeline_state();
                     gen_clean = entry.gen.is_clean();
@@ -637,7 +700,6 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     );
                     gen_state_color = PipelineStateOutlineColor(gen_stage);
 
-                    mesh_stage=entry.mesh_pipeline_state();
                     mesh_clean = entry.mesh.is_clean();
 
                     
@@ -697,7 +759,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             UI::Text("Loaded opaque:{}/{}",loaded_opaque,total_opaque);
             UI::Text("Loaded trans:{}/{}",loaded_trans,total_trans);
         });
-        window.section("Positions",[ctx]{
+        window.section("Positions",[&]{
             auto ch_pos = toWorldChunkCoord(ctx->player_cam.pos);
             std::string facing_str = get_facing_str(ctx->player_cam.getFront());
             IG::Text("World: %+03.1f,%+03.1f,%+03.1f", ctx->player_cam.pos.x, ctx->player_cam.pos.y, ctx->player_cam.pos.z);
@@ -705,7 +767,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             IG::Text("cam.pitch|yaw: %03.1f, %03.1f", ctx->player_cam.pitch, ctx->player_cam.yaw);
             IG::Text("Facing: %s", facing_str.c_str());
         });
-        window.section("World Data:",[ctx]{
+        window.section("World Data:",[&]{
             UI::Text("Chunks meshed: {}", ctx->chunksMeshed);
             UI::Text("Generated chunks: {}", ctx->world.chunkMap.entries.size());
             auto n_pending_ungenerated  = 0uz;
@@ -746,7 +808,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         });
 
 
-        window.section("Per frame draw info:",[ctx]{
+        window.section("Per frame draw info:",[&]{
             size_t n_vtx = ctx->rend.debug.vertex_count;
             size_t n_bytes = n_vtx * sizeof(Vertex);
             f32 kb = n_bytes /1000.0;
@@ -761,32 +823,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
             IG::Text("Resident Set Size: %5.2lfmb", unix::rss_bytes()/1024.0/1024.0);
         });
 
-        window.section("Concurrency:",[ctx]{
-            auto& gen = ctx->world.generators;
-            auto& mesher = ctx->rend.meshers;
-            auto drawSizeAndUniqueness = [ctx]
-                (const std::string name, size_t max, auto& q, auto newcount, const auto& rb){
-
-                auto total_sz = q.wait_size();
-                std::string cur_size = std::format( "{}.size()={:<4} ", name, total_sz);
-
-                auto newcounts_per_second = rb.avg();
-                std::string additions = std::format("+{:<4}",newcount);
-                std::string avg = std::format("+{:>6.3}/s",newcounts_per_second);
-                UI::Text(cur_size); UI::SameLine();
-                {
-                    UI::setTextColor(0,255,0);
-                        UI::Text(additions.c_str()); 
-                    UI::ResetTextColor();
-
-                    UI::SameLine();
-
-                    UI::setTextColor(0,255,0);
-                        UI::Text(avg.c_str()); 
-                    UI::ResetTextColor();
-                }
-                plotRingBuf(rb, max, name);
-            };
+        window.section("Concurrency:",[&]{
 
             auto idk =[](auto cur_size, auto& rb, auto max, auto& name){
                 UI::Text("{}:", name); UI::SameLine();
@@ -799,30 +836,33 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                 plotRingBuf(rb, max, name);
             };
             idk(
-                ctx->n_generating,
+                ctx->gen_counters.n_on_queue,
                 ctx->rb_generating,
-                gen.job_queue.capacity + gen.res_queue.capacity,
+                ctx->director.generators.job_queue.capacity +ctx->director.generators.res_queue.capacity,
                 "Generating"
             );
 
             idk(
-                ctx->n_meshing,
+                ctx->mesh_counters.n_on_queue,
                 ctx->rb_meshing,
-                ctx->rend.meshers.job_queue.capacity + ctx->rend.meshers.res_queue.capacity,
+                ctx->director.meshers.job_queue.capacity + ctx->director.meshers.res_queue.capacity,
                 "Meshing"
             );
 
                 
             IG::Separator();
 
-            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.job_queue,ctx->gen_jobs_this_frame, ctx->rb_genJobsAdded);
-            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.res_queue,ctx->gen_res_this_frame,ctx->rb_genJobsAdded);
-
-            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.job_queue,ctx->mesh_jobs_this_frame,ctx->rb_meshJobsAdded);
-            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.res_queue,ctx->mesh_results_this_frame,ctx->rb_meshResultsAdded);
+            draw_graph<JobType::Gen>(ctx);
+            draw_graph<JobType::Light>(ctx);
+            draw_graph<JobType::Mesh>(ctx);
+//            drawSizeAndUniqueness(" genJobQ",ctx->maxGenJobsPerFrame,gen.job_queue,ctx->, ctx->rb_genJobsAdded);
+//            drawSizeAndUniqueness(" genResQ",ctx->maxGenUploadsPerFrame,gen.res_queue,ctx->gen_res_this_frame,ctx->rb_genJobsAdded);
+//
+//            drawSizeAndUniqueness("meshJobQ",ctx->maxMeshJobsPerFrame,mesher.job_queue,ctx->mesh_jobs_this_frame,ctx->rb_meshJobsAdded);
+//            drawSizeAndUniqueness("meshResQ",ctx->maxMeshUploadsPerFrame, mesher.res_queue,ctx->mesh_results_this_frame,ctx->rb_meshResultsAdded);
 
             });
-        window.section("Padding:",[ctx]{
+        window.section("Padding:",[&]{
             UI::Text("");
             UI::Text("");
             UI::Text("");

@@ -4,6 +4,8 @@
 #include "glmWrapper.hpp"
 
 #include "VertexAttributeType.hpp"
+#include "meta_wrapper.hpp"
+
 template <typename T>
 struct attribute_traits;
 
@@ -82,7 +84,7 @@ struct attribute_traits<u32> {
 struct VertexAttribute {
     u32         location;
     i32         count;
-    const void* offset_ptr;
+    std::uintptr_t offset_ptr;
     bool        normalized;
     bool        is_integer;
 
@@ -91,28 +93,7 @@ struct VertexAttribute {
 };
 template <size_t SZ>
 struct VertexLayout {
+    constexpr static size_t count = SZ;
     i32                                   stride;
     const std::array<VertexAttribute, SZ> attrs;
 };
-
-template <typename T>
-constexpr VertexAttribute make_attr(u32 _location, std::intptr_t offset, u32 _divisor=0) {
-    return VertexAttribute{
-        .location = _location,
-        .count = attribute_traits<T>::count,
-        .offset_ptr = reinterpret_cast<void*>(offset),
-        .normalized = attribute_traits<T>::normalized,
-        .is_integer = attribute_traits<T>::is_integer,
-        .vat = attribute_traits<T>::vertex_attribute_type,
-        .divisor = _divisor,
-    };
-}
-
-// TODO: make this work
-template <typename ...Args>
-constexpr auto make_layout(Args ...vargs){
-    constexpr size_t argc = sizeof...(vargs);
-    return VertexLayout<argc>{
-        (vargs)...
-    };
-}

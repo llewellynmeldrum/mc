@@ -9,6 +9,7 @@ enum struct ThreadType{
     unknown,
     main,
     gen,
+    light,
     mesh,
 };
 template<>
@@ -17,11 +18,11 @@ struct std::formatter<ThreadType>{
 	auto format(const ThreadType& val, std::format_context& ctx)const noexcept{
         std::string s{};
         switch(val){
-        case ThreadType::main: s="main"; break;
-        case ThreadType::gen: s="gen"; break;
-        case ThreadType::mesh: s="mesh"; break;
-        case ThreadType::unknown: s="unknown"; break;
-            break;
+            case ThreadType::main: s="main"; break;
+            case ThreadType::gen: s="gen"; break;
+            case ThreadType::mesh: s="mesh"; break;
+            case ThreadType::light: s="light"; break;
+            case ThreadType::unknown: s="unknown"; break;
         }
         return format_to(ctx.out(), "{}",s);
     }

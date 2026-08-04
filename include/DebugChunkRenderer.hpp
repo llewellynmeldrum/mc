@@ -3,30 +3,23 @@
 #include "BufferObjects.hpp"
 #include "ChunkEntry.hpp"
 #include "Shaders.hpp"
+#include "VertexLayoutHelpers.hpp"
 #include "cppslop.hpp"
 #include "Colors01.hpp"
 #include "DebugOptions.hpp"
 
 struct DebugChunkVertex{
     glm::ivec3 pos; // Chunk local vertex position
-    static constexpr auto layout() {
-        return VertexLayout<1>{ 
-            .stride = sizeof(DebugChunkVertex),
-            .attrs = {
-               make_attr<glm::ivec3>(0, offsetof(DebugChunkVertex, pos)),
-            }, 
-        };
-    }
 };
 struct DebugChunkInstance{
     glm::ivec3 origin; // world pos of the chunk (i.e instance origin)
     glm::vec4 color; // the color of the debug overlay (i.e instance color )
-    static constexpr auto layout() {
+    static constexpr auto instanced_layout() {
         return VertexLayout<2>{ 
             .stride = sizeof(DebugChunkInstance),
             .attrs = {
-               make_attr<glm::ivec3>(1, offsetof(DebugChunkInstance, origin), 1),
-               make_attr<glm::vec4>(2, offsetof(DebugChunkInstance, color), 1),
+               make_attr_t<glm::ivec3, 1, offsetof(DebugChunkInstance, origin)>(1),
+               make_attr_t<glm::vec4, 2, offsetof(DebugChunkInstance, color)>(1),
             }, 
         };
     }

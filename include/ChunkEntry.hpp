@@ -9,6 +9,7 @@
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
+#include "JobTypes.hpp"
 #include "Types.h"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
@@ -40,7 +41,7 @@ struct RevisionState{
     void drop_inflight()                 noexcept { inflight = loaded; check_invariant(); }
 
     void mark_dirty()                  noexcept { target++; check_invariant(); }
-    void mark_deleted()                noexcept { loaded = NEVER; check_invariant(); }
+    void mark_deleted()                noexcept { inflight = NEVER; loaded = NEVER; check_invariant(); }
 
     bool inflight_result_is_acceptable(ID candidate) noexcept { return candidate > loaded; };
 
@@ -52,12 +53,12 @@ struct RevisionState{
     bool is_clean()              const noexcept { return target == loaded;};
     bool needs_work()            const noexcept { return is_on_queue() == false && is_dirty();};
 
-    inline bool check_invariant() const noexcept{
-        return loaded<=inflight && inflight<=target;
+    inline void check_invariant() const noexcept{
+        assert(loaded<=inflight && inflight<=target);
     }
 };
 
-inline bool try_upload_candidate(RevisionState& s, RevisionState::ID candidate){
+inline bool try_upload_candidate_revision(RevisionState& s, RevisionState::ID candidate){
     if (s.inflight_result_is_acceptable(candidate)){
         s.complete_inflight(candidate);
         return true;
@@ -99,26 +100,41 @@ struct ChunkEntry{
 
     // These functions do not necessarily mean that they SHOULD be enqueued, as there may be other constraints,
     // e.g (neighbours of a chunk being generated is a prereq to meshing)
-    bool can_be_generated()const noexcept{
+    bool wants_generation()const noexcept{
         return gen.needs_work();
     }
-    bool can_be_lit()const noexcept{
+    bool wants_lighting()const noexcept{
         return gen.has_data() && lighting.needs_work();
     }
-    bool can_be_meshed()const noexcept{
+    bool wants_meshing()const noexcept{
         return gen.has_data() && lighting.has_data() && mesh.needs_work();
     }
 
 
     RevisionState mesh, gen, lighting;
+    template<JobType JT>
+    RevisionState& revision_state(){
+        if constexpr(JT == JobType::Gen){ return gen;}
+        else if constexpr(JT == JobType::Light){ return lighting;}
+        else if constexpr(JT == JobType::Mesh){ return mesh;}
+        else {static_assert(false);}
+    }
+
     PipelineState gen_pipeline_state()const noexcept{
         return derive_state(gen,true);
     }
     PipelineState lighting_pipeline_state()const noexcept{
-        return derive_state(lighting,gen.has_data());
+        return derive_state(lighting, gen.has_data());
     }
     PipelineState mesh_pipeline_state()const noexcept{
-        return derive_state(mesh,gen.has_data() && lighting.has_data());
+        return derive_state(mesh, gen.has_data() && lighting.has_data());
+    }
+    template<JobType JT>
+    PipelineState derive_pipeline_state()const noexcept{
+        if constexpr(JT == JobType::Gen){ return gen_pipeline_state();}
+        else if constexpr(JT == JobType::Light){ return lighting_pipeline_state();}
+        else if constexpr(JT == JobType::Mesh){ return mesh_pipeline_state();}
+        else {static_assert(false);}
     }
 
 

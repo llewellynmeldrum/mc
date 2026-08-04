@@ -1,6 +1,7 @@
 #include "ChunkDirector.hpp"
 #include "CoordTypes.hpp"
 #include "Direction.hpp"
+#include "JobTypes.hpp"
 #include "Renderer.hpp"
 #include "ChunkNoiseDebug.hpp"
 #include <utility>
@@ -78,9 +79,7 @@ void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam
     }
 }
 
-void ChunkDirector::discover_candidates(
-    ChunkBenchmarkerNoRevision & mesh_enqueue_delay_bench, 
-    ChunkBenchmarkerNoRevision & gen_enqueue_delay_bench){
+void ChunkDirector::discover_candidates(){
     // if we come across a chunk which:
     // - has an entry
     // - has been generated
@@ -98,43 +97,26 @@ void ChunkDirector::discover_candidates(
     for_each_spiral(chunkCoord, GENERATION_DIST, 
         [&](i32 x, i32 z) {
             const auto key = WorldChunkCoord{x,z};
-            auto* chunk = chunk_map.entries.try_get(key);
-            bool is_mesh_candidate = false;
-            bool is_gen_candidate = false;
-            bool is_light_candidate = false;
-            if (chunk){
-                if (chunk->can_be_generated()){
-                    // 1. if an entry exists, check if it needs regeneration.
-                    is_gen_candidate = true;
-                }
-                if (chunk->can_be_lit()
-                    && LM::sq_dist(chunkCoord, key) < lighting_sq_dist_req){
-                    is_light_candidate = true;
-                }
-                if (chunk->can_be_meshed() 
-                    && LM::sq_dist(chunkCoord, key) < mesh_sq_dist_req){
-                    is_mesh_candidate = true;
-                }
-            }else{
-                // 2. if an entry doesnt exists, it needs to be generated.
-                is_gen_candidate = true;
-            }
-
-            if (is_gen_candidate && gen_count < max_gen_discovery_pf){
-                gen_enqueue_delay_bench.bench_start(key);
-                ready_for_gen.push(key);
-                gen_count++;
-            }
-            if (is_light_candidate && light_count < max_light_discovery_pf){
-                //light_enqueue_delay_bench.bench_start(key);
-                ready_for_lighting.push(key);
+            auto* entry = chunk_map.entries.try_get(key);
+            if (    wants_work<JobType::Gen>(entry)
+                    && gen_count < max_gen_discovery_pf){
+                push_ready<JobType::Gen>(key);
+            }else if(
+                    wants_work<JobType::Light>(entry) 
+                    && LM::sq_dist(chunkCoord, key) < lighting_sq_dist_req
+                    && light_count < max_light_discovery_pf){
+                debug_assert(entry);
+                push_ready<JobType::Light>(key);
                 light_count++;
-            }
-            if (is_mesh_candidate && mesh_count < max_mesh_discovery_pf){
-                mesh_enqueue_delay_bench.bench_start(key);
-                ready_for_mesh.push(key);
+            }else if (  
+                    wants_work<JobType::Mesh>(entry) 
+                    && LM::sq_dist(chunkCoord, key) < mesh_sq_dist_req
+                    && mesh_count < max_mesh_discovery_pf){
+                debug_assert(entry);
+                push_ready<JobType::Mesh>(key);
                 mesh_count++;
             }
+
             bool max_meshes_found = mesh_count >= max_mesh_discovery_pf;
             bool max_gens_found = gen_count >= max_gen_discovery_pf;
             bool max_lights_found = light_count >= max_light_discovery_pf;
@@ -194,7 +176,6 @@ template<typename T>
 bool boundary_differs(Direction dir, GenericChunkStore<T> const& a, GenericChunkStore<T> const& b){
     assert_neq(dir,Direction::UP);
     assert_neq(dir,Direction::DOWN);
-    bool is_same = true;
     for (auto const& cpos : each_boundary_coord.at(dir)){
         if (a.at(cpos) != b.at(cpos)){
             return true;
@@ -203,8 +184,6 @@ bool boundary_differs(Direction dir, GenericChunkStore<T> const& a, GenericChunk
     return false;
 }
 void ChunkDirector::upload_light_result(ChunkEntry* entry, LightingResult&& res) {
-    entry->lighting.complete_inflight(res.rev);
-    ready_for_lighting.pop(entry->coord);
     mark_mesh_dirty(entry, "Lighting done!");
     // TODO: Dirty neighbours conditionally, based on whether or not blocks on the boundary changed light values
     for (const auto& [dir_idx, neigh_coord] : entry->each_dir_neighbour_chunk_coords()){
@@ -216,12 +195,19 @@ void ChunkDirector::upload_light_result(ChunkEntry* entry, LightingResult&& res)
     }
     entry->light_data = std::move(res.lights);
 }
+void ChunkDirector::upload_mesh_result(ChunkEntry* entry,Renderer& rend, MeshResult&& res) {
+    auto coord = entry->coord;
+//    mark_neighbour_meshes_dirty(coord); // no longer needed, meshes are only allowed to run when al neighbours are lit, and thus generated
+    res.opaque.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.opaque)) : void();
+    res.blended.vertices.size() > 0  ? rend.uploadMesh(coord, std::move(res.blended)) : void();
+    res.cutout.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.cutout)) : void();
+}
 
-void ChunkDirector::upload_generated_chunk(ChunkEntry * entry, GenResult&& gen_res) {
+void ChunkDirector::upload_gen_result(ChunkEntry * entry, GenResult&& gen_res) {
     ChunkBlockStore& blocks = gen_res.chunk_blocks;
     const auto& deferred_writes = gen_res.deferred_writes;
-    const auto& chunk_coord = gen_res.chunk_coord;
-    handle_pending_writes(chunk_coord, blocks.view(), deferred_writes);
+    const auto& coord = gen_res.coord;
+    handle_pending_writes(coord, blocks.view(), deferred_writes);
     entry->block_data = std::move(blocks);
     mark_lighting_dirty(entry, "newly generated");
 }

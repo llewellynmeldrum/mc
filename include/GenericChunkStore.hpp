@@ -57,6 +57,9 @@ public:
         return self.span()[x,y,z];
     }
 
+    constexpr decltype(auto) operator[](this auto& self, ChunkBlockPos p){
+        return self.span()[p.x,p.y,p.z];
+    }
     constexpr decltype(auto) operator[](this auto& self, i32 x, i32 y, i32 z){
         self.bounds_check(x,y,z);
         return self.span()[x,y,z];

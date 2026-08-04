@@ -25,7 +25,7 @@ struct ThreadPool{
 template<typename T>
 struct Queue{
     size_t capacity = 512;
-    std::mutex mtx;
+    mutable std::mutex mtx;
     std::deque<T> q;
     std::condition_variable not_empty;
     std::condition_variable not_full;
@@ -96,6 +96,7 @@ struct Queue{
         not_empty.notify_one(); 
         return true;
     }
+    [[nodiscard]]
     inline size_t slotsRemaining(){
         return capacity-q.size();
     }
@@ -119,6 +120,7 @@ struct Queue{
     // BLCOKS until:
     // 1. able to grab the lock
     // 2. queue size>0
+    [[nodiscard]]
     inline T wait_dequeue(){
         std::unique_lock lock(mtx);
 
@@ -137,6 +139,7 @@ struct Queue{
     // Succeeds only if:
     // 1. immediately able to grab the lock
     // 2. queue size>0
+    [[nodiscard]]
     inline std::optional<T> try_dequeue(){
         std::lock_guard lock(mtx);
 
@@ -152,6 +155,7 @@ struct Queue{
     // Succeeds only if:
     // 1. immediately able to grab the lock
     // 2. queue size>0
+    [[nodiscard]]
     inline std::optional<std::vector<T>> try_batch_dequeue(size_t batch_size){
         std::lock_guard lock(mtx);
 
@@ -176,6 +180,8 @@ struct Queue{
     inline void clear(){
         std::lock_guard lock(mtx);
         q.clear();
+        not_full.notify_all();
+        not_empty.notify_all();
     }
 
     inline bool is_empty(){
@@ -183,7 +189,7 @@ struct Queue{
         return q.empty();
     }
 
-    inline size_t wait_size(){
+    inline size_t wait_size()const {
         std::unique_lock lock(mtx);
         return q.size();
     }

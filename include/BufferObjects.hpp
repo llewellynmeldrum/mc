@@ -1,15 +1,24 @@
 #pragma once
+
+#include <cstddef>
+#include <utility>
+
 #include "LM.hpp"
 #include "Types.h"
 #include "Vertex.hpp"
 #include "cppslop.hpp"
 #include "glbinding/gl/enum.h"
-#include <cstddef>
-#include <utility>
 #include "Assertion.hpp"
 
 FORWARD_DECL_ENUM_STRUCT_NS(gl, GLenum, unsigned int)
 
+void apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs);
+
+template <size_t AttrCount>
+inline void apply_layout(const VertexLayout<AttrCount>& layout) {
+    using VertexAttrSpan = const_span<VertexAttribute, AttrCount>;
+    apply_layout_impl(layout.stride, VertexAttrSpan(layout.attrs));
+}
 struct VertexArray {
     DECL_NO_COPY(VertexArray);
     VertexArray(LM::deferred_init_t){} // create without initializing
@@ -35,13 +44,7 @@ struct VertexArray {
     void drawElementsInstanced(i32 num_elements, i32 instance_count, gl::GLenum usage_hint) const;
     void drawArrays(i32 count, gl::GLenum usage_hint, i32 offset = 0) const;
 
-    template <size_t AttrCount>
-    void apply_layout(const VertexLayout<AttrCount>& layout) {
-        using VertexAttrSpan = const_span<VertexAttribute, AttrCount>;
-        apply_layout_impl(layout.stride, VertexAttrSpan(layout.attrs));
-    }
 
-    void apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs);
     u32  id;
 };
 
@@ -68,8 +71,8 @@ struct VertexBuffer {
     void destroy();
 
 
-    template<typename T>
-    void load(const_span<T>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
+    template<typename T, size_t E = std::dynamic_extent>
+    void load(const_span<T,E>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
         const void* data = static_cast<const void*>(c.data() + offset);
         load_bytes(data, c.size_bytes(), usage);
     }

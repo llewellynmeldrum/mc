@@ -1,5 +1,6 @@
 
 #include <memory>
+#include <span>
 #include "cpp23_ranges.hpp"
 
 #include "Breakpoints.hpp"
@@ -115,9 +116,9 @@ void IndexedMesh::setup_mesh(const_span<Vertex> vertices, const_span<u32> indice
     vertex_count = vertices.size();
     vao.bind();
     assert_eq((indices.size() / 6) * 4,vertices.size());
-    vbo.load<Vertex>(vertices);
+    vbo.load<Vertex,std::dynamic_extent>(vertices);
     ebo.load(indices);
-    vao.apply_layout(Vertex::layout());
+    apply_vertex_layout<Vertex>();
     vao.unbind();
 }
 
@@ -134,8 +135,8 @@ void IndexedMesh::draw_nobind() const {
 void MeshBase::setupMesh(std::vector<Vertex> vertices) {
     vertex_count = vertices.size();
     vao.bind();
-    vbo.load<Vertex>(vertices);
-    vao.apply_layout(Vertex::layout());
+    vbo.load<Vertex,std::dynamic_extent>(vertices);
+    apply_vertex_layout<Vertex>();
     vao.unbind();
 }
 void MeshBase::draw() const {

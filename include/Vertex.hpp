@@ -11,6 +11,7 @@
 #include "Assertion.hpp"
 #include "Bitwise.hpp"
 #include "SharedShaderConfig.hpp"
+#include "meta_wrapper.hpp"
 
 
 
@@ -28,19 +29,6 @@ struct Vertex {
     // tex_atlas_id       ->  00000000001110000000000000000000
     // face_opacity       ->  11111111000000000000000000000000
 
-    constexpr Vertex(
-        glm::vec3 pos, 
-        glm::vec2 txCoords,
-        i32 face_direction,
-        BlockShape block_shape
-    )
-        : pos(pos)
-        , tx_coords(txCoords)
-    {
-        i32 tex_atlas_id = block_shape_to_texture_atlas.at(block_shape);
-        SET_BITFIELD_MEMBER_VAL(packed_0, FACE_DIR_MASK, FACE_DIR_OFFSET, face_direction);
-        SET_BITFIELD_MEMBER_VAL(packed_0, TEX_ATLAS_ID_MASK, TEX_ATLAS_ID_OFFSET, tex_atlas_id);
-    }
 
     constexpr void copy_light_data(PackedLightValue val) noexcept{
         packed_0 = (packed_0 & (~LIGHTING_MASK)) | (val.packed_data & (LIGHTING_MASK));
@@ -76,17 +64,29 @@ struct Vertex {
     }
 
 
-    static constexpr auto layout() {
-        return VertexLayout<3>{ 
-            .stride = sizeof(Vertex),
-            .attrs = {
-               make_attr<glm::vec3>(0, offsetof(Vertex, pos)),            // 12 bytes (4*3)
-               make_attr<glm::vec2>(1, offsetof(Vertex, tx_coords)),       // 08 bytes (4*2)
-               make_attr<u32>      (2, offsetof(Vertex, packed_0)),       // 4 bytes ()
-            }, 
-        };
-    }
 };
+template<BlockShape block_shape>
+constexpr auto make_vtx(
+    glm::vec3 _pos, 
+    glm::vec2 _tx_coords,
+    i32 face_direction
+)   -> Vertex
+{
+    constexpr i32 tex_atlas_id = shape_atlas_id<block_shape>;
+    u32 _packed_0 = {};
+    SET_BITFIELD_MEMBER_VAL(_packed_0, FACE_DIR_MASK, FACE_DIR_OFFSET, face_direction);
+    SET_BITFIELD_MEMBER_VAL(_packed_0, TEX_ATLAS_ID_MASK, TEX_ATLAS_ID_OFFSET, tex_atlas_id);
+    return Vertex{
+        .pos = _pos,
+        .tx_coords = _tx_coords,
+        .packed_0 = _packed_0,
+    };
+
+}
+
+
+
+
 static_assert(std::is_standard_layout_v<Vertex>,
               "Must be true for valid use of offsetof() in vtx attributes");
 static_assert(std::is_trivially_copyable_v<Vertex>, "Must be true for upload to vertex buffer");

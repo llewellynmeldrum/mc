@@ -1,14 +1,29 @@
 #pragma once
 
+#include "CommonConcepts.hpp"
 #include "DebugOptions.hpp"
 
+#include <mutex>
 #include <thread>
 
-#ifdef ENABLE_CPPTRACE
-    #include "cpptrace/cpptrace.hpp"
-#endif
+#define LIBASSERT_USE_MAGIC_ENUM
+#include "libassert/assert.hpp"
+#include "cpptrace/cpptrace.hpp"
+#include "cpptrace/formatting.hpp"
 
 #include <iostream>
+namespace TraceSettings{
+    inline std::mutex mut;
+    inline bool enable_color {true};
+    inline cpptrace::formatter fmt{};
+    template<typename Fn>
+        requires callable_with<Fn, cpptrace::formatter&>
+    inline void modify_fmt(Fn&& fn){
+        auto lock = std::lock_guard(mut);
+        std::invoke(fn,fmt);
+    }
+    void init();
+};
 
 #if defined(__clang__)
     #define TRAP() __builtin_debugtrap()
@@ -18,43 +33,23 @@
     #error "Unsupported compiler. Use gcc or clang noob"
 #endif
 
-constexpr inline void PRINT_TRACE(bool color = true){
-#ifdef ENABLE_CPPTRACE
-        cpptrace::generate_trace().print(std::cerr, color); 
-#endif
-}
-constexpr inline void PRINT_TRACE_SNIPPETS(bool color = true){
-#ifdef ENABLE_CPPTRACE
-    cpptrace::generate_trace().print_with_snippets(std::cerr, color); 
-#endif
+constexpr inline void PRINT_TRACE(size_t skip_frames){
+    auto lock = std::lock_guard(TraceSettings::mut);
+    auto trace = cpptrace::generate_trace(skip_frames);
+    TraceSettings::fmt.print(trace);
+    std::cerr.flush();
 }
 
-[[noreturn]]
-constexpr inline void BREAKPOINT_QUIET(){
+[[noreturn]] constexpr inline void BREAKPOINT_QUIET(){
     TRAP();
     std::abort();
 }
-[[noreturn]]
-constexpr inline void BREAKPOINT(size_t skip_frames=0){
+[[noreturn]] constexpr inline void BREAKPOINT(){
 #ifdef ENABLE_CPPTRACE
-    cpptrace::generate_trace(skip_frames).print(std::cout, false); 
+    PRINT_TRACE(2);
 #else
     std::println(stderr,"No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");
     std::println("No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");
 #endif
     BREAKPOINT_QUIET();
 }
-/* #define BREAKPOINT_QUIET() TRAP()
- #define BREAKPOINT(msg)                                                                         \
-     do {                                                                                           \
-         std::println(                                                                              \
-             stderr, "\e[31;1;4m" msg " -> Triggered BREAKPOINT in {}:{} !\n\e[0m\e[31;1mFunction -> {}\e[0m", \
-                      __FILE_NAME__, __LINE__, __PRETTY_FUNCTION__);                                         \
-         BREAKPOINT_QUIET();                                                                  \
-     } while (0)
- 
- 
- #if !defined(BREAKPOINT) || !defined(BREAKPOINT_QUIET) || !defined(TRAP)
-     #error "hi"
- #endif
-*/ 

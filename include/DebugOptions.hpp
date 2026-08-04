@@ -49,9 +49,9 @@ namespace DebugOption{
     DECL_TOGGLE(bool,enable_cutout_optimisation,"dynamically disables cutout rendering for far away chunks",OFF) ;
     DECL_TOGGLE(bool,enable_drone_cam,"Enable the renderering of the drone cam overhead",OFF) ;
     DECL_TOGGLE(bool,enable_3d_debug_visuals,"Global toggle for all 3d debug rendering",ON) ;
-    DECL_TOGGLE(bool,outline_neighbour_boundaries,"Toggle the outline for chunk boundaries of the 4 neighbour chunks",ON) ;
+    DECL_TOGGLE(bool,outline_neighbour_boundaries,"Toggle the outline for chunk boundaries of the 4 neighbour chunks",OFF) ;
     DECL_TOGGLE(bool,fill_neighbour_boundaries,"Toggle the filling of chunk boundaries of the 4 neighbour chunks",OFF) ;
-    DECL_TOGGLE(bool,outline_all_boundaries,"Toggle the outline for all chunk boundaries",OFF) ;
+    DECL_TOGGLE(bool,outline_all_boundaries,"Toggle the outline for all chunk boundaries",ON) ;
     DECL_TOGGLE(bool,fill_all_boundaries,"Toggle the filling of all chunk boundaries", OFF);
     DECL_TOGGLE(bool,show_debug_ui, "Toggle this ui", ON) ;
     DECL_TOGGLE(bool,HIDE_AIR_CHUNKS,"Exclude chunks consisting only of air from 3d debug rendering",OFF) ;

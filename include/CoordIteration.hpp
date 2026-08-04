@@ -90,6 +90,25 @@ void for_each_xz_exclusive(Vec2 lo, Vec2 hi, Fn&& task){
     }
 break_signal:
 }
+template<typename Vec2, typename Fn>
+    requires is_vec2<Vec2>
+void for_each_xz_inclusive(Vec2 lo, Vec2 hi, Fn&& task){
+    using T = Vec2::value_type;
+    static_assert(callable_with<Fn,T,T>);
+    for (T x = lo[0]; x<=hi[0]; x++){
+        for (T z = lo[1]; z<=hi[1]; z++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T,T>){
+                switch(std::invoke(std::forward<Fn>(task),x,z)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),x,z);
+            }
+        }
+    }
+break_signal:
+}
 template<typename Vec3, typename Fn>
     requires is_vec3<Vec3>
 void for_each_xyz_exclusive(Vec3 lo, Vec3 hi, Fn&& task){
@@ -97,6 +116,26 @@ void for_each_xyz_exclusive(Vec3 lo, Vec3 hi, Fn&& task){
     for (T x = lo.x; x<hi.x; x++){
         for (T y = lo.y; y<hi.y; y++){
             for (T z = lo.z; z<hi.z; z++){
+            if constexpr(return_type_is<IterationSignal, Fn, T,T,T>){
+                switch(std::invoke(std::forward<Fn>(task),x,y,z)){
+                    case IterationSignal::CONTINUE: continue; break;
+                    case IterationSignal::BREAK:    goto break_signal;
+                }
+            } else {
+                std::invoke(std::forward<Fn>(task),x,y,z);
+            }
+        }
+        }
+    }
+break_signal:
+}
+template<typename Vec3, typename Fn>
+    requires is_vec3<Vec3>
+void for_each_xyz_inclusive(Vec3 lo, Vec3 hi, Fn&& task){
+    using T = Vec3::value_type;
+    for (T x = lo.x; x<=hi.x; x++){
+        for (T y = lo.y; y<=hi.y; y++){
+            for (T z = lo.z; z<=hi.z; z++){
             if constexpr(return_type_is<IterationSignal, Fn, T,T,T>){
                 switch(std::invoke(std::forward<Fn>(task),x,y,z)){
                     case IterationSignal::CONTINUE: continue; break;
@@ -212,8 +251,8 @@ void for_each_spiral(IVEC2 center, i32 radius, Fn&& should_continue){
 
     i32 x{C.x}, z{C.z};
     if(!should_continue(x,z)) return;
-    for (i32 r = 1; r <= radius; r++){
-        const i32 extent = 2*r;
+    for (i32 r = 0; r <= radius; r++){
+        const i32 extent = (2*r)+1;
         // break out of the prior spiral  (off to the 'left')
         if(!should_continue(--x,z)) return; 
         for (int j = 0; j<extent - 1;j++)    {

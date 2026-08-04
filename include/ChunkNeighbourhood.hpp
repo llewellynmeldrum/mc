@@ -2,6 +2,7 @@
 #include "ChunkStorage.hpp"
 #include "DebugChunkLog.hpp"
 #include "FormatSpecs.hpp"
+#include <print>
 struct ChunkNeighbourhood{
     WorldChunkCoord center_coord;
     ChunkBlockStore* blocks;
@@ -46,8 +47,11 @@ struct ChunkNeighbourhood{
             auto const neighbour_dir = get_cpos_overflow_direction(pos);
             auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
             auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
-            return slices[neighbour_dir_idx].at(corrected_pos);
-
+            if (slices[neighbour_dir_idx].is_empty){
+                return V{};
+            }else{
+                return slices[neighbour_dir_idx].at(corrected_pos);
+            }
         }
     }
     template<typename T>
