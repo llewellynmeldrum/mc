@@ -22,8 +22,8 @@
 using namespace gl;
 using namespace glm;
 
-void Renderer::per_tick_update(Camera const& player_cam){
-    skybox.per_tick_update(player_cam);
+void Renderer::per_frame_update(Camera const& player_cam, SkyboxState const& skybox_state){
+    skybox.per_frame_update(player_cam,skybox_state);
 }
 void Renderer::update_debug_uniforms(){
     prog.use();
@@ -242,11 +242,11 @@ void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTarge
     target.stop();
 }
 
-void Renderer::draw_sky_to(RenderTargetView target){
+void Renderer::draw_skybox(RenderTargetView target){
     target.use();
     clear({skybox.base_color, 1.0f});
-//    prepare_skybox_pass();
-//    skybox.draw();
+    prepare_skybox_pass();
+    skybox.draw();
     target.stop();
 }
 

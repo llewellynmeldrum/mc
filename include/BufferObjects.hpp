@@ -71,10 +71,10 @@ struct VertexBuffer {
     void destroy();
 
 
-    template<typename T, size_t E = std::dynamic_extent>
-    void load(const_span<T,E>c, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
-        const void* data = static_cast<const void*>(c.data() + offset);
-        load_bytes(data, c.size_bytes(), usage);
+    template<ranges::contiguous_range Range>
+    void load_vertices(Range const& r, i32 offset = 0,gl::GLenum usage = gl::GL_STATIC_DRAW){
+        auto c = std::span(r).subspan(offset);
+        load_bytes(c.data(), c.size_bytes(), usage);
     }
 
     void load_bytes(const void* data, size_t size_bytes, gl::GLenum usage);
@@ -106,7 +106,7 @@ struct ElementBuffer {
     void unbind() const;
     void destroy();
 
-    void load(const_span<u32> indices, i32 offset = 0);
+    void load_indices(const_span<u32> indices, i32 offset = 0);
     void load(size_t size, const void* indices_ptr, i32 offset=0);
 
     constexpr static gl::GLenum BufferUsage();

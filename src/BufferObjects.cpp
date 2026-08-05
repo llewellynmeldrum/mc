@@ -25,7 +25,7 @@ constexpr GLenum ElementBuffer::BufferTarget() {
 constexpr GLenum VertexBuffer::BufferTarget() {
     return GL_ARRAY_BUFFER;
 }
-void ElementBuffer::load(const_span<u32> indices, i32 offset) {
+void ElementBuffer::load_indices(const_span<u32> indices, i32 offset) {
     this->bind();
     assert(indices.size() != 0);
     glBufferData(BufferTarget(), indices.size_bytes(), indices.data() + offset, BufferUsage());
@@ -48,7 +48,6 @@ void VertexBuffer::load_bytes(const void* data, size_t size_bytes,gl::GLenum usa
 }
 
 void apply_layout_impl(i32 stride, const_span<VertexAttribute> attrs) {
-    int i = 0;
     for (const auto& attr : attrs) {
         if (attr.is_integer) {
             glVertexAttribIPointer(      //
@@ -126,9 +125,9 @@ void VertexArray::unbind() const {
 void VertexArray::drawElementsInstanced(i32 num_elements, i32 instance_count, gl::GLenum usage_hint) const{
     glDrawElementsInstanced(usage_hint, num_elements, GL_UNSIGNED_INT, nullptr,instance_count);
 }
-void VertexArray::drawElements(i32 num, GLenum usage_hint) const {
+void VertexArray::drawElements(i32 num, GLenum mode) const {
     assert(num != 0);
-    glDrawElements(usage_hint, num, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(mode, num, GL_UNSIGNED_INT, nullptr);
 }
 // @brief shit
 // @param vertex_count

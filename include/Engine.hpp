@@ -1,10 +1,16 @@
 #pragma once
 
+#include <numbers>
+#include <optional>
+#include <print>
+#include <utility>
+
 #include "Camera.hpp"
 #include "ChunkConcurrency.hpp"
 #include "FmtStyle.hpp"
 #include "MirroredRingBuf.hpp"
 #include "Timer.hpp"
+#include "Types.hpp"
 #include "Window.hpp"
 #include "BenchmarkMap.hpp"
 #include "Input.hpp"
@@ -16,30 +22,37 @@
 #include "ChunkMesher.hpp"
 #include "ChunkGenerator.hpp"
 #include "ProgressBar.hpp"
+#include "SkyboxState.hpp"
 
 #include "World.hpp"
 #include "Concurrency.hpp"
-#include <optional>
-#include <print>
-#include <utility>
+
 // src/Simulation.cpp
 using namespace std::chrono_literals;
 struct Engine {
+    static constexpr auto default_skybox_cfg(TickCount tick_count){
+        return SkyboxConfig{
+            .ticks_per_day = ticks_per_day,
+            .tick_count = tick_count,
+        };
+    }
   public:
     Engine() : 
         win(), 
         profiler(),
         input(win.ptr), 
-        player_cam({-0.509,+383.622,+12.423}, -89.000,+171.000),
+        player_cam({-56.181,+135.793,-62.740}, +3.859,+181.105),
         drone_cam(),
         rend(),
         fixedCamTarget({0,0},{640,480}),
-        ui(),
+        ui(default_skybox_cfg(ticks_per_day*.25f)),
         world(default_world_seed),
         director(world.chunkMap,world)
     {}
     ~Engine() = default;
 
+    static constexpr auto ticks_per_day = TickCount{20 * 60 * 24};// 24 minute day/night cycle at 20tps
+    
     template<JobType JT>
     inline auto get_revision(WorldChunkCoord coord){
         if constexpr (JT == JobType::Gen){
@@ -114,24 +127,26 @@ struct Engine {
     bool upload_gen(GenResult&& res);
 
 
-    size_t tick_counter = 0;
 
     // tick machinery
-    timer::duration tick_gap_accumulator{0};
+    TickCount ticksPerSecond {2000uz};
+    TickCount tick_count = 0;
+    timer::duration tick_gap_accumulator = timer::duration{0};
     timer::time_point t_frame_start = timer::now();
-    constexpr static auto ticksPerSecond {20uz};
-    constexpr static auto msPerTick = timer::milliseconds(1000.0 / ticksPerSecond);
+    constexpr auto msPerTick(){return timer::milliseconds(1000.0 / ticksPerSecond);}
 
     constexpr static auto maxGapContributionPerFrame = timer::milliseconds(250.0); // limit on how many 'lagging' ticks are CREATED
     constexpr static auto max_ticks_per_frame = 8uz; // limit on how many 'lagging' ticks are ACCEPTED
     
+    void perform_tick_updates(timer::duration dt); // called once per frame
+    void per_tick_update(); // called [1,8] times per frame
     
-    void setup();
+
+    
+    void setup(bool log_setup_stages=false);
     i32 exit(i32 exit_code);
 
     void loop();
-    void update(timer::duration dt); // called once per frame
-    void per_tick_update(); // called [1,8] times per frame
     
     template<JobType JT>
     constexpr ChunkBenchContext make_bench_ctx(){
@@ -224,6 +239,7 @@ struct Engine {
     void regenerate_world();
     void remesh_world();
     void set_debug_params();
+    SkyboxConfig get_skybox_cfg();
     void handle_input();
     void refresh_visible_chunks();
     void classify_visible_chunks();
@@ -326,34 +342,27 @@ struct Engine {
             upload_results<JT>(count);
             update_state_counters<JT>();
             auto& c = get_state_counters<JT>();
-//            std::println(stderr, "==============");
-//            std::println(stderr, "{}",JT);
-//            std::println(stderr, "==============");
-//            std::println(stderr, "waiting for :{}",count);
-//            std::println(stderr, "ready4Q:{}", director.ready_for_enqueue<JT>().size());
-//            std::println(stderr, "n_pending:{}", c.n_pending);
-//            std::println(stderr, "n_ready:{}", c.n_ready_for_enqueue);
-//            std::println(stderr, "n_on_queue:{}", c.n_on_queue);
-//            std::println(stderr, "n_done:{}", c.n_done);
-
             draw_scene(); 
             ui.draw();
             win.swapBuffers();
             input.poll();
-            std::this_thread::sleep_for(5ms);
+            handle_input();
+            if (!baking_starting_chunks) return;
+            std::this_thread::sleep_for(25ms);
         }
     };
-    void force_load_chunks(i32 count);
+    void bake_n_chunks(i32 count);
     void handle_chunk_scheduling();
     void draw_scene();
     void draw_chunk_boundaries(Camera& cam, RenderTargetView target );
     bool paused{false};
     bool mouse_mode{false};
     bool chunk_updates_paused{false};
+    bool tick_updates_paused{false};
     bool dbg_modify_chunks{false};
     bool dirty_current_chunk{false};
 
-    bool awaiting_initial_generation{false};
+    bool baking_starting_chunks{false};
 
     // =========
     // telemetry

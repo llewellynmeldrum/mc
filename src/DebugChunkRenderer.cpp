@@ -74,14 +74,14 @@ void DebugChunkMesher::setup(){
     vao.bind();
 
     cube_vbo.bind();
-    cube_vbo.load(const_span{DebugChunkVertices});
+    cube_vbo.load_vertices(DebugChunkVertices);
     apply_vertex_layout<DebugChunkVertex>();
 
     instance_vbo.bind();
     apply_vertex_layout<DebugChunkInstance>();
 
     cube_ebo.bind();
-    cube_ebo.load(DebugChunkIndices);
+    cube_ebo.load_indices(DebugChunkIndices);
     vao.unbind();
 }
 
@@ -150,7 +150,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     }
 
     vao.bind();
-    instance_vbo.load<DebugChunkInstance, std::dynamic_extent>(instances);
+    instance_vbo.load_vertices(instances);
     vao.unbind();
 }
 void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){

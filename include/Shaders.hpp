@@ -4,37 +4,55 @@
 #include <iostream>
 #include <unordered_map>
 
+#include "LM.hpp"
 #include "Logger.hpp"
 #include "Logger.hpp"
 #include "Types.h"
 // src/Shaders.cpp
 
 
-struct Shader{
-    Shader(i32 shader_type, const std::string& src_path);
-    ~Shader(); // custom
+struct ShaderBase{
+    ShaderBase()=default;
+    ShaderBase(const ShaderBase&) = delete;
+    ShaderBase& operator=(const ShaderBase&) = delete;
+
+    ShaderBase(ShaderBase&& rhs)
+        :ShaderType(rhs.ShaderType)
+        ,id(rhs.id)
+        ,src_path(std::move(rhs.src_path))
+        ,file_contents(std::move(rhs.file_contents))
+    {
+        
+
+    }
+    ShaderBase(i32 shader_type, const std::string& src_path) { init(shader_type, src_path); }
+    void init(i32 shader_type, const std::string& src_path);
+    ~ShaderBase(); 
     std::string parse_include_directives(std::string& shader_file_contents);
 
-    i32 ShaderType;
-    u32 id;
-    std::string src_path;
-    std::string file_contents;
-    std::vector<std::string> file_lines;
+    i32 ShaderType{};
+    u32 id{};
+    std::string src_path{};
+    std::string file_contents{};
+    std::vector<std::string> file_lines{};
     static std::string shader_type_to_str(i32 shader_type);
     bool compile();
     void load_shader(const std::string& file_contents);
-    void load_shader_file(const std::string& filename, bool enable_includes);
+    std::string& load_shader_file(const std::string& filename, bool enable_includes);
 
     bool has_error(i32 param_name);
     std::string get_info_log();
 };
 
-struct VertexShader: Shader{
-    VertexShader(const std::string& filename);
-
+struct VertexShader: ShaderBase{
+    using ShaderBase::ShaderBase;
+    VertexShader(const std::string& filename){init(filename);}
+    void init(const std::string& filename);
 };
-struct FragmentShader: Shader{
-    FragmentShader(const std::string& filename);
+struct FragmentShader: ShaderBase{
+    using ShaderBase::ShaderBase;
+    FragmentShader(const std::string& filename){init(filename);}
+    void init(const std::string& filename);
 };
 
 // A wrapper around a FragmentShader and a VertexShader, 
@@ -43,6 +61,8 @@ struct FragmentShader: Shader{
 struct ShaderProgram{
     ShaderProgram()= default;
     ~ShaderProgram()=default;
+    VertexShader   vtx;
+    FragmentShader frag;
     u32 id;
 
     // compiles and links a vertex and fragment shader from the path of their source files.
@@ -62,6 +82,8 @@ struct ShaderProgram{
     }
     template<typename T>
     void setUniform(const std::string& name, const T& val){
+        LOG_WARN("Setting uniforms by name is costly, prefer storing the uniform location.");
+        LOG_WARN("(Setting uniform '{}' by name.)",name);
         setUniform(getUniformLoc(name),val);
     }
 

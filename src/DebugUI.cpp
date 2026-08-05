@@ -55,7 +55,7 @@ std::vector<WindowConfig> win_configs;
 
 
 
-DebugUI::DebugUI(){
+DebugUI::DebugUI(SkyboxConfig initial_cfg){
     IMGUI_CHECKVERSION();
     IG::CreateContext();
     ImGuiIO& io = IG::GetIO();
@@ -69,6 +69,7 @@ DebugUI::DebugUI(){
         main_scale * UI_SCALE);  // Bake a fixed style scale. (until we have a solution for dynamic style
                             // scaling, changing this requires resetting Style + calling this again)
     style.FontScaleDpi = main_scale * UI_SCALE;
+    skybox_cfg = std::move(initial_cfg);
 }
 
 DebugUI::~DebugUI(){
@@ -113,6 +114,71 @@ static bool edit_noise_config(const char* label, NoiseConfig& c) {
     changed |= edit_enum("fractal", &c.frac_type, FractalType_names);
     ImGui::TreePop();
     return changed;
+}
+template<typename ResType>
+bool draw_remap_table(const char* label, GenericRemapTable<ResType> & remap_table){
+    bool changed = false;
+    if (!ImGui::TreeNode(label)) return false;
+
+    auto& map = remap_table.map;
+    int deleteIdx = -1;
+    for (int i = 0; i < (int)remap_table.size(); i++) {
+        ImGui::PushID(i);
+        changed |= ImGui::SliderFloat("##key", &map[i].first, 0.0f,1.0f);
+        ImGui::SameLine();
+        changed |= ImGui::ColorEdit3("##val", &map[i].second.x,ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_Float);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) deleteIdx = i;
+        ImGui::PopID();
+    }
+    if (deleteIdx >= 0) {
+        map.erase(map.begin() + deleteIdx); 
+        changed = true; 
+    }
+    if (ImGui::SmallButton("+ add")) {
+        map.push_back(map.empty() ? std::pair{0.0f, ResType{}} : map.back());
+        changed = true;
+    }
+    if (changed && map.size()>1){
+        std::stable_sort(map.begin(), map.end(),
+                         [](auto& a, auto& b){ return a.first < b.first; });
+    }
+    ImGui::TreePop();
+    return changed;
+}
+#include "meta_wrapper.hpp"
+void draw_world_window(WindowConfig& self, Engine* ctx){
+    self.setAlpha(0.9f);
+    self.setup();
+    self.setSize(UVSize{0.4,0.4});
+    self.setAlign(WinAlign::TopMid());
+    self.setFlags();
+    self.start_at(true, UVPos{0.7,0.5},[&]{
+        auto& window = self;
+        auto cfg = ctx->ui.skybox_cfg;
+        window.open_section("Noise Config:",[&]{
+//            window.slider("Ticks per second",&ctx->ticksPerSecond,TickCount{1},TickCount{2000});
+
+            bool dirty= false;
+
+            window.dbg_toggle(DebugOption::skybox_ui_override);
+            if (!DebugOption::skybox_ui_override) IG::BeginDisabled();
+            f32 t = cfg.tod01(); 
+            if (window.slider("Time of day (t)",&t,0.0f,1.0f)){
+                dirty |= true;
+                cfg.tick_count = t * cfg.ticks_per_day;
+            }
+            
+            dirty |= draw_remap_table("Sun color", cfg.remap_t_sun_color);
+
+
+            if (!DebugOption::skybox_ui_override) IG::EndDisabled();
+
+            if (dirty){
+                ctx->ui.skybox_cfg = cfg;
+            }
+        });
+    });
 }
 void draw_worldgen_window(WindowConfig& self, Engine* ctx){
     self.setAlpha(0.9f);
@@ -322,8 +388,9 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
     auto io = IG::GetIO();
     auto screen_size = io.DisplaySize;
     font_scale = 2.0f;
-    if (ctx->awaiting_initial_generation){
-        set_fill_rgba(20,20,20,16);
+    if (ctx->baking_starting_chunks){
+        font_scale = 3.0f;
+        set_fill_rgba(20,20,20,150);
         enable_stroke = false;
         draw_rect({0,0},screen_size);
         enable_stroke = true;
@@ -332,21 +399,23 @@ void drawFullscreenOverlay(WindowConfig& self, Engine* ctx) {
         if (ms % 1000 <= 250){
             ch_upd_paused_str = "BAKING STARTING CHUNKS";
         }else if (ms %1000 <=500){
-            ch_upd_paused_str = "GENERATING WORLD.";
+            ch_upd_paused_str = "BAKING STARTING CHUNKS.";
         }else if (ms %1000 <=750){
-            ch_upd_paused_str = "GENERATING WORLD..";
+            ch_upd_paused_str = "BAKING STARTING CHUNKS..";
         }else {
-            ch_upd_paused_str = "GENERATING WORLD...";
+            ch_upd_paused_str = "BAKING STARTING CHUNKS...";
         }
-        ImVec2 text_size = calc_text_size(ch_upd_paused_str)*2.0f;
+        ImVec2 text_size = calc_text_size(ch_upd_paused_str);
 
         ImVec2 text_pos = ImVec2(
             (screen_size.x - text_size.x) * 0.5f,
-            (screen_size.y - text_size.y) * 0.8f
+            (screen_size.y - text_size.y) * 0.5f
         );
 
         set_stroke_rgba(255,255,255);
         draw_text(ch_upd_paused_str,text_pos);
+        font_scale = 1.5f;
+        draw_text("(press ESC to cancel)",text_pos + ImVec2(0,5+DrawContext::font_size()*2));
     }else if (ctx->paused){
         set_fill_rgba(20,20,20,64);
         enable_stroke = false;
@@ -522,7 +591,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         };//toChunkBlockPos(ctx->player_cam.pos).raw();
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
-        UI::Text("tick: {}",ctx->tick_counter);
+        UI::Text("tick: {}",ctx->tick_count);
         UI::Separator();
         UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_gening,n_chunks_meshing);
         UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());
@@ -888,6 +957,7 @@ void DebugUI::init(GLFWwindow* _win_ptr) {
             {"DBG OPTS", UI::WinFlagGroup::MovableOverlay,drawDebugSettingsWindow,this},
             {"WORLDGEN", UI::WinFlagGroup::MovableOverlay,draw_worldgen_window,this},
             {"GRAPHICS", UI::WinFlagGroup::MovableOverlay,draw_graphics_window,this},
+            {"WORLD", UI::WinFlagGroup::MovableOverlay,draw_world_window,this},
         }
     );
 }
@@ -898,6 +968,7 @@ void DebugUI::StartFrame(){
     IG::NewFrame();
 }
 void DebugUI::destroy() {
+    std::println();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     IG::DestroyContext();

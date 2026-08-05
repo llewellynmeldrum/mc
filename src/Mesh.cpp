@@ -116,8 +116,8 @@ void IndexedMesh::setup_mesh(const_span<Vertex> vertices, const_span<u32> indice
     vertex_count = vertices.size();
     vao.bind();
     assert_eq((indices.size() / 6) * 4,vertices.size());
-    vbo.load<Vertex,std::dynamic_extent>(vertices);
-    ebo.load(indices);
+    vbo.load_vertices(vertices);
+    ebo.load_indices(indices);
     apply_vertex_layout<Vertex>();
     vao.unbind();
 }
@@ -135,7 +135,7 @@ void IndexedMesh::draw_nobind() const {
 void MeshBase::setupMesh(std::vector<Vertex> vertices) {
     vertex_count = vertices.size();
     vao.bind();
-    vbo.load<Vertex,std::dynamic_extent>(vertices);
+    vbo.load_vertices(vertices);
     apply_vertex_layout<Vertex>();
     vao.unbind();
 }

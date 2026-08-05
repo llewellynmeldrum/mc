@@ -62,10 +62,11 @@ static constexpr auto non_instanced_vtx_layout = make_layout<T>();
 
 template<typename T>
 constexpr void apply_vertex_layout(){
+    // NOTE: 
+    // - Vertex layouts which use instancing require setting the divisor of each field,
+    //      the factory function `make_layout<T>()` does not account for this.
+    // - Thus, we must use the old member function. We could also make explicit exceptions of each, but im lazy
     if constexpr(has_layout_member_fn<T>){
-    // Vertex layouts which use instancing require setting the divisor of each field.. 
-        // The factory function make_layout<T>() cannot account for this.
-    // Thus, we must use a member function. We could also make explicit exceptions of each.
         apply_layout(T::instanced_layout());
     }else{
         apply_layout(non_instanced_vtx_layout<T>);

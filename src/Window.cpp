@@ -177,7 +177,7 @@ static void init_glFunctionLoader() {
 
             std::println(stderr,"{}",error_str);
             std::println(stderr,"{}", lookup_gl_error_description(call.function->name(), error_type_str));
-            BREAKPOINT();
+            BREAKPOINT(8zu);
         }
     });
 }

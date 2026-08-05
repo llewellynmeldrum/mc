@@ -61,7 +61,7 @@ struct Renderer {
     f32 gamma = 0.8f;
     f32 sunlight_smooth_falloff_factor = 0.150f;
 
-    void per_tick_update(Camera const& player_cam);
+    void per_frame_update(Camera const& player_cam, SkyboxState const& skybox_state);
     void update_debug_uniforms();
     void sort_opaque_chunks(WorldFloatPos cam_pos);
     void sort_blended_chunks(WorldFloatPos cam_pos);
@@ -81,7 +81,7 @@ struct Renderer {
     void draw_debugChunks_to(Camera&cam, Engine* sim, RenderTargetView target);
     void draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTargetView target);
     void clear(const glm::vec4 clear_color);
-    void draw_sky_to(RenderTargetView target);
+    void draw_skybox(RenderTargetView target);
 
     void update_player_cam_frustum_lines(Engine* sim);
     inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {

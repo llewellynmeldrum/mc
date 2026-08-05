@@ -18,6 +18,7 @@
 #include "Direction.hpp"
 #include "GlobalDebugLog.hpp"
 #include "PendingBlockWrites.hpp"
+#include "SkyboxState.hpp"
 #include "WorldGen_BiomeFeatureSets.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 
@@ -46,10 +47,9 @@
 
 void Engine::per_tick_update(){
     update_player_cam(player_cam);
-    rend.per_tick_update(player_cam);
     update_drone_cam(drone_cam, player_cam.pos);
     world.tick();
-    tick_counter++;
+    tick_count++;
 }
 void Engine::loop(){
     auto dt = timer::milliseconds(16);
@@ -67,7 +67,9 @@ void Engine::loop(){
             if (!chunk_updates_paused){
                 handle_chunk_scheduling(); 
             }
-            update(dt);
+            if (!tick_updates_paused){
+                perform_tick_updates(dt);
+            }
         }
         rend.dbg_rend.update(player_cam,this);
     
@@ -77,6 +79,8 @@ void Engine::loop(){
         ui.update();
 
 
+        auto const& sky_cfg = get_skybox_cfg();
+        rend.per_frame_update(player_cam, sky_cfg.make_skybox());
         draw_scene(); 
         if (DebugOption::show_debug_ui){ ui.draw(); }
 
@@ -319,16 +323,16 @@ void Engine::draw_chunk_boundaries(Camera& cam, RenderTargetView target ){
 }
 void Engine::draw_scene() {
     profiler.bench_start("01_draw");
-    player_cam.aspectRatio = win.aspect();
+    player_cam.aspectRatio = win.aspect(); // this probably has a better home
     rend.debug.reset_per_frame();
 
 
-    rend.draw_sky_to(screen_view());
+    rend.draw_skybox(screen_view());
     rend.draw_to(player_cam, screen_view(), &profiler);
 
 
     if( DebugOption::enable_drone_cam){
-        rend.draw_sky_to(secondaryView());
+        rend.draw_skybox(secondaryView());
         rend.draw_to(drone_cam, secondaryView(), &profiler);
         if (DebugOption::enable_3d_debug_visuals){
             // Drone cam sees players' frustum lines 
@@ -375,23 +379,30 @@ void Engine::set_debug_params() {
     }
 }
 
-void Engine::update(timer::duration dt){
+void Engine::perform_tick_updates(timer::duration dt){
     tick_gap_accumulator += std::min(dt, maxGapContributionPerFrame);
 //    std::println("tick_gap_accum: {}",tick_gap_accumulator);
 //    std::println("dt: {}",dt);
 
     auto ticks_this_frame {0uz};
-    while (tick_gap_accumulator > msPerTick && ticks_this_frame < max_ticks_per_frame ){
+    while (tick_gap_accumulator > msPerTick() && ticks_this_frame < max_ticks_per_frame ){
         per_tick_update();
-        tick_gap_accumulator-=msPerTick;
+        tick_gap_accumulator-=msPerTick();
         ticks_this_frame++;
     }
 
 }
 
-void Engine::setup() {
-    for (auto& v: block_defs){
-        std::println("{}",v);
+void Engine::setup(bool setup_logging) {
+    auto log_stage = [setup_logging](auto stage_msg){
+        if (setup_logging){
+            LOG_DEBUG("Finished {}", stage_msg);
+        }
+    };
+    if (setup_logging){
+        for (auto& v: block_defs){
+            std::println("{}",v);
+        }
     }
 #ifdef ENABLE_CPPTRACE
     cpptrace::register_terminate_handler(); // gives us stack traces in std::terminate handler
@@ -403,7 +414,7 @@ void Engine::setup() {
 
 
     win.set_callbacks(static_cast<void*>(this));
-    LOG_DEBUG("Finished setting window callbacks.");
+    log_stage("Finished setting window callbacks.");
 
 
     profiler.init<std::string_view>({
@@ -430,20 +441,21 @@ void Engine::setup() {
 
         "render",
     });
-    LOG_DEBUG("Finished Profiler setup.");
+    log_stage("Finished Profiler setup.");
 
     player_cam.is_main_camera=true;
     drone_cam.vertical_fov = 50.0f;
     director.setup(player_cam.pos);
-    LOG_DEBUG("Finished Camera setup.");
+    log_stage("Finished Camera setup.");
 
 
     ui.init(win.ptr);
-    LOG_DEBUG("Finished UI setup.");
+    log_stage("Finished UI setup.");
 
 
     rend.update_debug_uniforms();
-    rend.per_tick_update(player_cam);
+    auto const& sky_cfg = get_skybox_cfg();
+    rend.per_frame_update(player_cam, sky_cfg.make_skybox());
     // enqueue the starting chunks
     world.worldgen_epoch++;
     director.discover_candidates();
@@ -452,16 +464,22 @@ void Engine::setup() {
 //    constexpr auto sq= [](auto n){
 //        return n*n;
 //    };
-    constexpr auto n_chunks = 1000;
+    [[maybe_unused]] constexpr auto n_chunks = 100;
     //auto n_chunks = sq((director.GENERATION_DIST+1)*2);
     //force_load_chunks(n_chunks);
 
 
-    force_load_chunks(n_chunks);
+    const auto start_pos = player_cam.pos;
+    const auto start_pitch = player_cam.pitch;
+    const auto start_yaw = player_cam.yaw;
+
+//    bake_n_chunks(n_chunks);
+    player_cam.set_pos_ori(start_pos,start_pitch,start_yaw); //{-0.509,+383.622,+12.423}, -89.000,+171.000
 //    for (int i = 0; i<1; i++){
 //        force_load_chunks(n_chunks);
 //        regenerate_world();
 //    }
+    per_tick_update();
 
 
 }
@@ -477,24 +495,46 @@ i32 Engine::exit(i32 exit_code) {
 // =========
 // Helpers 
 // =========
+SkyboxConfig Engine::get_skybox_cfg(){
+    if (DebugOption::skybox_ui_override){
+        return ui.skybox_cfg;
+    }
+    return default_skybox_cfg(tick_count);
+}
 void Engine::handle_input(){
     if (input.just_pressed(KEY_ESCAPE)){
+        if (baking_starting_chunks){
+            std::println("\n\nCancelled baking of starting chunks!\n\n");
+            baking_starting_chunks = false;
+            return;
+        }
         if (paused){
             // unpause
             paused = false; 
-        } else if(chunk_updates_paused){
+            return;
+        } 
+        if(chunk_updates_paused){
             chunk_updates_paused= false;
-        }else if(mouse_mode){
-            mouse_mode = false;
-        } else{
-            win.scheduleClose();
             return;
         }
+        if(mouse_mode){
+            mouse_mode = false;
+            return;
+        } 
+
+        win.scheduleClose();
+        return;
     }
 
     if(input.just_pressed(KEY_GRAVE_ACCENT)){
         ui.is_ui_expanded = !ui.is_ui_expanded;
     }
+    if (baking_starting_chunks){
+		player_cam.rotate(Direction::LEFT, profiler.dt_s * 3.0f);
+        return;
+    }
+
+
     if(input.just_pressed({.shift=true, .super=true }, KEY_C)){
         const auto& pos=player_cam.pos;
         const auto& yaw=player_cam.yaw;
@@ -545,6 +585,9 @@ void Engine::handle_input(){
         player_cam.rotateByMouse(diff, profiler.dt_s);
     }
 
+    if(input.just_pressed(KeyModifiers{.shift=true},KEY_T)){
+        tick_updates_paused = !tick_updates_paused;
+    }
     // NOTE:  DEBUG TOGGLES
     if(input.just_pressed(KEY_T)){
         auto coord = director.cur_chunk_pos;
@@ -753,10 +796,10 @@ void Engine::count_states(){
     update_state_counters<JobType::Light>();
     update_state_counters<JobType::Mesh>();
 };
-void Engine::force_load_chunks(i32 count){
+void Engine::bake_n_chunks(i32 count){
     std::println("===============================================================================");
     std::println("Baking {} starting chunks...",count);
-    awaiting_initial_generation = true;
+    baking_starting_chunks = true;
 //    assert(count > 32, "Small value can cause the queue to be jammed.");
 
     auto t0 = timer::now();
@@ -787,6 +830,7 @@ void Engine::force_load_chunks(i32 count){
         gen_bake_progress.update(n_done);
         return  n_done >= gen_count;
     });
+    if (!baking_starting_chunks) return;
     gen_duration = timer::now() - gen_t0;
 
 
@@ -798,6 +842,7 @@ void Engine::force_load_chunks(i32 count){
         light_bake_progress.update(n_done);
         return  n_done >= light_count;
     });
+    if (!baking_starting_chunks) return;
     light_duration = timer::now() - light_t0;
 
 
@@ -808,6 +853,7 @@ void Engine::force_load_chunks(i32 count){
         mesh_bake_progress.update(n_done);
         return  n_done >= mesh_count;
     });
+    if (!baking_starting_chunks) return;
     mesh_duration = timer::now() - mesh_t0;
 
     auto duration = timer::now() - t0;
@@ -830,5 +876,7 @@ void Engine::force_load_chunks(i32 count){
     std::println("Generated {}, took {}({:4.1f}%) ,{}/chunk", gen_count,   ms(gen_duration),  gen_pct,  ms_per(gen_duration,count));
     std::println("Lit       {}, took {}({:4.1f}%) ,{}/chunk", light_count, ms(light_duration),lit_pct,  ms_per(light_duration,count));
     std::println("Meshed    {}, took {}({:4.1f}%) ,{}/chunk", mesh_count,  ms(mesh_duration), mes_pct,  ms_per(mesh_duration,count));
-    awaiting_initial_generation= false;
+    baking_starting_chunks= false;
 }
+
+

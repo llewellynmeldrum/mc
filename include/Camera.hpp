@@ -106,8 +106,16 @@ struct Camera {
         });
     }
 
+    // NOTE: To recall pitch vs yaw mnemonic:
+    // On which axis does your head rotate when you yawn? 
+    // It rotates st. it points upwards, i.e on the YAW axis. (YAWn)
     f32 yaw = -90;
+
+    // NOTE: To recall pitch vs yaw mnemonic:
+    // On which axis does your head rotate when you yawn? 
+    // It rotates st. it points upwards, i.e on the YAW axis. (YAWn)
     f32 pitch = 0;
+
     f32 mouse_sensitivity = 6000;
     f32 keyboard_sensitivity = BASE_KEYBOARD_SENSITIVITY;
 

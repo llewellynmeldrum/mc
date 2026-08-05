@@ -151,7 +151,7 @@ namespace cube_vtx{
 //
 // NOTE: 
 // Important stuff summary:
-// -> indices 0,1,2,3 describe corners
+// -> indices 0,1,2,3 describe corners, starting from bot left, in CCW order.
 // -> Winding order is CCW for the triangles, and also for the indices.
 // -> quad_indices describes two SEPARATE triangles.
 //

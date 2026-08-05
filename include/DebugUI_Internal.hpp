@@ -27,6 +27,7 @@ template<> ImGuiDataType IG_DataType<u16> =     ImGuiDataType_U16;      // unsig
 template<> ImGuiDataType IG_DataType<i32> =     ImGuiDataType_S32;      // int
 template<> ImGuiDataType IG_DataType<u32> =     ImGuiDataType_U32;      // unsigned int
 template<> ImGuiDataType IG_DataType<i64> =     ImGuiDataType_S64;      // long long / __int64
+template<> ImGuiDataType IG_DataType<unsigned long> =     ImGuiDataType_U64;      // unsigned long long / unsigned __int64
 template<> ImGuiDataType IG_DataType<u64> =     ImGuiDataType_U64;      // unsigned long long / unsigned __int64
 template<> ImGuiDataType IG_DataType<f32> =     ImGuiDataType_Float;    // float
 template<> ImGuiDataType IG_DataType<f64> =     ImGuiDataType_Double;   // double

@@ -15,6 +15,7 @@ using f32 = float;
 using f64 = double;
 
 using Byte = char;
+using Radians = f32;
 
 const inline f32 F32_MAX = std::numeric_limits<f32>::max();
 const inline f32 F32_MIN = std::numeric_limits<f32>::lowest();

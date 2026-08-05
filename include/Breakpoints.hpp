@@ -44,9 +44,9 @@ constexpr inline void PRINT_TRACE(size_t skip_frames){
     TRAP();
     std::abort();
 }
-[[noreturn]] constexpr inline void BREAKPOINT(){
+[[noreturn]] constexpr inline void BREAKPOINT(size_t N=0){
 #ifdef ENABLE_CPPTRACE
-    PRINT_TRACE(2);
+    PRINT_TRACE(2+N);
 #else
     std::println(stderr,"No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");
     std::println("No backtrace, cpptrace is disabled. Define ENABLE_CPPTRACE if u want them");

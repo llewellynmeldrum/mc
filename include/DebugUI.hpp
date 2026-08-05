@@ -3,6 +3,7 @@
 #include "CoordTypes.hpp"
 #include "DebugChunkLog.hpp"
 #include "DebugChunkRenderer.hpp"
+#include "SkyboxState.hpp"
 #include "cppslop.hpp"
 #include <chrono>
 #include <format>
@@ -11,11 +12,14 @@ FORWARD_DECL_STRUCT(GLFWwindow)
 
 
 struct DebugUI{
-     DebugUI();
+     DebugUI(SkyboxConfig initial_cfg);
     ~DebugUI();
     void init(GLFWwindow* win_ptr);
     void destroy();
     bool is_ui_expanded{false};
+    // default one in Engine.hpp
+    SkyboxConfig skybox_cfg;
+
 
     void draw();
     void update();

@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <iostream>
+#include <string_view>
 
 #include "Shaders.hpp"
 #include "FmtStyle.hpp"
@@ -10,7 +11,8 @@
 #include "Logger.hpp"
 #include "cpp23_ranges.hpp"
 
-#include <string_view>
+using namespace gl;
+
 std::string read_file_contents(std::string const& filename){
     std::ifstream file_stream(filename);
     if (!file_stream.is_open()) {
@@ -28,7 +30,7 @@ std::string read_file_contents(std::string const& filename){
     file_stream.close();
     return file_contents;
 }
-std::string Shader::parse_include_directives(std::string& shader_file_contents){
+std::string ShaderBase::parse_include_directives(std::string& shader_file_contents){
     auto iss = std::istringstream(shader_file_contents);
     std::string line;
     std::vector<std::string> lines;
@@ -55,31 +57,29 @@ std::string Shader::parse_include_directives(std::string& shader_file_contents){
     return res;
 }
 
-#define _DEBUG
-using namespace gl;
 
 using namespace glm;
-Shader::Shader(i32 shader_type, const std::string& src_path) 
-: ShaderType(shader_type) 
-, id(glCreateShader(static_cast<GLenum>(shader_type)))
-, src_path(src_path)
-{
-    load_shader_file(src_path,true);
+void ShaderBase::init(i32 _shader_type, const std::string& _src_path) {
+    ShaderType = _shader_type;
+    src_path = _src_path;
+    id = glCreateShader(static_cast<GLenum>(_shader_type));
+    auto& contents = load_shader_file(src_path,true);
+    load_shader(contents);
     if (!compile()) {
         LOG_ERROR("Error compiling shader '{}'.", src_path);
     }
 }
 
-void Shader::load_shader(const std::string& file_contents) {
+void ShaderBase::load_shader(const std::string& file_contents) {
     const char* ptr = file_contents.c_str();
     glShaderSource(id, 1, &(ptr), nullptr);
 }
-void Shader::load_shader_file(const std::string& filename, bool enable_includes) {
+std::string& ShaderBase::load_shader_file(const std::string& filename, bool enable_includes) {
     file_contents = read_file_contents(filename);
     if (enable_includes){
         file_contents = parse_include_directives(file_contents);
     }
-    load_shader(file_contents);
+    return file_contents;
 }
 // given a file containing 0 or many #include "xyz.h" statements, find and paste the file contents
 // of the file xyz.
@@ -87,7 +87,7 @@ void Shader::load_shader_file(const std::string& filename, bool enable_includes)
 auto split_lines(auto&& str){
     return str | ranges::views::split('\n') | ranges::to<std::vector<std::string>>();
 }
-bool Shader::compile() {
+bool ShaderBase::compile() {
     glCompileShader(id);
     if (has_error(static_cast<i32>(GL_COMPILE_STATUS))) {
         file_lines = split_lines(file_contents);
@@ -131,25 +131,25 @@ bool Shader::compile() {
     }
     return true;
 }
-bool Shader::has_error(i32 param_name) {
+bool ShaderBase::has_error(i32 param_name) {
     i32 success = 0;
     glGetShaderiv(id, static_cast<GLenum>(param_name), &success);
     return !success;
 }
-std::string Shader::get_info_log() {
+std::string ShaderBase::get_info_log() {
     constexpr i64 buf_sz = 512;
     std::string   info_log(buf_sz, '\0');
     glGetShaderInfoLog(id, buf_sz, nullptr, info_log.data());
     return info_log;
 }
-Shader::~Shader() {
+ShaderBase::~ShaderBase() {
     glDeleteShader(id);
 }
 
 void ShaderProgram::load_vtx_and_frag(const std::string& vtx_src, const std::string& frag_src) {
     this->id = glCreateProgram();
-    VertexShader   vtx(vtx_src);
-    FragmentShader frag(frag_src);
+    vtx.init(vtx_src);
+    frag.init(frag_src);
     glAttachShader(id, vtx.id);
     glAttachShader(id, frag.id);
     glLinkProgram(id);
@@ -225,11 +225,9 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
     if (uniformLocationsCache.contains(name)) {
         location = uniformLocationsCache.at(name);
     } else {
-#ifdef _DEBUG
         check_uniform(name);
-#endif
         auto [iter, inserted ]= uniformLocationsCache.insert({ name, glGetUniformLocation(id, name.c_str()) });
-        LOG_DEBUG("Cached unform type of '{}'", name);
+//        LOG_DEBUG("Cached unform type of '{}'", name);
         location = iter->second;
     }
     if (location == -1) {
@@ -238,7 +236,7 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
     }
     return location;
 }
-std::string Shader::shader_type_to_str(i32 shader_type) {
+std::string ShaderBase::shader_type_to_str(i32 shader_type) {
     if (shader_type == GL_VERTEX_SHADER){
         return "Vertex";
     } else if (shader_type == GL_FRAGMENT_SHADER){
@@ -247,10 +245,10 @@ std::string Shader::shader_type_to_str(i32 shader_type) {
         return "Unknown shader type.";
     }
 }
-VertexShader::VertexShader(const std::string& filename) 
-: Shader(static_cast<i32>(GL_VERTEX_SHADER), filename) {
+void VertexShader::init(const std::string& filename) {
+    ShaderBase::init(static_cast<i32>(GL_VERTEX_SHADER), filename);
 }
 
-FragmentShader::FragmentShader(const std::string& filename)
-    : Shader(static_cast<i32>(GL_FRAGMENT_SHADER), filename) {
+void FragmentShader::init(const std::string& filename){
+    ShaderBase::init(static_cast<i32>(GL_FRAGMENT_SHADER), filename);
 }
