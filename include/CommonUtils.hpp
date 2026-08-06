@@ -20,73 +20,82 @@
 template<typename T>
     requires Numeric<T>
 struct Bounded{
-    const T def;
-    const T min;
-    const T max;
-    T cur{def};
-    constexpr inline T get() const noexcept{
-        return cur;
+    const T m_default;
+    const T m_min;
+    const T m_max;
+    T m_cur{m_default};
+    Bounded& clamp()& noexcept{
+        m_cur = std::clamp(m_cur,m_min,m_max);
+        return *this;
     }
-    constexpr inline operator T() const noexcept{
-        return cur;
+
+    Bounded& reset()& noexcept{
+        m_cur = m_default;
+        return *this;
     }
-    inline Bounded& operator=(T rhs)& noexcept{
-        cur=rhs;
+    constexpr T get() const noexcept{ return m_cur; }
+    constexpr T get_default() const noexcept{ return m_default; }
+    constexpr T get_min() const noexcept{ return m_min; }
+    constexpr T get_max() const noexcept{ return m_max; }
+    constexpr T get_range() const noexcept{ return get_max()-get_min(); }
+    constexpr operator T() const noexcept{ return m_cur; }
+
+    template<typename V>
+        requires implicit_convertible_to<V,T>
+    Bounded& operator=(V rhs)& noexcept{
+        m_cur=rhs;
         clamp();
         return *this;
     }
-    constexpr inline Bounded& operator+=(T rhs)& noexcept{
-        cur+=rhs;
+    constexpr Bounded& operator+=(T rhs)& noexcept{
+        m_cur+=rhs;
+        clamp();
         return *this;
     }
-    constexpr inline Bounded& operator-=(T rhs)& noexcept{
-        cur-=rhs;
+    constexpr Bounded& operator-=(T rhs)& noexcept{
+        m_cur-=rhs;
+        clamp();
         return *this;
     }
-    constexpr inline Bounded& operator*=(T rhs)& noexcept{
-        cur*=rhs;
+    constexpr Bounded& operator*=(T rhs)& noexcept{
+        m_cur*=rhs;
+        clamp();
         return *this;
     }
-    constexpr inline Bounded& operator/=(T rhs)& noexcept{
-        cur/=rhs;
+    constexpr Bounded& operator/=(T rhs)& noexcept{
+        m_cur/=rhs;
+        clamp();
         return *this;
     }
 
     // postincrement
-    constexpr inline T operator++() & noexcept{
-        ++cur;
+    constexpr T operator++() & noexcept{
+        ++m_cur;
         clamp();
         return *this;
     }
 
     // preincrement
-    constexpr inline T operator++(int _)& noexcept{
-        T before = cur;
+    constexpr T operator++(int _)& noexcept{
+        T before = m_cur;
         ++(*this);
+        clamp();
         return before;
     }
-    constexpr inline T operator--() & noexcept{
-        --cur;
+    constexpr T operator--() & noexcept{
+        --m_cur;
         clamp();
         return *this;
     }
 
     // preincrement
-    constexpr inline T operator--(int _)& noexcept{
-        T before = cur;
+    constexpr T operator--(int _)& noexcept{
+        T before = m_cur;
         --(*this);
+        clamp();
         return before;
     }
 
-    inline Bounded& clamp()& noexcept{
-        cur = std::clamp(cur,min,max);
-        return *this;
-    }
-
-    inline Bounded& reset()& noexcept{
-        cur = def;
-        return *this;
-    }
 
 
 };

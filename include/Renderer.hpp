@@ -31,6 +31,18 @@ struct Renderer {
     TextureAtlas cross_atlas;
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
+    void set_fog_color(glm::vec3 fog_color){
+        prog.use();
+        prog.setUniform(u_fog_color_loc, fog_color);
+    }
+    void set_fog_start(float world_fog_start){
+        prog.use();
+        prog.setUniform(u_world_fog_start_loc, world_fog_start);
+    }
+    void set_fog_end(float world_fog_end){
+        prog.use();
+        prog.setUniform(u_world_fog_end_loc, world_fog_end);
+    }
     std::vector <TextureAtlas*> atlas_list;
     // these arent really 'renderers' but more like 'render devices' which do a certain thing. poor naming
     DebugChunkMesher dbg_rend;
@@ -51,6 +63,10 @@ struct Renderer {
     i32 u_texture_atlases_loc{};
     i32 u_enable_cutout_loc{};
     i32 u_model_loc{};
+    i32 u_chunk_opacity_loc{};
+    i32 u_fog_color_loc{};
+    i32 u_world_fog_start_loc{};
+    i32 u_world_fog_end_loc{};
     i32 u_proj_loc{};
     i32 u_view_loc{};
     i32 u_sunlight_rgb_loc{};
@@ -84,20 +100,37 @@ struct Renderer {
     void draw_skybox(RenderTargetView target);
 
     void update_player_cam_frustum_lines(Engine* sim);
-    inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data) {
-        opaque_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
-//        sorted_opaque_coords.emplace_back(coord);
+    inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data, bool is_first_upload) {
+        constexpr static bool is_cutout = false;
+        opaque_chunk_meshes.emplace_or_assign(
+            coord,
+            coord,
+            std::move(mesh_data.vertices),
+            std::move(mesh_data.indices),
+            is_cutout,
+            is_first_upload
+        );
     }
 
-    inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData mesh_data) {
-        blended_chunk_meshes.emplace_or_assign(coord,coord, std::move(mesh_data.vertices),std::move(mesh_data.indices));
+    inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData mesh_data, bool is_first_upload) {
+        constexpr static bool is_cutout = false;
+        blended_chunk_meshes.emplace_or_assign(
+            coord,
+            coord,
+            std::move(mesh_data.vertices),
+            std::move(mesh_data.indices),
+            is_cutout,
+            is_first_upload
+        );
         sorted_blended_coords.emplace_back(coord);
     }
-    inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData mesh_data) {
+    inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData mesh_data, bool is_first_upload) {
+        constexpr static bool is_cutout = true;
         cutout_chunk_meshes.emplace_or_assign(
             coord, coord,
             std::move(mesh_data.vertices),std::move(mesh_data.indices),
-            true
+            is_cutout,
+            is_first_upload
         );
 //        sorted_cutout_coords.emplace_back(coord);
     }
@@ -108,7 +141,6 @@ struct Renderer {
     void draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
 
     void draw_mesh(const Mesh& mesh);
-    void draw_cutout_mesh(const Mesh& mesh);
 
 
     // overload for sorted meshes

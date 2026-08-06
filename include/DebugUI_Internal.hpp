@@ -225,7 +225,7 @@ struct WindowConfig{
     template<typename T>
     inline bool dbg_opt_slider(DebugVal<T>& opt){
         hint_icon(opt.desc);
-        return slider(opt.name, &opt.cur, opt.min,opt.max);
+        return slider(opt.name, &opt.m_cur, opt.m_min,opt.m_max);
     }
     void same_line(){ImGui::SameLine();}
     inline bool dbg_toggle(DebugOpt& opt){

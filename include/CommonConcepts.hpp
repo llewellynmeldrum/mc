@@ -36,8 +36,8 @@ concept brace_constructible = requires(T t, Args... vargs){
     T{vargs...}->T;
 };
 
-template<typename T, typename V>
-concept implicit_convertible_to = std::convertible_to<T,V>;
+template<typename t_From, typename t_To>
+concept implicit_convertible_to = std::convertible_to<t_From,t_To>;
 
 template<typename T, typename V>
 concept explicit_convertible_to = requires(T t, V v){

@@ -244,11 +244,52 @@ struct std::formatter<gl::GLenum>{
 		return glbinding::aux::Meta::getString(val);
     }
 };
+struct verbose_parse{
+    bool is_verbose{false};
+    constexpr auto operator()(auto & ctx){
+        auto it = ctx.begin();
+        auto end = ctx.end();
+        if (it == end || *it == '}') {
+            return it;
+        }
+        if (*it == 'v'){
+            is_verbose = true;
+            it++;
+        }else{
+            throw std::format_error("Invalid format specifier for Bounded<T>.");
+        }
+        if (it != end && *it != '}') {
+            throw std::format_error("Invalid format specifier syntax.");
+        }
+        return it;
+    }
+};
 template<typename T>
+    requires std::formattable<T,char>
 struct std::formatter<Bounded<T>>{
-	constexpr auto parse(std::format_parse_context& ctx){return ctx.begin();}
-	auto format(const Bounded<T>& bounded, auto& ctx)const {
-        return std::formatter<T>{}.format(bounded.cur,ctx);
+    verbose_parse verbose_parser;
+	constexpr auto parse(auto& ctx){ return verbose_parser(ctx); }
+	constexpr auto format(Bounded<T> const& v, auto& ctx)const {
+        if (verbose_parser.is_verbose){
+            return format_to(ctx.out(), "cur: {}, default: {}, min: {}, max: {}", 
+                             v.get(),v.get_default(), v.get_min(), v.get_max());
+        }else{
+            return format_to(ctx.out(), "{}", v.get());
+        }
+    }
+};
+template<typename T>
+    requires std::formattable<T,char>
+struct std::formatter<DebugVal<T>>{
+    verbose_parse verbose_parser;
+	constexpr auto parse(auto& ctx){ return verbose_parser(ctx); }
+	auto format(Bounded<T> const& v, auto& ctx)const noexcept{
+        if (verbose_parser.is_verbose){
+            return format_to(ctx.out(), "cur: {}, default: {}, min: {}, max: {}", 
+                             v.get(),v.get_default(), v.get_min(), v.get_max());
+        }else{
+            return format_to(ctx.out(), "{}", v.get());
+        }
     }
 };
 template<typename Tag, typename ScalarType>

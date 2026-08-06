@@ -56,8 +56,7 @@ void main(){
     // make the sun scale to appear larger/ more influential at the horizon
     float t_horizon = 1.0f-t_sky;
     // scale at the 0.25f
-    sky_color+=sun_color(facing,t_sky) * constrain(1.0f,2.0f,t_horizon;
+    sky_color += sun_color(facing,t_sky) * constrain(1.0f,2.0f,t_horizon);
     sky_color = lerp(sky_color, u_color_horizon, pow(t_horizon,2));
-
     FragColor = vec4(sky_color,1.0f);
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "CommonUtils.hpp"
+#include "EnumMap.hpp"
 #include "Types.h"
 #include "cppslop.hpp"
 #include "glmWrapper.hpp"

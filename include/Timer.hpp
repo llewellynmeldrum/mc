@@ -50,7 +50,7 @@ namespace timer{
         return from_duration<s_period>(dur);
     }
     [[nodiscard]]
-    inline Repr_t get_milliseconds(duration dur){
+    inline Repr_t to_milliseconds(duration dur){
         return from_duration<millis_period>(dur);
     }
 

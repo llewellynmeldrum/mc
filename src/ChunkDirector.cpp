@@ -195,12 +195,13 @@ void ChunkDirector::upload_light_result(ChunkEntry* entry, LightingResult&& res)
     }
     entry->light_data = std::move(res.lights);
 }
-void ChunkDirector::upload_mesh_result(ChunkEntry* entry,Renderer& rend, MeshResult&& res) {
+void ChunkDirector::upload_mesh_result(Renderer& rend, ChunkEntry* entry, MeshResult&& res) {
     auto coord = entry->coord;
-//    mark_neighbour_meshes_dirty(coord); // no longer needed, meshes are only allowed to run when al neighbours are lit, and thus generated
-    res.opaque.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.opaque)) : void();
-    res.blended.vertices.size() > 0  ? rend.uploadMesh(coord, std::move(res.blended)) : void();
-    res.cutout.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.cutout)) : void();
+    bool is_first_job = entry->mesh.is_inflight_first_job();
+    res.opaque.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.opaque), is_first_job) : void();
+    res.blended.vertices.size() > 0  ? rend.uploadMesh(coord, std::move(res.blended),is_first_job ) : void();
+    res.cutout.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.cutout), is_first_job ) : void();
+    
 }
 
 void ChunkDirector::upload_gen_result(ChunkEntry * entry, GenResult&& gen_res) {

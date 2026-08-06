@@ -1,4 +1,7 @@
 #pragma once
+#include "Timer.hpp"
+#include "Types.hpp"
+#include "glm/common.hpp"
 #include <vector>
 #define GLM_ENABLE_EXPERIMENTAL 
 #include "glm/gtx/norm.hpp"
@@ -47,7 +50,25 @@ struct IndexedMesh {
     WorldChunkCoord chunkCoord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
-    IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets, bool is_cutout=false);
+    IndexedMesh(
+        WorldChunkCoord _chunkCoord, 
+        const_span<Vertex> vertices, 
+        const_span<u32> offsets, 
+        bool is_cutout=false,
+        bool _is_first_upload=false
+    );
+
+    bool m_is_first_upload;
+    timer::time_point m_upload_time{}; // when the mesh was born.
+    constexpr static timer::duration fade_in_duration = timer::milliseconds(1500.0f);
+    constexpr auto get_opacity01() const noexcept -> f32 {
+        if (!m_is_first_upload) return 1.0f;
+        timer::duration age = timer::now() - m_upload_time;
+        f32 age01 = timer::to_milliseconds(age)/ timer::to_milliseconds(fade_in_duration);
+        age01 = glm::clamp(0.0f,1.0f,age01);
+        age01 = glm::smoothstep(0.0f, 1.0f, age01);
+        return age01;
+    }
 
     inline void unload() noexcept{loaded=false; }
     inline void load() noexcept{loaded=true; }

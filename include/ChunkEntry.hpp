@@ -10,6 +10,7 @@
 #include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
 #include "JobTypes.hpp"
+#include "Timer.hpp"
 #include "Types.h"
 #include "WorldGen_NoiseGeneration.hpp"
 #include "cppslop.hpp"
@@ -43,7 +44,8 @@ struct RevisionState{
     void mark_dirty()                  noexcept { target++; check_invariant(); }
     void mark_deleted()                noexcept { inflight = NEVER; loaded = NEVER; check_invariant(); }
 
-    bool inflight_result_is_acceptable(ID candidate) noexcept { return candidate > loaded; };
+    bool candidate_is_acceptable(ID candidate) const noexcept { return candidate > loaded; };
+    bool inflight_is_acceptable() const noexcept { return inflight > loaded; };
 
     bool is_on_queue()           const noexcept { return inflight > loaded; check_invariant(); }
 
@@ -52,6 +54,7 @@ struct RevisionState{
     bool is_dirty()              const noexcept { return target > loaded;  }
     bool is_clean()              const noexcept { return target == loaded;};
     bool needs_work()            const noexcept { return is_on_queue() == false && is_dirty();};
+    bool is_inflight_first_job()    const noexcept { assert(inflight_is_acceptable()); return loaded==NEVER;}
 
     inline void check_invariant() const noexcept{
         assert(loaded<=inflight && inflight<=target);
@@ -59,7 +62,7 @@ struct RevisionState{
 };
 
 inline bool try_upload_candidate_revision(RevisionState& s, RevisionState::ID candidate){
-    if (s.inflight_result_is_acceptable(candidate)){
+    if (s.candidate_is_acceptable(candidate)){
         s.complete_inflight(candidate);
         return true;
     }else{
@@ -78,11 +81,23 @@ inline PipelineState derive_state(const RevisionState& r, bool prev_stage_done){
     else
         return PipelineState::pending;
 }
+struct ChunkEntryMeta{
+    timer::time_point m_upload_time{}; // when the mesh was born.
+    constexpr static timer::duration fade_in_duration = timer::milliseconds(500.0f);
+    constexpr auto get_opacity01() const noexcept -> f32 {
+        timer::duration age = timer::now() - m_upload_time;
+        f32 age01 = glm::clamp(timer::to_milliseconds(age)/ timer::to_milliseconds(fade_in_duration), 0.0, 1.0);
+        age01 = glm::smoothstep(0.0f, 1.0f, age01);
+        return age01;
+    }
+
+};
 // @Brief:
 // represents the in memory store of a chunks data.
 // A ChunkEntry is created upon request for chunk generation.
 struct ChunkEntry{
 
+    ChunkEntryMeta meta;
     ChunkEntry(WorldChunkCoord chunkCoord, i32 worldgen_epoch)
         :coord(chunkCoord)
         ,bounding_box(

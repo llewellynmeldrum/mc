@@ -45,7 +45,9 @@ struct SkyboxRenderer{
     i32 u_color_lowsky_loc;      // color of the sky ~y=0.3
     i32 u_color_midsky_loc;      // color of the sky ~y=0.5
     i32 u_glow_scale_loc;
+    SkyboxState current_state;
     void update_uniforms(SkyboxState const& state) noexcept{
+        current_state = state;
         prog.setUniform(u_color_horizon_loc,state.color_horizon);     // color of the sky at the horizon line
         prog.setUniform(u_color_sun_loc,state.color_sun);
         prog.setUniform(u_color_sunlight_loc,state.color_sunlight);

@@ -37,8 +37,45 @@ struct ChunkNeighbourhood{
             static_assert(false);
         }
     }
+    template<typename V> 
+    constexpr const_span<GenericChunkSlice<V>> which_slices()const{
+        if constexpr(std::same_as<V,Block>){
+            return neighbour_block_slices;
+        }else if constexpr (std::same_as<V,PackedLightValue>){
+            return neighbour_light_slices;
+        }else{
+            static_assert(false);
+        }
+    }
+    template<typename V> 
+    constexpr GenericChunkStore<V>* which_store()const{
+        if constexpr(std::same_as<V,Block>){
+            return blocks;
+        }else if constexpr (std::same_as<V,PackedLightValue>){
+            return lights;
+        }else{
+            static_assert(false);
+        }
+    }
     template<typename V>
     V get(ChunkBlockPos pos) {
+        auto const& slices = which_slices<V>();
+        auto const* store = which_store<V>();
+        if (is_in_center(pos)){
+            return store->at(pos);
+        }else{
+            auto const neighbour_dir = get_cpos_overflow_direction(pos);
+            auto const neighbour_dir_idx = std::to_underlying(neighbour_dir);
+            auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+            if (slices[neighbour_dir_idx].is_empty){
+                return V{};
+            }else{
+                return slices[neighbour_dir_idx].at(corrected_pos);
+            }
+        }
+    }
+    template<typename V>
+    V get(ChunkBlockPos pos) const{
         auto const& slices = which_slices<V>();
         auto const* store = which_store<V>();
         if (is_in_center(pos)){
@@ -87,4 +124,5 @@ struct ChunkNeighbourhood{
     void set_block(ChunkBlockPos pos, auto v){set<Block>(pos,v );}
     PackedLightValue light_at(ChunkBlockPos pos){return get<PackedLightValue>(pos);}
     Block block_at(ChunkBlockPos pos){return get<Block>(pos);}
+    Block block_at(ChunkBlockPos pos) const {return get<Block>(pos);}
 };

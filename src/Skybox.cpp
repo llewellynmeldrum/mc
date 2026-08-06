@@ -50,7 +50,7 @@ void SkyboxRenderer::upload_rays(){
 }
 
 void SkyboxRenderer::update_rays(Camera const& cam){
-    auto half_h = glm::tan(glm::radians(cam.vertical_fov) * 0.5f);
+    auto half_h = glm::tan(glm::radians(cam.vertical_fov.get()) * 0.5f);
     auto half_w = half_h * cam.aspectRatio;
     auto front = cam.getFront();
     auto right = cam.getRight();

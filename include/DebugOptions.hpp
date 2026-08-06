@@ -63,7 +63,8 @@ namespace DebugOption{
     inline u8   ChunkDebugFillOpacity           = 38;
     inline f32  ChunkDebugOutlineOpacity        = 0.9f;
     inline i32  compiler_optimisation_level     = 0; 
-    DECL_OPTION(f32, player_cam_vfov, "Player vertical fov",  {70.0f, 0.0f, 180.0f});
+    DECL_OPTION(f32, player_cam_vfov, "Player fov (vertical)",  {70.0f, 0.0f, 180.0f});
+    DECL_OPTION(f32, player_cam_vfov_zoom, "Player zoom fov (vertical)",  {30.0f, 0.0f, 180.0f});
     DECL_TOGGLE(bool, _name, "Player vertical fov", ON);
     
 } // namesapce DebugOption

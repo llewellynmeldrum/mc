@@ -42,7 +42,6 @@
 #include "Assertion.hpp"
 #include "FmtStyle.hpp"
 #include "UnixHelpers.hpp"
-#include "FormatSpecs.hpp"
 
 
 void Engine::per_tick_update(){
@@ -194,7 +193,6 @@ void Engine::handle_chunk_scheduling() {
 
 
 void Engine::update_player_cam(Camera& player_cam){
-    player_cam.vertical_fov = DebugOption::player_cam_vfov;
 }
 
 void Engine::update_drone_cam(Camera& drone_cam, WorldFloatPos target_pos, f32 fly_height){
@@ -272,9 +270,13 @@ bool Engine::upload_mesh(MeshResult&& res){
         return false;
     }
 
-    if (try_upload_candidate_revision(entry->mesh, candidate_revision)){
+    if (entry->mesh.candidate_is_acceptable(candidate_revision)){
         log_to_chunk(LogType::mesh_uploads,chunk_coord, "Mesh upload success ({}->{})",entry->mesh.loaded,candidate_revision);
-        director.upload_mesh_result(entry, rend, std::move(res));
+        director.upload_mesh_result(rend, entry, std::move(res));
+        if (candidate_revision == RevisionState::FIRST_JOB){
+            entry->meta.m_upload_time = timer::now();
+        }
+        entry->mesh.complete_inflight(candidate_revision);
     }else{
         entry->mesh.drop_inflight();
         log_fail_upload(std::format("Candidate rev ({}) is older than loaded ({}).",
@@ -456,6 +458,11 @@ void Engine::setup(bool setup_logging) {
     rend.update_debug_uniforms();
     auto const& sky_cfg = get_skybox_cfg();
     rend.per_frame_update(player_cam, sky_cfg.make_skybox());
+    // TODO: fog distance should be the average of the chunk distances?
+    auto fog_dist = director.RENDER_DIST * ChunkInfo::HOZ_EXTENT;
+    rend.set_fog_color(glm::vec3(0.0f));
+    rend.set_fog_start(fog_dist*0.85);
+    rend.set_fog_end(fog_dist);
     // enqueue the starting chunks
     world.worldgen_epoch++;
     director.discover_candidates();
@@ -548,10 +555,24 @@ void Engine::handle_input(){
             str
         );
     }
+    if(input.is_down( KEY_C)){
+        player_cam.vertical_fov = DebugOption::player_cam_vfov_zoom;
+        player_cam.cached_frustum.invalidate();
+        player_cam.cached_viewMatrix.invalidate();
+        log_to_ui("C is down");
+    }else{
+        log_to_ui("C is up");
+        player_cam.vertical_fov = DebugOption::player_cam_vfov;
+        player_cam.cached_frustum.invalidate();
+        player_cam.cached_viewMatrix.invalidate();
+    }
     if (input.scroll.y != input.prevscroll.y){
         static constexpr f32 base = 1.1f;
         const f32 exponent = -1 * (input.scroll.y * drone_cam.zoom_sens * profiler.dt_s);
-        drone_cam.ortho_zoom *= pow(base,exponent);
+        f32 zoom = pow(base,exponent);
+        drone_cam.ortho_zoom *= zoom;
+        DebugOption::player_cam_vfov_zoom *= zoom;
+        std::println("{:v}",DebugOption::player_cam_vfov_zoom);
     }
     if(input.just_pressed(KEY_M)){
         mouse_mode = !mouse_mode;
@@ -864,12 +885,12 @@ void Engine::bake_n_chunks(i32 count){
             return std::format("{:>9}",std::format("{:4.2f}ms",v));
         }
     };
-    auto ms = [&](auto dur){ return fmt_var(timer::get_milliseconds(dur)); };
-    auto ms_per = [&](auto dur, auto n){ return fmt_var(timer::get_milliseconds(dur)/n); };
+    auto ms = [&](auto dur){ return fmt_var(timer::to_milliseconds(dur)); };
+    auto ms_per = [&](auto dur, auto n){ return fmt_var(timer::to_milliseconds(dur)/n); };
 
-    auto gen_pct = 100.0f * timer::get_milliseconds(gen_duration) / timer::get_milliseconds(duration);
-    auto lit_pct = 100.0f * timer::get_milliseconds(light_duration) / timer::get_milliseconds(duration);
-    auto mes_pct = 100.0f * timer::get_milliseconds(mesh_duration) / timer::get_milliseconds(duration);
+    auto gen_pct = 100.0f * timer::to_milliseconds(gen_duration) / timer::to_milliseconds(duration);
+    auto lit_pct = 100.0f * timer::to_milliseconds(light_duration) / timer::to_milliseconds(duration);
+    auto mes_pct = 100.0f * timer::to_milliseconds(mesh_duration) / timer::to_milliseconds(duration);
     std::println("===============================================================================");
     std::println("Finished baking {} starting chunks, took {} ,{}/chunk",
     count, ms(duration),ms_per(duration,count));

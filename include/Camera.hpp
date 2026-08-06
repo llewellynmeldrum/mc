@@ -12,7 +12,13 @@
 #include "Geometry.hpp"
 // src/Camera.cpp
 #include "cppslop.hpp"
+// NOTE: =========================
+// NOTE: !!!!!!!!REMINDER!!!!!!!!!
+// NOTE: =========================
+// WARNING: If you fuck with the camera without invalidating the cached view matrix/frustum, dont expect any changes
+// to be visible.
 FORWARD_DECL_STRUCT(Frustum)
+        
 struct Camera {
 
   public:
@@ -48,9 +54,9 @@ struct Camera {
 
     //f32 ortho_zoom{1.0f};
     Bounded<f32> ortho_zoom{
-        .def = 1.0f,
-        .min = 0.1f,
-        .max = 10.f,
+        .m_default = 1.0f,
+        .m_min = 0.1f,
+        .m_max = 10.f,
     };
 
     f32 zoom_sens{2.0f};
@@ -119,7 +125,13 @@ struct Camera {
     f32 mouse_sensitivity = 6000;
     f32 keyboard_sensitivity = BASE_KEYBOARD_SENSITIVITY;
 
-    f32 vertical_fov = 70.0f;
+
+    Bounded<f32> vertical_fov{
+        70.0f,
+        20.0f,
+        180.0f,
+    };
+    f32 vertical_fov_zoom = 40.0f;
     f32 frustum_vertical_fov() const noexcept {return vertical_fov*1.5f;}
     f32 near_clip_z = 0.1f;
     f32 far_clip_z = 1000.0f;
@@ -127,7 +139,7 @@ struct Camera {
 
     inline glm::mat4 getProjectionMatrix() const{
         if (is_main_camera){
-            return glm::perspective(glm::radians(vertical_fov), aspectRatio, near_clip_z, far_clip_z);
+            return glm::perspective(glm::radians(vertical_fov.get()), aspectRatio, near_clip_z, far_clip_z);
         }else{
 
             f32 scale = 9.0f * ortho_zoom;

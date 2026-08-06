@@ -24,9 +24,17 @@ constexpr GLenum IndexedMesh::PrimitiveType() {
     return GL_TRIANGLES;
 }
 
-IndexedMesh::IndexedMesh(WorldChunkCoord _chunkCoord, const_span<Vertex> vertices, const_span<u32> offsets, bool _is_cutout) :
-    chunkCoord(_chunkCoord),
-    is_cutout(_is_cutout)
+IndexedMesh::IndexedMesh(
+    WorldChunkCoord _chunkCoord, 
+    const_span<Vertex> vertices, 
+    const_span<u32> offsets, 
+    bool _is_cutout,
+    bool _is_first_upload
+) 
+    :chunkCoord(_chunkCoord)
+    ,m_is_first_upload(_is_first_upload)
+    ,m_upload_time ( timer::now())
+    ,is_cutout(_is_cutout)
 {
     IndexedMesh::setup_mesh(vertices, offsets);
 

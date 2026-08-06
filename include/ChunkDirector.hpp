@@ -44,7 +44,7 @@ struct ChunkDirector{
 
     void upload_gen_result(ChunkEntry * entry, GenResult&& gen_res);
     void upload_light_result(ChunkEntry* entry, LightingResult&& res) ;
-    void upload_mesh_result(ChunkEntry* entry,Renderer& rend, MeshResult&& res);
+    void upload_mesh_result(Renderer& rend, ChunkEntry* entry, MeshResult&& res);
 
     ChunkMap& chunk_map;
     World& world;

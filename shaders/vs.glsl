@@ -10,6 +10,7 @@ out vec4 faceOverlayColor;
 out float fake_shadow;
 out float face_opacity;
 out vec3 final_light;
+out vec4 view_pos;
 
 uniform vec3 u_sunlight_rgb;
 uniform mat4 u_model;
@@ -57,6 +58,6 @@ void main(){
         sunlight_rgb = u_sunlight_rgb * sunlight_intensity ;
     }
     final_light = max(sunlight_rgb, blocklight_rgb);
-    gl_Position = u_proj * u_view * u_model * vec4(in_local_pos.xyz, 1.0);
-
+    view_pos =  u_view * u_model * vec4(in_local_pos.xyz, 1.0);
+    gl_Position = u_proj *view_pos;
 }

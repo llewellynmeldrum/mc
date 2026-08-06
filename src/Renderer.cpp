@@ -25,6 +25,7 @@ using namespace glm;
 void Renderer::per_frame_update(Camera const& player_cam, SkyboxState const& skybox_state){
     skybox.per_frame_update(player_cam,skybox_state);
 }
+
 void Renderer::update_debug_uniforms(){
     prog.use();
     prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
@@ -68,6 +69,10 @@ Renderer::Renderer() {
     u_enable_cutout_loc = prog.getUniformLoc("u_enable_cutout");
 
     u_model_loc = prog.getUniformLoc("u_model");
+    u_chunk_opacity_loc = prog.getUniformLoc("u_chunk_opacity");
+    u_fog_color_loc = prog.getUniformLoc("u_fog_color");
+    u_world_fog_start_loc = prog.getUniformLoc("u_world_fog_start");
+    u_world_fog_end_loc = prog.getUniformLoc("u_world_fog_end");
     u_proj_loc = prog.getUniformLoc("u_proj");
     u_view_loc = prog.getUniformLoc("u_view");
 
@@ -259,7 +264,7 @@ void Renderer::draw_cutout_pass(Camera& cam){
     if (DebugOption::enable_opaque_sorting){
         draw_meshes(cutout_chunk_meshes, sorted_cutout_coords);
     }else{
-        draw_cutout_meshes_unsorted(cutout_chunk_meshes);
+        draw_meshes_unsorted(cutout_chunk_meshes);
     }
 }
 
@@ -296,7 +301,7 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
     }
 }
 
-void Renderer::draw_cutout_mesh(const Mesh& mesh){
+void Renderer::draw_mesh(const Mesh& mesh){
     if (DebugOption::enable_cutout_optimisation && mesh.is_cutout){
         prog.setUniform(u_enable_cutout_loc, false);
        if (mesh.chunk_dist_to_cam > cutout_enable_radius){
@@ -309,16 +314,7 @@ void Renderer::draw_cutout_mesh(const Mesh& mesh){
     const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
     model = glm::translate(model, chunkFloatWorldPos);
     prog.setUniform(u_model_loc, model);
-    mesh.draw();
-    debug.vertex_count += mesh.offset_count;
-    debug.mesh_count++;
-    debug.draw_calls++;
-}
-void Renderer::draw_mesh(const Mesh& mesh){
-    auto model = mat4(1.0f);
-    const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
-    model = glm::translate(model, chunkFloatWorldPos);
-    prog.setUniform(u_model_loc, model);
+    prog.setUniform(u_chunk_opacity_loc, mesh.get_opacity01());
     mesh.draw();
     debug.vertex_count += mesh.offset_count;
     debug.mesh_count++;
@@ -334,17 +330,6 @@ void Renderer::draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshLi
 
     for (const auto& mesh : filtered_meshes) {
         draw_mesh(mesh);
-    }
-}
-void Renderer::draw_cutout_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList){
-    using views::filter;
-
-    auto filtered_meshes = meshList |
-                        filter(is_mesh_loaded) |
-                        filter(is_mesh_non_empty);
-
-    for (const auto& mesh : filtered_meshes) {
-        draw_cutout_mesh(mesh);
     }
 }
 
