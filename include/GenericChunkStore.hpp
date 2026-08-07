@@ -8,7 +8,6 @@
 #include "ChunkView.hpp"
 
 template<typename V>
-    requires has_default_ctor<V>
 struct GenericChunkStore{
 public:
     using value_type = V;
@@ -115,3 +114,5 @@ private:
     }
     #undef CLASS_NAME
 };
+using ChunkBlockStore = GenericChunkStore<Block>;
+using ChunkLightStore = GenericChunkStore<PackedLightValue>;

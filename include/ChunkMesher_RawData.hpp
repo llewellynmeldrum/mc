@@ -4,6 +4,7 @@
 // ===========
 #include "Block.hpp"
 #include "ChunkConstants.hpp"
+#include "NothrowLookup.hpp"
 #include "Vertex.hpp"
 #include <utility>
 using QuadVertexList = std::array<Vertex, VTX_PER_QUAD>;
@@ -397,3 +398,28 @@ inline constexpr std::array<ShapeQuadList<QUADS_PER_CUBE>,15> quad_n{
 };
 
 } // NAMESPACE snow_vtx
+//
+template<BlockShape shape>
+inline const auto& get_quad_data(i8 dir);
+
+template<> inline const auto& get_quad_data<BlockShape::CROSS>(i8 idx) {
+    return AT(cross_vtx::quads,idx);
+}
+template<> inline const auto& get_quad_data<BlockShape::CUBE>(i8 dir) {
+    return AT(cube_vtx::quads,dir);
+}
+template<> inline const auto& get_quad_data<BlockShape::CACTUS>(i8 dir) {
+    return AT(cactus_vtx::quads,dir);
+}
+template<> inline const auto& get_quad_data<BlockShape::BOT_HALF_SLAB>(i8 dir) {
+    return AT(lower_half_slab_vtx::quads,dir);
+}
+template<> inline const auto& get_quad_data<BlockShape::TOP_HALF_SLAB>(i8 dir) {
+    return AT(top_half_slab_vtx::quads,dir);
+}
+#define X(var)                                                              \
+template<> inline const auto& get_quad_data<BlockShape::var>(i8 dir) {             \
+    return AT(snow_vtx::quad_n[std::to_underlying(BlockShape::var)-1],dir); \
+}
+    SNOW_SHAPE_LIST
+#undef X

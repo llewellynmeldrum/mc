@@ -67,6 +67,10 @@ struct World {
     ChunkEntry* make_chunk_entry(WorldChunkCoord key);
 
 
+    template<typename T>
+    inline ChunkNeighbourhoodSnapshot<T> take_neighbourhood_snapshot(WorldChunkCoord center){
+        return chunkMap.take_neighbourhood_snapshot<T>(center);
+    }
     std::vector<std::pair<bool, WorldChunkCoord>> chunksStatesInRadius(WorldChunkCoord chunkCoord, i32 dist);
 
     std::vector<std::pair<Block, Direction>> getNeighbourBlocks(WorldBlockPos world_pos) const;

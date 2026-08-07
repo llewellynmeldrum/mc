@@ -272,7 +272,7 @@ bool Engine::upload_mesh(MeshResult&& res){
 
     if (entry->mesh.candidate_is_acceptable(candidate_revision)){
         log_to_chunk(LogType::mesh_uploads,chunk_coord, "Mesh upload success ({}->{})",entry->mesh.loaded,candidate_revision);
-        director.upload_mesh_result(rend, entry, std::move(res));
+        director.upload_mesh_result(candidate_revision, rend, entry, std::move(res));
         if (candidate_revision == RevisionState::FIRST_JOB){
             entry->meta.m_upload_time = timer::now();
         }
@@ -614,15 +614,16 @@ void Engine::handle_input(){
         auto coord = director.cur_chunk_pos;
         auto* entry = world.chunkMap.entries.try_get(coord);
         if (entry){
+            auto& blocks = entry->block_data.mutate();
             auto& pwq = *(world.chunkMap.get_or_emplace_pwq(coord));
             auto cur_block_pos = director.cur_block_pos;
             auto chunk_local = toChunkBlockPos(cur_block_pos);
-            while (entry->block_data.at(chunk_local) == BlockType::AIR){
+            while (blocks.at(chunk_local) == BlockType::AIR){
                 cur_block_pos.y--;
                 chunk_local = toChunkBlockPos(cur_block_pos);
             }
             auto writer = BlockWriter{
-                entry->block_data.view(),
+                blocks.view(),
                 pwq,
                 coord
             };
@@ -649,10 +650,27 @@ void Engine::handle_input(){
         pause_logging = !pause_logging;
     }
     if(input.just_pressed(KEY_X)){
-        dirty_current_chunk = !dirty_current_chunk;
+        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+        world.chunkMap.entries.if_contains(
+            cur_chunk,
+            [&](ChunkEntry& entry){
+                director.mark_mesh_dirty(&entry, "forced dirty");
+            }
+        );
     }
     if(input.just_pressed(KEY_B)){
-        dbg_modify_chunks = !dbg_modify_chunks;
+        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
+        auto* entry = world.chunkMap.entries.try_get(cur_chunk);
+        if (entry){
+            auto& blocks = entry->block_data.mutate();
+            for (auto& block : blocks){
+                if (block.type == BlockType::GRASS_BLOCK){
+                    block = (BlockType::AIR);
+                }
+            }
+            director.mark_mesh_dirty(entry, "dbg modified chunks");
+            director.mark_neighbour_meshes_dirty(cur_chunk, "test");
+        }
     }
     if(input.just_pressed({.alt=true},KEY_W) ){
         rend.debug.wireframe = !rend.debug.wireframe;
@@ -721,32 +739,6 @@ void Engine::handle_input(){
     if(input.is_down(KeyModifiers::any(), KEY_DOWN)){
 		player_cam.rotate(Direction::DOWN, profiler.dt_s);
 	}
-
-    if (dbg_modify_chunks){
-        dbg_modify_chunks = false;
-        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-        director.mark_neighbour_meshes_dirty(cur_chunk, "test");
-        world.chunkMap.entries.if_contains(
-            cur_chunk,
-            [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(&entry, "dbg modified chunks");
-                for (auto& block : entry.block_data){
-                    if (block.type == BlockType::GRASS_BLOCK){
-                        block = (BlockType::AIR);
-                    }
-                }
-            }
-        );
-    }
-    if (dirty_current_chunk){
-        auto cur_chunk = toWorldChunkCoord(player_cam.pos);
-        world.chunkMap.entries.if_contains(
-            cur_chunk,
-            [&](ChunkEntry& entry){
-                director.mark_mesh_dirty(&entry, "forced dirty");
-            }
-        );
-    }
 }
 bool Engine::is_chunk_in_frustum(const Frustum& frustum, WorldChunkCoord coord) const{
     return frustum.isAABBInside(world.chunkMap.getBoundingBox(coord));

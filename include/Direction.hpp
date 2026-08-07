@@ -28,7 +28,7 @@ constexpr inline std::array<Direction,6> each_direction{
     Direction ::DOWN, //
     Direction ::UP,             //
 };
-constexpr inline std::array<Direction,4> each_horizontal_direction{
+constexpr inline std::array<Direction,4> each_cardinal_direction{
     Direction ::FORWARD,   //
     Direction ::BACKWARD,  //
     Direction ::LEFT,      //

@@ -22,12 +22,29 @@ static void log_deferred_write(PendingBlockWrite write, Block old_block, bool su
     );
 }
 
-bool tryWrite(PendingBlockWrite write, ChunkBlockView view){
+bool tryWrite(PendingBlockWrite write, ChunkBlockStore& chunk){
+    auto s = chunk.view();
+    return tryWrite(write,s);
+}
+bool tryWrite(PendingBlockWrite write, ChunkBlockView& chunk){
     auto targetChunkLocal = toChunkBlockPos(write.target_world);
-    Block old_block = view.at(targetChunkLocal);
+    Block old_block = chunk.at(targetChunkLocal);
     bool success{};
     if (canMakeWrite(write,old_block)){
-        view.at(targetChunkLocal) = write.new_block;
+        chunk.at(targetChunkLocal) = write.new_block;
+        success = true;
+    }else{
+        success = false;
+    }
+    log_deferred_write(write, old_block, success);
+    return success;
+}
+bool tryWrite(PendingBlockWrite write, COW<ChunkBlockStore>& view){
+    auto targetChunkLocal = toChunkBlockPos(write.target_world);
+    Block old_block = view.read().at(targetChunkLocal);
+    bool success{};
+    if (canMakeWrite(write,old_block)){
+        view.mutate().at(targetChunkLocal) = write.new_block;
         success = true;
     }else{
         success = false;

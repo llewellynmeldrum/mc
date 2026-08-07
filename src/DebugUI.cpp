@@ -217,6 +217,8 @@ void draw_graphics_window(WindowConfig& self, Engine* ctx){
         bool dirty = false;
         dirty |= window.dbg_toggle(DebugOption::show_lighting_system);
         dirty |= window.dbg_toggle(DebugOption::draw_blocklight);
+        dirty |= window.dbg_toggle(DebugOption::fade_in_chunks);
+        dirty |= window.dbg_toggle(DebugOption::enable_fog);
         dirty |= window.dbg_toggle(DebugOption::draw_sunlight);
         dirty |= window.slider("gamma",&ctx->rend.gamma, 0.0f, 2.0f);
         dirty |= window.checkbox("enable smooth light falloff", &(ctx->rend.enable_smooth_light_falloff));
@@ -602,7 +604,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         if (entry){
             ChunkBlockPos cl_pos_ = ChunkBlockPos{cl_pos};
             if (is_in_chunk(cl_pos_)){
-                UI::Text("light data: {}",AT(entry->light_data,cl_pos_));
+                UI::Text("light data: {}",AT(entry->light_data.read(),cl_pos_));
             }else{
                 UI::Text("light data: n/a, out of bounds?");
             }
@@ -757,7 +759,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
                     ctx->world.chunkMap.entries.if_contains(
                         ch_pos,
                         [&](ChunkEntry& entry){
-                            noBlocks = entry.block_data.empty();
+                            noBlocks = entry.block_data.read().empty();
                         }
                     );
                     

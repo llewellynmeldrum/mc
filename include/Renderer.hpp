@@ -100,8 +100,23 @@ struct Renderer {
     void draw_skybox(RenderTargetView target);
 
     void update_player_cam_frustum_lines(Engine* sim);
-    inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData mesh_data, bool is_first_upload) {
+    template<typename T>
+    inline void upload_mesh(WorldChunkCoord key, T&& mesh_data, bool is_first_upload, bool is_cutout) {
+        auto* cont = &opaque_chunk_meshes;
+        if constexpr(std::same_as<T,OpaqueMeshData>){
+            cont = &opaque_chunk_meshes;
+        }else if constexpr(std::same_as<T,BlendedMeshData>){
+            cont = &blended_chunk_meshes;
+        }else if  constexpr(std::same_as<T,CutoutMeshData>){
+            cont = &cutout_chunk_meshes;
+        }else{
+            static_assert(false);
+        }
+        cont->insert_or_assign(key,Mesh{key,mesh_data.vertices,mesh_data.indices,is_cutout});
+    }
+    inline void uploadMesh(WorldChunkCoord coord, OpaqueMeshData&& mesh_data, bool is_first_upload) {
         constexpr static bool is_cutout = false;
+        //upload_mesh(coord,std::move(mesh_data),is_first_upload,is_cutout);
         opaque_chunk_meshes.emplace_or_assign(
             coord,
             coord,
@@ -112,8 +127,9 @@ struct Renderer {
         );
     }
 
-    inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData mesh_data, bool is_first_upload) {
+    inline void uploadMesh(WorldChunkCoord coord, BlendedMeshData&& mesh_data, bool is_first_upload) {
         constexpr static bool is_cutout = false;
+        //upload_mesh(coord,std::move(mesh_data),is_first_upload,is_cutout);
         blended_chunk_meshes.emplace_or_assign(
             coord,
             coord,
@@ -124,11 +140,12 @@ struct Renderer {
         );
         sorted_blended_coords.emplace_back(coord);
     }
-    inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData mesh_data, bool is_first_upload) {
+    inline void uploadMesh(WorldChunkCoord coord, CutoutMeshData&& mesh_data, bool is_first_upload) {
         constexpr static bool is_cutout = true;
         cutout_chunk_meshes.emplace_or_assign(
             coord, coord,
-            std::move(mesh_data.vertices),std::move(mesh_data.indices),
+            std::move(mesh_data.vertices),
+            std::move(mesh_data.indices),
             is_cutout,
             is_first_upload
         );

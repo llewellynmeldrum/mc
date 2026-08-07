@@ -18,8 +18,6 @@
 #include "GenericChunkStore.hpp"
 #include "PackedLightValue.hpp"
 
-using ChunkBlockStore = GenericChunkStore<Block>;
-using ChunkLightStore = GenericChunkStore<PackedLightValue>;
 static_assert(!array_like<ChunkBlockStore>);
 static_assert(map_like<ChunkBlockStore>);
 

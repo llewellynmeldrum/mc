@@ -1,7 +1,7 @@
 #include "ChunkDirector.hpp"
 #include "CoordTypes.hpp"
 #include "Direction.hpp"
-#include "JobTypes.hpp"
+#include "ChunkEntryEnums.hpp"
 #include "Renderer.hpp"
 #include "ChunkNoiseDebug.hpp"
 #include <utility>
@@ -188,31 +188,30 @@ void ChunkDirector::upload_light_result(ChunkEntry* entry, LightingResult&& res)
     // TODO: Dirty neighbours conditionally, based on whether or not blocks on the boundary changed light values
     for (const auto& [dir_idx, neigh_coord] : entry->each_dir_neighbour_chunk_coords()){
         auto dir = static_cast<Direction>(dir_idx);
-        if (boundary_differs(dir, entry->light_data,res.lights)){
+        if (boundary_differs(dir, entry->light_data.read(),res.lights)){
             auto* neighbour = chunk_map.entries.try_get(neigh_coord);
             mark_lighting_dirty(neighbour,"Neighbour has boundary changes, must check for spillover");
         }
     }
-    entry->light_data = std::move(res.lights);
+    entry->light_data.publish_snapshot(std::move(res.lights));
 }
-void ChunkDirector::upload_mesh_result(Renderer& rend, ChunkEntry* entry, MeshResult&& res) {
+void ChunkDirector::upload_mesh_result(RevisionState::ID candidate, Renderer& rend, ChunkEntry* entry, MeshResult&& res) {
     auto coord = entry->coord;
-    bool is_first_job = entry->mesh.is_inflight_first_job();
+    bool is_first_job = entry->mesh.is_candidate_first_job(candidate);
     res.opaque.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.opaque), is_first_job) : void();
     res.blended.vertices.size() > 0  ? rend.uploadMesh(coord, std::move(res.blended),is_first_job ) : void();
     res.cutout.vertices.size() > 0   ? rend.uploadMesh(coord, std::move(res.cutout), is_first_job ) : void();
     
 }
 
-void ChunkDirector::upload_gen_result(ChunkEntry * entry, GenResult&& gen_res) {
-    ChunkBlockStore& blocks = gen_res.chunk_blocks;
-    const auto& deferred_writes = gen_res.deferred_writes;
-    const auto& coord = gen_res.coord;
-    handle_pending_writes(coord, blocks.view(), deferred_writes);
-    entry->block_data = std::move(blocks);
+void ChunkDirector::upload_gen_result(ChunkEntry * entry, GenResult&& res) {
+    const auto& deferred_writes = res.deferred_writes;
+    const auto& coord = res.coord;
+    handle_pending_writes(coord, res.chunk_blocks, deferred_writes);
+    entry->block_data.publish_snapshot(std::move(res.chunk_blocks));
     mark_lighting_dirty(entry, "newly generated");
 }
-void ChunkDirector::handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList) {
+void ChunkDirector::handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockStore& srcBlocks, const PendingWriteList& newWriteList) {
     // 1. apply any pending writes TO CURRENT chunk which exist on the map.
     chunk_map.pending_writes.if_contains(
         chunkCoord,
@@ -247,7 +246,7 @@ void ChunkDirector::handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlock
         bool target_chunk_is_generated = target_entry && target_entry->gen.has_data();
         if (target_chunk_is_generated){
             // if target exists, and is generated, attempt the write
-            if (tryWrite(write,target_entry->block_data.view())){
+            if (tryWrite(write,target_entry->block_data)){
                 chunk_map.pendingWritesSuccessful++;
                 // also mark the target as dirty,
                 // alongside all its neighbours

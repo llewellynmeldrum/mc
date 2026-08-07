@@ -1,3 +1,4 @@
+#pragma once 
 #include "Direction.hpp"
 #include "ChunkMesher_RawData.hpp"
 #include "ChunkNeighbourhood.hpp"

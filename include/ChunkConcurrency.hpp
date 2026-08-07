@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <functional>
 
-#include "JobTypes.hpp"
+#include "ChunkEntryEnums.hpp"
 #include "BenchmarkMap.hpp"
 #include "ChunkConstants.hpp"
 #include "ChunkEntry.hpp"
@@ -19,10 +19,12 @@
 #include "ThreadTracker.hpp"
 #include "Chunk.hpp"
 #include "ChunkStorage.hpp"
+#include "ChunkNeighbourhood.hpp"
 #include "PendingBlockWrites.hpp"
 #include "glm/gtx/hash.hpp"
 #include "cppslop.hpp"
 #include "LM.hpp"
+#include "CopyOnWrite.hpp"
 
 #include "WorldGen_Config.hpp"
 
@@ -39,10 +41,8 @@ struct LightingJob{
     ChunkBenchContext bench;
     WorldChunkCoord coord;
     RevisionState::ID rev;
-    std::vector<ChunkLightSlice> neighbour_light_slices;
-    std::vector<ChunkBlockSlice> neighbour_block_slices;
-    ChunkLightStore light_data;
-    ChunkBlockStore block_data;
+    BlockNeighbourhoodSnapshot blocks;
+    LightNeighbourhoodSnapshot lights;
     LightingJob(
         ChunkBenchContext bench,
         WorldChunkCoord _coord, 
@@ -86,12 +86,9 @@ struct MeshJob{
     ChunkBenchContext bench;
     WorldChunkCoord coord;
     RevisionState::ID rev;
-    ChunkBlockStore blocks;
-    ChunkLightStore light_data;
-    std::vector<ChunkBlockSlice> surrounding_chunks_block_slices;
-    std::vector<ChunkLightSlice> surrounding_chunks_light_slices;
+    BlockNeighbourhoodSnapshot blocks;
+    LightNeighbourhoodSnapshot lights;
     const_span<TextureAtlas*> atlas_map;
-
 
     MeshJob(
         ChunkBenchContext bench,
@@ -104,21 +101,28 @@ struct MeshJob{
     // i can reduce the surrounding Chunks block storage to only contain the boundary blocks,
     // i.e the ones bordering the actual chunk in question.
 };
+struct OpaqueMeshDataTag;
+struct CutoutMeshDataTag;
+struct BlendedMeshDataTag;
+template<typename Tag>
+struct MeshData{
+    MeshData() = default;
+    MeshData(std::span<const Vertex> v, std::span<const u32>i )
+        :vertices(std::from_range, v)
+        ,indices(std::from_range, i)
+    {}
+    MeshData(MeshData&&) = default;
+    MeshData&    operator=(MeshData&&) = default;
+    MeshData(const MeshData&) = delete;
+    MeshData&    operator=(const MeshData&) = delete;
 
-struct OpaqueMeshData{
     std::vector<Vertex> vertices{};
     std::vector<u32> indices{};
 };
+using OpaqueMeshData = MeshData<OpaqueMeshDataTag>;
+using BlendedMeshData = MeshData<BlendedMeshDataTag>;
+using CutoutMeshData = MeshData<CutoutMeshDataTag>;
 
-struct BlendedMeshData{
-    std::vector<Vertex> vertices{};
-    std::vector<u32> indices{};
-};
-
-struct CutoutMeshData{
-    std::vector<Vertex> vertices{};
-    std::vector<u32> indices{};
-};
 
 // QUEUE: MeshResultQueue
 // PRODUCER: Mesher Thread

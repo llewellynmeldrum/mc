@@ -4,7 +4,7 @@
 #include <stdexcept>
 FORWARD_DECL_STRUCT(ChunkEntry)
 struct BlockWriter{
-    ChunkBlockView             src_block_store;
+    ChunkBlockView           src_block_store;
     PendingWriteList&       pending_writes;
     const WorldChunkCoord   src_chunk;
     const WorldBlockPos     world_block_lo;

@@ -1,15 +1,17 @@
 #pragma once 
 
 #include <functional>
+#include <memory>
 
 #include "Breakpoints.hpp"
 #include "Chunk.hpp"
 #include "ChunkHelpers.hpp"
 #include "ChunkStorage.hpp"
 #include "CoordTypes.hpp"
+#include "CopyOnWrite.hpp"
 #include "DebugChunkLog.hpp"
 #include "Geometry.hpp"
-#include "JobTypes.hpp"
+#include "ChunkEntryEnums.hpp"
 #include "Timer.hpp"
 #include "Types.h"
 #include "WorldGen_NoiseGeneration.hpp"
@@ -54,6 +56,7 @@ struct RevisionState{
     bool is_dirty()              const noexcept { return target > loaded;  }
     bool is_clean()              const noexcept { return target == loaded;};
     bool needs_work()            const noexcept { return is_on_queue() == false && is_dirty();};
+    bool is_candidate_first_job(ID c)    const noexcept { assert(candidate_is_acceptable(c)); return loaded==NEVER;}
     bool is_inflight_first_job()    const noexcept { assert(inflight_is_acceptable()); return loaded==NEVER;}
 
     inline void check_invariant() const noexcept{
@@ -109,10 +112,24 @@ struct ChunkEntry{
 
     WorldChunkCoord coord;
     AABB bounding_box; 
-    ChunkBlockStore block_data;
-    GenericChunkStore<PackedLightValue> light_data;
+    COW<ChunkBlockStore> block_data;
+    COW<ChunkLightStore> light_data;
 
 
+    template<typename T>
+        requires chunk_store_compatible<T>
+    constexpr COW<GenericChunkStore<T>>& get_data(){
+        if constexpr(std::same_as<T,Block>){ return block_data;}
+        else if constexpr(std::same_as<T,PackedLightValue>){ return light_data;}
+        else { static_assert(false,"Unsupported DataType. The concept should guard this, so something really odd has occured"); }
+    }
+    template<typename T>
+        requires chunk_store_compatible<T>
+    constexpr std::shared_ptr<const GenericChunkStore<T>> get_snapshot() const {
+        if constexpr(std::same_as<T,Block>){ return block_data.get_snapshot();}
+        else if constexpr(std::same_as<T,PackedLightValue>){ return light_data.get_snapshot();}
+        else { static_assert(false,"Unsupported DataType. The concept should guard this, so something really odd has occured"); }
+    }
     // These functions do not necessarily mean that they SHOULD be enqueued, as there may be other constraints,
     // e.g (neighbours of a chunk being generated is a prereq to meshing)
     bool wants_generation()const noexcept{
@@ -167,7 +184,7 @@ struct ChunkEntry{
             WorldChunkCoord{coord+ChunkOffset{+1,-1}},
         };
     }
-    auto neighbour_coords4() const noexcept{
+    auto cardinal_neighbour_coords() const noexcept{
         auto coord = this->coord;
         return Direction_offset2D 
             | views::transform([coord](glm::ivec2 const& o){

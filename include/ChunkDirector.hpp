@@ -44,7 +44,7 @@ struct ChunkDirector{
 
     void upload_gen_result(ChunkEntry * entry, GenResult&& gen_res);
     void upload_light_result(ChunkEntry* entry, LightingResult&& res) ;
-    void upload_mesh_result(Renderer& rend, ChunkEntry* entry, MeshResult&& res);
+    void upload_mesh_result(RevisionState::ID candidate, Renderer& rend, ChunkEntry* entry, MeshResult&& res);
 
     ChunkMap& chunk_map;
     World& world;
@@ -52,9 +52,9 @@ struct ChunkDirector{
     ChunkBenchmarkerNoRevision gen_enqueue_delay_bencher;
     ChunkBenchmarkerNoRevision light_enqueue_delay_bencher;
 
-    JobProcessor<JobType::Gen, GenJob, GenResult,1 > generators{worker_loop<JobType::Gen>};
+    JobProcessor<JobType::Gen, GenJob, GenResult,2 > generators{worker_loop<JobType::Gen>};
     JobProcessor<JobType::Light, LightingJob, LightingResult, 2> lighters{worker_loop<JobType::Light>};
-    JobProcessor<JobType::Mesh , MeshJob, MeshResult,7> meshers{worker_loop<JobType::Mesh>};
+    JobProcessor<JobType::Mesh , MeshJob, MeshResult,6> meshers{worker_loop<JobType::Mesh>};
 
     // We use intermediary queues on the main thread to avoid scanning over chunks (as much as we can)
     // Gen completion puts a coord on ready_for_light, mesh completion on ready_for_mesh, etc
@@ -102,7 +102,7 @@ struct ChunkDirector{
     template<typename Fn>
         requires return_type_is<bool, Fn, ChunkEntry*>
     bool neighbours_are(ChunkEntry* entry, Fn&& pred){
-        for (const auto& neighbour_coord: entry->neighbour_coords4()){
+        for (const auto& neighbour_coord: entry->cardinal_neighbour_coords()){
             auto* neighbour_entry = chunk_map.entries.try_get(neighbour_coord);
             if (!neighbour_entry || !pred(neighbour_entry)){
                 return false;
@@ -206,7 +206,7 @@ struct ChunkDirector{
 
 
 
-    static constexpr i32 RENDER_DIST = 16;
+    static constexpr i32 RENDER_DIST = 32;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     static constexpr i32 LIGHTING_DIST = RENDER_DIST+1;
     static constexpr i32 MESH_CULL_DIST(){return RENDER_DIST+2;}
@@ -341,16 +341,18 @@ struct ChunkDirector{
     inline void mark_neighbour_lights_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
         auto* entry = chunk_map.entries.try_get(key);
         if (!entry) return;
-        for (const auto& neighbour_coord : entry->neighbour_coords4()){
+        for (const auto& neighbour_coord : entry->cardinal_neighbour_coords()){
             chunk_map.entries.if_contains(neighbour_coord, [&](ChunkEntry& entry){
                 mark_lighting_dirty(&entry,"Neighbour is newly lit");
             });
         }
     }
+    // NOTE: does NOT assume neighbours or the chunk here itself exists
+    // This might be a mistake tbh. id have to think about it more
     inline void mark_neighbour_meshes_dirty(WorldChunkCoord key, std::string_view reason="N/A"){
         auto* entry = chunk_map.entries.try_get(key);
         if (!entry) return;
-        for (const auto& neighbour_coord : entry->neighbour_coords4()){
+        for (const auto& neighbour_coord : entry->cardinal_neighbour_coords()){
             chunk_map.entries.if_contains(neighbour_coord, [&](ChunkEntry& entry){
                 mark_mesh_dirty(&entry,"Neighbour is newly lit");
             });
@@ -360,7 +362,7 @@ struct ChunkDirector{
         auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
         if (chunk){
             ChunkBlockPos cpos = toChunkBlockPos(wpos);
-            chunk->block_data.at(cpos) = block;
+            chunk->block_data.mutate().at(cpos) = block;
             mark_lighting_dirty(chunk, "Block placed");
             mark_mesh_dirty(chunk, "Block placed");
             return true;
@@ -373,7 +375,7 @@ struct ChunkDirector{
         auto* chunk = chunk_map.entries.try_get(toWorldChunkCoord(wpos));
         if (chunk){
             ChunkBlockPos cpos = toChunkBlockPos(wpos);
-            return std::make_optional(chunk->block_data.at(cpos));
+            return std::make_optional(chunk->block_data.read().at(cpos));
         }
         return std::nullopt;
     }
@@ -456,5 +458,5 @@ struct ChunkDirector{
         log_state<JobType::Gen>(entry,msg);
     }
 private:
-    void handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockView srcBlocks, const PendingWriteList& newWriteList);
+    void handle_pending_writes(WorldChunkCoord chunkCoord, ChunkBlockStore& srcBlocks, const PendingWriteList& newWriteList);
 };

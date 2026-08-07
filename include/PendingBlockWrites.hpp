@@ -7,6 +7,8 @@
 #include "ChunkView.hpp"
 #include "CoordIteration.hpp"
 #include "CoordTypes.hpp"
+#include "CopyOnWrite.hpp"
+#include "GenericChunkStore.hpp"
 #include "glmWrapper.hpp"
 
 #define OVERWRITE_POLICY_LIST   \
@@ -78,6 +80,9 @@ inline bool canMakeWrite(const PendingBlockWrite& pending, const Block& target){
 // unordered, heap allocated list of block writes
 using PendingWriteList = std::vector<PendingBlockWrite>;
 
-bool tryWrite(PendingBlockWrite write, ChunkBlockView view);
+
+bool tryWrite(PendingBlockWrite write, COW<ChunkBlockStore>& view);
+bool tryWrite(PendingBlockWrite write, ChunkBlockView& chunk);
+bool tryWrite(PendingBlockWrite write, ChunkBlockStore& chunk);
 //
 //

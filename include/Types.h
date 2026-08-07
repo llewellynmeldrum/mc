@@ -47,6 +47,7 @@ public:
 private:
     storage_type data : bitwidth; 
 };
+constexpr static inline std::size_t N_CARDINAL_DIRECTIONS {4};
 
 using u7 = ubits<7, false>;
 using u6 = ubits<6, false>;

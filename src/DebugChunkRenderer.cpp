@@ -122,7 +122,7 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
                 if (DebugOption::HIDE_CLEAN_CHUNKS && entry.mesh.is_clean()){
                     return;
                 }
-                if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.view())){
+                if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.read().view())){
                     return;
                 }
                 auto color = outline_color(entry);
@@ -191,7 +191,7 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
                 if (entry){
                     if (DebugOption::HIDE_CLEAN_CHUNKS && entry->mesh.is_clean()){
                         return true; // skip, else visual clutter is too bad
-                    }else if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry->block_data.view())){
+                    }else if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry->block_data.read().view())){
                         return true;
                     }else{
                         entryColor = fill_color(*entry);

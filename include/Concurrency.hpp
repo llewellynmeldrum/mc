@@ -173,7 +173,7 @@ struct Queue{
             not_full.notify_one(); 
         }
 
-        return std::make_optional(batch);
+        return std::make_optional(std::move(batch));
     }
 
 

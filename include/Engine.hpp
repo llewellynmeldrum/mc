@@ -79,10 +79,7 @@ struct Engine {
             if (!entry) entry = world.make_chunk_entry(coord);
         } else if constexpr (JT == JobType::Light){
             assert(entry);
-            if (rev == RevisionState::FIRST_JOB){
-                entry->light_data.reset();
-            }
-            assert(entry->light_data.buf.size() == ChunkInfo::SIZE);
+            assert(entry->light_data.read().buf.size() == ChunkInfo::SIZE);
         }else if constexpr(JT == JobType::Mesh){
             assert(entry);
 
@@ -359,8 +356,6 @@ struct Engine {
     bool mouse_mode{false};
     bool chunk_updates_paused{false};
     bool tick_updates_paused{false};
-    bool dbg_modify_chunks{false};
-    bool dirty_current_chunk{false};
 
     bool baking_starting_chunks{false};
 
@@ -515,7 +510,7 @@ private:
             auto res = q.try_batch_dequeue(max_uploads);
             if (res){
                 counter = (*res).size();
-                return *res;
+                return std::move(*res);
             }
         }
         counter = 0;
@@ -526,12 +521,13 @@ private:
         auto max_uploads = max_uploads_override ? *max_uploads_override : max_upload_per_frame<JT>;
         profiler.bench_start(upload_profiler_name<JT>);
         auto& counter = get_pf_accums<JT>().uploads_this_frame;
-        for (auto& res: drain_queue<JT>(max_uploads)){
+        for (auto&& res: drain_queue<JT>(max_uploads)){
             res_queue_idle_bencher<JT>().bench_end(res.coord,res.rev);
             auto rev = res.rev;
+            auto coord = res.coord;
             if (upload<JT>(std::move(res))){
                 counter++;
-                rtt_bencher<JT>().bench_end(res.coord,res.rev);
+                rtt_bencher<JT>().bench_end(coord,rev);
 
             }
         }

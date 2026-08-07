@@ -2,7 +2,10 @@
 #include <tuple>
 #include <utility>
 
+#include "ChunkConcurrency.hpp"
+#include "ChunkNeighbourhood.hpp"
 #include "CommonConcepts.hpp"
+#include "CoordTypes.hpp"
 #include "DebugOptions.hpp"
 #include "cpp23_ranges.hpp"
 
@@ -34,74 +37,26 @@
 #include "ThreadTracker.hpp"
 #include "ChunkMesher.hpp"
 
-template<BlockShape shape>
-const auto& get_quad_data(i8 dir);
-
-template<> const auto& get_quad_data<BlockShape::CROSS>(i8 idx) {
-    return AT(cross_vtx::quads,idx);
-}
-template<> const auto& get_quad_data<BlockShape::CUBE>(i8 dir) {
-    return AT(cube_vtx::quads,dir);
-}
-template<> const auto& get_quad_data<BlockShape::CACTUS>(i8 dir) {
-    return AT(cactus_vtx::quads,dir);
-}
-template<> const auto& get_quad_data<BlockShape::BOT_HALF_SLAB>(i8 dir) {
-    return AT(lower_half_slab_vtx::quads,dir);
-}
-template<> const auto& get_quad_data<BlockShape::TOP_HALF_SLAB>(i8 dir) {
-    return AT(top_half_slab_vtx::quads,dir);
-}
-#define X(var)                                                              \
-template<> const auto& get_quad_data<BlockShape::var>(i8 dir) {             \
-    return AT(snow_vtx::quad_n[std::to_underlying(BlockShape::var)-1],dir); \
-}
-    SNOW_SHAPE_LIST
-#undef X
 
 template<typename T>
     requires has_default_ctor<T>
 std::array<T, Direction_Count> get_block_neighbours(
-    const GenericChunkStore<T>& center_chunk, 
-    ChunkBlockPos cpos, 
-    std::vector<GenericChunkSlice<T>> neighbour_chunk_slices
+    ChunkNeighbourhoodSnapshot<T> const& neighbourhood,
+    ChunkBlockPos cpos
 ) {
+    // TODO: finish
     const auto& chunk_local_block = cpos;
 
     std::array<T, Direction_Count> res{};
-    constexpr glm::ivec3 lo = glm::ivec3(0);
-    constexpr glm::ivec3 hi = ChunkInfo::Extents3D;
-    for (const auto& dir : each_horizontal_direction){
+    for (const auto& dir : each_direction){
         const i32   dir_idx = static_cast<i32>(dir);
         const auto neigh_offset = Direction_offset[dir_idx];
         ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
-        const bool target_in_center_chunk = LM::isVecInBounds(neighbour_block_pos, lo, hi);
-        
-        if (target_in_center_chunk){
-            AT(res,dir_idx) = AT(center_chunk, neighbour_block_pos);
-        } else {
-            if (neighbour_chunk_slices[dir_idx].is_empty){ 
-                debug_assert(false, "neighbourhood built with a missing neighbour. Chunks should only be lit when their neighbours are generated.");
-                continue; // if other chunk is not stored, value is defaulted anyway
-            }
-            // The adjacent chunk has our neighbour. 
-            const auto& other_chunk = neighbour_chunk_slices[dir_idx];
-            neighbour_block_pos = LM::euclid_mod(neighbour_block_pos, ChunkInfo::Extents3D);
-            AT(res,dir_idx) = AT(other_chunk,neighbour_block_pos);
+        T neighbour_val = {};
+        if (neighbourhood.in_neighbourhood(neighbour_block_pos)){
+            neighbour_val = neighbourhood.get(neighbour_block_pos);
         }
-    }
-    for (const auto& dir : each_vertical_direction){
-        // if neighbour is within 0 - 256, then return that block. It exists in our chunk. It cannot be in another 
-        const i32   dir_idx = static_cast<i32>(dir);
-        const auto neigh_offset = Direction_offset[dir_idx];
-        ChunkBlockPos neighbour_block_pos = chunk_local_block + BlockOffset{neigh_offset};
-        const bool neighbour_outside_world = neighbour_block_pos.y>=WORLD_YMAX || neighbour_block_pos.y < WORLD_YMIN;
-        if (neighbour_outside_world) {
-            AT(res,dir_idx) = T{};
-            continue;
-        }else{
-            AT(res,dir_idx) = AT(center_chunk,neighbour_block_pos);
-        }
+        res[dir_idx] = neighbour_val; 
     }
 
     return res;
@@ -115,8 +70,8 @@ struct BlockMeshContext{
     const Block& block;
     const ChunkBlockPos& chunk_local_block;
     const TextureAtlas* atlas;
-    const ChunkBlockStore& blocks;
-    const ChunkLightStore& lights;
+    BlockNeighbourhoodSnapshot const& blocks;
+    LightNeighbourhoodSnapshot const& lights;
     const_span<Block, Direction_Count> surrounding_blocks;
     const_span<PackedLightValue, Direction_Count> surrounding_lights;
 };
@@ -327,55 +282,43 @@ void mesh_shape(BlockShape shape, BlockMeshContext& ctx){
 
 
 template<typename MeshDataType>
-auto mesh_type_predicate(const ChunkBlockStore& chunk){
-    if constexpr(std::same_as<MeshDataType,OpaqueMeshData>){
-        return [&chunk](auto xyz){
-            auto [x,y,z]=xyz;
-            return chunk.at(x,y,z).is_opaque();
-        };
-    }else if constexpr(std::same_as<MeshDataType,BlendedMeshData>){
-        return[&chunk](auto xyz){
-            auto [x,y,z]=xyz;
-            return chunk.at(x,y,z).is_blended();
-        };
-    }else if constexpr(std::same_as<MeshDataType,CutoutMeshData>){
-        return[&chunk](auto xyz){
-            auto [x,y,z]=xyz;
-            return chunk.at(x,y,z).is_cutout();
-        };
-    }else {
+auto mesh_type_matches(Block block){
+    if constexpr(std::same_as<MeshDataType,OpaqueMeshData>)
+        return block.is_opaque();
+    else if constexpr(std::same_as<MeshDataType,BlendedMeshData>)
+        return block.is_blended();
+    else if constexpr(std::same_as<MeshDataType,CutoutMeshData>)
+        return block.is_cutout();
+    else 
         static_assert(false,"Unknown mesh type.");
-    }
 }
 
 template<typename MeshDataType>
 MeshDataType mesh_chunk(const MeshJob& job){
-    MeshDataType mesh_data{};
-    auto& out_indices = mesh_data.indices;
-    auto& out_vertices = mesh_data.vertices;
+    MeshDataType res{};
+    auto& out_indices = res.indices;
+    auto& out_vertices = res.vertices;
 
     // WARNING: These are pretty huge reserve()s. no idea if they will be worth it 
     // out_vertices.reserve(MAX_VERTICES_PER_CHUNK);
     // out_indices.reserve(MAX_INDICES_PER_CHUNK);
 
     const auto& blocks = job.blocks;
-    const auto& lights = job.light_data;
+    const auto& lights = job.lights;
     const auto& atlas_map = job.atlas_map;
-    const auto& neighbour_chunks_block_slices = job.surrounding_chunks_block_slices;
-    const auto& neighbour_chunks_light_slices = job.surrounding_chunks_light_slices;
 
     u32 vtx_count = 0;
-    for (const auto& [x, y, z] : EachBlockInChunk(mesh_type_predicate<MeshDataType>(blocks))) {
-        const ChunkBlockPos chunk_local_block = { x, y, z };
-        Block block = blocks[x, y, z];
-        if (block.is_air()) {
-            continue;
+    for_each_xyz_in_chunk([&](i32 cx, i32 cy, i32 cz){
+        auto chunk_local_block = ChunkBlockPos{cx,cy,cz};
+        auto block = blocks.get(chunk_local_block);
+        if (block.is_air() || !mesh_type_matches<MeshDataType>(block)){
+            return;
         }
 
         auto block_shape = block.get_shape();
         const auto& atlas = atlas_map[block_shape_to_texture_atlas[block_shape]];
-        auto surrounding_blocks = get_block_neighbours(blocks, chunk_local_block, neighbour_chunks_block_slices);
-        auto surrounding_lights = get_block_neighbours(lights, chunk_local_block, neighbour_chunks_light_slices);
+        auto surrounding_blocks = get_block_neighbours(blocks, chunk_local_block);
+        auto surrounding_lights = get_block_neighbours(lights, chunk_local_block);
 
         auto ctx = BlockMeshContext{ 
             vtx_count,
@@ -390,16 +333,19 @@ MeshDataType mesh_chunk(const MeshJob& job){
             surrounding_lights 
         };
         mesh_shape<MeshDataType>(block_shape,ctx);
-    }
-    return {out_vertices,out_indices};
+    });
+    return res;
 }
 
 
 MeshResult perform_mesh_work(MeshJob&& job){
-    MeshResult res{job.rev, job.coord};
-    res.blended = mesh_chunk<BlendedMeshData>(job); // mandatory copy elision on job i think
-    res.opaque = mesh_chunk<OpaqueMeshData>(job); // mandatory copy elision on job i think
-    res.cutout = mesh_chunk<CutoutMeshData>(job); // mandatory copy elision on job i think
+    MeshResult res{
+        .rev = job.rev,
+        .coord = job.coord,
+        .opaque = mesh_chunk<OpaqueMeshData>(job),
+        .blended = mesh_chunk<BlendedMeshData>(job),
+        .cutout = mesh_chunk<CutoutMeshData>(job),
+    };
     return res;
 }
 

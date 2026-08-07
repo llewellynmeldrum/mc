@@ -35,6 +35,8 @@ void Renderer::update_debug_uniforms(){
     prog.setUniform("u_gamma", gamma);
     prog.setUniform("u_enable_sunlight", DebugOption::draw_sunlight);
     prog.setUniform("u_enable_blocklight", DebugOption::draw_blocklight);
+    prog.setUniform("u_enable_fog", DebugOption::enable_fog);
+    prog.setUniform("u_fade_in_chunks", DebugOption::fade_in_chunks);
 }
 static bool is_mesh_loaded (const Mesh& mesh){
     return mesh.isLoaded(); 
