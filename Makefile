@@ -44,8 +44,8 @@ configure:
 
 configure-debug:
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_COMMON) \
-		-DMC_O1=ON \
-		-DCMAKE_BUILD_TYPE=Debug 
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DMC_O0=ON
 
 build: OPT_LEVEL=2
 build: configure
