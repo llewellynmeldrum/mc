@@ -70,7 +70,7 @@ struct ShaderProgram{
 
     void use();
     void stop();
-    void check_uniform(std::string name);
+    bool check_shader_contains_uniform_name(std::string name);
     std::unordered_map<std::string, i32> uniformLocationsCache;
     i32 getUniformLoc(const std::string& name);
     // `#ifdef _DEBUG`, this function will search with the ./shaders dir with `rg` to see if the `name` requested exists in a shader. 

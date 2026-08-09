@@ -60,7 +60,7 @@ struct IndexedMesh {
 
     bool m_is_first_upload;
     timer::time_point m_upload_time{}; // when the mesh was born.
-    constexpr static timer::duration fade_in_duration = timer::milliseconds(500.0f);
+    constexpr static timer::duration fade_in_duration = timer::milliseconds(150.0f);
     constexpr auto get_opacity01() const noexcept -> f32 {
         if (!m_is_first_upload) return 1.0f;
         timer::duration age = timer::now() - m_upload_time;

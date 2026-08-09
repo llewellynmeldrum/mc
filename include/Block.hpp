@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "BlockLight.hpp"
+#include "Direction.hpp"
 #include "UnpackedLightValue.hpp"
 #include "CommonConcepts.hpp"
 #include "Types.h"
@@ -284,6 +285,7 @@ struct Block {
         return def().shape;
     }
 
+
     constexpr auto texture_id() const noexcept {
         return def().tex_idx;
     }
@@ -338,3 +340,52 @@ struct Block {
     }
 };
 
+//    CUBE,
+//    CROSS, 
+//    CACTUS, 
+//    BOT_HALF_SLAB, 
+//    TOP_HALF_SLAB, 
+//    #define X(var) var,
+//        SNOW_SHAPE_LIST
+//    #undef X
+//    COUNT,
+//};
+
+template<BlockShape shape>
+constexpr bool is_snow_blockshape(){
+    return std::to_underlying(BlockType::SNOW_1) <=  std::to_underlying(shape) && 
+           std::to_underlying(shape) <= std::to_underlying(BlockShape::SNOW_1_15);
+}
+template<BlockShape from_shape, BlockShape to_shape, Direction dir>
+constexpr bool shape_covers_face() noexcept {
+    if constexpr (dir == Direction ::NORTH){
+        // only cubes fully occlude the forward face  
+        return from_shape == BlockShape::CUBE;
+
+    } else if constexpr (dir == Direction ::SOUTH){
+        // only cubes fully occlude the backward face  
+        return from_shape == BlockShape::CUBE;
+
+	} else if constexpr (dir == Direction ::WEST){
+        // only cubes fully occlude the lhs face  
+        return from_shape == BlockShape::CUBE;
+
+	} else if constexpr (dir == Direction ::EAST){
+        // only cubes fully occlude the rhs face  
+        return from_shape == BlockShape::CUBE;
+
+	}else if constexpr (dir == Direction ::DOWN){
+        // a cube, bhs, or snow block occludes EVERY face below it `
+        bool occludes_any_neighbour = 
+                from_shape == BlockShape::CUBE || 
+               from_shape == BlockShape::BOT_HALF_SLAB 
+                || is_snow_blockshape<from_shape>();
+
+        // a cactus occludes only cactus below it
+        bool occludes_specific_neighbour = 
+            (from_shape == BlockShape::CACTUS && from_shape == to_shape);
+        return occludes_any_neighbour || occludes_specific_neighbour;
+	} else if constexpr (dir == Direction ::UP){
+
+	} 
+}

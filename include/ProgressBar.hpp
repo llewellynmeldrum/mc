@@ -30,7 +30,7 @@ struct ProgressBar{
         return current_progress >= expected_total;
     }
     f32 progress01() const noexcept{
-        return LM::constrain(0.0f,1.0f,static_cast<f32>(current_progress) / expected_total);
+        return std::clamp(static_cast<f32>(current_progress) / expected_total,0.0f,1.0f);
     };
     void print_progress() const noexcept{
         i32 bar_progress = std::round(progress01() * terminal_rows);

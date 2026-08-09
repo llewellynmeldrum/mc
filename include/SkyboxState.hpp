@@ -7,8 +7,8 @@ struct SkyboxState{
 
     vec3 color_horizon;     // color of the sky at the horizon line (~y=0)
     vec3 color_sun;
-    vec3 color_sunlight;    // color of the light that propogates to blocks
     vec3 color_sun_glow;
+    vec3 color_outer_sun_glow;
     vec3 color_lowsky;      // color of the sky ~y=0.3
     vec3 color_midsky;      // color of the sky ~y=0.5
     vec3 color_zenith;      // color of the sky ~y=1.0
@@ -16,8 +16,15 @@ struct SkyboxState{
     vec3 dir_moon;
     vec3 dir_sun;
     f32 sun_intensity_scale;
+    f32 belt_of_venus_intensity;
+    f32 horizon_hug_intensity;
     f32 star_alpha;
     f32 glow_scale;
+    glm::vec3 get_casted_sun_color(){
+        vec3 sun_color = color_sun*color_sun_glow;
+        vec3 sky_color = color_lowsky * color_midsky*color_zenith;
+        return glm::mix(sky_color, sun_color,sun_intensity_scale);
+    }
 };
 
 struct SkyboxConfig{
@@ -62,8 +69,11 @@ struct SkyboxConfig{
     consteval static inline glm::vec3 rgb(auto r, auto g, auto b) {
         return glm::vec3{r,g,b}/255.0f;
     };
+    constexpr auto ticks_to_tod01(TickCount p_tick_count)const noexcept{
+        return static_cast<f32>(p_tick_count % ticks_per_day) / ticks_per_day;
+    }
     constexpr auto tod01()const noexcept{
-        return static_cast<f32>(tick_count % ticks_per_day) / ticks_per_day;
+        return ticks_to_tod01(tick_count);
     }
     constexpr auto tod01_to_tick_count(f32 p_tod01){
         return p_tod01 * ticks_per_day;

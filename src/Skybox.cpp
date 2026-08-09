@@ -29,9 +29,12 @@ void SkyboxRenderer::setup(){
     prog.use();
     u_base_color_loc = prog.getUniformLoc("u_base_color");
     u_color_horizon_loc = prog.getUniformLoc("u_color_horizon");     // color of the sky at the horizon line
-    u_color_sun_loc = prog.getUniformLoc("u_color_sun");
+    u_color_sun_loc = prog.getUniformLoc("u_color_sun_disc");
     u_color_sunlight_loc = prog.getUniformLoc("u_color_sunlight");
     u_color_sun_glow_loc = prog.getUniformLoc("u_color_sun_glow");
+    u_belt_of_venus_intensity_loc = prog.getUniformLoc("u_belt_of_venus_intensity");
+    u_horizon_hug_intensity_loc = prog.getUniformLoc("u_horizon_hug_intensity");
+    u_color_outer_sun_glow_loc = prog.getUniformLoc("u_color_outer_sun_glow");
     u_color_zenith_loc = prog.getUniformLoc("u_color_zenith");      // color of the sky at the highest point (top center)
     u_dir_moon_loc = prog.getUniformLoc("u_dir_moon");
     u_dir_sun_loc = prog.getUniformLoc("u_dir_sun");
@@ -41,6 +44,23 @@ void SkyboxRenderer::setup(){
     u_color_lowsky_loc= prog.getUniformLoc("u_color_lowsky");
     u_color_midsky_loc= prog.getUniformLoc("u_color_midsky");
     prog.stop();
+}
+void SkyboxRenderer::update_uniforms(SkyboxState const& state) noexcept{
+    current_state = state;
+    prog.setUniform(u_color_horizon_loc,state.color_horizon);     // color of the sky at the horizon line
+    prog.setUniform(u_color_sun_loc,state.color_sun);
+    prog.setUniform(u_color_sun_glow_loc,state.color_sun_glow);
+    prog.setUniform(u_color_outer_sun_glow_loc,state.color_outer_sun_glow);
+    prog.setUniform(u_belt_of_venus_intensity_loc,state.belt_of_venus_intensity);
+    prog.setUniform(u_horizon_hug_intensity_loc,state.horizon_hug_intensity);
+    prog.setUniform(u_color_zenith_loc,state.color_zenith);      // color of the sky at the highest point (top center)
+    prog.setUniform(u_dir_moon_loc,state.dir_moon);
+    prog.setUniform(u_dir_sun_loc,state.dir_sun);
+    prog.setUniform(u_sun_intensity_scale_loc,state.sun_intensity_scale);
+    prog.setUniform(u_star_alpha_loc,state.star_alpha);
+    prog.setUniform(u_glow_scale_loc,state.glow_scale);
+    prog.setUniform(u_color_lowsky_loc,state.color_lowsky);
+    prog.setUniform(u_color_midsky_loc,state.color_midsky);
 }
 
 void SkyboxRenderer::upload_rays(){

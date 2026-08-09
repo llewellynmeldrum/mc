@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Timer.hpp"
 #include <mutex>
 #define INCLUDE_LOGGER_LAST
 #include <cxxabi.h>
@@ -18,25 +19,11 @@
 #include "CommonConcepts.hpp"
 #include "FmtStyle.hpp"
 #include "DebugFormat.hpp"
-extern i64 program_epoch_ns;  // TODO: Must be defined in main file! do get_current_ns() as soon as
-                              // main begins.
-
-static inline double get_current_ns() {
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    return (i64)stons(ts.tv_sec) + ts.tv_nsec;
+static inline double us_since_epoch() {
+    return timer::get_microseconds(timer::since_epoch());
 }
-static inline double get_current_us() {
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    return (f64)(stons(ts.tv_sec) + ts.tv_nsec) / 1000.0;
-}
-
-static inline i64 ms_since_start() {
-    i64    current_ns = get_current_ns();
-    i64    ns_elapsed = current_ns - program_epoch_ns;
-    double ms = nstoms(ns_elapsed);
-    return ms;
+static inline double seconds_since_epoch() {
+    return timer::get_seconds(timer::since_epoch());
 }
 
 struct LogLevel {
@@ -57,7 +44,7 @@ extern std::mutex log_mut;
 #define LOG_LVL(lvl, file, ln, fmt_str, ...)                                                       \
     do {                                                                                           \
         std::unique_lock<std::mutex> lock(log_mut);                                                \
-        std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
+        std::print("{:03.3f} ", seconds_since_epoch());                                        \
         std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                             \
         std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                          \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
@@ -66,7 +53,7 @@ extern std::mutex log_mut;
 #define LOG_DEBUG(fmt_str, ...)                                                       \
     do {                                                                                           \
         std::unique_lock<std::mutex> lock(log_mut);                                                \
-        std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
+        std::print("{:03.3f} ", seconds_since_epoch());                                        \
         std::print("{}{:<8}{} ", DEBUG.color, DEBUG.prefix, fmt::reset());                             \
         std::print("{}{}:{:<3}{} ", fmt::bold(), __FILE_NAME__, __LINE__, fmt::reset());                          \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \
@@ -75,7 +62,7 @@ extern std::mutex log_mut;
 
 #define LOG_LVL_NOLOCK(lvl, file, ln, fmt_str, ...)                                                \
     do {                                                                                           \
-        std::print("{:03.3f} ", ms_since_start() / 1000.0);                                        \
+        std::print("{:03.3f} ", seconds_since_epoch());                                        \
         std::print("{}{:<8}{} ", lvl.color, lvl.prefix, fmt::reset());                             \
         std::print("{}{}:{:<3}{} ", fmt::bold(), file, ln, fmt::reset());                          \
         std::println(fmt_str, ##__VA_ARGS__);                                                      \

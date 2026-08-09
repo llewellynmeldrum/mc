@@ -72,8 +72,8 @@ struct BlockMeshContext{
     const TextureAtlas* atlas;
     BlockNeighbourhoodSnapshot const& blocks;
     LightNeighbourhoodSnapshot const& lights;
-    const_span<Block, Direction_Count> surrounding_blocks;
-    const_span<PackedLightValue, Direction_Count> surrounding_lights;
+    const_span<Block, Direction_Count> adjacent_blocks;
+    const_span<PackedLightValue, Direction_Count> adjacent_lights;
 };
 
 
@@ -84,7 +84,7 @@ template<BlockShape block_shape>
 void mesh_quad(BlockMeshContext& ctx, size_t facing_idx){
     const auto& block = ctx.block;
     const auto& chunk_local = ctx.chunk_local_block;
-    const auto& incoming_light = ctx.surrounding_lights[facing_idx];
+    const auto& incoming_light = ctx.adjacent_lights[facing_idx];
 
     auto quad_vertices = get_quad_data<block_shape>(facing_idx);
     const auto& tx_coords = ctx.atlas->quad_texture_uvs<block_shape>(block.texture_id(), facing_idx, quad_vertices);
@@ -114,7 +114,7 @@ void mesh_quad(BlockMeshContext& ctx, size_t facing_idx){
 template<typename MaterialType>
 void mesh_cactus(BlockMeshContext& ctx){
 
-    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.adjacent_blocks)) {
         mesh_quad<BlockShape::CACTUS>(ctx,face_idx);
     }
 }
@@ -123,7 +123,7 @@ template<typename MaterialType>
 void mesh_cube(BlockMeshContext& ctx){
     const auto& block = ctx.block;
 
-    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.adjacent_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
         if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
             // for opaque blocks, skip quads which face opaque neighbours
@@ -157,7 +157,7 @@ template<typename MaterialType, std::size_t N>
 void mesh_snow(BlockMeshContext& ctx){
     const auto& block = ctx.block;
 
-    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.adjacent_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
         // Snow shape has the same rules as bot half slabs
         if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
@@ -184,7 +184,7 @@ template<typename MaterialType>
 void mesh_top_half_slab(BlockMeshContext& ctx){
     const auto& block = ctx.block;
 
-    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.adjacent_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
         // Opaque top half slabs are only guaranteed to cover the block above them.
         if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
@@ -211,7 +211,7 @@ template<typename MaterialType>
 void mesh_lower_half_slab(BlockMeshContext& ctx){
     const auto& block = ctx.block;
 
-    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.surrounding_blocks)) {
+    for (const auto& [face_idx, adjacentBlock] : views::enumerate(ctx.adjacent_blocks)) {
         const auto faceDir = static_cast<Direction>(face_idx);
         if constexpr (same_as_nocvref<MaterialType,OpaqueMeshData>){
             // Opaque half slabs are only guaranteed to cover the block below them.
@@ -317,8 +317,8 @@ MeshDataType mesh_chunk(const MeshJob& job){
 
         auto block_shape = block.get_shape();
         const auto& atlas = atlas_map[block_shape_to_texture_atlas[block_shape]];
-        auto surrounding_blocks = get_block_neighbours(blocks, chunk_local_block);
-        auto surrounding_lights = get_block_neighbours(lights, chunk_local_block);
+        auto adjacent_blocks = get_block_neighbours(blocks, chunk_local_block);
+        auto adjacent_lights = get_block_neighbours(lights, chunk_local_block);
 
         auto ctx = BlockMeshContext{ 
             vtx_count,
@@ -329,8 +329,8 @@ MeshDataType mesh_chunk(const MeshJob& job){
             atlas,
             blocks,
             lights,
-            surrounding_blocks,
-            surrounding_lights 
+            adjacent_blocks,
+            adjacent_lights 
         };
         mesh_shape<MeshDataType>(block_shape,ctx);
     });

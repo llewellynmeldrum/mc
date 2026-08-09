@@ -24,6 +24,7 @@ uniform bool u_enable_smooth_light_falloff;
 uniform float u_blocklight_smooth_falloff_factor;
 uniform float u_sunlight_smooth_falloff_factor;
 
+uniform float u_global_sun_intensity_scale;
 
 void main(){
     tx_coord = in_tx_coord;
@@ -55,7 +56,7 @@ void main(){
         if (u_enable_smooth_light_falloff){
             sunlight_intensity = 0.1 + pow(u_sunlight_smooth_falloff_factor,(1.0f - sunlight_intensity));
         }
-        sunlight_rgb = u_sunlight_rgb * sunlight_intensity ;
+        sunlight_rgb = u_sunlight_rgb * sunlight_intensity  * u_global_sun_intensity_scale;
     }
     final_light = max(sunlight_rgb, blocklight_rgb);
     view_pos =  u_view * u_model * vec4(in_local_pos.xyz, 1.0);

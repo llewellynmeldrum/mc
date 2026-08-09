@@ -181,17 +181,20 @@ std::string ShaderProgram::get_info_log() {
 // Performs a ripgrep search for the uniform in the shaders directory. 
 // Obviously not fool-proof, however its nice in catching obvious errors 
 // (e.g asking for the location of a shader whose name never appears in the file)
-void ShaderProgram::check_uniform(std::string name) {
-    std::string count_str = unix::exec(std::format("rg -w '{}' ./shaders -c | wc -l", name));
+bool ShaderProgram::check_shader_contains_uniform_name(std::string name) {
+    std::string ripgrep_command = std::format("rg -w '{}' ./{} ./{} -c | wc -l", name, vtx.src_path,frag.src_path);
+    std::string count_str = unix::exec(ripgrep_command);
     auto        count = std::stoi(count_str);
     if (count <= 0) {
-        std::println("->{}Error! uniform {}'{}'{}. Was not found. Did you mean any of these?",
-                     fmt::fg_red(), fmt::bold(), name, fmt::reset());
+        std::println("->{}Error! uniform {}'{}'{}. never occurs in the vertex or frag shaders {}/{}.. Did you mean any of these?",
+                     fmt::fg_red(), fmt::bold(), name, fmt::reset(),vtx.src_path,frag.src_path);
         std::println("{}",
                      unix::exec(std::format("rg '' ./shaders | agrep -2 '{}' | tail -3", name)));
 
+        return false;
         LOG_EXIT(EXIT_FAILURE);
     }
+    return true;
 }
 void ShaderProgram::setUniform(i32 loc_id, const mat4& val) {
     glUniformMatrix4fv(loc_id, 1, false, glm::value_ptr(val));
@@ -225,14 +228,20 @@ i32 ShaderProgram::getUniformLoc(const std::string& name) {
     if (uniformLocationsCache.contains(name)) {
         location = uniformLocationsCache.at(name);
     } else {
-        check_uniform(name);
-        auto [iter, inserted ]= uniformLocationsCache.insert({ name, glGetUniformLocation(id, name.c_str()) });
+        check_shader_contains_uniform_name(name);
+        auto [iter, inserted ] = uniformLocationsCache.try_emplace(name, glGetUniformLocation(id, name.c_str()));
 //        LOG_DEBUG("Cached unform type of '{}'", name);
         location = iter->second;
     }
     if (location == -1) {
-        LOG_FATAL("Unable to get location for uniform '{}'.", name);
-        LOG_FATAL("{}", get_info_log());
+        LOG_FATAL("Unable to get location for uniform '{}'. One of the following is probably true:  \
+                  \n-> The uniform is likely inactive (i.e not used by the shader).                 \
+                  \n-> name does not correspond to an active uniform variable in program            \
+                  \n-> name starts with the reserved prefix 'gl_'                                   \
+                  \n-> name is associated with an atomic counter or a named uniform block\
+                  \n====\
+                  \nglGetProgramInfoLog():{}"
+                  ,name, get_info_log());
     }
     return location;
 }

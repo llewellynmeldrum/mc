@@ -21,6 +21,15 @@ namespace timer{
     inline time_point now(){
         return impl_clock::now();
     }
+    [[nodiscard]]
+    inline time_point prog_epoch(){
+        static const auto t0 = timer::now();
+        return t0;
+    }
+    [[nodiscard]]
+    inline duration since_epoch(){
+        return timer::now() - prog_epoch();
+    }
 
 
     template<typename Period>
@@ -48,6 +57,18 @@ namespace timer{
     [[nodiscard]]
     inline Repr_t get_seconds(duration dur){
         return from_duration<s_period>(dur);
+    }
+    [[nodiscard]]
+    inline Repr_t get_nanoseconds(duration dur){
+        return from_duration<nanos_period>(dur);
+    }
+    [[nodiscard]]
+    inline Repr_t get_microseconds(duration dur){
+        return from_duration<micros_period>(dur);
+    }
+    [[nodiscard]]
+    inline Repr_t get_milliseconds(duration dur){
+        return from_duration<millis_period>(dur);
     }
     [[nodiscard]]
     inline Repr_t to_milliseconds(duration dur){

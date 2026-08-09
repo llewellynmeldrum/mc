@@ -97,11 +97,6 @@ constexpr inline i32 floor_div(i32 a, i32 b) noexcept{
 constexpr inline f32 floor_div(f32 a, i32 b) noexcept{
     return std::floor(a/b);
 }
-template<typename T>
-requires Numeric<T>
-constexpr inline T constrain(T lo, T hi, T val) noexcept{
-    return std::min(std::max(val,lo),hi);
-}
 
 template <typename Float>
 requires FloatingPoint<Float>

@@ -4,4 +4,3 @@
 #include "Logger.hpp"
 #include <chrono>
 
-i64  program_epoch_ns = 0;

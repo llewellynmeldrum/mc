@@ -15,24 +15,32 @@ constexpr inline size_t NAME##Count = static_cast<size_t>(NAME::COUNT);
 
 // clang-format off
 
-enum struct Direction : i8 { FORWARD, BACKWARD, LEFT, RIGHT, DOWN, UP, COUNT };
+enum struct Direction : i8 { 
+    NORTH,  // -z NORTH
+    SOUTH, // +z SOUTH
+    WEST,     // -x WEST
+    EAST,    // +x EAST
+    DOWN,     // -y
+    UP,       // +y
+    COUNT 
+};
 
 constexpr inline size_t Direction_Count = static_cast<size_t>(Direction ::COUNT);
 
 // To be used like: for (const auto& dir: eachDirection)
 constexpr inline std::array<Direction,6> each_direction{
-    Direction ::FORWARD,   //
-    Direction ::BACKWARD,  //
-    Direction ::LEFT,      //
-    Direction ::RIGHT,//
+    Direction ::NORTH,   //
+    Direction ::SOUTH,  //
+    Direction ::WEST,      //
+    Direction ::EAST,//
     Direction ::DOWN, //
     Direction ::UP,             //
 };
 constexpr inline std::array<Direction,4> each_cardinal_direction{
-    Direction ::FORWARD,   //
-    Direction ::BACKWARD,  //
-    Direction ::LEFT,      //
-    Direction ::RIGHT,//
+    Direction ::NORTH,   //
+    Direction ::SOUTH,  //
+    Direction ::WEST,      //
+    Direction ::EAST,//
 };
 constexpr inline std::array<Direction,2> each_vertical_direction{
     Direction ::DOWN, //
@@ -40,10 +48,10 @@ constexpr inline std::array<Direction,2> each_vertical_direction{
 };
 
 const static inline std::unordered_map<Direction, Direction> inverseDirection = {
-    {Direction::FORWARD,  Direction::BACKWARD},
-    {Direction::BACKWARD,  Direction::FORWARD},
-    {Direction::LEFT,        Direction::RIGHT},
-    {Direction::RIGHT,        Direction::LEFT},
+    {Direction::NORTH,  Direction::SOUTH},
+    {Direction::SOUTH,  Direction::NORTH},
+    {Direction::WEST,        Direction::EAST},
+    {Direction::EAST,        Direction::WEST},
     {Direction::DOWN,           Direction::UP},
     {Direction::UP,           Direction::DOWN},
 };
@@ -78,31 +86,31 @@ constexpr inline std::array<glm::ivec2, 4> Direction_offset2D{
 // clang-format off
 // To be used like: for (const auto& [dir, dirOffset]: eachDirOffset)
 constexpr inline std::array<std::pair<Direction, glm::ivec3>,6> eachDirOffset = {
-    std::pair{ Direction ::FORWARD,   Direction_offset[static_cast<i8>(Direction ::FORWARD)] },
-    std::pair{ Direction ::BACKWARD, Direction_offset[static_cast<i8>(Direction ::BACKWARD)] },
-    std::pair{ Direction ::LEFT,         Direction_offset[static_cast<i8>(Direction ::LEFT)] },
-    std::pair{ Direction ::RIGHT,       Direction_offset[static_cast<i8>(Direction ::RIGHT)] },
+    std::pair{ Direction ::NORTH,   Direction_offset[static_cast<i8>(Direction ::NORTH)] },
+    std::pair{ Direction ::SOUTH, Direction_offset[static_cast<i8>(Direction ::SOUTH)] },
+    std::pair{ Direction ::WEST,         Direction_offset[static_cast<i8>(Direction ::WEST)] },
+    std::pair{ Direction ::EAST,       Direction_offset[static_cast<i8>(Direction ::EAST)] },
     std::pair{ Direction ::DOWN,         Direction_offset[static_cast<i8>(Direction ::DOWN)] },
     std::pair{ Direction ::UP,             Direction_offset[static_cast<i8>(Direction ::UP)] }, //
 };
 constexpr inline std::array<std::pair<Direction, glm::ivec2>,4> eachDirOffset2D = {
-    std::pair{ Direction ::FORWARD,      Direction_offset2D[static_cast<i8>(Direction ::FORWARD)] },
-    std::pair{ Direction ::BACKWARD,     Direction_offset2D[static_cast<i8>(Direction ::BACKWARD)] },
-    std::pair{ Direction ::LEFT,         Direction_offset2D[static_cast<i8>(Direction ::LEFT)] },
-    std::pair{ Direction ::RIGHT,        Direction_offset2D[static_cast<i8>(Direction ::RIGHT)] },
+    std::pair{ Direction ::NORTH,      Direction_offset2D[static_cast<i8>(Direction ::NORTH)] },
+    std::pair{ Direction ::SOUTH,     Direction_offset2D[static_cast<i8>(Direction ::SOUTH)] },
+    std::pair{ Direction ::WEST,         Direction_offset2D[static_cast<i8>(Direction ::WEST)] },
+    std::pair{ Direction ::EAST,        Direction_offset2D[static_cast<i8>(Direction ::EAST)] },
 };
 
 constexpr inline std::array<std::pair<Direction, i32>,6> eachDirIndex = {
-    std::pair{ Direction ::FORWARD,  static_cast<i32>(Direction ::FORWARD ) },
-    std::pair{ Direction ::BACKWARD, static_cast<i32>(Direction ::BACKWARD) },
-    std::pair{ Direction ::LEFT,     static_cast<i32>(Direction ::LEFT    ) },
-    std::pair{ Direction ::RIGHT,    static_cast<i32>(Direction ::RIGHT   ) },
+    std::pair{ Direction ::NORTH,  static_cast<i32>(Direction ::NORTH ) },
+    std::pair{ Direction ::SOUTH, static_cast<i32>(Direction ::SOUTH) },
+    std::pair{ Direction ::WEST,     static_cast<i32>(Direction ::WEST    ) },
+    std::pair{ Direction ::EAST,    static_cast<i32>(Direction ::EAST   ) },
     std::pair{ Direction ::DOWN,     static_cast<i32>(Direction ::DOWN    ) },
     std::pair{ Direction ::UP,       static_cast<i32>(Direction ::UP      ) },
 };
 constexpr inline std::array<std::pair<Direction, i32>,4> eachDirIndex2D = {
-    std::pair{ Direction ::FORWARD,  static_cast<i32>(Direction ::FORWARD ) },
-    std::pair{ Direction ::BACKWARD, static_cast<i32>(Direction ::BACKWARD) },
-    std::pair{ Direction ::LEFT,     static_cast<i32>(Direction ::LEFT    ) },
-    std::pair{ Direction ::RIGHT,    static_cast<i32>(Direction ::RIGHT   ) },
+    std::pair{ Direction ::NORTH,  static_cast<i32>(Direction ::NORTH ) },
+    std::pair{ Direction ::SOUTH, static_cast<i32>(Direction ::SOUTH) },
+    std::pair{ Direction ::WEST,     static_cast<i32>(Direction ::WEST    ) },
+    std::pair{ Direction ::EAST,    static_cast<i32>(Direction ::EAST   ) },
 };

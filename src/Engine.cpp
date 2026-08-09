@@ -79,7 +79,10 @@ void Engine::loop(){
 
 
         auto const& sky_cfg = get_skybox_cfg();
-        rend.per_frame_update(player_cam, sky_cfg.make_skybox());
+        auto skybox = sky_cfg.make_skybox();
+        rend.set_global_sun_intensity(skybox.sun_intensity_scale);
+        rend.set_global_sun_color(skybox.get_casted_sun_color());
+        rend.per_frame_update(player_cam, skybox);
         draw_scene(); 
         if (DebugOption::show_debug_ui){ ui.draw(); }
 
@@ -387,6 +390,9 @@ void Engine::perform_tick_updates(timer::duration dt){
 //    std::println("dt: {}",dt);
 
     auto ticks_this_frame {0uz};
+    if (tick_count > 0.3 * ticks_per_day){
+        tick_count = 0;
+    }
     while (tick_gap_accumulator > msPerTick() && ticks_this_frame < max_ticks_per_frame ){
         per_tick_update();
         tick_gap_accumulator-=msPerTick();
@@ -411,7 +417,6 @@ void Engine::setup(bool setup_logging) {
 #endif
     set_debug_params();                 
 
-    program_epoch_ns = get_current_ns();
 
 
 
@@ -533,11 +538,14 @@ void Engine::handle_input(){
         return;
     }
 
+    if (input.just_pressed(KeyModifiers{.shift=true},KEY_P)){
+        tick_updates_paused = !tick_updates_paused;
+    }
     if(input.just_pressed(KEY_GRAVE_ACCENT)){
         ui.is_ui_expanded = !ui.is_ui_expanded;
     }
     if (baking_starting_chunks){
-		player_cam.rotate(Direction::LEFT, profiler.dt_s * 3.0f);
+		player_cam.rotate(Direction::WEST, profiler.dt_s * 3.0f);
         return;
     }
 
@@ -705,16 +713,16 @@ void Engine::handle_input(){
     }
 
     if(input.is_down(KeyModifiers::any(), KEY_W)){
-		player_cam.move(Direction::FORWARD, profiler.dt_s);
+		player_cam.move(Direction::NORTH, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_S)){
-		player_cam.move(Direction::BACKWARD, profiler.dt_s);
+		player_cam.move(Direction::SOUTH, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_A)){
-		player_cam.move(Direction::LEFT, profiler.dt_s);
+		player_cam.move(Direction::WEST, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_D)){
-		player_cam.move(Direction::RIGHT, profiler.dt_s);
+		player_cam.move(Direction::EAST, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_SPACE)){
 		player_cam.move(Direction::UP, profiler.dt_s);
@@ -728,10 +736,10 @@ void Engine::handle_input(){
 	}
 
     if(input.is_down(KeyModifiers::any(), KEY_LEFT)){
-		player_cam.rotate(Direction::LEFT, profiler.dt_s);
+		player_cam.rotate(Direction::WEST, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_RIGHT)){
-		player_cam.rotate(Direction::RIGHT, profiler.dt_s);
+		player_cam.rotate(Direction::EAST, profiler.dt_s);
 	}
     if(input.is_down(KeyModifiers::any(), KEY_UP)){
 		player_cam.rotate(Direction::UP, profiler.dt_s);

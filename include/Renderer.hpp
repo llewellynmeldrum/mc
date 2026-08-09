@@ -31,6 +31,13 @@ struct Renderer {
     TextureAtlas cross_atlas;
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
+    void set_global_sun_color(glm::vec3 col){
+        prog.setUniform(u_sunlight_rgb_loc, col);
+    }
+    void set_global_sun_intensity(f32 scale){
+        prog.use();
+        prog.setUniform(u_global_sun_intensity_scale_loc, scale);
+    }
     void set_fog_color(glm::vec3 fog_color){
         prog.use();
         prog.setUniform(u_fog_color_loc, fog_color);
@@ -65,6 +72,7 @@ struct Renderer {
     i32 u_model_loc{};
     i32 u_chunk_opacity_loc{};
     i32 u_fog_color_loc{};
+    i32 u_global_sun_intensity_scale_loc{};
     i32 u_world_fog_start_loc{};
     i32 u_world_fog_end_loc{};
     i32 u_proj_loc{};

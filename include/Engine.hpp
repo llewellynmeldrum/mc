@@ -41,11 +41,11 @@ struct Engine {
         win(), 
         profiler(),
         input(win.ptr), 
-        player_cam({-56.181,+135.793,-62.740}, +3.859,+181.105),
+        player_cam({-56.181,+135.793,-62.740}, +15.588,+185.125),
         drone_cam(),
         rend(),
         fixedCamTarget({0,0},{640,480}),
-        ui(default_skybox_cfg(ticks_per_day*.25f)),
+        ui(default_skybox_cfg(ticks_per_day* 0.841)),
         world(default_world_seed),
         director(world.chunkMap,world)
     {}
@@ -126,11 +126,11 @@ struct Engine {
 
 
     // tick machinery
-    TickCount ticksPerSecond {2000uz};
-    TickCount tick_count = 0;
+    TickCount ticks_per_second {200uz};
+    TickCount tick_count = ticks_per_day * 0.20;
     timer::duration tick_gap_accumulator = timer::duration{0};
     timer::time_point t_frame_start = timer::now();
-    constexpr auto msPerTick(){return timer::milliseconds(1000.0 / ticksPerSecond);}
+    constexpr auto msPerTick(){return timer::milliseconds(1000.0 / ticks_per_second);}
 
     constexpr static auto maxGapContributionPerFrame = timer::milliseconds(250.0); // limit on how many 'lagging' ticks are CREATED
     constexpr static auto max_ticks_per_frame = 8uz; // limit on how many 'lagging' ticks are ACCEPTED
@@ -355,7 +355,7 @@ struct Engine {
     bool paused{false};
     bool mouse_mode{false};
     bool chunk_updates_paused{false};
-    bool tick_updates_paused{false};
+    bool tick_updates_paused{true};
 
     bool baking_starting_chunks{false};
 

@@ -155,25 +155,42 @@ void draw_world_window(WindowConfig& self, Engine* ctx){
     self.setFlags();
     self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
-        auto cfg = ctx->ui.skybox_cfg;
+        auto cfg = ctx->get_skybox_cfg();
         window.open_section("Noise Config:",[&]{
 //            window.slider("Ticks per second",&ctx->ticksPerSecond,TickCount{1},TickCount{2000});
 
             bool dirty= false;
 
-            window.dbg_toggle(DebugOption::skybox_ui_override);
-            if (!DebugOption::skybox_ui_override) IG::BeginDisabled();
             f32 t = cfg.tod01(); 
-            if (window.slider("Time of day (t)",&t,0.0f,1.0f)){
-                dirty |= true;
-                cfg.tick_count = t * cfg.ticks_per_day;
+            bool& pause_tod_progression = ctx->tick_updates_paused;
+            static f32 tod_min{0.05};
+            static f32 tod_max{0.50};
+            static f32 tod_len_seconds{30.0f};
+            if (!DebugOption::skybox_ui_override) IG::BeginDisabled();
+            window.slider("TOD min:", &tod_min,0.7f,1.0f);
+            window.slider("TOD max:", &tod_max,0.0f,1.0f);
+            window.slider("S/ day:", &tod_len_seconds,0.0f,120.0f);
+            window.checkbox("Pause", &pause_tod_progression);
+
+                if (window.slider("Time of day (t)",&t,0.0f,1.0f)){
+                    dirty |= true;
+                    cfg.tick_count = t * cfg.ticks_per_day;
+                }
+
+            if (!pause_tod_progression){
+                auto dt = IG::GetIO().DeltaTime;
+                f32 day_length = tod_len_seconds;
+                t += dt / day_length;
+                if (t<tod_min) t= tod_min;
+                if (t>tod_max) t= tod_min;
+                cfg.tick_count = t*cfg.ticks_per_day;
+                dirty = true;
             }
+
             
-            dirty |= draw_remap_table("Sun color", cfg.remap_t_sun_color);
 
 
             if (!DebugOption::skybox_ui_override) IG::EndDisabled();
-
             if (dirty){
                 ctx->ui.skybox_cfg = cfg;
             }
@@ -594,6 +611,7 @@ void drawGeneralDebugOverlay(WindowConfig& self, Engine* ctx) {
         UI::Text("fps: {: 4.1f} (p99: {: 4.1f})",fps, p99);
         UI::Text("frametime: {: 4.1f}ms (upd: {: 3.1f}%, draw: {: 3.1f}%)", ft_ms,upd_pcnt,draw_pcnt);
         UI::Text("tick: {}",ctx->tick_count);
+        UI::Text("draw dist: {}",ctx->director.RENDER_DIST);
         UI::Separator();
         UI::Text("meshed: {: 7}, +{: 7} generating, +{: 7} meshing",n_chunks_loaded,n_chunks_gening,n_chunks_meshing);
         UI::Text("entries : {: 7} ",ctx->world.chunkMap.entries.size());

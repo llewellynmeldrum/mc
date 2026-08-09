@@ -135,16 +135,16 @@ consteval auto precompute_hoz_boundary_coords(){
     constexpr static i32 X = ChunkInfo::Extents3D.x;
     constexpr static i32 Y = ChunkInfo::Extents3D.y;
     constexpr static i32 Z = ChunkInfo::Extents3D.z;
-    if constexpr (d == Direction::FORWARD){
+    if constexpr (d == Direction::NORTH){
         lo = {0,    0,  0};
         hi = {X,    Y,  1};
-    } else if constexpr (d == Direction::BACKWARD){
+    } else if constexpr (d == Direction::SOUTH){
         lo = {0,    0,  Z-1};
         hi = {X,    Y,  Z};
-    }else if constexpr (d== Direction::LEFT){
+    }else if constexpr (d== Direction::WEST){
         lo = {X-1,  0,  0};
         hi = {X,    Y,  Z};
-    }else if constexpr(d==Direction::RIGHT){
+    }else if constexpr(d==Direction::EAST){
         lo = {0,    0,  0};
         hi = {1,    Y,  Z};
     }else{
@@ -166,10 +166,10 @@ consteval auto precompute_hoz_boundary_coords(){
 constexpr static size_t hoz_slice_sz = ChunkInfo::HOZ_EXTENT * ChunkInfo::HEIGHT;
 
 constexpr EnumMap<Direction, std::array<ChunkBlockPos, hoz_slice_sz>> each_boundary_coord{
-    {Direction::FORWARD,    precompute_hoz_boundary_coords<Direction::FORWARD>()},
-    {Direction::BACKWARD,    precompute_hoz_boundary_coords<Direction::BACKWARD>()},
-    {Direction::LEFT,    precompute_hoz_boundary_coords<Direction::LEFT>()},
-    {Direction::RIGHT,    precompute_hoz_boundary_coords<Direction::RIGHT>()},
+    {Direction::NORTH,    precompute_hoz_boundary_coords<Direction::NORTH>()},
+    {Direction::SOUTH,    precompute_hoz_boundary_coords<Direction::SOUTH>()},
+    {Direction::WEST,    precompute_hoz_boundary_coords<Direction::WEST>()},
+    {Direction::EAST,    precompute_hoz_boundary_coords<Direction::EAST>()},
 };
 
 template<typename T>

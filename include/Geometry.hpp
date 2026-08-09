@@ -12,10 +12,10 @@ FORWARD_DECL_STRUCT(Camera);
 
 constexpr glm::vec3 WorldVector(Direction dir){
     switch (dir){
-        case  Direction::FORWARD:   return glm::ivec3{  0,  0, -1 }; break;
-        case  Direction::BACKWARD:  return glm::ivec3{  0,  0, +1 }; break;
-        case  Direction::LEFT:      return glm::ivec3{ -1,  0,  0 }; break;
-        case  Direction::RIGHT:     return glm::ivec3{ +1,  0,  0 }; break;
+        case  Direction::NORTH:   return glm::ivec3{  0,  0, -1 }; break;
+        case  Direction::SOUTH:  return glm::ivec3{  0,  0, +1 }; break;
+        case  Direction::WEST:      return glm::ivec3{ -1,  0,  0 }; break;
+        case  Direction::EAST:     return glm::ivec3{ +1,  0,  0 }; break;
         case  Direction::DOWN:      return glm::ivec3{  0, -1,  0 }; break;
         case  Direction::UP:        return glm::ivec3{  0, +1,  0 }; break;
         default: return glm::ivec3{};

@@ -73,6 +73,7 @@ Renderer::Renderer() {
     u_model_loc = prog.getUniformLoc("u_model");
     u_chunk_opacity_loc = prog.getUniformLoc("u_chunk_opacity");
     u_fog_color_loc = prog.getUniformLoc("u_fog_color");
+    u_global_sun_intensity_scale_loc = prog.getUniformLoc("u_global_sun_intensity_scale");
     u_world_fog_start_loc = prog.getUniformLoc("u_world_fog_start");
     u_world_fog_end_loc = prog.getUniformLoc("u_world_fog_end");
     u_proj_loc = prog.getUniformLoc("u_proj");
@@ -81,7 +82,6 @@ Renderer::Renderer() {
     u_sunlight_rgb_loc = prog.getUniformLoc("u_sunlight_rgb");
 
 
-    prog.setUniform(u_sunlight_rgb_loc, glm::vec3{1.0f, 1.0f, 0.75f});
     
     // NOTE: REMINDER!!!!
     // If you are adding a new block type, make sure to change the BLOCK_SHAPE_COUNT in the fragment shader!!!!

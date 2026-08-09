@@ -45,8 +45,8 @@ namespace DebugOption{
     inline DebugRenderStateTarget render_state_mode                  = DebugRenderStateTarget::GEN; // OFF = mesh state mode
     DECL_TOGGLE(bool,show_lighting_system,"enable the lighting system in the frag shader",ON) ;
     DECL_TOGGLE(bool,draw_blocklight,"enable the blocklight in frag shader",ON) ;
-    DECL_TOGGLE(bool,enable_fog,"enable depth fog",OFF) ;
-    DECL_TOGGLE(bool,fade_in_chunks,"enable depth fog",OFF) ;
+    DECL_TOGGLE(bool,enable_fog,"enable depth fog",ON) ;
+    DECL_TOGGLE(bool,fade_in_chunks,"enable depth fog",ON) ;
     DECL_TOGGLE(bool,draw_sunlight,"enable sunlight in the frag shader",ON) ;
     DECL_TOGGLE(bool,enable_cutout_optimisation,"dynamically disables cutout rendering for far away chunks",OFF) ;
     DECL_TOGGLE(bool,enable_drone_cam,"Enable the renderering of the drone cam overhead",OFF) ;

@@ -11,7 +11,7 @@ size_t write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
 }
 
 std::optional<std::string> fetch_url(const std::string& url, bool enable_logging=false) {
-    auto start = get_current_us();
+    auto start = us_since_epoch();
     CURL* curl = curl_easy_init();
     if (!curl) return std::nullopt;
 
@@ -29,7 +29,7 @@ std::optional<std::string> fetch_url(const std::string& url, bool enable_logging
     curl_easy_cleanup(curl);
 
     if (rc != CURLE_OK || http_code != 200) return std::nullopt;
-    auto end = get_current_us();
+    auto end = us_since_epoch();
     if (enable_logging){
         std::println(stderr, "fetch took {:0.2f}ms",(end-start)/1000.0);
     }

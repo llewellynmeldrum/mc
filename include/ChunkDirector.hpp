@@ -206,7 +206,7 @@ struct ChunkDirector{
 
 
 
-    static constexpr i32 RENDER_DIST = 32;
+    static constexpr i32 RENDER_DIST = 24;
     static constexpr i32 GENERATION_DIST = RENDER_DIST+2; //controls chunk gen
     static constexpr i32 LIGHTING_DIST = RENDER_DIST+1;
     static constexpr i32 MESH_CULL_DIST(){return RENDER_DIST+2;}

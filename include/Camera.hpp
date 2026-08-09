@@ -28,7 +28,7 @@ struct Camera {
     ~Camera() = default;
     Camera(WorldFloatPos pos, f32 pitch, f32 yaw);
     static constexpr f32 BASE_MOVESPEED = 12.0f;
-    static constexpr f32 SPRINT_MOVESPEED = 300.0f;
+    static constexpr f32 SPRINT_MOVESPEED = 150.0f;
     static constexpr f32 SPRINT_KEYBOARD_SENSITVITY= 50.5f;
     static constexpr f32 BASE_KEYBOARD_SENSITIVITY = 1.5f;
     static constexpr f32 WALK_MOVESPEED = {4.0f};

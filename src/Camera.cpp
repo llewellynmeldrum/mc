@@ -30,11 +30,11 @@ void Camera::set_pos_ori(WorldFloatPos pos, f32 pitch, f32 yaw) {
 
 void Camera::move(Direction dir, f32 dt) {
     switch (dir) {
-    case Direction::RIGHT:
+    case Direction::EAST:
         moveRight(dt);
         break;
 
-    case Direction::LEFT:
+    case Direction::WEST:
         moveLeft(dt);
         break;
 
@@ -46,11 +46,11 @@ void Camera::move(Direction dir, f32 dt) {
         moveDownward(dt);
         break;
 
-    case Direction::BACKWARD:
+    case Direction::SOUTH:
         moveBackward(dt);
         break;
 
-    case Direction::FORWARD:
+    case Direction::NORTH:
         moveForward(dt);
         break;
     default:
@@ -83,11 +83,11 @@ void Camera::rotate(Direction dir, f32 dt) {
         pitchDown(dt);
         break;
 
-    case Direction::LEFT:
+    case Direction::WEST:
         yawLeft(dt);
         break;
 
-    case Direction::RIGHT:
+    case Direction::EAST:
         yawRight(dt);
         break;
 
