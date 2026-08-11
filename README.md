@@ -7,18 +7,18 @@
 - Trees, foliage, and blocks all dependent on biome, which is also procedural and 100% deterministic to world seed. (The same world seed will always produce the same layout of biomes, blocks, features, etc, regardless of chunk generation order)
 - Correct transparency (& cutout) rendering
 - Block and sun based flood fill lighting, + day and night cycle with procedural sun/moon/stars
-- <img height="400" alt="image" src="https://github.com/user-attachments/assets/a957d1a9-7c1e-440b-a8f3-9aab6c11aae7" />
+  <img width="640" height="278" alt="sky" src="https://github.com/user-attachments/assets/2d2e90a9-dd1b-4761-a0dd-2f6baa3e4020" />
 
 - Block neighbour based ambient occlusion<br>
   <img height="300" alt="image" src="https://github.com/user-attachments/assets/ff87ad8e-daab-4756-b5ee-8471af3ad9a1" />
 <br>
-- Multithreaded chunk generation and meshing
+- Concurrent chunk generation, light baking, and meshing
 - Separate debug rendering pipeline to display 3D visuals (chunk/frustum borders, visualize noise, etc)
 
 - [ImGui](https://github.com/ocornut/imgui) debug hud with some decently detailed perf stats: <br>
 <img height="300" alt="image" src="https://github.com/user-attachments/assets/3a2f45c3-ab41-4adb-a56f-454f89608192" />
 <br>
-- All textures are made from scratch in GIMP. Heavily inspired by minecraft of course: <br>
+- All textures are made from scratch in GIMP. (credits to mojang for the obvious heavy inspiration) <br>
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/38184e51-2b0a-4351-a377-c76921e8ebdb" />
 
 <br>
@@ -28,24 +28,22 @@
 <img width="640" height="348" alt="frustum2" src="https://github.com/user-attachments/assets/3e114e42-fbbf-46ac-9e62-8af1b6cad776" />
 
 <br>
-
-- Faces touching opaque faces are culled from meshes (chunk generation makes surrounding chunks trigger remesh, so this applies to almost all cases where it can, including on chunk boundaries)
-- Translucent faces of the same material which touch each other are culled
-- World generation and chunk meshing happens off main thread
+- Packed vertex data to a single int+position combo (could still be packed further)
+- Faces touching opaque faces are culled from meshes (chunk meshing is gated to neighbour generation, so this applies to almost all cases where it can, including on chunk boundaries)
+- Blended faces of the same material which touch each other are culled
+- Concurrent generation, meshing, and lighting
 - Chunks are culled ocasionally if they become `render_distance+2` far away from the camera.
 - All the opengl backface culling and whatnot is enabled (where possible)
 - EBO index buffer for slightly less vertex data per face
   
 ## optimizations (planned)
+- switch to sdl3gpu lol
 - !!!! Oclussion culling
 - Pack vertex data, could massively save on gpu memory
 - Implement instanced renderer (could do the entire scene in a couple draw calls) (update: did this for debug chunk renderer)
 - chunk mesh decimation/ LOD at further distances (like Distant Horizons mod in minecraft)
-- greedy meshing coplanar faces of same texture
+- greedy meshing coplanar faces of same texture (and AO value)
 - switch mesh sorting algorithm to a partial sort with a frame budget
-
-# Graphics stuff:
-<img width="1293" height="814" alt="image" src="https://github.com/user-attachments/assets/4d5fb597-5c05-4096-8bc9-3cf875d1a94e" />
 
 
 # Progress:
@@ -127,6 +125,7 @@ Added heaps of new blocks, overhauled wordlgen, added more trees and foliage, no
 - [vkguide multithreading blog](https://vkguide.dev/docs/extra-chapter/multithreading/#:~:text=The%20first%20and%20most%20classic,them%20perform%20their%20own%20task)
 - [Ex mcpe dev's article on optimizing caves](https://tomcc.github.io/2014/08/31/visibility-2.html)
 - [Minecraft source code 'hoster' - mcsrc.dev](https://mcsrc.dev) really cool tool for browsing minecraft source code legally. I am larping i barely understood 5% of the java slop
+- Minecraft itself, I often found it easiest to just fly around in the game and see how they implemented something when I was stuck.
 
 Probably more useful than any of the resources listed was the motivation provided by these excellent youtubers and their videos on minecraft clones:
 - [Low Level Game Dev](https://www.youtube.com/@lowlevelgamedev9330)
