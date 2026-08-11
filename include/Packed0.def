@@ -1,0 +1,15 @@
+
+BITFIELD_MEMBER(sunlight_intensity, 0,  4L, v/15.0)
+BITFIELD_MEMBER(blocklight_r,       4,  4L, v/15.0)
+BITFIELD_MEMBER(blocklight_g,       8,  4L, v/15.0)
+BITFIELD_MEMBER(blocklight_b,       12, 4L, v/15.0)
+BITFIELD_MEMBER(face_dir,           16, 3L, v     )
+BITFIELD_MEMBER(tex_atlas_id,       19, 3L, v     )
+BITFIELD_MEMBER(face_opacity,       24, 6L, v/63.0)
+BITFIELD_MEMBER(ao_state,           30, 2L, v     )
+
+
+
+
+
+

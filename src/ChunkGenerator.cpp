@@ -69,6 +69,7 @@ auto GenContext::gen_heightmap (const GenConfig& cfg, ArrayList2D<NoiseParams> n
     return heightmap;
 };
 
+#include "BlockAmbientOcclusion.hpp"
 GenResult perform_gen_work(GenJob&& job){
     GenResult res{
         .coord=job.coord,
@@ -79,16 +80,66 @@ GenResult perform_gen_work(GenJob&& job){
     const auto& chunk_coord = res.coord;
     auto& block_store = res.chunk_blocks;
     auto& pendingWrites = res.deferred_writes;
-
+    const auto world_block_origin = toWorldOrigin(job.coord);
     const GenConfig& cfg = job.cfg;
+    GenContext ctx{world_block_origin,cfg};
+    auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
+
     if (cfg.is_superflat){
-        for_each_xyz_in_chunk([&](i32 cx, i32 cy, i32 cz){
-            if (cy==4){
-                block_store.at(cx,cy,cz) = BlockType::GRASS_BLOCK;
-            }else if (cy<3){
-                block_store.at(cx,cy,cz) = BlockType::DIRT_BLOCK;
-            } 
-        });
+        if (chunk_coord != WorldChunkCoord{0,0}) return res;
+        auto place_snow = [&](WorldBlockPos wpos){
+            block_writer.try_place(OverwritePolicy::Everything, wpos, BlockType::SNOW_BLOCK);
+        };
+        auto place_corner= [&](WorldBlockPos wpos){
+            block_writer.try_place(OverwritePolicy::Everything, wpos, BlockType::C_BLOCK);
+        };
+        auto place_A= [&](WorldBlockPos wpos){
+            block_writer.try_place(OverwritePolicy::Everything, wpos, BlockType::A_BLOCK);
+        };
+        auto place_B= [&](WorldBlockPos wpos){
+            block_writer.try_place(OverwritePolicy::Everything, wpos, BlockType::B_BLOCK);
+        };
+
+        auto origin = WorldBlockPos{0,10,2};
+        // North face occlusion check 
+        for (const auto dir: each_direction){
+            origin.x=0;
+            auto offsets = direction_to_ao_neighbour_offsets.at(dir);
+            for (int vtx = 0; vtx<4; vtx++){
+                auto offset = offsets[vtx];
+                place_snow(origin);
+                place_A(origin + offset.a);
+                place_B(origin + offset.b);
+                place_corner(origin + offset.corner);
+                origin.x += 5;
+            }
+            origin.z += 16;
+        }
+        origin = WorldBlockPos{0,20,0};
+        place_snow(origin);
+        place_A(origin+BlockOffset{+1,0,-1});
+
+        origin.z += 8;
+        place_snow(origin);
+        place_A(origin+BlockOffset{+1,0,-1});
+        place_B(origin+BlockOffset{+1,+1,0});
+
+        origin.z += 8;
+        place_snow(origin);
+        place_A(origin+BlockOffset{+1,0,-1});
+        place_B(origin+BlockOffset{+1,+1,0});
+        place_corner(origin+BlockOffset{+1,+1,-1});
+
+        origin.z += 8;
+        place_snow(origin);
+        place_A(origin+BlockOffset{+1,0,-1});
+        place_corner(origin+BlockOffset{+1,+1,-1});
+
+        origin.z += 8;
+        place_snow(origin);
+        place_A(origin+BlockOffset{+1,0,-1});
+        place_corner(origin+BlockOffset{+1,+1,-1});
+        place_B(origin+BlockOffset{0,1,-1});
         return res;
     }
 
@@ -102,12 +153,6 @@ GenResult perform_gen_work(GenJob&& job){
                 {+0.75f,    tree_inland_bias_max},
     };
 
-
-    const auto world_block_origin = toWorldOrigin(job.coord);
-
-
-    GenContext ctx{world_block_origin,cfg};
-    auto block_writer = BlockWriter{block_store.view(),pendingWrites,chunk_coord };
 
 
 

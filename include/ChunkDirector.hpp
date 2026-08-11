@@ -48,6 +48,7 @@ struct ChunkDirector{
 
     ChunkMap& chunk_map;
     World& world;
+    Renderer& rend;
     ChunkBenchmarkerNoRevision mesh_enqueue_delay_bencher;
     ChunkBenchmarkerNoRevision gen_enqueue_delay_bencher;
     ChunkBenchmarkerNoRevision light_enqueue_delay_bencher;
@@ -421,14 +422,8 @@ struct ChunkDirector{
     bool player_crossed_chunk_boundary() const noexcept{ return prev_chunk_pos != cur_chunk_pos; }
     bool player_crossed_block_boundary() const noexcept{ return prev_block_pos != cur_block_pos; }
 
-    void start_frame(WorldFloatPos player_pos)noexcept {
-        cur_chunk_pos = toWorldChunkCoord(player_pos);
-        cur_block_pos = toWorldBlockPos(player_pos);
-    }
-    void end_frame()noexcept {
-        prev_block_pos = cur_block_pos;
-        prev_chunk_pos = cur_chunk_pos;
-    }
+    void start_frame(WorldFloatPos player_pos)noexcept;
+    void end_frame()noexcept;
     WorldBlockPos prev_block_pos{};
     WorldBlockPos cur_block_pos{};
     WorldChunkCoord prev_chunk_pos{};

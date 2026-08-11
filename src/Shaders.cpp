@@ -1,5 +1,11 @@
+#include <algorithm>
 #include <filesystem>
+#include <format>
+#include <ios>
 #include <iostream>
+#include <print>
+#include <regex>
+#include <string>
 #include <string_view>
 
 #include "Shaders.hpp"
@@ -10,26 +16,104 @@
 #include "Breakpoints.hpp"
 #include "Logger.hpp"
 #include "cpp23_ranges.hpp"
+#include "libassert/assert.hpp"
 
 using namespace gl;
 
+std::string parse_bitfield_definition(std::string const& line){
+    ASSERT(line.starts_with("BITFIELD_MEMBER("), "", line);
+    std::string res{};
+    auto start = line.find_first_of("(");
+    auto stop = line.find_last_of(")");
+    auto included_filename = std::string(
+        line.begin() + start + 1,
+        line.begin() + stop
+    );
+    std::smatch matches;
+    // BITFIELD_MEMBER(sunlight_intensity, 0,  4L) => v/15.0
+    std::regex pattern(R"(^BITFIELD_MEMBER\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*(-?\d+)\s*,\s*(-?\d+)[uUlL]*\s*,\s*(.*)\)$)");
+    if (std::regex_match(line, matches, pattern)) {
+        // matches[0] is the entire string
+        std::string name = matches[1].str();
+        std::ranges::transform(name, name.begin(), [](unsigned char c) {
+            return std::toupper(c);
+        });
+        int offset = std::stoi(matches[2].str());
+        int len = std::stoi(matches[3].str());
+        std::string convert = matches[4].str();
+        res.append(std::format(
+            "#define {}_OFFSET    ({}u)\n", name, offset
+        ));
+        res.append(std::format(
+            "#define {}_LEN       ({}u)\n", name, len
+        ));
+        res.append(std::format(
+            "#define {}_MASK      (MASK({}_OFFSET,{}_LEN))\n", name, name, name
+        ));
+        res.append(std::format(
+            "#define GET_{}(packed)     ( ((packed) & ({}_MASK))>> ({}_OFFSET))\n",name,name,name
+        ));
+        res.append(std::format(
+            "#define CONVERT_{}(v)     ({})\n",name,convert
+        ));
+        res.append(std::format(
+            "#define UNPACK_{}(packed)     ( CONVERT_{}( (GET_{}(packed)) ) )\n",name,name,name
+        ));
+    } else {
+        std::println(stderr,"'{}'",line);
+        assert(false);
+    }
+    return res;
+}
+std::string parse_bitfield_definition_file(std::string const& file_contents){
+    std::string res{};
+
+    std::string line{};
+    auto iss = std::istringstream(file_contents);
+    while (std::getline(iss, line)){
+        if ( line.starts_with("//") 
+            || line.starts_with("\n") 
+            || line.starts_with("\r\n")
+            || line.empty()
+        ) continue; // comment, line is ignored
+
+        res.append_range(parse_bitfield_definition(line));
+    }
+
+    return res;
+}
 std::string read_file_contents(std::string const& filename){
     std::ifstream file_stream(filename);
-    if (!file_stream.is_open()) {
-        LOG_ERROR("Could not open file: '{}'.", filename);
-        return "FAILED TO OPEN";
-    }
+    assert(file_stream.is_open());
     i64 sz = unix::get_file_size(filename);
     auto file_contents = std::string(sz, '\0');
     file_stream.read(&file_contents[0], sz);
-    if (file_contents.empty()){
-        LOG_ERROR("Failed to load file contents of '{}'.", filename);
-        file_stream.close();
-        return "FAILED TO LOAD";
-    }
+    assert(!file_contents.empty());
     file_stream.close();
     return file_contents;
 }
+std::string read_shader_include(std::string const& filename){
+    std::string file_contents = read_file_contents(filename);
+    if (filename.ends_with(".def")){
+        LOG_DEBUG("PARSING BITFIELD DEFINITION #INCLUDE FOR ->{}<-",filename);
+        return parse_bitfield_definition_file(file_contents);
+    }else{
+        LOG_DEBUG("PARSING REGULAR #INCLUDE FOR ->{}<-",filename);
+        return file_contents;
+    }
+}
+std::string trim_all_ws(std::string const & str) {
+    std::string copy = str;
+    copy.erase(
+        std::remove_if(copy.begin(), copy.end(), [](unsigned char ch) { //NOLINT
+            return std::isspace(ch);
+        }),
+        copy.end()
+    );
+    return copy;
+}
+
+
 std::string ShaderBase::parse_include_directives(std::string& shader_file_contents){
     auto iss = std::istringstream(shader_file_contents);
     std::string line;
@@ -47,8 +131,7 @@ std::string ShaderBase::parse_include_directives(std::string& shader_file_conten
                 line.begin() + open_quote + 1,
                 line.begin() + close_quote
             );
-            LOG_DEBUG("PARSING #INCLUDE FOR ->{}<-",included_filename);
-            res.append_range(read_file_contents(included_filename));
+            res.append_range(read_shader_include(included_filename));
         }else{
             res.append_range(line);
         }

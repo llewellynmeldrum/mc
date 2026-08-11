@@ -1,15 +1,16 @@
 #pragma once
 
-#include "BitwiseOps.hpp"
-#include "CommonConcepts.hpp"
-#include "NumericConcepts.hpp"
-#include "Types.h"
-#include "glm/vec3.hpp"
 #include <random>
 #include <range/v3/range/concepts.hpp>
 #include <range/v3/algorithm/contains.hpp>
 #include <string_view>
 #include <type_traits>
+
+#include "BitwiseOps.hpp"
+#include "CommonConcepts.hpp"
+#include "NumericConcepts.hpp"
+#include "Types.h"
+#include "glm/vec3.hpp"
 
 
 

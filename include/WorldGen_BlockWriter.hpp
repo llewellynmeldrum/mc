@@ -15,4 +15,5 @@ struct BlockWriter{
         return self.src_block_store.at(cpos);
     }
     void try_place(OverwritePolicy policy, WorldBlockPos wpos, BlockType bt);
+    void try_place_chunk(OverwritePolicy policy, ChunkBlockPos cpos, BlockType bt);
 };

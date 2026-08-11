@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <utility>
 
+#include "AttributeTraits.hpp"
 #include "LM.hpp"
 #include "Types.h"
-#include "Vertex.hpp"
 #include "cppslop.hpp"
 #include "glbinding/gl/enum.h"
 #include "Assertion.hpp"

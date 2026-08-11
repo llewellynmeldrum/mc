@@ -159,6 +159,15 @@ namespace cube_vtx{
 inline constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
     { 3, 0, 1, 1, 2, 3,},
 };
+//inline constexpr std::array<u32,INDICES_PER_QUAD> quad_indices{
+//    { 1, 0, 3, 3, 2, 1,},
+//};
+inline constexpr std::array<u32,INDICES_PER_QUAD> flipped_quad_indices{
+    { 0, 1, 2, 2, 3, 0,},
+};
+//inline constexpr std::array<u32,INDICES_PER_QUAD> flipped_quad_indices{
+//    { 2, 1, 0, 0, 3, 2,},
+//};
 //static_assert(cube_vtx::quads.size()==6, "Cube must have 6 faces");
 //static_assert(cross_vtx::quads.size()==4, "Cross must have 4 faces");
 

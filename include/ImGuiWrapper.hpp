@@ -88,6 +88,19 @@ namespace UI{
         std::string out = std::vformat(fmt.get(), std::make_format_args(args...)); 
         ImGui::TextUnformatted(out.c_str());
     }
+    struct ScopeDisabler{
+        ScopeDisabler(bool _disable)
+            :do_disable(_disable)
+        { do_disable ? ImGui::BeginDisabled() : void(); }
+
+        ~ScopeDisabler()
+        { do_disable ? ImGui::EndDisabled() : void(); }
+        bool do_disable;
+    };
+    [[nodiscard]]
+    inline ScopeDisabler disable_scope_if(bool pred){
+        return {pred};
+    }
 
     template<typename... Args>
     inline void ColoredText01(glm::vec4 color, std::format_string<Args...> fmt, Args&&... args){

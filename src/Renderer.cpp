@@ -28,15 +28,21 @@ void Renderer::per_frame_update(Camera const& player_cam, SkyboxState const& sky
 
 void Renderer::update_debug_uniforms(){
     prog.use();
+    auto update_dbg_uniform = [&](auto const& opt){
+        prog.setUniform(opt.get_uniform_name(),opt);
+    };
+
     prog.setUniform("u_enable_smooth_light_falloff",enable_smooth_light_falloff);
     prog.setUniform("u_blocklight_smooth_falloff_factor",blocklight_smooth_falloff_factor);
     prog.setUniform("u_sunlight_smooth_falloff_factor",sunlight_smooth_falloff_factor);
-    prog.setUniform("u_enable_lighting", DebugOption::show_lighting_system);
     prog.setUniform("u_gamma", gamma);
-    prog.setUniform("u_enable_sunlight", DebugOption::draw_sunlight);
-    prog.setUniform("u_enable_blocklight", DebugOption::draw_blocklight);
-    prog.setUniform("u_enable_fog", DebugOption::enable_fog);
-    prog.setUniform("u_fade_in_chunks", DebugOption::fade_in_chunks);
+    update_dbg_uniform(DebugOption::enable_lighting);
+    update_dbg_uniform(DebugOption::enable_sunlight);
+    update_dbg_uniform(DebugOption::enable_blocklight);
+    update_dbg_uniform(DebugOption::enable_fog);
+    update_dbg_uniform(DebugOption::fade_in_chunks);
+    update_dbg_uniform(DebugOption::enable_fake_shadows);
+    update_dbg_uniform(DebugOption::enable_block_ambient_occlusion);
 }
 static bool is_mesh_loaded (const Mesh& mesh){
     return mesh.isLoaded(); 
@@ -72,6 +78,7 @@ Renderer::Renderer() {
 
     u_model_loc = prog.getUniformLoc("u_model");
     u_chunk_opacity_loc = prog.getUniformLoc("u_chunk_opacity");
+    u_wireframe_mode_loc = prog.getUniformLoc("u_wireframe_mode");
     u_fog_color_loc = prog.getUniformLoc("u_fog_color");
     u_global_sun_intensity_scale_loc = prog.getUniformLoc("u_global_sun_intensity_scale");
     u_world_fog_start_loc = prog.getUniformLoc("u_world_fog_start");
@@ -222,16 +229,15 @@ void Renderer::update_player_cam_frustum_lines(Engine* sim){
 void Renderer::draw_debugChunks_to(Camera& cam, Engine* sim, RenderTargetView target){
     target.use();
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-1.0f, -1.0f); // Fix z-fighting 
 
+    glPolygonOffset(-1.0f, -1.0f); // Fix z fighting 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
     prepare_blended_pass();
     dbg_rend.draw(cam);
 
     glPolygonMode(GL_FRONT_AND_BACK, debug.wireframe ? GL_LINE : GL_FILL);
-
     glPolygonOffset(0.0f, 0.0f);
+
     glDisable(GL_POLYGON_OFFSET_FILL);
     target.stop();
 
@@ -252,19 +258,21 @@ void Renderer::draw_3DLines_to(Camera& cam, std::span<Line3D> lines, RenderTarge
 void Renderer::draw_skybox(RenderTargetView target){
     target.use();
     clear({skybox.base_color, 1.0f});
-    prepare_skybox_pass();
-    skybox.draw();
+    if (DebugOption::enable_skybox){
+        prepare_skybox_pass();
+        skybox.draw();
+    }
     target.stop();
 }
 
 
 void Renderer::draw_blended_pass(Camera& cam){
-    draw_meshes(blended_chunk_meshes,sorted_blended_coords);
+    draw_sorted_meshes(blended_chunk_meshes,sorted_blended_coords);
 }
 
 void Renderer::draw_cutout_pass(Camera& cam){
     if (DebugOption::enable_opaque_sorting){
-        draw_meshes(cutout_chunk_meshes, sorted_cutout_coords);
+        draw_sorted_meshes(cutout_chunk_meshes, sorted_cutout_coords);
     }else{
         draw_meshes_unsorted(cutout_chunk_meshes);
     }
@@ -272,13 +280,13 @@ void Renderer::draw_cutout_pass(Camera& cam){
 
 void Renderer::draw_opaque_pass(Camera& cam){
     if (DebugOption::enable_opaque_sorting){
-        draw_meshes(opaque_chunk_meshes,sorted_opaque_coords);
+        draw_sorted_meshes(opaque_chunk_meshes,sorted_opaque_coords);
     }else{
         draw_meshes_unsorted(opaque_chunk_meshes);
     }
 }
 
-void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list, 
+void Renderer::draw_sorted_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list, 
                                    std::span<WorldChunkCoord>sorted_coords){
     static_assert(map_like<slot_map<WorldChunkCoord,Mesh>>);
     using views::filter;
@@ -293,17 +301,22 @@ void Renderer::draw_meshes(const slot_map<WorldChunkCoord,Mesh>& mesh_list,
     auto get_mesh_at_coord = [&mesh_list](WorldChunkCoord coord)->const Mesh& {
         return AT(mesh_list,coord); 
     };
-    auto filtered_meshes = sorted_coords |
-            transform(get_mesh_at_coord) |
-            filter(is_mesh_loaded) |
-            filter(is_mesh_non_empty);
+    auto filtered_meshes = sorted_coords 
+        | transform(get_mesh_at_coord) 
+        | filter(is_mesh_loaded) 
+        | filter(is_mesh_non_empty);
 
     for (const auto& mesh : filtered_meshes) {
-        draw_mesh(mesh);
+        if (debug.wireframe && occupied_chunk == mesh.chunk_coord){
+            draw_mesh(mesh,false,0.6f);
+            draw_mesh(mesh,true,1.0f);
+        }else {
+            draw_mesh(mesh, false, 1.0f);
+        }
     }
 }
 
-void Renderer::draw_mesh(const Mesh& mesh){
+void Renderer::draw_mesh(const Mesh& mesh, bool draw_wireframe, float draw_opacity01){
     if (DebugOption::enable_cutout_optimisation && mesh.is_cutout){
         prog.setUniform(u_enable_cutout_loc, false);
        if (mesh.chunk_dist_to_cam > cutout_enable_radius){
@@ -312,26 +325,44 @@ void Renderer::draw_mesh(const Mesh& mesh){
            prog.setUniform(u_enable_cutout_loc, true);
        }
     }
-    auto model = mat4(1.0f);
-    const glm::vec3 chunkFloatWorldPos = toWorldOrigin(mesh.chunkCoord).raw();
-    model = glm::translate(model, chunkFloatWorldPos);
+    auto model = glm::translate(mat4{1.0f}, static_cast<glm::vec3>(toWorldOrigin(mesh.chunk_coord).raw()));
     prog.setUniform(u_model_loc, model);
-    prog.setUniform(u_chunk_opacity_loc, mesh.get_opacity01());
+    prog.setUniform(u_chunk_opacity_loc, mesh.get_opacity01() * draw_opacity01);
+
+    if (draw_wireframe){
+        prog.setUniform(u_wireframe_mode_loc, true);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        disableDepthTesting(); 
+        mesh.draw();
+        // this could conflict with other render modes if i have something else that disables depth testing at another point
+        enableDepthTesting(); 
+    }else{
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        prog.setUniform(u_wireframe_mode_loc, false);
+    }
     mesh.draw();
+
+    if (draw_wireframe){
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // change it back
+    }
     debug.vertex_count += mesh.offset_count;
     debug.mesh_count++;
     debug.draw_calls++;
 }
 
 void Renderer::draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList){
-    using views::filter;
 
-    auto filtered_meshes = meshList |
-                        filter(is_mesh_loaded) |
-                        filter(is_mesh_non_empty);
+    auto filtered_meshes = meshList 
+        | views::filter(is_mesh_loaded) 
+        | views::filter(is_mesh_non_empty);
 
     for (const auto& mesh : filtered_meshes) {
-        draw_mesh(mesh);
+        if (debug.wireframe && occupied_chunk == mesh.chunk_coord){
+            draw_mesh(mesh,false,0.6f);
+            draw_mesh(mesh,true,1.0f);
+        }else {
+            draw_mesh(mesh, false, 1.0f);
+        }
     }
 }
 

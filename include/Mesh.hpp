@@ -47,7 +47,7 @@ static_assert(c_style_layout<QuadIndices>);
 
 struct IndexedMesh {
     DECL_MOVE_ONLY(IndexedMesh);
-    WorldChunkCoord chunkCoord;
+    WorldChunkCoord chunk_coord;
     IndexedMesh() = default;
     ~IndexedMesh() = default;
     IndexedMesh(

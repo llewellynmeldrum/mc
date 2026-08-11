@@ -127,8 +127,8 @@ struct Camera {
 
 
     Bounded<f32> vertical_fov{
-        70.0f,
         20.0f,
+        10.0f,
         180.0f,
     };
     f32 vertical_fov_zoom = 40.0f;

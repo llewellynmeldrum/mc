@@ -1,17 +1,14 @@
 #pragma once 
+#include "Block.hpp"
+#include "CoordTypes.hpp"
 #include "Direction.hpp"
-#include "ChunkMesher_RawData.hpp"
-#include "ChunkNeighbourhood.hpp"
+#include "cppslop.hpp"
+#include "AONeighbours.hpp"
 // An AO neighbour (Ambient occlusion neighbour) is a set of Any given direction contains 
 struct AONeighbourOffsets{
     BlockOffset corner;
     BlockOffset a;
     BlockOffset b;
-};
-struct AONeighbours{
-    Block corner;
-    Block a;
-    Block b;
 };
 // each direction + vertex combo has 
 #define N -1
@@ -19,17 +16,19 @@ struct AONeighbours{
 #define Z  0
 constexpr auto direction_to_ao_neighbour_offsets = EnumMap<Direction,std::array<AONeighbourOffsets,4>>{
     {
-        Direction::FORWARD,
+        Direction::NORTH,
         {
+            // double checked, all korrect
             AONeighbourOffsets{ {P,N,N,}, {P,Z,N,}, {Z,N,N,},  },
-            AONeighbourOffsets{ {N,P,N,}, {Z,N,N,}, {N,Z,N,},  },
+            AONeighbourOffsets{ {N,N,N,}, {Z,N,N,}, {N,Z,N,},  },
             AONeighbourOffsets{ {N,P,N,}, {N,Z,N,}, {Z,P,N,},  },
             AONeighbourOffsets{ {P,P,N,}, {Z,P,N,}, {P,Z,N,},  },
         }
     },
     {
-        Direction::BACKWARD,
+        Direction::SOUTH,
         {
+            // 
             AONeighbourOffsets { {N,N,P,}, {N,Z,P,}, {Z,N,P,} },
             AONeighbourOffsets { {P,N,P,}, {Z,N,P,}, {P,Z,P,} },
             AONeighbourOffsets { {P,P,P,}, {P,Z,P,}, {Z,P,P,} },
@@ -37,17 +36,17 @@ constexpr auto direction_to_ao_neighbour_offsets = EnumMap<Direction,std::array<
         }
     },
     {
-        Direction::LEFT,
+        Direction::WEST,
         {
-            AONeighbourOffsets { {N,N,N,}, {P,Z,N,}, {P,N,Z,} },
-            AONeighbourOffsets { {N,N,P,}, {P,N,Z,}, {P,Z,P,} },
-            AONeighbourOffsets { {N,P,P,}, {P,Z,P,}, {P,P,Z,} },
-            AONeighbourOffsets { {N,P,N,}, {P,P,Z,}, {P,Z,N,} },
+            AONeighbourOffsets { {N,N,N,}, {N,Z,N,}, {N,N,Z,} },
+            AONeighbourOffsets { {N,N,P,}, {N,N,Z,}, {N,Z,P,} },
+            AONeighbourOffsets { {N,P,P,}, {N,Z,P,}, {N,P,Z,} },
+            AONeighbourOffsets { {N,P,N,}, {N,P,Z,}, {N,Z,N,} },
         }
     },
 
     {
-        Direction::RIGHT,
+        Direction::EAST,
         {
             AONeighbourOffsets { {P,N,P,}, {P,Z,P,}, {P,N,Z,} },
             AONeighbourOffsets { {P,N,N,}, {P,N,Z,}, {P,Z,N,} },
@@ -77,16 +76,11 @@ constexpr auto direction_to_ao_neighbour_offsets = EnumMap<Direction,std::array<
 inline constexpr AONeighbourOffsets get_vtx_ao_neighbour_offsets(Direction dir, size_t vtx_idx){
     return direction_to_ao_neighbour_offsets.at(dir).at(vtx_idx);
 }
-// TODO: add chunk neigbhourhood shit to vtx and implement AO :w
-// // TODO: add chunk neigbhourhood shit to vtx and implement AO :w
-inline constexpr AONeighbours get_vtx_ao_neighbours(ChunkNeighbourhood const& neighbourhood, ChunkBlockPos pos, Direction dir, size_t vtx_idx){
-    auto const& offsets = get_vtx_ao_neighbour_offsets(dir,vtx_idx);
-    return AONeighbours{
-        .corner = neighbourhood.block_at(pos + offsets.corner),
-        .a = neighbourhood.block_at(pos + offsets.a),
-        .b = neighbourhood.block_at(pos + offsets.b),
-    };
-}
+
+template<typename t_DataType> 
+FORWARD_DECL_STRUCT(ChunkNeighbourhoodSnapshot)
+
+AONeighbours get_vtx_ao_neighbours(ChunkNeighbourhoodSnapshot<Block> const& neighbourhood, ChunkBlockPos pos, Direction dir, size_t vtx_idx);
 // It would be nice to have block neighbourhood style semantics in the mesher. Copy on write would also enable that  a bit easier
 
 #undef N

@@ -31,6 +31,7 @@ struct Renderer {
     TextureAtlas cross_atlas;
     TextureAtlas cactus_atlas;
     TextureAtlas half_slab_atlas;
+    WorldChunkCoord occupied_chunk;
     void set_global_sun_color(glm::vec3 col){
         prog.setUniform(u_sunlight_rgb_loc, col);
     }
@@ -71,6 +72,7 @@ struct Renderer {
     i32 u_enable_cutout_loc{};
     i32 u_model_loc{};
     i32 u_chunk_opacity_loc{};
+    i32 u_wireframe_mode_loc{};
     i32 u_fog_color_loc{};
     i32 u_global_sun_intensity_scale_loc{};
     i32 u_world_fog_start_loc{};
@@ -165,11 +167,11 @@ struct Renderer {
     void draw_cutout_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
     void draw_meshes_unsorted(const slot_map<WorldChunkCoord,Mesh>& meshList);
 
-    void draw_mesh(const Mesh& mesh);
+    void draw_mesh(const Mesh& mesh, bool draw_wireframe=false, float draw_opacity01=1.0f);
 
 
     // overload for sorted meshes
-    void draw_meshes(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
+    void draw_sorted_meshes(const slot_map<WorldChunkCoord,Mesh>& meshList, std::span<WorldChunkCoord>);
 
     // TODO: move to DebugOption namespace
     struct {

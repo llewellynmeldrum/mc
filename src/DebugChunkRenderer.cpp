@@ -119,10 +119,10 @@ void DebugChunkMesher::update(Camera& cam, Engine* sim){
     if (DebugOption::outline_all_boundaries){
         sim->world.chunkMap.entries.for_each([&](WorldChunkCoord key, ChunkEntry& entry){
             if (sim->is_chunk_in_frustum(sim->player_cam.getCullFrustum(), key)){
-                if (DebugOption::HIDE_CLEAN_CHUNKS && entry.mesh.is_clean()){
+                if (DebugOption::hide_clean_chunks && entry.mesh.is_clean()){
                     return;
                 }
-                if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry.block_data.read().view())){
+                if (DebugOption::hide_air_chunks && is_all_air(entry.block_data.read().view())){
                     return;
                 }
                 auto color = outline_color(entry);
@@ -189,9 +189,9 @@ void DebugChunkMesher::updateInstances(Camera& cam,  Engine* sim){
                 auto entryColor = DefaultDebugColor();
                 auto* entry = sim->world.chunkMap.entries.try_get(coord);
                 if (entry){
-                    if (DebugOption::HIDE_CLEAN_CHUNKS && entry->mesh.is_clean()){
+                    if (DebugOption::hide_clean_chunks && entry->mesh.is_clean()){
                         return true; // skip, else visual clutter is too bad
-                    }else if (DebugOption::HIDE_AIR_CHUNKS && is_all_air(entry->block_data.read().view())){
+                    }else if (DebugOption::hide_air_chunks && is_all_air(entry->block_data.read().view())){
                         return true;
                     }else{
                         entryColor = fill_color(*entry);

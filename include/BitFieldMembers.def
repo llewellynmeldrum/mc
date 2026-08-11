@@ -1,0 +1,20 @@
+//; bitfield name: packed0
+BITFIELD_MEMBER(foo, 0, 8L, v)
+BITFIELD_MEMBER(bar, 8, 3L, v)
+BITFIELD_MEMBER(baz, 11, 5L, v)
+
+//; Lines beginning with c89 comments are ignored 
+//; 
+//; The following describes a bitfield member named foo, which has an offset of 8 bits, and a length of 4 bits.
+//; BITFIELD_MEMBER(foo, 8, 4L) 
+//;
+//; This is the generated GLSL:
+//; 
+//; #define FOO_OFFSET  (8u)
+//; #define FOO_LEN     (4u)
+//; #define FOO_MASK    (MASK(FOO_OFFSET,FOO_LEN))
+//; #define UNPACK_FOO(packed) ( ((packed) & (FOO_MASK))>> (FOO_OFFSET))
+//;    
+//; And this is the generated c++:
+//; static constexpr BitFieldMember<8, 4, storage_type> foo;\
+//; constexpr auto get_foo()const noexcept{return foo .get(store);}

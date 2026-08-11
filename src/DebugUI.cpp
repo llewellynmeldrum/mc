@@ -232,11 +232,18 @@ void draw_graphics_window(WindowConfig& self, Engine* ctx){
     self.start_at(true, UVPos{0.7,0.5},[&]{
         auto& window = self;
         bool dirty = false;
-        dirty |= window.dbg_toggle(DebugOption::show_lighting_system);
-        dirty |= window.dbg_toggle(DebugOption::draw_blocklight);
+        dirty |= window.dbg_toggle(DebugOption::enable_lighting);
+        {
+            auto scope_disabler = UI::disable_scope_if(!DebugOption::enable_lighting);
+            dirty |= window.dbg_toggle(DebugOption::enable_sunlight);
+            dirty |= window.dbg_toggle(DebugOption::enable_blocklight);
+        }
+
         dirty |= window.dbg_toggle(DebugOption::fade_in_chunks);
+        dirty |= window.dbg_toggle(DebugOption::enable_skybox);
         dirty |= window.dbg_toggle(DebugOption::enable_fog);
-        dirty |= window.dbg_toggle(DebugOption::draw_sunlight);
+        dirty |= window.dbg_toggle(DebugOption::enable_block_ambient_occlusion);
+        dirty |= window.dbg_toggle(DebugOption::enable_fake_shadows);
         dirty |= window.slider("gamma",&ctx->rend.gamma, 0.0f, 2.0f);
         dirty |= window.checkbox("enable smooth light falloff", &(ctx->rend.enable_smooth_light_falloff));
         IG::BeginDisabled(!ctx->rend.enable_smooth_light_falloff);
@@ -265,8 +272,8 @@ void drawDebugSettingsWindow(WindowConfig& self, Engine* ctx){
             window.dbg_toggle(DebugOption::fill_all_boundaries);
 
             window.dbg_toggle(DebugOption::show_debug_ui);
-            window.dbg_toggle(DebugOption::HIDE_AIR_CHUNKS);
-            window.dbg_toggle(DebugOption::HIDE_CLEAN_CHUNKS);
+            window.dbg_toggle(DebugOption::hide_air_chunks);
+            window.dbg_toggle(DebugOption::hide_clean_chunks);
 
             window.slider<u8>("Boundary fill opacity", &DebugOption::ChunkDebugFillOpacity, 0, 255);
             window.slider<f32>("Boundary outline opacity",&DebugOption::ChunkDebugOutlineOpacity, 0.0f, 1.0f);

@@ -8,6 +8,7 @@
 #include "SharedShaderConfig.hpp"
 #include "UnpackedLightValue.hpp"
 #include "ThreadTracker.hpp"
+#define SUNLIGHT_INTENSITY_MAX 15
 struct LightingContext{
     ChunkLightStore& center_lights;
     BlockNeighbourhoodSnapshot const& blocks;

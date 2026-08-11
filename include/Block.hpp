@@ -70,7 +70,10 @@ inline constexpr i32 MISSING_CROSS_TEX = 0;
       .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {7,7,7})                                                      \
     X(ICE_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 20,                                         \
       .rend_layer = BlockRenderLayer::BLENDED, .absorptance = {9,9,9})                                                     \
-                                                                                                   \
+    X(A_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 21, .rend_layer=BlockRenderLayer::CUTOUT)                                         \
+    X(B_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 22, .rend_layer=BlockRenderLayer::CUTOUT)                                         \
+    X(C_BLOCK, .shape = BlockShape::CUBE, .tex_idx = 23, .rend_layer=BlockRenderLayer::CUTOUT)                                         \
+    \
     X(GRASS_TUFT0, .shape = BlockShape::CROSS, .tex_idx = 1,                                       \
       .rend_layer = BlockRenderLayer::CUTOUT, .absorptance = {1,1,1})                                                      \
     X(GRASS_TUFT1, .shape = BlockShape::CROSS, .tex_idx = 2,                                       \

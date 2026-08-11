@@ -1,4 +1,5 @@
 #pragma once
+#include "BitField.hpp"
 #include "ChunkState.hpp"
 #include "Mesh.hpp"
 #include "PendingBlockWrites.hpp"
@@ -34,6 +35,33 @@ struct std::formatter<glm::vec<L,T,Q>>{
         return std::format_to(ctx.out(), "[{}]",res);
     }
 };
+
+// template<size_t t_storage_offset, size_t t_n_bits, typename t_storage_type>
+// struct std::formatter<BitFieldMember<t_storage_offset, t_n_bits,t_storage_type>>{
+//     using T = BitFieldMember<t_storage_offset, t_n_bits,t_storage_type>;
+// 
+//     bool binary = false;
+// 	constexpr auto parse(std::format_parse_context& ctx){
+//         auto it = ctx.begin();
+// 
+//         if (it != ctx.end() && *it == 'b') {
+//             binary = true;
+//             ++it;
+//         }
+// 
+//         if (it != ctx.end() && *it != '}')
+//             throw format_error{"invalid POD format specifier"};
+// 
+//         return it;
+//     }
+// 	auto format(T const& val, auto& ctx)const {
+//         std::string res{""};
+//         if (binary)
+//             return std::format_to(ctx.out(), "[{}]",res);
+//         else
+//             return std::format_to(ctx.out(), "[{}]",val.get);
+//     }
+// };
 
 template<glm::length_t C, glm::length_t R, typename T, glm::qualifier Q>
 struct std::formatter<glm::mat<C,R,T,Q>>{

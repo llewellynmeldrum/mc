@@ -6,6 +6,15 @@
 #include "ChunkNoiseDebug.hpp"
 #include <utility>
 
+void ChunkDirector::start_frame(WorldFloatPos player_pos)noexcept {
+    cur_chunk_pos = toWorldChunkCoord(player_pos);
+    cur_block_pos = toWorldBlockPos(player_pos);
+    rend.occupied_chunk = cur_chunk_pos;
+}
+void ChunkDirector::end_frame()noexcept {
+    prev_block_pos = cur_block_pos;
+    prev_chunk_pos = cur_chunk_pos;
+}
 void ChunkDirector::handle_mesh_sorting(Renderer& rend, WorldFloatPos player_cam_pos){
     // NOTE: 
     // The reordering process is decently complex, but for good reason:

@@ -48,10 +48,23 @@ public:
         if (in_center(pos)){
             return store->at(pos);
         }else{
-            assert(in_neighbourhood(pos)); 
+            assert(in_neighbourhood(pos),"",pos); 
             const auto& neighbour = which_neighbour_chunk_store(pos);
             auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
             return neighbour.at(corrected_pos);
+        }
+    }
+    DataType get_or_default(ChunkBlockPos pos) const{
+        if (in_center(pos)){
+            return store->at(pos);
+        }else{
+            if(in_neighbourhood(pos)){
+                const auto& neighbour = which_neighbour_chunk_store(pos);
+                auto corrected_pos = LM::euclid_mod(pos, ChunkInfo::Extents3D);
+                return neighbour.at(corrected_pos);
+            }else{
+                return {};
+            }
         }
     }
 
@@ -60,6 +73,7 @@ public:
     }
 
     static constexpr bool in_neighbourhood(ChunkBlockPos p) noexcept{
+        constexpr auto ext = ChunkInfo::Extents3D;
         // Currently, a neighbourhood represents:
         // [ ][D][ ]
         // [D][C][D]
@@ -70,6 +84,21 @@ public:
             // corner chunk, we dont store those
             return false;
         }
+        if (
+            (neighbour_chunk_offset.x==-1 && neighbour_chunk_offset.z == 1)
+            ||
+            (neighbour_chunk_offset.z==-1 && neighbour_chunk_offset.x == 1)
+        ){
+            // corner chunk, we dont store those
+            return false;
+        }
+//        auto check_bounds = [](auto p){
+//        if (p.x <= -1){     return(p.z >=0 && p.z<ext.z);}
+//        if (p.x >= ext.x){  return(p.z >=0 && p.z<ext.z);}
+//        if (p.z <= -1){     return(p.x >=0 && p.x<ext.x);}
+//        if (p.z >= ext.x){  return(p.x >=0 && p.x<ext.x);}
+//        };
+//        if (check_bounds(neighbou))
 
         if (neighbour_chunk_offset.x < -1 || neighbour_chunk_offset.x > 1){
             return false;

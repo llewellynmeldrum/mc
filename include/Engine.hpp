@@ -30,6 +30,18 @@
 // src/Simulation.cpp
 using namespace std::chrono_literals;
 struct Engine {
+
+    Window   win;
+    FrameProfiler profiler;
+    Input    input;
+    Camera   player_cam;
+    Camera   drone_cam;
+    Renderer rend;
+    TextureTarget fixedCamTarget;
+    DebugUI  ui;
+    World    world;
+    ChunkDirector director;
+
     static constexpr auto default_skybox_cfg(TickCount tick_count){
         return SkyboxConfig{
             .ticks_per_day = ticks_per_day,
@@ -41,13 +53,13 @@ struct Engine {
         win(), 
         profiler(),
         input(win.ptr), 
-        player_cam({-56.181,+135.793,-62.740}, +15.588,+185.125),
+        player_cam({+281.015,+207.437,-28.946}, -89.000,+269.626),
         drone_cam(),
         rend(),
         fixedCamTarget({0,0},{640,480}),
-        ui(default_skybox_cfg(ticks_per_day* 0.841)),
+        ui(default_skybox_cfg(ticks_per_day* 0.5)),
         world(default_world_seed),
-        director(world.chunkMap,world)
+        director(world.chunkMap,world,rend)
     {}
     ~Engine() = default;
 
@@ -155,8 +167,6 @@ struct Engine {
     }
 
 
-    Window   win;
-    FrameProfiler profiler;
     // TODO: Make these templated on job type
 
     #define jt_matcher(name)                                                   \
@@ -218,16 +228,6 @@ struct Engine {
     template<JobType JT> ConcurrentChunkBenchmarker & res_queue_idle_bencher(){ jt_matcher(res_queue_idle_bencher); }
 
     // aka bench.res_idle in job structs
-
-    Input    input;
-    Camera   player_cam;
-    Camera   drone_cam;
-    Renderer rend;
-    TextureTarget fixedCamTarget;
-    DebugUI  ui;
-    World    world;
-    ChunkDirector director;
-
 
     template<JobType JT>
     auto drain(){

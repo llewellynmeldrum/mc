@@ -1,5 +1,6 @@
 #include "ChunkHelpers.hpp"
 #include "FormatSpecs.hpp"
+#include "libassert/assert.hpp"
 
 Direction get_cpos_overflow_direction(ChunkBlockPos p){
 
@@ -12,9 +13,9 @@ Direction get_cpos_overflow_direction(ChunkBlockPos p){
     }
     // given a chunk block pos which is out of the bounds of a chunk,
     // return the direction of the chunk, from the center, that this overflow is in.
-    if (p.x <= -1){ assert(p.z >=0 && p.z<ext.z); return Direction::WEST; }
-    if (p.x >= ext.x){ assert(p.z >=0 && p.z<ext.z);return Direction::EAST; }
-    if (p.z <= -1){ assert(p.x >=0 && p.x<ext.x);return Direction::NORTH; }
-    if (p.z >= ext.x){assert(p.x >=0 && p.x<ext.x); return Direction::SOUTH; }
+    if (p.x <= -1){ assert(p.z >=0 && p.z<ext.z, "", p); return Direction::WEST; }
+    if (p.x >= ext.x){ assert(p.z >=0 && p.z<ext.z, "", p);return Direction::EAST; }
+    if (p.z <= -1){ assert(p.x >=0 && p.x<ext.x, "", p);return Direction::NORTH; }
+    if (p.z >= ext.x){assert(p.x >=0 && p.x<ext.x, "", p); return Direction::SOUTH; }
     std::abort();
 }

@@ -1,4 +1,5 @@
 #include "WorldGen_BlockWriter.hpp"
+#include "ChunkHelpers.hpp"
 #include "ChunkEntry.hpp"
 BlockWriter::BlockWriter(
         ChunkBlockView _src_block_store, 
@@ -15,8 +16,15 @@ void BlockWriter::try_place(OverwritePolicy policy, WorldBlockPos wpos, BlockTyp
     bool writeIsWithinChunkBounds = LM::isVecInBounds(wpos, world_block_lo, world_block_hi);
     auto write = PendingBlockWrite{policy, src_chunk, wpos, bt};
     if (writeIsWithinChunkBounds){
-        // do it immediately
-        auto cpos = toChunkBlockPos(wpos);
+        tryWrite(write,src_block_store);
+    }else{
+        pending_writes.emplace_back(write);
+    }
+}
+void BlockWriter::try_place_chunk(OverwritePolicy policy, ChunkBlockPos cpos, BlockType bt){
+    auto wpos = toWorldBlockPos(src_chunk, cpos);
+    auto write = PendingBlockWrite{policy, src_chunk, wpos, bt};
+    if (is_in_chunk(cpos)){
         tryWrite(write,src_block_store);
     }else{
         pending_writes.emplace_back(write);

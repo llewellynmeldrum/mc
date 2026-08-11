@@ -31,7 +31,7 @@ IndexedMesh::IndexedMesh(
     bool _is_cutout,
     bool _is_first_upload
 ) 
-    :chunkCoord(_chunkCoord)
+    :chunk_coord(_chunkCoord)
     ,m_is_first_upload(_is_first_upload)
     ,m_upload_time ( timer::now())
     ,is_cutout(_is_cutout)
@@ -72,7 +72,7 @@ void IndexedMesh::resort_quad_indices(WorldFloatPos src_world, bool near_to_far)
     if (n_quads==0) return;
 
 
-    glm::vec3 origin = toWorldOrigin(chunkCoord).raw();
+    glm::vec3 origin = toWorldOrigin(chunk_coord).raw();
     // NOTE: we offset the source_world by chunk origin,
     // st. src_glm is effectively 'translated' into the local chunk space
     auto src_glm = src_world.raw() - origin;

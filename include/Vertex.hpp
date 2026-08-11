@@ -3,6 +3,7 @@
 #include <string_view>
 #include <type_traits>
 #include "Block.hpp"
+//#include "BlockAmbientOcclusion.hpp"
 #include "CoordTypes.hpp"
 #include "PackedLightValue.hpp"
 #include "Types.h"
@@ -12,50 +13,50 @@
 #include "Bitwise.hpp"
 #include "SharedShaderConfig.hpp"
 #include "meta_wrapper.hpp"
+#include "BitField.hpp"
 
-
+#include "AONeighbours.hpp"
 
 
 
 struct Vertex {
     glm::vec3 pos;
     glm::vec2 tx_coords;
-    u32 packed_0{0};
-    // sunlight_intensity ->  00000000000000000000000000001111
+    using storage_type = u32;
+    storage_type store{0};
+    // sunlight_intensity ->  00000000000000000000000000001111 : 0-15
     // blocklight_r       ->  00000000000000000000000011110000
     // blocklight_g       ->  00000000000000000000111100000000
     // blocklight_b       ->  00000000000000001111000000000000
     // face_dir           ->  00000000000001110000000000000000
-    // tex_atlas_id       ->  00000000001110000000000000000000
-    // face_opacity       ->  11111111000000000000000000000000
+    // tex_atlas_id       ->  00000000001110000000000000000000 
+    // face_opacity       ->  00111111000000000000000000000000 : 0-64
+    // ao_state->  11000000000000000000000000000000 : 0-3
+
+    // ao has 4 states
+    // none -> 00
+    // a|b ->  10
+    // c   ->  01
+    // a&b ->  11
+ //   constexpr void set_ao_state(AONeighbours const& n);
+//    constexpr u2 pack_ao_state(AONeighbours const& n);
+
+//    storage_type store{0};
+    #include "Packed0.def"
+//    BITFIELD_MEMBER(sunlight_intensity, 0,  4L, v/15.0)
+//    BITFIELD_MEMBER(blocklight_r,       4,  4L, v/15.0)
+//    BITFIELD_MEMBER(blocklight_g,       8,  4L, v/15.0)
+//    BITFIELD_MEMBER(blocklight_b,       12, 4L, v/15.0)
+//    BITFIELD_MEMBER(face_dir,           16, 3L, v     )
+//    BITFIELD_MEMBER(tex_atlas_id,       19, 3L, v     )
+//    BITFIELD_MEMBER(face_opacity,       24, 6L, v/63.0)
+//    BITFIELD_MEMBER(ao_state,           30, 2L, v     )
 
 
+    static constexpr auto lighting_mask = sunlight_intensity.mask | blocklight_r.mask | blocklight_g.mask | blocklight_b.mask;
     constexpr void copy_light_data(PackedLightValue val) noexcept{
-        packed_0 = (packed_0 & (~LIGHTING_MASK)) | (val.packed_data & (LIGHTING_MASK));
+        store = (store & (~lighting_mask)) | (val.store & (lighting_mask));
     };
-    constexpr void set_sunlight_intensity(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, SUNLIGHT_INTENSITY_MASK, SUNLIGHT_INTENSITY_OFFSET, val);
-    }
-
-    constexpr void set_blocklight_r(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, BLOCKLIGHT_R_MASK, BLOCKLIGHT_R_OFFSET, val);
-    }
-
-    constexpr void set_blocklight_g(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, BLOCKLIGHT_G_MASK, BLOCKLIGHT_G_OFFSET, val);
-    }
-
-    constexpr void set_blocklight_b(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, BLOCKLIGHT_B_MASK, BLOCKLIGHT_B_OFFSET, val);
-    }
-
-    constexpr void set_face_dir(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, FACE_DIR_MASK, FACE_DIR_OFFSET, val);
-    }
-
-    constexpr void set_face_opacity(u8 val) noexcept{
-        SET_BITFIELD_MEMBER_VAL(packed_0, FACE_OPACITY_MASK, FACE_OPACITY_OFFSET, val);
-    }
 
     constexpr void offset_by_chunk_pos(ChunkBlockPos local_pos)noexcept{
         pos.x += local_pos.x;
@@ -72,16 +73,14 @@ constexpr auto make_vtx(
     i32 face_direction
 )   -> Vertex
 {
-    constexpr i32 tex_atlas_id = shape_atlas_id<block_shape>;
-    u32 _packed_0 = {};
-    SET_BITFIELD_MEMBER_VAL(_packed_0, FACE_DIR_MASK, FACE_DIR_OFFSET, face_direction);
-    SET_BITFIELD_MEMBER_VAL(_packed_0, TEX_ATLAS_ID_MASK, TEX_ATLAS_ID_OFFSET, tex_atlas_id);
-    return Vertex{
+    
+    Vertex res{
         .pos = _pos,
         .tx_coords = _tx_coords,
-        .packed_0 = _packed_0,
     };
-
+    res.set_face_dir(face_direction);
+    res.set_tex_atlas_id(shape_atlas_id<block_shape>);
+    return res;
 }
 
 

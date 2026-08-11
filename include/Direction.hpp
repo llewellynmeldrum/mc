@@ -1,7 +1,7 @@
 #pragma once 
 // clang-format off
-#include "Types.h"
 #include <flat_map>
+#include "Types.h"
 #define DECL_SMART_ENUM(NAME, UNDERLYING_T, ...) \
 enum struct NAME : UNDERLYING_T { __VA_ARGS__, COUNT };\
 \

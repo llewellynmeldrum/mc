@@ -3,89 +3,197 @@
 
 #include "FmtStyle.hpp"
 #include "LM.hpp"
-// #define TESTING_SOMETHING
+//#define TESTING_SOMETHING
 #include "Breakpoints.hpp"
 #include "Engine.hpp"
 #include "preamble.hpp"
+#include "BitField.hpp"
 #include "ThreadTracker.hpp"
 const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
 
 #define TEST_FN(fn, ...) test_fn(#fn, fn __VA_OPT__(,) __VA_ARGS__)
 
+inline void test_bitfield2() {
+    // ------------------------------------------------------------
+    // Known-value smoke test
+    // ------------------------------------------------------------
+    {
+        BitField packed{0b1011'1010'1010'1010U};
 
+        ASSERT(packed.baz.get(packed.store) == 0b10111, packed.store);
+        ASSERT(packed.bar.get(packed.store) == 0b010,   packed.store);
+        ASSERT(packed.foo.get(packed.store) == 0b1010'1010, packed.store);
+
+        ASSERT(packed.get_bar() == 0b010);
+    }
+
+    // ------------------------------------------------------------
+    // Masks themselves
+    // ------------------------------------------------------------
+    ASSERT(BitField::foo.mask == 0b0000'0000'1111'1111U);
+    ASSERT(BitField::bar.mask == 0b0000'0111'0000'0000U);
+    ASSERT(BitField::baz.mask == 0b1111'1000'0000'0000U);
+
+    ASSERT(
+        (BitField::foo.mask | BitField::bar.mask | BitField::baz.mask)
+            == 0xffffU
+    );
+
+    ASSERT((BitField::foo.mask & BitField::bar.mask) == 0);
+    ASSERT((BitField::foo.mask & BitField::baz.mask) == 0);
+    ASSERT((BitField::bar.mask & BitField::baz.mask) == 0);
+
+    // ------------------------------------------------------------
+    // Exhaustively test GET against every possible u16 store.
+    // 65536 iterations is tiny and gives excellent coverage here.
+    // ------------------------------------------------------------
+    for (u32 raw = 0; raw <= 0xffffU; ++raw) {
+        BitField packed{static_cast<u16>(raw)};
+
+        ASSERT(
+            static_cast<u32>(packed.foo.get(packed.store))
+                == ((raw >> 0) & 0xffU),
+            "foo extraction failed",
+            raw,
+            packed.store
+        );
+
+        ASSERT(
+            static_cast<u32>(packed.bar.get(packed.store))
+                == ((raw >> 8) & 0x7U),
+            "bar extraction failed",
+            raw,
+            packed.store
+        );
+
+        ASSERT(
+            static_cast<u32>(packed.baz.get(packed.store))
+                == ((raw >> 11) & 0x1fU),
+            "baz extraction failed",
+            raw,
+            packed.store
+        );
+    }
+
+    // ------------------------------------------------------------
+    // Exercise a member's setter:
+    //
+    // 1. resulting field == requested value
+    // 2. bits outside the field are unchanged
+    // 3. get_unshifted() agrees with the raw representation
+    //
+    // Try every representable field value against several stores.
+    // ------------------------------------------------------------
+    auto test_member = []<typename M>(M) {
+        constexpr u16 seeds[] = {
+            0x0000,
+            0xffff,
+            0xaaaa,
+            0x5555,
+            0x1234,
+            0x8001
+        };
+
+        constexpr u32 max_value =
+            (u32{1} << M::n_bits) - 1;
+
+        for (u16 seed : seeds) {
+            for (u32 value = 0; value <= max_value; ++value) {
+                u16 store = seed;
+                const u16 before = store;
+
+                M::set(
+                    store,
+                    static_cast<typename M::field_type>(value)
+                );
+
+                // Correct logical value comes back out.
+                ASSERT(
+                    static_cast<u32>(M::get(store)) == value,
+                    "set/get round trip failed",
+                    seed,
+                    value,
+                    store,
+                    M::mask
+                );
+
+                // Setter must not modify unrelated bits.
+                ASSERT(
+                    (store & static_cast<u16>(~M::mask))
+                        == (before & static_cast<u16>(~M::mask)),
+                    "setter modified bits outside its field",
+                    before,
+                    store,
+                    value,
+                    M::mask
+                );
+
+                // Raw field position should also be correct.
+                ASSERT(
+                    M::get_unshifted(store)
+                        == static_cast<u16>(
+                            (value << M::storage_offset) & M::mask
+                        ),
+                    "get_unshifted failed",
+                    seed,
+                    value,
+                    store,
+                    M::mask
+                );
+            }
+        }
+    };
+
+    test_member(BitField::foo);
+    test_member(BitField::bar);
+    test_member(BitField::baz);
+
+    // ------------------------------------------------------------
+    // Repeated writes: specifically ensure old bits get cleared.
+    // ------------------------------------------------------------
+    {
+        BitField packed{0xffff};
+
+        packed.bar.set(packed.store, 0b000);
+        ASSERT(packed.bar.get(packed.store) == 0b000);
+        ASSERT(packed.foo.get(packed.store) == 0xff);
+        ASSERT(packed.baz.get(packed.store) == 0x1f);
+
+        packed.bar.set(packed.store, 0b101);
+        ASSERT(packed.bar.get(packed.store) == 0b101);
+
+        packed.bar.set(packed.store, 0b010);
+        ASSERT(packed.bar.get(packed.store) == 0b010);
+    }
+
+    // ------------------------------------------------------------
+    // Test ubits truncation explicitly.
+    // ------------------------------------------------------------
+    {
+        ubits<1, false> a{0xff};
+        ubits<2, false> b{0xff};
+        ubits<3, false> c{0xff};
+        ubits<7, false> d{0xff};
+
+        ASSERT(static_cast<u32>(a) == 0b1);
+        ASSERT(static_cast<u32>(b) == 0b11);
+        ASSERT(static_cast<u32>(c) == 0b111);
+        ASSERT(static_cast<u32>(d) == 0b111'1111);
+    }
+
+    std::println("Bitfield passed all runtime tests.");
+}
 
 #include "SharedShaderConfig.hpp"
 int TEST_MAIN(){
-    // test bitwise stuff
-    u32 p{};
-    // 1. Ensure all return 0 
-    assert_eq(0, get_blocklight_r(p));
-    assert_eq(0, get_blocklight_g(p));
-    assert_eq(0, get_blocklight_b(p));
-    assert_eq(0, get_face_opacity(p));
-    assert_eq(0, get_tex_atlas_id(p));
-    assert_eq(0, get_face_dir(p));
-
-
-    auto random_0_to = [](auto max){
-        return LM::random(0,max) ;
-    };
-    auto modify_random_field = [](u32& p){
-        u8 modified_val{};
-        // 0. select which field will be modified
-        size_t idx = LM::random(0,5);
-        // 1. get the modified val based on the max of that field
-        switch(idx){
-            case 0: modified_val = LM::random(0u,BLOCKLIGHT_R_MAX); break; 
-            case 1: modified_val = LM::random(0u,BLOCKLIGHT_G_MAX); break; 
-            case 2: modified_val = LM::random(0u,BLOCKLIGHT_B_MAX); break; 
-            case 3: modified_val = LM::random(0u,FACE_OPACITY_MAX); break; 
-            case 4: modified_val = LM::random(0u,TEX_ATLAS_ID_MAX); break; 
-            case 5: modified_val = LM::random(0u,FACE_DIR_MAX    ); break; 
-        };
-        // 2. cache all field vals currently
-        std::array<u32, 6> expected{
-            get_blocklight_r(p),
-            get_blocklight_g(p),
-            get_blocklight_b(p),
-            get_face_opacity(p),
-            get_tex_atlas_id(p),
-            get_face_dir(p)    ,
-        };
-
-        // 3. apply the random modification to idx
-        expected[idx] = modified_val;
-        switch(idx){
-            case 0: set32_blocklight_r(p, modified_val); break; 
-            case 1: set32_blocklight_g(p, modified_val); break; 
-            case 2: set32_blocklight_b(p, modified_val); break; 
-            case 3: set32_face_opacity(p, modified_val); break; 
-            case 4: set32_tex_atlas_id(p, modified_val); break; 
-            case 5: set32_face_dir    (p, modified_val); break; 
-        };
-
-        // 3. assert all the others remain the same and the modified one was modified to the new val
-        std::array<u32, 6> current{
-            get_blocklight_r(p),
-            get_blocklight_g(p),
-            get_blocklight_b(p),
-            get_face_opacity(p),
-            get_tex_atlas_id(p),
-            get_face_dir(p)    ,
-        };
-        for (int i = 0; i<6; i++){
-            assert_eq(expected[i], current[i]);
-        }
-    };
-    for (int i = 0; i< 10000; i++){
-        modify_random_field(p);
-    }
-
+    test_bitfield();
     return 0;
 }
 
 int MAIN(int argc, char** argv) {
+    test_bitfield2();
     ThreadTracker::init();
+
     TraceSettings::init();
     Engine eng{};
     eng.setup();

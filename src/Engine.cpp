@@ -53,6 +53,12 @@ void Engine::per_tick_update(){
 void Engine::loop(){
     auto dt = timer::milliseconds(16);
     while (!win.shouldClose()) {
+        auto* e = world.chunkMap.entries.try_get({17,-2});
+        static bool set = false;
+        if (!set && e){
+            e->block_data.mutate().at(9,198,4) = BlockType::A_BLOCK;
+            set = true;
+        }
         t_frame_start = timer::now();
         profiler.start_frame();
         profiler.bench_start("frame");
@@ -106,7 +112,7 @@ void Engine::loop(){
 void Engine::classify_visible_chunks(){
     auto cur_chunk_pos_raw = director.cur_chunk_pos;
     auto assign_dist = [cur_chunk_pos_raw](IndexedMesh& mesh){
-        mesh.chunk_dist_to_cam = LM::dist(mesh.chunkCoord, cur_chunk_pos_raw);
+        mesh.chunk_dist_to_cam = LM::dist(mesh.chunk_coord, cur_chunk_pos_raw);
     };
     rend.opaque_chunk_meshes.for_each(assign_dist);
     rend.blended_chunk_meshes.for_each(assign_dist);
@@ -122,7 +128,7 @@ void Engine::refresh_visible_chunks(){
     };
     auto inside_frustum = [](Engine* eng){
         return [eng](IndexedMesh& mesh){
-            return eng->is_chunk_in_frustum(eng->player_cam.getCullFrustum(), mesh.chunkCoord);
+            return eng->is_chunk_in_frustum(eng->player_cam.getCullFrustum(), mesh.chunk_coord);
         };
     };
     // load meshes inside frustum, unload meshes outside frustum
@@ -140,9 +146,9 @@ void Engine::evict_meshes_outside_radius(i32 radius){
     // Prior to a meshes' erasure, update its chunk entry to reflect its erasure
     auto outside_range = [&](ChunkMap& map, auto lo, auto hi){
         return [&, lo, hi](IndexedMesh& mesh){
-            bool out_of_bounds = !LM::isVecInBounds(mesh.chunkCoord, lo,hi);
+            bool out_of_bounds = !LM::isVecInBounds(mesh.chunk_coord, lo,hi);
             if (out_of_bounds){
-                auto coord = mesh.chunkCoord;
+                auto coord = mesh.chunk_coord;
                 auto* entry = map.entries.try_get(coord);
                 if (entry){
                     director.mark_mesh_deleted(entry);
@@ -604,7 +610,7 @@ void Engine::handle_input(){
     }
     if (paused) return; // WARNING: Anything below here is ignored during paused frames
     if(input.just_pressed(KEY_L)){
-        DebugOption::show_lighting_system = !DebugOption::show_lighting_system;
+        DebugOption::enable_lighting = !DebugOption::enable_lighting;
         rend.update_debug_uniforms();
     }
 
@@ -680,7 +686,7 @@ void Engine::handle_input(){
             director.mark_neighbour_meshes_dirty(cur_chunk, "test");
         }
     }
-    if(input.just_pressed({.alt=true},KEY_W) ){
+    if(input.just_pressed(KEY_Z) ){
         rend.debug.wireframe = !rend.debug.wireframe;
     }
     if(input.just_pressed(KEY_H)){

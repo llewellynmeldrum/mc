@@ -29,6 +29,7 @@
 #include "Concurrency.hpp"
 
 #include "Logger.hpp"
+#include "BlockAmbientOcclusion.hpp"
 #include "Assertion.hpp"
 
 #include "Vertex.hpp"
@@ -38,6 +39,7 @@
 #include "ChunkMesher.hpp"
 
 
+// Thats 2 bits ()
 template<typename T>
     requires has_default_ctor<T>
 std::array<T, Direction_Count> get_block_neighbours(
@@ -79,24 +81,78 @@ struct BlockMeshContext{
 
 
 
+u8 get_ao_state(Block const& recipient, AONeighbours const& blockers){
+    static constexpr u8 NO_AO {0b00}, ONLY_CORNER_AO{0b01}, ONE_SIDE_AO {0b10}, BOTH_SIDES_AO {0b11};
+
+    if (!recipient.is_opaque()){
+        // only opaque blocks should receive AO
+        return NO_AO;
+    }
+    // TODO: In future, move AO into its own packed float, and make it so that other block shapes
+    // can occlude, but perhaps smaller amounts. Slabs would occlude, but only the blocks which they are directly touching.
+    // Cutouts could occlude, but perhaps somehow scaled based on their density or something.
+    
+    auto can_occlude = [](Block const& bt){
+        return bt.is_opaque() && bt.shape() == BlockShape::CUBE;
+    };
+    if (can_occlude(blockers.a) && can_occlude(blockers.b)) return BOTH_SIDES_AO;
+    if (can_occlude(blockers.a) || can_occlude(blockers.b)) return ONE_SIDE_AO;
+    if (can_occlude(blockers.corner)) return ONLY_CORNER_AO;
+    return NO_AO;
+    // 00 (0) - no AO
+    // 01 (1) - only corner
+    // 10 (2) - one side
+    // 11 (3) - both sides, corner doesnt matter
+}
 // The necessary info to mesh a quad
 template<BlockShape block_shape>
 void mesh_quad(BlockMeshContext& ctx, size_t facing_idx){
     const auto& block = ctx.block;
     const auto& chunk_local = ctx.chunk_local_block;
     const auto& incoming_light = ctx.adjacent_lights[facing_idx];
-
     auto quad_vertices = get_quad_data<block_shape>(facing_idx);
     const auto& tx_coords = ctx.atlas->quad_texture_uvs<block_shape>(block.texture_id(), facing_idx, quad_vertices);
 
-    for (size_t i = 0; i < INDICES_PER_QUAD; i++) {
-        i32 mapped_index = ctx.vtx_count + quad_indices[i];
-        ctx.out_indices.push_back(mapped_index);
+
+
+    AONeighbours ao0 = get_vtx_ao_neighbours(ctx.blocks,chunk_local,static_cast<Direction>(facing_idx), 0);
+    AONeighbours ao1 = get_vtx_ao_neighbours(ctx.blocks,chunk_local,static_cast<Direction>(facing_idx), 1);
+    AONeighbours ao2 = get_vtx_ao_neighbours(ctx.blocks,chunk_local,static_cast<Direction>(facing_idx), 2);
+    AONeighbours ao3 = get_vtx_ao_neighbours(ctx.blocks,chunk_local,static_cast<Direction>(facing_idx), 3);
+    std::array<u8,4> ao_state= {
+        get_ao_state(block, ao0),
+        get_ao_state(block, ao1),
+        get_ao_state(block, ao2),
+        get_ao_state(block, ao3),
+    };
+    std::array<f32,4> ao_lut= {
+        1.00f, // 00 (0) - no AO
+        0.75f, // 01 (1) - only corner
+        0.50f, // 10 (2) - one side
+        0.25f // 11 (3) - both sides, corner doesnt matter
+    };
+    auto a0 = ao_lut[ao_state[0]];
+    auto a1 = ao_lut[ao_state[1]];
+    auto a2 = ao_lut[ao_state[2]];
+    auto a3 = ao_lut[ao_state[3]];
+    auto const* selected_indices = &quad_indices; // seam runs 1->3
+    //if (a0 + a3  < a1 + a2){
+    if (a0 + a2  < a1 + a3){
+        selected_indices = &quad_indices;
+        // use alternative triangle order to avoid anisotropy 
+//        selected_indices = &flipped_quad_indices;   // seam runs 0->2
+    }else{
+        selected_indices = &flipped_quad_indices;
     }
 
-    ctx.vtx_count += quad_vertices.size();
 
+    for (size_t i = 0; i < INDICES_PER_QUAD; i++) {
+        i32 mapped_index = ctx.vtx_count + (*selected_indices).at(i);
+        ctx.out_indices.push_back(mapped_index);
+    }
+    ctx.vtx_count += quad_vertices.size();
     for (const auto& [vtx_idx, vtx] : views::enumerate(quad_vertices)) {
+        vtx.set_ao_state(ao_state[vtx_idx]);
         vtx.copy_light_data(incoming_light);
         vtx.offset_by_chunk_pos(chunk_local);
         vtx.tx_coords = tx_coords[vtx_idx];
