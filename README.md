@@ -1,15 +1,22 @@
 # minecraft clone, opengl4.1 and glfw
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/80ba4c24-55ee-4903-8f14-8c056f924581" />
-<img width="900" alt="image" src="https://github.com/user-attachments/assets/92b01154-5142-4928-85cd-dd3ac803bd62" />
+<img width="900" alt="Screenshot 2026-08-10 at 9 24 45 PM" src="https://github.com/user-attachments/assets/10543cd6-c3d6-4487-bb88-ffbc55ea6df6" />
+
 
 # Current features:
 - Infinite procedural terrain generation
-- Trees, foliage, and blocks all dependent on biome, which is also procedural and 100% deterministic to world seed. (The same world seed will always produce the same layout of biomes, blocks, features, etc, regardless of chunk generation order) 
+- Trees, foliage, and blocks all dependent on biome, which is also procedural and 100% deterministic to world seed. (The same world seed will always produce the same layout of biomes, blocks, features, etc, regardless of chunk generation order)
 - Correct transparency (& cutout) rendering
+- Block and sun based flood fill lighting, + day and night cycle with procedural sun/moon/stars
+- <img height="400" alt="image" src="https://github.com/user-attachments/assets/a957d1a9-7c1e-440b-a8f3-9aab6c11aae7" />
+
+- Block neighbour based ambient occlusion<br>
+  <img height="300" alt="image" src="https://github.com/user-attachments/assets/ff87ad8e-daab-4756-b5ee-8471af3ad9a1" />
+<br>
 - Multithreaded chunk generation and meshing
 - Separate debug rendering pipeline to display 3D visuals (chunk/frustum borders, visualize noise, etc)
+
 - [ImGui](https://github.com/ocornut/imgui) debug hud with some decently detailed perf stats: <br>
-<img width="350" alt="image" src="https://github.com/user-attachments/assets/0c8265c5-a056-4530-bc9c-9c56f5148eff" />
+<img height="300" alt="image" src="https://github.com/user-attachments/assets/3a2f45c3-ab41-4adb-a56f-454f89608192" />
 <br>
 - All textures are made from scratch in GIMP. Heavily inspired by minecraft of course: <br>
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/38184e51-2b0a-4351-a377-c76921e8ebdb" />
@@ -36,6 +43,10 @@
 - chunk mesh decimation/ LOD at further distances (like Distant Horizons mod in minecraft)
 - greedy meshing coplanar faces of same texture
 - switch mesh sorting algorithm to a partial sort with a frame budget
+
+# Graphics stuff:
+<img width="1293" height="814" alt="image" src="https://github.com/user-attachments/assets/4d5fb597-5c05-4096-8bc9-3cf875d1a94e" />
+
 
 # Progress:
 
@@ -90,7 +101,6 @@ Added heaps of new blocks, overhauled wordlgen, added more trees and foliage, no
 
 # Libs used
 ## Vendored (`./external`)
-```markdown
 |library|purpose|
 |-|-|
 | [glfw](https://github.com/glfw/glfw) | for windowing and input |
@@ -102,8 +112,8 @@ Added heaps of new blocks, overhauled wordlgen, added more trees and foliage, no
 | [ranges-v3](https://github.com/ericniebler/range-v3) | Temporary(tm) dependency whilst awaiting LLVM to finish libc++23 |
 | [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | single header noise generation lib|
 | [stb_image](https://github.com/nothings/stb) | Single header image loading library|
-| ~~[Tracy](https://github.com/wolfpld/tracy)~~ | ~~for profiling~~ |
-```
+| ~~[Tracy](https://github.com/wolfpld/tracy)~~ | ~~for profiling~~ - no longer using, i just apple instruments for now|
+
 
 # Resources used
 - [learnopengl.com](https://learnopengl.com/Introduction) - excellent resource for learning opengl for basic 3D, especially with backwards compatability in mind (macos users rejoice)
